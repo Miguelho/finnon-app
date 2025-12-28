@@ -7,7 +7,15 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
-    "test": "turbo test"
+    "test": "turbo test",
+    "supabase:start": "npx supabase start",
+    "supabase:stop": "npx supabase stop",
+    "supabase:status": "npx supabase status",
+    "supabase:studio": "echo 'Opening Supabase Studio at http://127.0.0.1:54323' && open http://127.0.0.1:54323 || xdg-open http://127.0.0.1:54323",
+    "db:push:local": "npx supabase db push",
+    "db:reset:local": "npx supabase db reset",
+    "env:use-local": "echo 'Copying .env.development to .env.local for both apps' && cp apps/web/.env.development apps/web/.env.local && cp apps/mobile/.env.development apps/mobile/.env.local",
+    "env:use-prod": "echo 'Copying .env.production to .env.local for both apps' && cp apps/web/.env.production apps/web/.env.local && cp apps/mobile/.env.production apps/mobile/.env.local"
   },
   "devDependencies": {
     "turbo": "^2.3.3",

@@ -100,6 +100,9 @@
 **Aceptación:**
 - SQL ejecuta sin errores
 - Foreign keys consistentes
+** Notas arquitecto **
+- Adición de entornos local y producción
+- Utilizar entorno local con Docker para base de datos Supabase
 
 ---
 
