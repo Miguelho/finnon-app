@@ -13,7 +13,13 @@ export default function AuthLayout() {
         name="onboarding"
         options={{
           headerShown: false,
-          // Prevent back navigation
+          gestureEnabled: false,
+        }}
+      />
+      <Stack.Screen
+        name="select-account"
+        options={{
+          headerShown: false,
           gestureEnabled: false,
         }}
       />

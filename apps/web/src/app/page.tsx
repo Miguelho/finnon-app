@@ -35,7 +35,7 @@ export default async function DashboardPage() {
     redirect("/onboarding");
   }
 
-  const mainAccount = accounts[0];
+  const mainAccount = accounts[1];
 
   // Función para cerrar sesión
   async function signOut() {

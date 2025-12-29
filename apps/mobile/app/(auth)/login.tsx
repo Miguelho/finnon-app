@@ -6,6 +6,7 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { Card } from "../../src/components/Card";
 import { Input } from "../../src/components/Input";
@@ -17,6 +18,7 @@ export default function LoginScreen() {
   const [step, setStep] = useState<"email" | "otp">("email");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const handleSendOtp = async () => {
     setLoading(true);
@@ -66,9 +68,10 @@ export default function LoginScreen() {
       });
 
       if (data.session) {
-        console.log("[Login] Session created, AuthContext should redirect");
-        // Auth context will handle redirect
-        // Either to onboarding (no account) or home (has account)
+        console.log("[Login] Session created, navigating to trigger account check");
+        // Navigate to root to trigger account verification in _layout
+        // This will redirect to onboarding (no account), select-account (multiple), or home (single account)
+        router.replace("/");
       } else {
         console.warn("[Login] No session in response");
         setError("No se pudo crear la sesión");
