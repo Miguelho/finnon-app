@@ -10,7 +10,8 @@
 CREATE OR REPLACE FUNCTION is_account_member(p_account_id uuid)
 RETURNS boolean
 LANGUAGE sql
-SECURITY INVOKER
+SECURITY DEFINER  -- Bypass RLS to avoid recursion
+SET search_path = public
 STABLE
 AS $$
   SELECT EXISTS (
@@ -27,7 +28,8 @@ COMMENT ON FUNCTION is_account_member IS 'Returns true if current user is a memb
 CREATE OR REPLACE FUNCTION get_account_role(p_account_id uuid)
 RETURNS text
 LANGUAGE sql
-SECURITY INVOKER
+SECURITY DEFINER  -- Bypass RLS to avoid recursion
+SET search_path = public
 STABLE
 AS $$
   SELECT role
@@ -43,7 +45,8 @@ COMMENT ON FUNCTION get_account_role IS 'Returns the role of current user in the
 CREATE OR REPLACE FUNCTION is_contributor_or_above(p_account_id uuid)
 RETURNS boolean
 LANGUAGE sql
-SECURITY INVOKER
+SECURITY DEFINER  -- Bypass RLS to avoid recursion
+SET search_path = public
 STABLE
 AS $$
   SELECT EXISTS (
@@ -61,7 +64,8 @@ COMMENT ON FUNCTION is_contributor_or_above IS 'Returns true if current user is 
 CREATE OR REPLACE FUNCTION is_account_admin(p_account_id uuid)
 RETURNS boolean
 LANGUAGE sql
-SECURITY INVOKER
+SECURITY DEFINER  -- Bypass RLS to avoid recursion
+SET search_path = public
 STABLE
 AS $$
   SELECT EXISTS (
@@ -101,15 +105,20 @@ ALTER TABLE invites FORCE ROW LEVEL SECURITY;
 -- POLICIES: ACCOUNTS
 -- =========================================================
 
--- Users can view accounts where they are members
+-- Users can view accounts where they are members OR where they are the owner
+-- The owner check is needed for the chicken-and-egg problem during account creation:
+-- The trigger adds the owner as a member, but needs to verify the account exists first
 CREATE POLICY accounts_select_policy ON accounts
   FOR SELECT
-  USING (is_account_member(id));
+  USING (
+    owner_user_id = auth.uid()
+    OR is_account_member(id)
+  );
 
 -- Users can create accounts (they become owner/admin automatically via trigger or application logic)
 CREATE POLICY accounts_insert_policy ON accounts
   FOR INSERT
-  WITH CHECK (auth.uid() = owner_user_id);
+  WITH CHECK ((select auth.uid()) = owner_user_id);
 
 -- Only account admins can update account details
 CREATE POLICY accounts_update_policy ON accounts
@@ -126,15 +135,46 @@ CREATE POLICY accounts_delete_policy ON accounts
 -- POLICIES: ACCOUNT_MEMBERS
 -- =========================================================
 
--- Users can view members of accounts where they are members
+-- Users can view members of accounts where they are also members
+-- Safe to use is_account_member() now that it uses SECURITY DEFINER (bypasses RLS, no recursion)
 CREATE POLICY account_members_select_policy ON account_members
   FOR SELECT
   USING (is_account_member(account_id));
 
--- Only admins can add members to accounts
+-- Admins can add members, OR users can self-register as admin if they're the account owner
+--
+-- IMPORTANT: This policy solves the "chicken-and-egg" problem when creating accounts:
+-- - New accounts are created with owner_user_id, but the owner is not yet a member
+-- - The AFTER INSERT trigger (add_owner_as_admin) adds the owner as admin automatically
+-- - This policy allows that INSERT to succeed by checking if the user is the account owner
+--
+-- Implementation notes:
+-- - Uses direct EXISTS queries instead of helper functions to avoid infinite recursion
+-- - Case 1 handles normal flow: existing admins adding new members
+-- - Case 2 handles initial setup: owner self-registering (via trigger or manual operation)
+-- - Both cases use (select auth.uid()) for consistent caching across the transaction
 CREATE POLICY account_members_insert_policy ON account_members
   FOR INSERT
-  WITH CHECK (is_account_admin(account_id));
+  WITH CHECK (
+    -- Case 1: Existing admin adding members (normal flow)
+    EXISTS (
+      SELECT 1 FROM account_members am
+      WHERE am.account_id = account_members.account_id
+      AND am.user_id = (select auth.uid())
+      AND am.role = 'admin'
+    )
+    OR
+    -- Case 2: Owner self-registering as admin (initial setup via trigger or manual)
+    (
+      account_members.user_id = (select auth.uid())
+      AND account_members.role = 'admin'
+      AND EXISTS (
+        SELECT 1 FROM accounts a
+        WHERE a.id = account_members.account_id
+        AND a.owner_user_id = (select auth.uid())
+      )
+    )
+  );
 
 -- Only admins can update member roles
 CREATE POLICY account_members_update_policy ON account_members
@@ -186,7 +226,7 @@ CREATE POLICY transactions_insert_policy ON transactions
   FOR INSERT
   WITH CHECK (
     is_contributor_or_above(account_id)
-    AND created_by = auth.uid()
+    AND created_by = (select auth.uid())
   );
 
 -- Contributors and admins can update transactions
@@ -241,7 +281,7 @@ CREATE POLICY invites_insert_policy ON invites
   FOR INSERT
   WITH CHECK (
     is_account_admin(account_id)
-    AND created_by = auth.uid()
+    AND created_by = (select auth.uid())
   );
 
 -- Only admins can update invites (e.g., to revoke them)

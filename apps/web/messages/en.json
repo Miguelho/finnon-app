@@ -1,0 +1,42 @@
+{
+  "common": {
+    "appName": "finnon",
+    "tagline": "Your personal finances, organized"
+  },
+  "login": {
+    "title": "Welcome to Finnon",
+    "description": "Enter your email to receive an access link",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@email.com",
+    "submitButton": "Send access link",
+    "submitting": "Sending...",
+    "successTitle": "Check your email",
+    "successDescription": "We've sent an access link to {email}",
+    "successMessage": "Click the link in the email to access your account. You can close this window."
+  },
+  "onboarding": {
+    "title": "Create your first account",
+    "description": "Set up your personal finance account",
+    "accountNameLabel": "Account name",
+    "accountNamePlaceholder": "E.g: Personal finances",
+    "accountNameHelper": "You can create more accounts later (e.g: family, work, etc.)",
+    "currencyLabel": "Base currency",
+    "currencyHelper": "All your expenses will be converted to this currency",
+    "submitButton": "Create account",
+    "submitting": "Creating account..."
+  },
+  "dashboard": {
+    "welcome": "Welcome",
+    "welcomeDescription": "You have successfully signed in",
+    "signOut": "Sign out",
+    "emailLabel": "Email",
+    "activeAccountLabel": "Active account",
+    "baseCurrencyLabel": "Base currency",
+    "transactionsTitle": "Transactions",
+    "transactionsDescription": "Coming soon: CRUD transactions",
+    "categoriesTitle": "Categories",
+    "categoriesDescription": "Coming soon: Category management",
+    "summaryTitle": "Monthly summary",
+    "summaryDescription": "Coming soon: Statistics and reports"
+  }
+}

@@ -160,16 +160,11 @@ VALUES (
 -- =========================================================
 -- 3. CREATE ACCOUNT MEMBERSHIPS
 -- =========================================================
+-- Note: Owner memberships (admin) are automatically created by the trigger
+-- We only need to manually add non-owner members
 
 -- Account A members:
--- Alice = admin (owner)
-INSERT INTO account_members (account_id, user_id, role, created_at)
-VALUES (
-  'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-  '11111111-1111-1111-1111-111111111111',
-  'admin',
-  now()
-);
+-- Alice = admin (owner) → Created automatically by trigger ✓
 
 -- Bob = contributor
 INSERT INTO account_members (account_id, user_id, role, created_at)
@@ -190,14 +185,7 @@ VALUES (
 );
 
 -- Account B members:
--- Charlie = admin (owner)
-INSERT INTO account_members (account_id, user_id, role, created_at)
-VALUES (
-  'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-  '33333333-3333-3333-3333-333333333333',
-  'admin',
-  now()
-);
+-- Charlie = admin (owner) → Created automatically by trigger ✓
 
 -- =========================================================
 -- 4. CREATE CATEGORIES

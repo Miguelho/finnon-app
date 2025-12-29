@@ -1,0 +1,42 @@
+{
+  "common": {
+    "appName": "finnon",
+    "tagline": "Tus finanzas personales, organizadas"
+  },
+  "login": {
+    "title": "Bienvenido a Finnon",
+    "description": "Ingresa tu email para recibir un enlace de acceso",
+    "emailLabel": "Email",
+    "emailPlaceholder": "tu@email.com",
+    "submitButton": "Enviar enlace de acceso",
+    "submitting": "Enviando...",
+    "successTitle": "Revisa tu email",
+    "successDescription": "Te hemos enviado un enlace de acceso a {email}",
+    "successMessage": "Haz clic en el enlace del email para acceder a tu cuenta. Puedes cerrar esta ventana."
+  },
+  "onboarding": {
+    "title": "Crea tu primera cuenta",
+    "description": "Configura tu cuenta de finanzas personales",
+    "accountNameLabel": "Nombre de la cuenta",
+    "accountNamePlaceholder": "Ej: Finanzas personales",
+    "accountNameHelper": "Puedes crear más cuentas después (ej: familia, trabajo, etc.)",
+    "currencyLabel": "Moneda base",
+    "currencyHelper": "Todos tus gastos se convertirán a esta moneda",
+    "submitButton": "Crear cuenta",
+    "submitting": "Creando cuenta..."
+  },
+  "dashboard": {
+    "welcome": "Bienvenido",
+    "welcomeDescription": "Has iniciado sesión correctamente",
+    "signOut": "Cerrar sesión",
+    "emailLabel": "Email",
+    "activeAccountLabel": "Cuenta activa",
+    "baseCurrencyLabel": "Moneda base",
+    "transactionsTitle": "Transacciones",
+    "transactionsDescription": "Próximamente: CRUD de transacciones",
+    "categoriesTitle": "Categorías",
+    "categoriesDescription": "Próximamente: Gestión de categorías",
+    "summaryTitle": "Resumen mensual",
+    "summaryDescription": "Próximamente: Estadísticas y reportes"
+  }
+}

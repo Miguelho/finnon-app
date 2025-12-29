@@ -131,6 +131,8 @@
 **Aceptación:**
 - Usuario nuevo entra y crea cuenta en < 1 min
 - Usuario existente va a dashboard
+**Notas Arquitecto**
+- Se añade el trigger en 003_account_owner_trigger en la inserción a la tabla accounts. Añade el usuario como admin en la tabla de account_members
 
 ---
 
