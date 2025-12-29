@@ -1,41 +1,26 @@
 import { View, Text, StyleSheet } from "react-native";
-import { accountSchema, categorySchema, transactionSchema } from "@poleursus/shared";
-import { useEffect, useState } from "react";
-import { supabase } from "../src/lib/supabase";
+import { useAuth } from "../src/contexts/AuthContext";
+import { Button } from "../src/components/Button";
+import { useRouter } from "expo-router";
 
-export default function Index() {
-  const [supabaseStatus, setSupabaseStatus] = useState<"checking" | "connected" | "error">("checking");
-  const [errorMessage, setErrorMessage] = useState<string>("");
+export default function HomeScreen() {
+  const { user, signOut } = useAuth();
+  const router = useRouter();
 
-  useEffect(() => {
-    async function checkSupabase() {
-      try {
-        const { error } = await supabase.auth.getSession();
-        if (error) throw error;
-        setSupabaseStatus("connected");
-      } catch (error) {
-        setSupabaseStatus("error");
-        setErrorMessage(error instanceof Error ? error.message : "Unknown error");
-      }
-    }
-    checkSupabase();
-  }, []);
-
-  // Verify that shared schemas are accessible
-  const hasSchemas =
-    accountSchema && categorySchema && transactionSchema ? "✓" : "✗";
-
-  const supabaseStatusText =
-    supabaseStatus === "checking" ? "⏳ Checking..." :
-    supabaseStatus === "connected" ? "✓ Connected" :
-    `✗ Error: ${errorMessage}`;
+  const handleSignOut = async () => {
+    await signOut();
+    router.replace("/(auth)/login");
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Finnon Mobile</Text>
-      <Text style={styles.text}>Expo app ready</Text>
-      <Text style={styles.text}>Shared schemas: {hasSchemas}</Text>
-      <Text style={styles.text}>Supabase: {supabaseStatusText}</Text>
+      <Text style={styles.title}>Bienvenido a Finnon</Text>
+      <Text style={styles.text}>Email: {user?.email}</Text>
+      <Text style={styles.text}>ID: {user?.id}</Text>
+
+      <View style={styles.buttonContainer}>
+        <Button title="Cerrar sesión" onPress={handleSignOut} variant="secondary" />
+      </View>
     </View>
   );
 }
@@ -46,6 +31,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#fff",
+    padding: 20,
   },
   title: {
     fontSize: 24,
@@ -55,5 +41,10 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 16,
     marginVertical: 4,
+    color: "#666",
+  },
+  buttonContainer: {
+    marginTop: 32,
+    width: "100%",
   },
 });

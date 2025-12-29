@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { CURRENCIES } from "@/lib/currencies";
+import { CURRENCIES } from "@poleursus/shared";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 
 export default function OnboardingPage() {

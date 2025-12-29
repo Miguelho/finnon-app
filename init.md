@@ -144,7 +144,8 @@
 **Aceptación:**
 - Login funcional
 - Si no hay cuenta, onboarding obligatorio
-
+** Notas arquitecto**
+- No hay biometría (Face ID / Touch ID)
 ---
 
 ## Prompt 07 — CRUD categorías (web + mobile) con iconografía “lean”
