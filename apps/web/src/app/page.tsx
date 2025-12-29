@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -35,7 +36,7 @@ export default async function DashboardPage() {
     redirect("/onboarding");
   }
 
-  const mainAccount = accounts[1];
+  const mainAccount = accounts[0];
 
   // Función para cerrar sesión
   async function signOut() {
@@ -105,18 +106,20 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">
-                {t("categoriesTitle")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                {t("categoriesDescription")}
-              </p>
-            </CardContent>
-          </Card>
+          <Link href="/categories">
+            <Card className="cursor-pointer transition-colors hover:bg-accent">
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {t("categoriesTitle")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  {t("categoriesDescription")}
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
 
           <Card>
             <CardHeader>

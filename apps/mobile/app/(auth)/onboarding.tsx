@@ -21,7 +21,7 @@ export default function OnboardingScreen() {
   const [currency, setCurrency] = useState("EUR");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, setSelectedAccountId } = useAuth();
   const router = useRouter();
 
   const handleCreateAccount = async () => {
@@ -48,6 +48,9 @@ export default function OnboardingScreen() {
       if (accountError) throw accountError;
 
       console.log("Account created successfully:", account.id);
+
+      // Set the newly created account as the selected account
+      await setSelectedAccountId(account.id);
 
       // Navigate to home
       router.replace("/");

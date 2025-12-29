@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { useAuth } from "../../src/contexts/AuthContext";
@@ -14,7 +14,7 @@ type Account = {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, session, signOut, selectedAccountId } = useAuth();
+  const { user, session, signOut, selectedAccountId, setSelectedAccountId } = useAuth();
 
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,6 +73,17 @@ export default function HomeScreen() {
       cancelled = true;
     };
   }, [session?.user?.id]);
+
+  // Auto-select first account if none is selected
+  useEffect(() => {
+    if (accounts && accounts.length > 0 && !selectedAccountId) {
+      const firstAccount = accounts[0];
+      if (firstAccount) {
+        console.log("[Home] Auto-selecting first account:", firstAccount.id);
+        setSelectedAccountId(firstAccount.id);
+      }
+    }
+  }, [accounts, selectedAccountId, setSelectedAccountId]);
 
   const handleSignOut = async () => {
     await signOut(); // limpia selectedAccountId + supabase.signOut :contentReference[oaicite:5]{index=5}
@@ -169,9 +180,12 @@ export default function HomeScreen() {
         <View style={styles.gridItem}>
           <Card title="Transacciones" description="Registra ingresos y gastos con detalle." ><Text>a</Text></Card>
         </View>
-        <View style={styles.gridItem}>
+        <TouchableOpacity
+          style={styles.gridItem}
+          onPress={() => router.push("/(auth)/categories")}
+        >
           <Card title="Categorías" description="Organiza tus gastos para entender hábitos." ><Text>a</Text></Card>
-        </View>
+        </TouchableOpacity>
         <View style={styles.gridItem}>
           <Card title="Resumen" description="Vista rápida de tu mes y obligaciones." ><Text>a</Text></Card>
         </View>
