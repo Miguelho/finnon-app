@@ -10,6 +10,8 @@ interface InputProps {
   disabled?: boolean;
   error?: string;
   helperText?: string;
+  multiline?: boolean;
+  numberOfLines?: number;
 }
 
 export function Input({
@@ -22,6 +24,8 @@ export function Input({
   disabled,
   error,
   helperText,
+  multiline,
+  numberOfLines,
 }: InputProps) {
   return (
     <View style={styles.container}>
@@ -31,6 +35,7 @@ export function Input({
           styles.input,
           error && styles.inputError,
           disabled && styles.inputDisabled,
+          multiline && styles.inputMultiline,
         ]}
         value={value}
         onChangeText={onChangeText}
@@ -40,6 +45,8 @@ export function Input({
         editable={!disabled}
         autoCapitalize="none"
         autoCorrect={false}
+        multiline={multiline}
+        numberOfLines={numberOfLines}
       />
       {error && <Text style={styles.errorText}>{error}</Text>}
       {helperText && !error && <Text style={styles.helperText}>{helperText}</Text>}
@@ -72,6 +79,11 @@ const styles = StyleSheet.create({
   inputDisabled: {
     backgroundColor: "#f5f5f5",
     opacity: 0.6,
+  },
+  inputMultiline: {
+    minHeight: 80,
+    textAlignVertical: "top",
+    paddingTop: 12,
   },
   errorText: {
     color: "#ff3b30",

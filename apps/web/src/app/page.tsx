@@ -93,6 +93,7 @@ export default async function DashboardPage() {
 
         {/* Placeholder para features futuras */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Link href="/transactions">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
@@ -105,6 +106,7 @@ export default async function DashboardPage() {
               </p>
             </CardContent>
           </Card>
+          </Link>
 
           <Link href="/categories">
             <Card className="cursor-pointer transition-colors hover:bg-accent">

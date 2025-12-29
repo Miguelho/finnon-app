@@ -177,9 +177,12 @@ export default function HomeScreen() {
 
       {/* Feature cards (grid aproximado en RN) */}
       <View style={styles.grid}>
-        <View style={styles.gridItem}>
+        <TouchableOpacity
+          style={styles.gridItem}
+          onPress={() => router.push("/(auth)/transactions")}
+        >
           <Card title="Transacciones" description="Registra ingresos y gastos con detalle." ><Text>a</Text></Card>
-        </View>
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.gridItem}
           onPress={() => router.push("/(auth)/categories")}
