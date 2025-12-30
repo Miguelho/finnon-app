@@ -24,6 +24,7 @@ export default async function CategoriesPage() {
   }
 
   const activeAccount = accounts[0];
+  const activeRole = activeAccount?.account_members?.[0]?.role ?? "viewer";
 
   if (!activeAccount) {
     redirect("/onboarding");
@@ -40,6 +41,7 @@ export default async function CategoriesPage() {
     <CategoriesClient
       accountId={activeAccount.id}
       initialCategories={categories || []}
+      role={activeRole}
     />
   );
 }

@@ -189,6 +189,12 @@ export default function HomeScreen() {
         >
           <Card title="Categorías" description="Organiza tus gastos para entender hábitos." ><Text>a</Text></Card>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.gridItem}
+          onPress={() => router.push("/(auth)/settings")}
+        >
+          <Card title="Invitaciones" description="Gestiona invitaciones a tu cuenta." ><Text>a</Text></Card>
+        </TouchableOpacity>
         <View style={styles.gridItem}>
           <Card title="Resumen" description="Vista rápida de tu mes y obligaciones." ><Text>a</Text></Card>
         </View>
@@ -196,6 +202,30 @@ export default function HomeScreen() {
     </ScrollView>
   );
 }
+
+// Finnon Color Tokens (color-guide.md)
+const colors = {
+  bg: {
+    primary: "#FFFFFF",
+    secondary: "#F7F8FA",
+    surface: "#FFFFFF",
+  },
+  text: {
+    primary: "#1C1E21",
+    secondary: "#5F6368",
+    muted: "#9AA0A6",
+  },
+  action: {
+    primary: "#5B8DFF",
+    secondary: "#E8EEFF",
+    disabled: "#C7D2FE",
+  },
+  state: {
+    positive: "#2E7D65",
+    negative: "#B23B3B",
+    neutral: "#DADCE0",
+  },
+};
 
 const styles = StyleSheet.create({
   loading: {
@@ -205,13 +235,13 @@ const styles = StyleSheet.create({
   },
   scroll: {
     padding: 16,
-    backgroundColor: "#fff",
+    backgroundColor: colors.bg.primary,
     gap: 16,
   },
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: "#fff",
+    backgroundColor: colors.bg.primary,
     justifyContent: "center",
   },
   header: {
@@ -227,18 +257,19 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 28,
     fontWeight: "800",
+    color: colors.text.primary,
   },
   tagline: {
     marginTop: 4,
     fontSize: 14,
-    color: "#666",
+    color: colors.text.secondary,
   },
   kv: {
     gap: 6,
   },
   kvRow: {
     fontSize: 14,
-    color: "#333",
+    color: colors.text.primary,
   },
   kvLabel: {
     fontWeight: "700",
@@ -252,7 +283,7 @@ const styles = StyleSheet.create({
     width: "48%",
   },
   errorText: {
-    color: "#b00020",
+    color: colors.state.negative,
     marginTop: 8,
   },
 });

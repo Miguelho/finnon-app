@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,13 +12,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  SlidePanel,
+  SlidePanelContent,
+  SlidePanelDescription,
+  SlidePanelFooter,
+  SlidePanelHeader,
+  SlidePanelTitle,
+  SlidePanelBody,
+} from "@/components/ui/slide-panel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -79,6 +81,7 @@ type TransactionsClientProps = {
   baseCurrency: string;
   initialTransactions: Transaction[];
   categories: Category[];
+  role: "viewer" | "contributor" | "admin";
 };
 
 export function TransactionsClient({
@@ -86,8 +89,10 @@ export function TransactionsClient({
   baseCurrency,
   initialTransactions,
   categories,
+  role,
 }: TransactionsClientProps) {
   const router = useRouter();
+  const t = useTranslations("transactions");
   const [transactions, setTransactions] = useState(initialTransactions);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -95,6 +100,7 @@ export function TransactionsClient({
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const canEdit = role !== "viewer";
 
   // Month filter state (format: YYYY-MM)
   const currentMonth = new Date().toISOString().slice(0, 7);
@@ -148,6 +154,7 @@ export function TransactionsClient({
     CURRENCIES.find((c) => c.code === baseCurrency)?.symbol || baseCurrency;
 
   const handleCreate = async () => {
+    if (!canEdit) return;
     if (!formData.amount.trim()) return;
 
     setIsSubmitting(true);
@@ -187,6 +194,7 @@ export function TransactionsClient({
   };
 
   const handleEdit = async () => {
+    if (!canEdit) return;
     if (!selectedTransaction || !formData.amount.trim()) return;
 
     setIsSubmitting(true);
@@ -230,6 +238,7 @@ export function TransactionsClient({
   };
 
   const handleDelete = async () => {
+    if (!canEdit) return;
     if (!selectedTransaction) return;
 
     setIsSubmitting(true);
@@ -254,6 +263,7 @@ export function TransactionsClient({
   };
 
   const openEditDialog = (transaction: Transaction) => {
+    if (!canEdit) return;
     setSelectedTransaction(transaction);
     setFormData({
       type: transaction.type,
@@ -271,6 +281,7 @@ export function TransactionsClient({
   };
 
   const openDeleteDialog = (transaction: Transaction) => {
+    if (!canEdit) return;
     setSelectedTransaction(transaction);
     setIsDeleteOpen(true);
   };
@@ -280,23 +291,44 @@ export function TransactionsClient({
     (cat) => cat.type === formData.type
   );
 
+  // Helper function to get monthly context for a date
+  const getMonthContext = (dateString: string) => {
+    const date = new Date(dateString + "T00:00:00");
+    const monthName = date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const dateMonth = dateString.slice(0, 7);
+    const isCurrent = dateMonth === currentMonth;
+
+    return {
+      monthName,
+      isCurrent,
+      message: isCurrent
+        ? t("create.dateContextCurrent", { month: monthName })
+        : t("create.dateContextOther", { month: monthName })
+    };
+  };
+
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="mx-auto max-w-6xl space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("pageTitle")}</h1>
             <p className="text-muted-foreground">
-              Track your income and expenses
+              {t("pageDescription")}
             </p>
+            {!canEdit && (
+              <p className="text-sm text-muted-foreground">
+                {t("readOnlyNotice")}
+              </p>
+            )}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => router.push("/")}>
-              Back to Dashboard
+              {t("backToDashboard")}
             </Button>
-            <Button onClick={() => setIsCreateOpen(true)}>
-              New Transaction
+            <Button onClick={() => setIsCreateOpen(true)} disabled={!canEdit}>
+              {t("newTransaction")}
             </Button>
           </div>
         </div>
@@ -304,7 +336,7 @@ export function TransactionsClient({
         {/* Month Filter */}
         <Card>
           <CardHeader>
-            <CardTitle>Filter by Month</CardTitle>
+            <CardTitle>{t("filterByMonth")}</CardTitle>
           </CardHeader>
           <CardContent>
             <Input
@@ -320,7 +352,7 @@ export function TransactionsClient({
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Income</CardDescription>
+              <CardDescription>{t("income")}</CardDescription>
               <CardTitle className="text-3xl text-green-600">
                 {formatMoneyWithSymbol(
                   monthlySummary.income,
@@ -332,7 +364,7 @@ export function TransactionsClient({
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Expenses</CardDescription>
+              <CardDescription>{t("expenses")}</CardDescription>
               <CardTitle className="text-3xl text-red-600">
                 {formatMoneyWithSymbol(
                   monthlySummary.expense,
@@ -344,7 +376,7 @@ export function TransactionsClient({
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Balance</CardDescription>
+              <CardDescription>{t("balance")}</CardDescription>
               <CardTitle
                 className={`text-3xl ${
                   monthlySummary.balance >= 0n
@@ -368,16 +400,18 @@ export function TransactionsClient({
         <Card>
           <CardHeader>
             <CardTitle>
-              Transactions for {new Date(selectedMonth + "-01").toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+              {t("transactionsFor", {
+                month: new Date(selectedMonth + "-01").toLocaleDateString("en-US", { month: "long", year: "numeric" })
+              })}
             </CardTitle>
             <CardDescription>
-              {filteredTransactions.length} transactions
+              {t("transactionsCount", { count: filteredTransactions.length })}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {filteredTransactions.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
-                No transactions for this month. Create one to get started.
+                {canEdit ? t("noTransactions") : t("noTransactionsReadOnly")}
               </p>
             ) : (
               <div className="space-y-2">
@@ -434,22 +468,24 @@ export function TransactionsClient({
                         </div>
 
                         {/* Actions */}
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditDialog(transaction)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openDeleteDialog(transaction)}
-                          >
-                            Delete
-                          </Button>
-                        </div>
+                        {canEdit && (
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEditDialog(transaction)}
+                            >
+                              {t("editButton")}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openDeleteDialog(transaction)}
+                            >
+                              {t("deleteButton")}
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -459,50 +495,69 @@ export function TransactionsClient({
           </CardContent>
         </Card>
 
-        {/* Create Dialog */}
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>New Transaction</DialogTitle>
-              <DialogDescription>
-                Record a new income or expense transaction
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="type">Type</Label>
-                  <Select
-                    value={formData.type}
-                    onValueChange={(value: TransactionType) => {
-                      setFormData({ ...formData, type: value, category_id: "" });
-                    }}
+        {/* Create Panel */}
+        {canEdit && (
+          <SlidePanel open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <SlidePanelContent>
+            <SlidePanelHeader>
+              <SlidePanelTitle>{t("create.title")}</SlidePanelTitle>
+              <SlidePanelDescription>
+                {t("create.description")}
+              </SlidePanelDescription>
+            </SlidePanelHeader>
+            <SlidePanelBody>
+              <div className="grid gap-6">
+              {/* 1. Transaction Type - Pill Selector */}
+              <div className="space-y-3">
+                <Label>{t("create.typeLabel")}</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={`flex-1 transition-colors ${
+                      formData.type === "expense"
+                        ? "bg-[#5B8DFF] text-white border-[#5B8DFF] hover:bg-[#4A7AE8] hover:border-[#4A7AE8]"
+                        : "bg-[#FFFFFF] text-[#1C1E21] border-[#DADCE0] hover:bg-[#F7F8FA]"
+                    }`}
+                    onClick={() => setFormData({ ...formData, type: "expense", category_id: undefined })}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="expense">Expense</SelectItem>
-                      <SelectItem value="income">Income</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="date">Date</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, date: e.target.value })
-                    }
-                  />
+                    {t("create.typeExpense")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={`flex-1 transition-colors ${
+                      formData.type === "income"
+                        ? "bg-[#5B8DFF] text-white border-[#5B8DFF] hover:bg-[#4A7AE8] hover:border-[#4A7AE8]"
+                        : "bg-[#FFFFFF] text-[#1C1E21] border-[#DADCE0] hover:bg-[#F7F8FA]"
+                    }`}
+                    onClick={() => setFormData({ ...formData, type: "income", category_id: undefined })}
+                  >
+                    {t("create.typeIncome")}
+                  </Button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Amount</Label>
+              {/* 2. Date with Monthly Context */}
+              <div className="space-y-3">
+                <Label htmlFor="date">{t("create.dateLabel")}</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) =>
+                    setFormData({ ...formData, date: e.target.value })
+                  }
+                />
+                <p className={`text-sm ${getMonthContext(formData.date).isCurrent ? "text-muted-foreground" : "text-amber-600"}`}>
+                  {getMonthContext(formData.date).message}
+                </p>
+              </div>
+
+              {/* 3. Amount + Currency (Grouped) */}
+              <div className="space-y-3">
+                <Label>{t("create.amountLabel")}</Label>
+                <div className="flex gap-2">
                   <Input
                     id="amount"
                     type="text"
@@ -510,24 +565,22 @@ export function TransactionsClient({
                     onChange={(e) =>
                       setFormData({ ...formData, amount: e.target.value })
                     }
-                    placeholder="0.00"
+                    placeholder={t("create.amountPlaceholder")}
+                    className="flex-1"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="currency">Currency</Label>
                   <Select
                     value={formData.currency}
                     onValueChange={(value) =>
                       setFormData({ ...formData, currency: value })
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-32">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {CURRENCIES.map((curr) => (
                         <SelectItem key={curr.code} value={curr.code}>
-                          {curr.code} - {curr.name}
+                          {curr.code}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -535,116 +588,152 @@ export function TransactionsClient({
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="category">Category (optional)</Label>
-                <Select
-                  value={formData.category_id || "none"}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, category_id: value === "none" ? undefined : value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {availableCategories.length === 0 ? (
-                      <SelectItem value="empty" disabled>
-                        No {formData.type} categories yet
-                      </SelectItem>
-                    ) : (
-                      availableCategories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {getIconById(cat.icon_id)?.emoji || "📦"} {cat.name}
+              {/* Separator for Optional Fields */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    {t("create.optionalSeparator")}
+                  </span>
+                </div>
+              </div>
+
+              {/* 4. Optional Fields */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="category">{t("create.categoryLabel")}</Label>
+                  <Select
+                    value={formData.category_id || "none"}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, category_id: value === "none" ? undefined : value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("create.categoryPlaceholder")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{t("create.categoryNone")}</SelectItem>
+                      {availableCategories.length === 0 ? (
+                        <SelectItem value="empty" disabled>
+                          {t("create.categoryEmpty", { type: formData.type })}
                         </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+                      ) : (
+                        availableCategories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {getIconById(cat.icon_id)?.emoji || "📦"} {cat.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="merchant">Merchant (optional)</Label>
-                <Input
-                  id="merchant"
-                  value={formData.merchant}
-                  onChange={(e) =>
-                    setFormData({ ...formData, merchant: e.target.value })
-                  }
-                  placeholder="e.g., Starbucks"
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="merchant">{t("create.merchantLabel")}</Label>
+                  <Input
+                    id="merchant"
+                    value={formData.merchant}
+                    onChange={(e) =>
+                      setFormData({ ...formData, merchant: e.target.value })
+                    }
+                    placeholder={t("create.merchantPlaceholder")}
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes (optional)</Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value })
-                  }
-                  placeholder="Add any additional notes"
-                  rows={3}
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="notes">{t("create.notesLabel")}</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) =>
+                      setFormData({ ...formData, notes: e.target.value })
+                    }
+                    placeholder={t("create.notesPlaceholder")}
+                    rows={3}
+                  />
+                </div>
               </div>
-            </div>
-            <DialogFooter>
+              </div>
+            </SlidePanelBody>
+            <SlidePanelFooter>
               <Button
                 variant="outline"
                 onClick={() => setIsCreateOpen(false)}
                 disabled={isSubmitting}
               >
-                Cancel
+                {t("create.cancel")}
               </Button>
               <Button onClick={handleCreate} disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create"}
+                {isSubmitting ? t("create.saving") : t("create.save")}
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </SlidePanelFooter>
+            </SlidePanelContent>
+          </SlidePanel>
+        )}
 
-        {/* Edit Dialog */}
-        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Edit Transaction</DialogTitle>
-              <DialogDescription>Update the transaction details</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-type">Type</Label>
-                  <Select
-                    value={formData.type}
-                    onValueChange={(value: TransactionType) => {
-                      setFormData({ ...formData, type: value, category_id: "" });
-                    }}
+        {/* Edit Panel */}
+        {canEdit && (
+          <SlidePanel open={isEditOpen} onOpenChange={setIsEditOpen}>
+            <SlidePanelContent>
+            <SlidePanelHeader>
+              <SlidePanelTitle>{t("edit.title")}</SlidePanelTitle>
+              <SlidePanelDescription>{t("edit.description")}</SlidePanelDescription>
+            </SlidePanelHeader>
+            <SlidePanelBody>
+              <div className="grid gap-6">
+              {/* 1. Transaction Type - Pill Selector */}
+              <div className="space-y-3">
+                <Label>{t("create.typeLabel")}</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={`flex-1 transition-colors ${
+                      formData.type === "expense"
+                        ? "bg-[#5B8DFF] text-white border-[#5B8DFF] hover:bg-[#4A7AE8] hover:border-[#4A7AE8]"
+                        : "bg-[#FFFFFF] text-[#1C1E21] border-[#DADCE0] hover:bg-[#F7F8FA]"
+                    }`}
+                    onClick={() => setFormData({ ...formData, type: "expense", category_id: undefined })}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="expense">Expense</SelectItem>
-                      <SelectItem value="income">Income</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-date">Date</Label>
-                  <Input
-                    id="edit-date"
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, date: e.target.value })
-                    }
-                  />
+                    {t("create.typeExpense")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={`flex-1 transition-colors ${
+                      formData.type === "income"
+                        ? "bg-[#5B8DFF] text-white border-[#5B8DFF] hover:bg-[#4A7AE8] hover:border-[#4A7AE8]"
+                        : "bg-[#FFFFFF] text-[#1C1E21] border-[#DADCE0] hover:bg-[#F7F8FA]"
+                    }`}
+                    onClick={() => setFormData({ ...formData, type: "income", category_id: undefined })}
+                  >
+                    {t("create.typeIncome")}
+                  </Button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-amount">Amount</Label>
+              {/* 2. Date with Monthly Context */}
+              <div className="space-y-3">
+                <Label htmlFor="edit-date">{t("create.dateLabel")}</Label>
+                <Input
+                  id="edit-date"
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) =>
+                    setFormData({ ...formData, date: e.target.value })
+                  }
+                />
+                <p className={`text-sm ${getMonthContext(formData.date).isCurrent ? "text-muted-foreground" : "text-amber-600"}`}>
+                  {getMonthContext(formData.date).message}
+                </p>
+              </div>
+
+              {/* 3. Amount + Currency (Grouped) */}
+              <div className="space-y-3">
+                <Label>{t("create.amountLabel")}</Label>
+                <div className="flex gap-2">
                   <Input
                     id="edit-amount"
                     type="text"
@@ -652,23 +741,22 @@ export function TransactionsClient({
                     onChange={(e) =>
                       setFormData({ ...formData, amount: e.target.value })
                     }
+                    placeholder={t("create.amountPlaceholder")}
+                    className="flex-1"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-currency">Currency</Label>
                   <Select
                     value={formData.currency}
                     onValueChange={(value) =>
                       setFormData({ ...formData, currency: value })
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-32">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {CURRENCIES.map((curr) => (
                         <SelectItem key={curr.code} value={curr.code}>
-                          {curr.code} - {curr.name}
+                          {curr.code}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -676,92 +764,112 @@ export function TransactionsClient({
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-category">Category (optional)</Label>
-                <Select
-                  value={formData.category_id || "none"}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, category_id: value === "none" ? undefined : value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {availableCategories.length === 0 ? (
-                      <SelectItem value="empty" disabled>
-                        No {formData.type} categories yet
-                      </SelectItem>
-                    ) : (
-                      availableCategories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {getIconById(cat.icon_id)?.emoji || "📦"} {cat.name}
+              {/* Separator for Optional Fields */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    {t("create.optionalSeparator")}
+                  </span>
+                </div>
+              </div>
+
+              {/* 4. Optional Fields */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-category">{t("create.categoryLabel")}</Label>
+                  <Select
+                    value={formData.category_id || "none"}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, category_id: value === "none" ? undefined : value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("create.categoryPlaceholder")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{t("create.categoryNone")}</SelectItem>
+                      {availableCategories.length === 0 ? (
+                        <SelectItem value="empty" disabled>
+                          {t("create.categoryEmpty", { type: formData.type })}
                         </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+                      ) : (
+                        availableCategories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {getIconById(cat.icon_id)?.emoji || "📦"} {cat.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-merchant">Merchant (optional)</Label>
-                <Input
-                  id="edit-merchant"
-                  value={formData.merchant}
-                  onChange={(e) =>
-                    setFormData({ ...formData, merchant: e.target.value })
-                  }
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-merchant">{t("create.merchantLabel")}</Label>
+                  <Input
+                    id="edit-merchant"
+                    value={formData.merchant}
+                    onChange={(e) =>
+                      setFormData({ ...formData, merchant: e.target.value })
+                    }
+                    placeholder={t("create.merchantPlaceholder")}
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-notes">Notes (optional)</Label>
-                <Textarea
-                  id="edit-notes"
-                  value={formData.notes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value })
-                  }
-                  rows={3}
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="edit-notes">{t("create.notesLabel")}</Label>
+                  <Textarea
+                    id="edit-notes"
+                    value={formData.notes}
+                    onChange={(e) =>
+                      setFormData({ ...formData, notes: e.target.value })
+                    }
+                    placeholder={t("create.notesPlaceholder")}
+                    rows={3}
+                  />
+                </div>
               </div>
-            </div>
-            <DialogFooter>
+              </div>
+            </SlidePanelBody>
+            <SlidePanelFooter>
               <Button
                 variant="outline"
                 onClick={() => setIsEditOpen(false)}
                 disabled={isSubmitting}
               >
-                Cancel
+                {t("create.cancel")}
               </Button>
               <Button onClick={handleEdit} disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save Changes"}
+                {isSubmitting ? t("create.saving") : t("create.save")}
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </SlidePanelFooter>
+            </SlidePanelContent>
+          </SlidePanel>
+        )}
 
         {/* Delete Confirmation Dialog */}
-        <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-          <AlertDialogContent>
+        {canEdit && (
+          <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+            <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogTitle>{t("delete.title")}</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete this transaction. This action
-                cannot be undone.
+                {t("delete.description")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={isSubmitting}>
-                Cancel
+                {t("delete.cancel")}
               </AlertDialogCancel>
               <AlertDialogAction onClick={handleDelete} disabled={isSubmitting}>
-                {isSubmitting ? "Deleting..." : "Delete"}
+                {isSubmitting ? t("delete.deleting") : t("delete.confirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
     </div>
   );

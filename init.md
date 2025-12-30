@@ -190,6 +190,8 @@
 **Aceptación:**
 - Invitado sin cuenta puede entrar y crear gasto si rol contributor
 - Revocar invite invalida link
+**Notas arquitecto**
+- Tras aceptar el invite, el usuario admin pierdes sus permisos y obtiene los mismos permisos que el invitado
 
 
 ### Objetivo

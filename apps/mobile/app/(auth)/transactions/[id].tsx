@@ -7,6 +7,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  TouchableOpacity,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
@@ -232,21 +233,48 @@ export default function EditTransactionScreen(): React.JSX.Element {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Card title="Edit Transaction" description="Update the transaction details">
         <View style={styles.form}>
-          {/* Type */}
+          {/* Type - Pill Selector */}
           <View style={styles.field}>
             <Text style={styles.label}>Type</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={type}
-                onValueChange={(value) => {
-                  setType(value as TransactionType);
+            <View style={styles.pillContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.pillButton,
+                  type === "expense" ? styles.pillSelected : styles.pillUnselected,
+                ]}
+                onPress={() => {
+                  setType("expense");
                   setCategoryId(""); // Reset category when type changes
                 }}
-                style={styles.picker}
               >
-                <Picker.Item label="Expense" value="expense" />
-                <Picker.Item label="Income" value="income" />
-              </Picker>
+                <Text
+                  style={[
+                    styles.pillText,
+                    type === "expense" ? styles.pillTextSelected : styles.pillTextUnselected,
+                  ]}
+                >
+                  Expense
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.pillButton,
+                  type === "income" ? styles.pillSelected : styles.pillUnselected,
+                ]}
+                onPress={() => {
+                  setType("income");
+                  setCategoryId(""); // Reset category when type changes
+                }}
+              >
+                <Text
+                  style={[
+                    styles.pillText,
+                    type === "income" ? styles.pillTextSelected : styles.pillTextUnselected,
+                  ]}
+                >
+                  Income
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -353,6 +381,30 @@ export default function EditTransactionScreen(): React.JSX.Element {
   );
 }
 
+// Finnon Color Tokens (color-guide.md)
+const colors = {
+  bg: {
+    primary: "#FFFFFF",
+    secondary: "#F7F8FA",
+    surface: "#FFFFFF",
+  },
+  text: {
+    primary: "#1C1E21",
+    secondary: "#5F6368",
+    muted: "#9AA0A6",
+  },
+  action: {
+    primary: "#5B8DFF",
+    secondary: "#E8EEFF",
+    disabled: "#C7D2FE",
+  },
+  state: {
+    positive: "#2E7D65",
+    negative: "#B23B3B",
+    neutral: "#DADCE0",
+  },
+};
+
 const styles = StyleSheet.create({
   loading: {
     flex: 1,
@@ -361,7 +413,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.bg.primary,
   },
   content: {
     padding: 16,
@@ -375,11 +427,43 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#333",
+    color: colors.text.primary,
+  },
+  // Pill selector styles
+  pillContainer: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  pillButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pillSelected: {
+    backgroundColor: colors.action.primary,
+    borderColor: colors.action.primary,
+  },
+  pillUnselected: {
+    backgroundColor: colors.bg.primary,
+    borderColor: colors.state.neutral,
+  },
+  pillText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  pillTextSelected: {
+    color: "#FFFFFF",
+  },
+  pillTextUnselected: {
+    color: colors.text.primary,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: colors.state.neutral,
     borderRadius: 8,
     overflow: "hidden",
   },

@@ -24,6 +24,7 @@ export default async function TransactionsPage() {
   }
 
   const activeAccount = accounts[0];
+  const activeRole = activeAccount?.account_members?.[0]?.role ?? "viewer";
 
   if (!activeAccount) {
     redirect("/onboarding");
@@ -55,6 +56,7 @@ export default async function TransactionsPage() {
       baseCurrency={activeAccount.base_currency}
       initialTransactions={transactions || []}
       categories={categories || []}
+      role={activeRole}
     />
   );
 }

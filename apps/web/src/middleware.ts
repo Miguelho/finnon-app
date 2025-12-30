@@ -5,8 +5,13 @@ import { createServerClient } from "@supabase/ssr";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Skip middleware for API routes (they handle their own auth)
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   // Rutas públicas que no requieren autenticación
-  const publicRoutes = ["/login", "/login-otp", "/auth/callback"];
+  const publicRoutes = ["/login", "/login-otp", "/auth/callback", "/join"];
   const isPublicRoute = publicRoutes.some((route) =>
     pathname.startsWith(route)
   );
@@ -62,19 +67,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Si hay usuario, verificar si tiene cuentas
+  // Si hay usuario, verificar si tiene cuentas (como owner O como miembro)
   if (pathname !== "/onboarding") {
-    const { data: accounts } = await supabase
-      .from("accounts")
-      .select("id")
-      .eq("owner_user_id", user.id)
+    const { data: memberships } = await supabase
+      .from("account_members")
+      .select("account_id")
+      .eq("user_id", user.id)
       .limit(1);
 
-    console.log("User:",  user.id);
-    console.log("User accounts:", accounts);
-
-    // Si no tiene cuentas, redirigir a onboarding
-    if (!accounts || accounts.length === 0) {
+    // Si no es miembro de ninguna cuenta, redirigir a onboarding
+    if (!memberships || memberships.length === 0) {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
   }

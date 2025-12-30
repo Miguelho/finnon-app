@@ -37,6 +37,8 @@ export default async function DashboardPage() {
   }
 
   const mainAccount = accounts[0];
+  const mainAccountRole = mainAccount?.account_members?.[0]?.role ?? "viewer";
+  const isViewer = mainAccountRole === "viewer";
 
   // Función para cerrar sesión
   async function signOut() {
@@ -67,6 +69,23 @@ export default async function DashboardPage() {
           </div>
         </div>
 
+        {isViewer && (
+          <Card className="border-dashed bg-muted/40">
+            <CardHeader>
+              <CardTitle>{t("invitedTitle")}</CardTitle>
+              <CardDescription>{t("invitedDescription")}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                {t("invitedBlurb")}
+              </p>
+              <Button asChild>
+                <Link href="/onboarding">{t("invitedCta")}</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Welcome Card */}
         <Card>
           <CardHeader>
@@ -87,6 +106,12 @@ export default async function DashboardPage() {
                 <span className="font-medium">{t("baseCurrencyLabel")}:</span>{" "}
                 {mainAccount.base_currency}
               </p>
+              {isViewer && (
+                <p className="text-sm">
+                  <span className="font-medium">{t("accessLabel")}:</span>{" "}
+                  {t("accessViewer")}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -118,6 +143,19 @@ export default async function DashboardPage() {
               <CardContent>
                 <p className="text-sm text-muted-foreground">
                   {t("categoriesDescription")}
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/settings/invites">
+            <Card className="cursor-pointer transition-colors hover:bg-accent">
+              <CardHeader>
+                <CardTitle className="text-base">Invitaciones</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Gestiona los links de invitación a tus cuentas
                 </p>
               </CardContent>
             </Card>

@@ -5,6 +5,16 @@ import {
   ActivityIndicator,
 } from "react-native";
 
+// Finnon neutral colors (aligned with web)
+const colors = {
+  text: {
+    primary: "#1C1E21",
+  },
+  state: {
+    neutral: "#DADCE0",
+  },
+};
+
 interface ButtonProps {
   onPress: () => void;
   title: string;
@@ -31,7 +41,7 @@ export function Button({
       disabled={disabled || loading}
     >
       {loading ? (
-        <ActivityIndicator color={variant === "primary" ? "#fff" : "#007AFF"} />
+        <ActivityIndicator color={variant === "primary" ? "#fff" : colors.text.primary} />
       ) : (
         <Text
           style={[
@@ -48,7 +58,7 @@ export function Button({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: "#007AFF",
+    backgroundColor: colors.text.primary,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
@@ -57,7 +67,7 @@ const styles = StyleSheet.create({
   buttonSecondary: {
     backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: "#007AFF",
+    borderColor: colors.state.neutral,
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -68,6 +78,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   buttonTextSecondary: {
-    color: "#007AFF",
+    color: colors.text.primary,
   },
 });

@@ -365,6 +365,30 @@ export default function TransactionsScreen(): React.JSX.Element {
   );
 }
 
+// Finnon Color Tokens (color-guide.md)
+const colors = {
+  bg: {
+    primary: "#FFFFFF",
+    secondary: "#F7F8FA",
+    surface: "#FFFFFF",
+  },
+  text: {
+    primary: "#1C1E21",
+    secondary: "#5F6368",
+    muted: "#9AA0A6",
+  },
+  action: {
+    primary: "#5B8DFF",
+    secondary: "#E8EEFF",
+    disabled: "#C7D2FE",
+  },
+  state: {
+    positive: "#2E7D65",
+    negative: "#B23B3B",
+    neutral: "#DADCE0",
+  },
+};
+
 const styles = StyleSheet.create({
   loading: {
     flex: 1,
@@ -373,7 +397,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.bg.primary,
   },
   content: {
     padding: 16,
@@ -385,10 +409,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "800",
+    color: colors.text.primary,
   },
   subtitle: {
     fontSize: 14,
-    color: "#666",
+    color: colors.text.secondary,
     marginTop: 4,
   },
   actions: {
@@ -405,15 +430,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 6,
-    backgroundColor: "#007AFF",
+    backgroundColor: colors.action.primary,
   },
   monthButtonText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontWeight: "600",
   },
   monthText: {
     fontSize: 16,
     fontWeight: "600",
+    color: colors.text.primary,
   },
   summaryContainer: {
     flexDirection: "row",
@@ -423,11 +449,11 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: colors.bg.secondary,
   },
   summaryLabel: {
     fontSize: 12,
-    color: "#666",
+    color: colors.text.secondary,
     marginBottom: 4,
   },
   summaryValue: {
@@ -435,10 +461,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   incomeText: {
-    color: "#34C759",
+    color: colors.state.positive,
   },
   expenseText: {
-    color: "#FF3B30",
+    color: colors.state.negative,
   },
   section: {
     marginTop: 8,
@@ -447,10 +473,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 12,
+    color: colors.text.primary,
   },
   emptyText: {
     fontSize: 14,
-    color: "#666",
+    color: colors.text.secondary,
     fontStyle: "italic",
     textAlign: "center",
     paddingVertical: 32,
@@ -463,9 +490,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     padding: 12,
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: colors.state.neutral,
     borderRadius: 8,
-    backgroundColor: "#fff",
+    backgroundColor: colors.bg.primary,
   },
   transactionLeft: {
     flexDirection: "row",
@@ -483,10 +510,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     marginBottom: 2,
+    color: colors.text.primary,
   },
   transactionDate: {
     fontSize: 12,
-    color: "#666",
+    color: colors.text.secondary,
   },
   transactionRight: {
     alignItems: "flex-end",
@@ -505,18 +533,18 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: "#007AFF",
+    borderColor: colors.action.primary,
   },
   actionButtonText: {
-    color: "#007AFF",
+    color: colors.action.primary,
     fontSize: 12,
     fontWeight: "600",
   },
   deleteButton: {
-    borderColor: "#FF3B30",
+    borderColor: colors.state.negative,
   },
   deleteButtonText: {
-    color: "#FF3B30",
+    color: colors.state.negative,
     fontSize: 12,
     fontWeight: "600",
   },

@@ -11,13 +11,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  SlidePanel,
+  SlidePanelContent,
+  SlidePanelDescription,
+  SlidePanelFooter,
+  SlidePanelHeader,
+  SlidePanelTitle,
+  SlidePanelBody,
+} from "@/components/ui/slide-panel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,11 +54,13 @@ type Category = {
 type CategoriesClientProps = {
   accountId: string;
   initialCategories: Category[];
+  role: "viewer" | "contributor" | "admin";
 };
 
 export function CategoriesClient({
   accountId,
   initialCategories,
+  role,
 }: CategoriesClientProps) {
   const router = useRouter();
   const [categories, setCategories] = useState(initialCategories);
@@ -68,6 +71,7 @@ export function CategoriesClient({
     null
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const canEdit = role !== "viewer";
 
   // Form state
   const [formData, setFormData] = useState({
@@ -77,6 +81,7 @@ export function CategoriesClient({
   });
 
   const handleCreate = async () => {
+    if (!canEdit) return;
     if (!formData.name.trim()) return;
 
     setIsSubmitting(true);
@@ -102,6 +107,7 @@ export function CategoriesClient({
   };
 
   const handleEdit = async () => {
+    if (!canEdit) return;
     if (!selectedCategory || !formData.name.trim()) return;
 
     setIsSubmitting(true);
@@ -133,6 +139,7 @@ export function CategoriesClient({
   };
 
   const handleDelete = async () => {
+    if (!canEdit) return;
     if (!selectedCategory) return;
 
     setIsSubmitting(true);
@@ -155,6 +162,7 @@ export function CategoriesClient({
   };
 
   const openEditDialog = (category: Category) => {
+    if (!canEdit) return;
     setSelectedCategory(category);
     setFormData({
       name: category.name,
@@ -165,6 +173,7 @@ export function CategoriesClient({
   };
 
   const openDeleteDialog = (category: Category) => {
+    if (!canEdit) return;
     setSelectedCategory(category);
     setIsDeleteOpen(true);
   };
@@ -182,12 +191,17 @@ export function CategoriesClient({
             <p className="text-muted-foreground">
               Manage your income and expense categories
             </p>
+            {!canEdit && (
+              <p className="text-sm text-muted-foreground">
+                Read-only access. Ask the account owner to grant edit permissions.
+              </p>
+            )}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => router.push("/")}>
               Back to Dashboard
             </Button>
-            <Button onClick={() => setIsCreateOpen(true)}>
+            <Button onClick={() => setIsCreateOpen(true)} disabled={!canEdit}>
               Create Category
             </Button>
           </div>
@@ -206,7 +220,9 @@ export function CategoriesClient({
             <CardContent>
               {expenseCategories.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No expense categories yet. Create one to get started.
+                  {canEdit
+                    ? "No expense categories yet. Create one to get started."
+                    : "No expense categories yet."}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -221,22 +237,24 @@ export function CategoriesClient({
                           <span className="text-2xl">{icon?.emoji || "📦"}</span>
                           <span className="font-medium">{category.name}</span>
                         </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditDialog(category)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openDeleteDialog(category)}
-                          >
-                            Delete
-                          </Button>
-                        </div>
+                        {canEdit && (
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEditDialog(category)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openDeleteDialog(category)}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -256,7 +274,9 @@ export function CategoriesClient({
             <CardContent>
               {incomeCategories.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No income categories yet. Create one to get started.
+                  {canEdit
+                    ? "No income categories yet. Create one to get started."
+                    : "No income categories yet."}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -271,22 +291,24 @@ export function CategoriesClient({
                           <span className="text-2xl">{icon?.emoji || "📦"}</span>
                           <span className="font-medium">{category.name}</span>
                         </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditDialog(category)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openDeleteDialog(category)}
-                          >
-                            Delete
-                          </Button>
-                        </div>
+                        {canEdit && (
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEditDialog(category)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openDeleteDialog(category)}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -297,15 +319,17 @@ export function CategoriesClient({
         </div>
 
         {/* Create Dialog */}
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create Category</DialogTitle>
-              <DialogDescription>
+        {canEdit && (
+          <SlidePanel open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <SlidePanelContent>
+            <SlidePanelHeader>
+              <SlidePanelTitle>Create Category</SlidePanelTitle>
+              <SlidePanelDescription>
                 Add a new category to organize your transactions
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
+              </SlidePanelDescription>
+            </SlidePanelHeader>
+            <SlidePanelBody>
+              <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
                 <Input
@@ -344,8 +368,9 @@ export function CategoriesClient({
                   filterType={formData.type}
                 />
               </div>
-            </div>
-            <DialogFooter>
+              </div>
+            </SlidePanelBody>
+            <SlidePanelFooter>
               <Button
                 variant="outline"
                 onClick={() => setIsCreateOpen(false)}
@@ -356,20 +381,23 @@ export function CategoriesClient({
               <Button onClick={handleCreate} disabled={isSubmitting}>
                 {isSubmitting ? "Creating..." : "Create"}
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </SlidePanelFooter>
+            </SlidePanelContent>
+          </SlidePanel>
+        )}
 
-        {/* Edit Dialog */}
-        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Category</DialogTitle>
-              <DialogDescription>
+        {/* Edit Panel */}
+        {canEdit && (
+          <SlidePanel open={isEditOpen} onOpenChange={setIsEditOpen}>
+            <SlidePanelContent>
+            <SlidePanelHeader>
+              <SlidePanelTitle>Edit Category</SlidePanelTitle>
+              <SlidePanelDescription>
                 Update the category details
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
+              </SlidePanelDescription>
+            </SlidePanelHeader>
+            <SlidePanelBody>
+              <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Name</Label>
                 <Input
@@ -407,8 +435,9 @@ export function CategoriesClient({
                   filterType={formData.type}
                 />
               </div>
-            </div>
-            <DialogFooter>
+              </div>
+            </SlidePanelBody>
+            <SlidePanelFooter>
               <Button
                 variant="outline"
                 onClick={() => setIsEditOpen(false)}
@@ -419,13 +448,15 @@ export function CategoriesClient({
               <Button onClick={handleEdit} disabled={isSubmitting}>
                 {isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </SlidePanelFooter>
+            </SlidePanelContent>
+          </SlidePanel>
+        )}
 
         {/* Delete Confirmation Dialog */}
-        <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-          <AlertDialogContent>
+        {canEdit && (
+          <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+            <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
               <AlertDialogDescription>
@@ -441,8 +472,9 @@ export function CategoriesClient({
                 {isSubmitting ? "Deleting..." : "Delete"}
               </AlertDialogAction>
             </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
     </div>
   );
