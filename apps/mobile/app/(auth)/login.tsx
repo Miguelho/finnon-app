@@ -11,6 +11,7 @@ import { supabase } from "../../src/lib/supabase";
 import { Card } from "../../src/components/Card";
 import { Input } from "../../src/components/Input";
 import { Button } from "../../src/components/Button";
+import { useCopy, t } from "../../src/lib/i18n";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -19,6 +20,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const { dictionary } = useCopy();
 
   const handleSendOtp = async () => {
     setLoading(true);
@@ -36,7 +38,7 @@ export default function LoginScreen() {
       setStep("otp");
     } catch (err) {
       console.error("Send OTP error:", err);
-      setError(err instanceof Error ? err.message : "Error al enviar el código");
+      setError(err instanceof Error ? err.message : t(dictionary, "mobile.login.sendError"));
     } finally {
       setLoading(false);
     }
@@ -74,12 +76,12 @@ export default function LoginScreen() {
         router.replace("/");
       } else {
         console.warn("[Login] No session in response");
-        setError("No se pudo crear la sesión");
+        setError(t(dictionary, "mobile.login.sessionError"));
       }
     } catch (err) {
       console.error("[Login] Verify OTP error:", err);
       setError(
-        err instanceof Error ? err.message : "Código inválido o expirado"
+        err instanceof Error ? err.message : t(dictionary, "mobile.login.invalidOtp")
       );
     } finally {
       setLoading(false);
@@ -94,14 +96,14 @@ export default function LoginScreen() {
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <Card
-            title="Ingresa el código"
-            description={`Hemos enviado un código de 6 dígitos a ${email}`}
+            title={t(dictionary, "mobile.login.otpTitle")}
+            description={t(dictionary, "mobile.login.otpDescription", { email })}
           >
             <Input
-              label="Código de verificación"
+              label={t(dictionary, "mobile.login.otpLabel")}
               value={otp}
               onChangeText={(text) => setOtp(text.replace(/\D/g, ""))}
-              placeholder="123456"
+              placeholder={t(dictionary, "mobile.login.otpPlaceholder")}
               keyboardType="numeric"
               maxLength={6}
               disabled={loading}
@@ -111,7 +113,7 @@ export default function LoginScreen() {
             <View style={styles.buttonGroup}>
               <View style={styles.buttonHalf}>
                 <Button
-                  title="Volver"
+                  title={t(dictionary, "mobile.login.backButton")}
                   onPress={() => {
                     setStep("email");
                     setOtp("");
@@ -123,7 +125,7 @@ export default function LoginScreen() {
               </View>
               <View style={styles.buttonHalf}>
                 <Button
-                  title="Verificar"
+                  title={t(dictionary, "mobile.login.verifyButton")}
                   onPress={handleVerifyOtp}
                   disabled={loading || otp.length !== 6}
                   loading={loading}
@@ -143,21 +145,21 @@ export default function LoginScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Card
-          title="Bienvenido a Finnon"
-          description="Ingresa tu email para recibir un código de verificación"
+          title={t(dictionary, "mobile.login.title")}
+          description={t(dictionary, "mobile.login.description")}
         >
           <Input
-            label="Email"
+            label={t(dictionary, "mobile.login.emailLabel")}
             value={email}
             onChangeText={setEmail}
-            placeholder="tu@email.com"
+            placeholder={t(dictionary, "mobile.login.emailPlaceholder")}
             keyboardType="email-address"
             disabled={loading}
             error={error || undefined}
           />
 
           <Button
-            title="Enviar código"
+            title={t(dictionary, "mobile.login.sendButton")}
             onPress={handleSendOtp}
             disabled={loading || !email}
             loading={loading}

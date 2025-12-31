@@ -1,5 +1,6 @@
 import { getRequestConfig } from "next-intl/server";
 import { cookies } from "next/headers";
+import { getDictionary } from "@poleursus/shared";
 
 export const locales = ["en", "es"] as const;
 export type Locale = (typeof locales)[number];
@@ -11,6 +12,6 @@ export default getRequestConfig(async () => {
 
   return {
     locale,
-    messages: (await import(`../../messages/${locale}.json`)).default,
+    messages: getDictionary(locale),
   };
 });

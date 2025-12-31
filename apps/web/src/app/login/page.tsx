@@ -48,7 +48,7 @@ export default function LoginPage() {
     } catch (err) {
       console.error("Login error:", err);
       setError(
-        err instanceof Error ? err.message : "Error al enviar el email"
+        err instanceof Error ? err.message : t("sendError")
       );
     } finally {
       setLoading(false);
@@ -114,9 +114,9 @@ export default function LoginPage() {
             </Button>
 
             <p className="text-center text-xs text-muted-foreground">
-              ¿Problemas con el magic link?{" "}
+              {t("magicLinkHelp")}{" "}
               <a href="/login-otp" className="underline">
-                Usa código OTP en su lugar
+                {t("magicLinkHelpCta")}
               </a>
             </p>
           </form>

@@ -11,7 +11,7 @@ import {
 type ActionResult<T = any> = {
   success: boolean;
   data?: T;
-  error?: string;
+  error?: { key: string; params?: Record<string, string | number> };
 };
 
 export async function createTransaction(input: {
@@ -34,7 +34,7 @@ export async function createTransaction(input: {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: { key: "errors.unauthorized" } };
     }
 
     // Verify user is a member of the account
@@ -46,7 +46,7 @@ export async function createTransaction(input: {
       .single();
 
     if (!membership) {
-      return { success: false, error: "Not a member of this account" };
+      return { success: false, error: { key: "errors.notMember" } };
     }
 
     // Get account to know base_currency
@@ -57,7 +57,7 @@ export async function createTransaction(input: {
       .single();
 
     if (!account) {
-      return { success: false, error: "Account not found" };
+      return { success: false, error: { key: "errors.accountNotFound" } };
     }
 
     // Parse amount to minor units
@@ -79,7 +79,7 @@ export async function createTransaction(input: {
       if (!input.fx_rate || input.fx_rate <= 0) {
         return {
           success: false,
-          error: "FX rate required for currency conversion",
+          error: { key: "errors.fxRateRequired" },
         };
       }
       amountBaseMinor = convertCurrency(
@@ -112,7 +112,7 @@ export async function createTransaction(input: {
 
     if (error) {
       console.error("Error creating transaction:", error);
-      return { success: false, error: error.message };
+      return { success: false, error: { key: "errors.internalServer" } };
     }
 
     revalidatePath("/transactions");
@@ -121,7 +121,7 @@ export async function createTransaction(input: {
     console.error("Error in createTransaction:", error);
     return {
       success: false,
-      error: error.message || "Failed to create transaction",
+      error: { key: "errors.internalServer" },
     };
   }
 }
@@ -148,7 +148,7 @@ export async function updateTransaction(
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: { key: "errors.unauthorized" } };
     }
 
     // Get the transaction to verify ownership
@@ -159,7 +159,7 @@ export async function updateTransaction(
       .single();
 
     if (!transaction) {
-      return { success: false, error: "Transaction not found" };
+      return { success: false, error: { key: "errors.transactionNotFound" } };
     }
 
     // Verify user is a member of the account
@@ -171,7 +171,7 @@ export async function updateTransaction(
       .single();
 
     if (!membership) {
-      return { success: false, error: "Not a member of this account" };
+      return { success: false, error: { key: "errors.notMember" } };
     }
 
     // Get account to know base_currency
@@ -182,7 +182,7 @@ export async function updateTransaction(
       .single();
 
     if (!account) {
-      return { success: false, error: "Account not found" };
+      return { success: false, error: { key: "errors.accountNotFound" } };
     }
 
     // Parse amount to minor units
@@ -202,7 +202,7 @@ export async function updateTransaction(
       if (!input.fx_rate || input.fx_rate <= 0) {
         return {
           success: false,
-          error: "FX rate required for currency conversion",
+          error: { key: "errors.fxRateRequired" },
         };
       }
       amountBaseMinor = convertCurrency(
@@ -232,7 +232,7 @@ export async function updateTransaction(
 
     if (error) {
       console.error("Error updating transaction:", error);
-      return { success: false, error: error.message };
+      return { success: false, error: { key: "errors.internalServer" } };
     }
 
     revalidatePath("/transactions");
@@ -241,7 +241,7 @@ export async function updateTransaction(
     console.error("Error in updateTransaction:", error);
     return {
       success: false,
-      error: error.message || "Failed to update transaction",
+      error: { key: "errors.internalServer" },
     };
   }
 }
@@ -258,7 +258,7 @@ export async function deleteTransaction(
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: { key: "errors.unauthorized" } };
     }
 
     // Get the transaction to verify ownership
@@ -269,7 +269,7 @@ export async function deleteTransaction(
       .single();
 
     if (!transaction) {
-      return { success: false, error: "Transaction not found" };
+      return { success: false, error: { key: "errors.transactionNotFound" } };
     }
 
     // Verify user is a member of the account
@@ -281,7 +281,7 @@ export async function deleteTransaction(
       .single();
 
     if (!membership) {
-      return { success: false, error: "Not a member of this account" };
+      return { success: false, error: { key: "errors.notMember" } };
     }
 
     // Delete transaction
@@ -292,7 +292,7 @@ export async function deleteTransaction(
 
     if (error) {
       console.error("Error deleting transaction:", error);
-      return { success: false, error: error.message };
+      return { success: false, error: { key: "errors.internalServer" } };
     }
 
     revalidatePath("/transactions");
@@ -301,7 +301,7 @@ export async function deleteTransaction(
     console.error("Error in deleteTransaction:", error);
     return {
       success: false,
-      error: error.message || "Failed to delete transaction",
+      error: { key: "errors.internalServer" },
     };
   }
 }

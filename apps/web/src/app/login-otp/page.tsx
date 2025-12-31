@@ -45,7 +45,7 @@ export default function LoginOTPPage() {
     } catch (err) {
       console.error("Send OTP error:", err);
       setError(
-        err instanceof Error ? err.message : "Error al enviar el código"
+        err instanceof Error ? err.message : t("sendError")
       );
     } finally {
       setLoading(false);
@@ -74,7 +74,7 @@ export default function LoginOTPPage() {
     } catch (err) {
       console.error("Verify OTP error:", err);
       setError(
-        err instanceof Error ? err.message : "Código inválido o expirado"
+        err instanceof Error ? err.message : t("invalidOtp")
       );
     } finally {
       setLoading(false);
@@ -89,19 +89,19 @@ export default function LoginOTPPage() {
         </div>
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>Ingresa el código</CardTitle>
+            <CardTitle>{t("otpTitle")}</CardTitle>
             <CardDescription>
-              Hemos enviado un código de 6 dígitos a {email}
+              {t("otpDescription", { email })}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="otp">Código de verificación</Label>
+                <Label htmlFor="otp">{t("otpLabel")}</Label>
                 <Input
                   id="otp"
                   type="text"
-                  placeholder="123456"
+                  placeholder={t("otpPlaceholder")}
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
                   required
@@ -129,14 +129,14 @@ export default function LoginOTPPage() {
                   disabled={loading}
                   className="flex-1"
                 >
-                  Volver
+                  {t("otpBackButton")}
                 </Button>
                 <Button
                   type="submit"
                   disabled={loading || otp.length !== 6}
                   className="flex-1"
                 >
-                  {loading ? "Verificando..." : "Verificar"}
+                  {loading ? t("otpVerifying") : t("otpVerifyButton")}
                 </Button>
               </div>
             </form>
@@ -155,7 +155,7 @@ export default function LoginOTPPage() {
         <CardHeader>
           <CardTitle>{t("title")}</CardTitle>
           <CardDescription>
-            Ingresa tu email para recibir un código de verificación
+            {t("otpPageDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -180,13 +180,13 @@ export default function LoginOTPPage() {
             )}
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Enviando..." : "Enviar código"}
+              {loading ? t("otpSending") : t("otpSendButton")}
             </Button>
 
             <p className="text-center text-xs text-muted-foreground">
-              ¿Prefieres magic link?{" "}
+              {t("otpHelp")}{" "}
               <a href="/login" className="underline">
-                Usa el login original
+                {t("otpHelpCta")}
               </a>
             </p>
           </form>

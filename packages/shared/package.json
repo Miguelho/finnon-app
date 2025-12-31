@@ -7,6 +7,7 @@
   "types": "./src/index.ts",
   "scripts": {
     "lint": "eslint src",
+    "test": "node --test --loader ts-node/esm src/copy/helpers.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -14,6 +15,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
+    "ts-node": "^10.9.2",
     "typescript": "^5.7.2"
   }
 }

@@ -7,7 +7,7 @@ import { createCategorySchema, type CategoryType } from "@poleursus/shared";
 type ActionResult<T = any> = {
   success: boolean;
   data?: T;
-  error?: string;
+  error?: { key: string; params?: Record<string, string | number> };
 };
 
 export async function createCategory(input: {
@@ -25,7 +25,7 @@ export async function createCategory(input: {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: { key: "errors.unauthorized" } };
     }
 
     // Verify user is a member of the account
@@ -37,7 +37,7 @@ export async function createCategory(input: {
       .single();
 
     if (!membership) {
-      return { success: false, error: "Not a member of this account" };
+      return { success: false, error: { key: "errors.notMember" } };
     }
 
     // Validate input
@@ -52,7 +52,7 @@ export async function createCategory(input: {
 
     if (error) {
       console.error("Error creating category:", error);
-      return { success: false, error: error.message };
+      return { success: false, error: { key: "errors.internalServer" } };
     }
 
     revalidatePath("/categories");
@@ -61,7 +61,7 @@ export async function createCategory(input: {
     console.error("Error in createCategory:", error);
     return {
       success: false,
-      error: error.message || "Failed to create category",
+      error: { key: "errors.internalServer" },
     };
   }
 }
@@ -83,7 +83,7 @@ export async function updateCategory(
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: { key: "errors.unauthorized" } };
     }
 
     // Get the category to verify ownership
@@ -94,7 +94,7 @@ export async function updateCategory(
       .single();
 
     if (!category) {
-      return { success: false, error: "Category not found" };
+      return { success: false, error: { key: "errors.categoryNotFound" } };
     }
 
     // Verify user is a member of the account
@@ -106,7 +106,7 @@ export async function updateCategory(
       .single();
 
     if (!membership) {
-      return { success: false, error: "Not a member of this account" };
+      return { success: false, error: { key: "errors.notMember" } };
     }
 
     // Update category
@@ -123,7 +123,7 @@ export async function updateCategory(
 
     if (error) {
       console.error("Error updating category:", error);
-      return { success: false, error: error.message };
+      return { success: false, error: { key: "errors.internalServer" } };
     }
 
     revalidatePath("/categories");
@@ -132,7 +132,7 @@ export async function updateCategory(
     console.error("Error in updateCategory:", error);
     return {
       success: false,
-      error: error.message || "Failed to update category",
+      error: { key: "errors.internalServer" },
     };
   }
 }
@@ -149,7 +149,7 @@ export async function deleteCategory(
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: { key: "errors.unauthorized" } };
     }
 
     // Get the category to verify ownership
@@ -160,7 +160,7 @@ export async function deleteCategory(
       .single();
 
     if (!category) {
-      return { success: false, error: "Category not found" };
+      return { success: false, error: { key: "errors.categoryNotFound" } };
     }
 
     // Verify user is a member of the account
@@ -172,7 +172,7 @@ export async function deleteCategory(
       .single();
 
     if (!membership) {
-      return { success: false, error: "Not a member of this account" };
+      return { success: false, error: { key: "errors.notMember" } };
     }
 
     // Delete category
@@ -183,7 +183,7 @@ export async function deleteCategory(
 
     if (error) {
       console.error("Error deleting category:", error);
-      return { success: false, error: error.message };
+      return { success: false, error: { key: "errors.internalServer" } };
     }
 
     revalidatePath("/categories");
@@ -192,7 +192,7 @@ export async function deleteCategory(
     console.error("Error in deleteCategory:", error);
     return {
       success: false,
-      error: error.message || "Failed to delete category",
+      error: { key: "errors.internalServer" },
     };
   }
 }

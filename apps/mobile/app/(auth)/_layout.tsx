@@ -1,6 +1,9 @@
 import { Stack } from "expo-router";
+import { useCopy, t } from "../../src/lib/i18n";
 
 export default function AuthLayout() {
+  const { dictionary } = useCopy();
+
   return (
     <Stack>
       <Stack.Screen
@@ -27,7 +30,7 @@ export default function AuthLayout() {
         name="account/[id]"
         options={{
           headerShown: true,
-          title: "Cuenta",
+          title: t(dictionary, "account.labelAccount"),
         }}
       />
     </Stack>

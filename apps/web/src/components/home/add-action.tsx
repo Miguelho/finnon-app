@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   SlidePanel,
@@ -16,47 +17,47 @@ type AddActionProps = {
   canEdit: boolean;
 };
 
-const actions = [
-  {
-    label: "Añadir gasto",
-    description: "Registra un pago del día a día.",
-    href: "/transactions?new=1&type=expense",
-  },
-  {
-    label: "Añadir ingreso",
-    description: "Suma un ingreso a tu mes.",
-    href: "/transactions?new=1&type=income",
-  },
-  {
-    label: "Añadir obligación",
-    description: "Programa un pago recurrente.",
-    href: "/transactions?new=1&type=expense&kind=obligation",
-  },
-];
-
 export function AddAction({ canEdit }: AddActionProps) {
   const router = useRouter();
+  const t = useTranslations();
   const [isOpen, setIsOpen] = useState(false);
+  const actions = [
+    {
+      label: t("home.addExpenseTitle"),
+      description: t("home.addExpenseDescription"),
+      href: "/transactions?new=1&type=expense",
+    },
+    {
+      label: t("home.addIncomeTitle"),
+      description: t("home.addIncomeDescription"),
+      href: "/transactions?new=1&type=income",
+    },
+    {
+      label: t("home.addObligationTitle"),
+      description: t("home.addObligationDescription"),
+      href: "/transactions?new=1&type=expense&kind=obligation",
+    },
+  ];
 
   return (
     <>
-      <Button onClick={() => setIsOpen(true)}>+ Añadir</Button>
+      <Button onClick={() => setIsOpen(true)}>+ {t("home.addCta")}</Button>
       <Button
         onClick={() => setIsOpen(true)}
         className="fixed bottom-6 right-6 z-40 rounded-full px-5 py-6 shadow-lg"
       >
-        + Añadir
+        + {t("home.addCta")}
       </Button>
 
       <SlidePanel open={isOpen} onOpenChange={setIsOpen}>
         <SlidePanelContent>
           <SlidePanelHeader>
-            <SlidePanelTitle>Añadir</SlidePanelTitle>
+            <SlidePanelTitle>{t("home.addCta")}</SlidePanelTitle>
           </SlidePanelHeader>
           <SlidePanelBody className="space-y-4">
             {!canEdit && (
               <p className="text-sm text-muted-foreground">
-                Ves esta cuenta como invitado.
+                {t("home.guestBlurb")}
               </p>
             )}
             <div className="space-y-3">

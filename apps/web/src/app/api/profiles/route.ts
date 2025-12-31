@@ -23,7 +23,7 @@ function getDisplayName(user: AuthUserRow) {
   const lastName = typeof meta.last_name === "string" ? meta.last_name : "";
   const combined = [firstName, lastName].filter(Boolean).join(" ").trim();
 
-  return fullName || displayName || name || combined || user.email || "Miembro";
+  return fullName || displayName || name || combined || user.email || null;
 }
 
 export async function POST(request: NextRequest) {
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     if (!accountId) {
       return NextResponse.json(
-        { error: "Invalid request data" },
+        { errorKey: "errors.invalidRequest" },
         { status: 400 }
       );
     }
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       } = await supabase.auth.getUser();
       if (error || !authUser) {
         return NextResponse.json(
-          { error: "Invalid or expired token" },
+          { errorKey: "errors.unauthorized" },
           { status: 401 }
         );
       }
@@ -83,14 +83,14 @@ export async function POST(request: NextRequest) {
 
     if (membersError) {
       return NextResponse.json(
-        { error: "Failed to load account members" },
+        { errorKey: "errors.membersLoadFailed" },
         { status: 500 }
       );
     }
 
     if (!members || members.length === 0) {
       return NextResponse.json(
-        { error: "Account not found or access denied" },
+        { errorKey: "errors.accountNotFoundOrDenied" },
         { status: 404 }
       );
     }
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     const isMember = members.some((member) => member.user_id === user.id);
     if (!isMember) {
       return NextResponse.json(
-        { error: "Access denied" },
+        { errorKey: "errors.accessDenied" },
         { status: 403 }
       );
     }
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     if (usersError) {
       console.error("Error loading profiles:", usersError);
       return NextResponse.json(
-        { error: "Failed to load profiles" },
+        { errorKey: "errors.profilesLoadFailed" },
         { status: 500 }
       );
     }
@@ -142,13 +142,13 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof Error && error.message === "No hay sesión activa válida") {
       return NextResponse.json(
-        { error: "Authentication required" },
+        { errorKey: "errors.authRequired" },
         { status: 401 }
       );
     }
 
     return NextResponse.json(
-      { error: "Internal server error" },
+      { errorKey: "errors.internalServer" },
       { status: 500 }
     );
   }

@@ -35,8 +35,7 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json(
         {
-          error:
-            "No active session. Please ensure you are logged in or have an anonymous session.",
+          errorKey: "errors.noSession",
         },
         { status: 401 }
       );
@@ -58,7 +57,7 @@ export async function POST(request: NextRequest) {
       console.error("Invite lookup error:", inviteError);
       console.error("Invite not found for token hash:", tokenHash);
       return NextResponse.json(
-        { error: "Invalid invite token" },
+        { errorKey: "errors.inviteInvalidToken" },
         { status: 404 }
       );
     }
@@ -68,21 +67,21 @@ export async function POST(request: NextRequest) {
 
     if (invite.revoked_at) {
       return NextResponse.json(
-        { error: "This invite has been revoked" },
+        { errorKey: "errors.inviteRevoked" },
         { status: 410 }
       );
     }
 
     if (new Date(invite.expires_at) < now) {
       return NextResponse.json(
-        { error: "This invite has expired" },
+        { errorKey: "errors.inviteExpired" },
         { status: 410 }
       );
     }
 
     if (invite.max_uses !== null && invite.uses_count >= invite.max_uses) {
       return NextResponse.json(
-        { error: "This invite has reached its maximum number of uses" },
+        { errorKey: "errors.inviteMaxUses" },
         { status: 429 }
       );
     }
@@ -113,7 +112,7 @@ export async function POST(request: NextRequest) {
     if (memberError) {
       console.error("Error adding member:", memberError);
       return NextResponse.json(
-        { error: "Failed to join account" },
+        { errorKey: "errors.inviteJoinFailed" },
         { status: 500 }
       );
     }
@@ -140,13 +139,13 @@ export async function POST(request: NextRequest) {
     // Handle Zod validation errors
     if (error instanceof Error && error.name === "ZodError") {
       return NextResponse.json(
-        { error: "Invalid request data" },
+        { errorKey: "errors.invalidRequest" },
         { status: 400 }
       );
     }
 
     return NextResponse.json(
-      { error: "Internal server error" },
+      { errorKey: "errors.internalServer" },
       { status: 500 }
     );
   }

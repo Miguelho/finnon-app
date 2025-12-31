@@ -32,6 +32,19 @@ export function getMinorUnits(currency: string): number {
   return CURRENCY_MINOR_UNITS[currency] ?? 2;
 }
 
+export type MoneyParseError = {
+  key:
+    | "money.amountRequired"
+    | "money.invalidFormat"
+    | "money.maxDecimalPlaces"
+    | "money.noDecimalPlaces"
+    | "money.negativeAmount"
+    | "money.invalidAmount";
+  params?: Record<string, string | number>;
+};
+
+export type MoneyParseResult = bigint | { error: MoneyParseError };
+
 /**
  * Parse a money string to minor units (bigint)
  * Examples:
@@ -45,9 +58,9 @@ export function getMinorUnits(currency: string): number {
 export function parseMoneyToMinor(
   input: string,
   currency: string
-): bigint | { error: string } {
+): MoneyParseResult {
   if (!input || input.trim() === "") {
-    return { error: "Amount is required" };
+    return { error: { key: "money.amountRequired" } };
   }
 
   // Replace comma with dot for parsing
@@ -55,7 +68,7 @@ export function parseMoneyToMinor(
 
   // Check if valid number format
   if (!/^-?\d+(\.\d+)?$/.test(normalized)) {
-    return { error: "Invalid amount format" };
+    return { error: { key: "money.invalidFormat" } };
   }
 
   const minorUnits = getMinorUnits(currency);
@@ -68,13 +81,18 @@ export function parseMoneyToMinor(
   // Validate decimal places
   if (decimalPart.length > minorUnits) {
     return {
-      error: `${currency} supports maximum ${minorUnits} decimal places`,
+      error: {
+        key: "money.maxDecimalPlaces",
+        params: { currency, count: minorUnits },
+      },
     };
   }
 
   // For currencies with no decimals, reject decimal input
   if (minorUnits === 0 && decimalPart.length > 0) {
-    return { error: `${currency} does not support decimal places` };
+    return {
+      error: { key: "money.noDecimalPlaces", params: { currency } },
+    };
   }
 
   // Pad decimals to match minor units
@@ -86,11 +104,11 @@ export function parseMoneyToMinor(
   try {
     const result = BigInt(minorValue);
     if (result < 0n) {
-      return { error: "Amount cannot be negative" };
+      return { error: { key: "money.negativeAmount" } };
     }
     return result;
   } catch (e) {
-    return { error: "Invalid amount" };
+    return { error: { key: "money.invalidAmount" } };
   }
 }
 

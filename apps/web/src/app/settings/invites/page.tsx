@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
   Card,
@@ -59,6 +60,7 @@ type Invite = {
 type FilterStatus = "all" | "active" | "expired" | "revoked";
 
 export default function InvitesPage() {
+  const t = useTranslations();
   const [invites, setInvites] = useState<Invite[]>([]);
   const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,7 +91,7 @@ export default function InvitesPage() {
 
       if (error) {
         console.error("Error fetching accounts:", error);
-        toast.error("Error cargando cuentas");
+        toast.error(t("invites.loadAccountsError"));
         return;
       }
 
@@ -131,7 +133,7 @@ export default function InvitesPage() {
 
     if (error) {
       console.error("Error fetching invites:", error);
-      toast.error("Error cargando invitaciones");
+      toast.error(t("invites.loadInvitesError"));
       setLoading(false);
       return;
     }
@@ -142,7 +144,7 @@ export default function InvitesPage() {
 
   async function createInvite() {
     if (!selectedAccountId) {
-      toast.error("Selecciona una cuenta");
+      toast.error(t("invites.selectAccountError"));
       return;
     }
 
@@ -162,7 +164,11 @@ export default function InvitesPage() {
 
       if (!response.ok) {
         const error = await response.json();
-        toast.error(error.error || "Error creando invitación");
+        toast.error(
+          error.errorKey
+            ? t(error.errorKey, error.errorParams)
+            : t("invites.createError")
+        );
         setIsCreating(false);
         return;
       }
@@ -176,7 +182,7 @@ export default function InvitesPage() {
       // Don't close dialog yet - show the URL first
     } catch (error) {
       console.error("Error creating invite:", error);
-      toast.error("Error creando invitación");
+      toast.error(t("invites.createError"));
     } finally {
       setIsCreating(false);
     }
@@ -190,25 +196,25 @@ export default function InvitesPage() {
         .eq("id", inviteId);
 
       if (error) {
-        toast.error("Error revocando invitación");
+        toast.error(t("invites.revokeError"));
         return;
       }
 
-      toast.success("Invitación revocada exitosamente");
+      toast.success(t("invites.revokeSuccess"));
       fetchInvites();
     } catch (error) {
       console.error("Error revoking invite:", error);
-      toast.error("Error revocando invitación");
+      toast.error(t("invites.revokeError"));
     }
   }
 
   function copyInviteUrl(url: string) {
     navigator.clipboard.writeText(url).then(
       () => {
-        toast.success("Link copiado al portapapeles");
+        toast.success(t("invites.copySuccess"));
       },
       () => {
-        toast.error("Error copiando link");
+        toast.error(t("invites.copyError"));
       }
     );
   }
@@ -239,14 +245,16 @@ export default function InvitesPage() {
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Invitaciones</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {t("invites.title")}
+            </h1>
             <p className="text-muted-foreground">
-              Gestiona los links de invitación a tus cuentas
+              {t("invites.subtitle")}
             </p>
           </div>
 
           <Button onClick={() => setIsCreateDialogOpen(true)}>
-            Crear Invitación
+            {t("invites.createButton")}
           </Button>
         </div>
 
@@ -263,19 +271,21 @@ export default function InvitesPage() {
           <SlidePanelContent>
             <SlidePanelHeader>
               <SlidePanelTitle>
-                {createdInviteUrl ? "Invitación creada" : "Crear nueva invitación"}
+                {createdInviteUrl
+                  ? t("invites.createdTitle")
+                  : t("invites.createTitle")}
               </SlidePanelTitle>
               <SlidePanelDescription>
                 {createdInviteUrl
-                  ? "Copia este link y compártelo. No podrás verlo de nuevo."
-                  : "Genera un link de invitación para compartir acceso a tu cuenta"}
+                  ? t("invites.createdDescription")
+                  : t("invites.createDescription")}
               </SlidePanelDescription>
             </SlidePanelHeader>
             <SlidePanelBody>
               {createdInviteUrl ? (
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <Label>Link de Invitación</Label>
+                    <Label>{t("invites.linkLabel")}</Label>
                     <div className="flex gap-2">
                       <Input
                         value={createdInviteUrl}
@@ -286,11 +296,11 @@ export default function InvitesPage() {
                         onClick={() => copyInviteUrl(createdInviteUrl)}
                         variant="outline"
                       >
-                        Copiar
+                        {t("common.copy")}
                       </Button>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      ⚠️ Guarda este link ahora. Por seguridad, no podrás verlo de nuevo.
+                      {t("invites.warning")}
                     </p>
                   </div>
                 </div>
@@ -298,15 +308,15 @@ export default function InvitesPage() {
                 <div className="grid gap-4 py-4">
                 {accounts.length === 0 ? (
                   <div className="text-center py-4 text-muted-foreground">
-                    No tienes cuentas con permisos de admin para crear invitaciones.
+                    {t("invites.noAdminAccounts")}
                   </div>
                 ) : (
                   <>
                 <div className="grid gap-2">
-                  <Label htmlFor="account">Cuenta</Label>
+                  <Label htmlFor="account">{t("invites.accountLabel")}</Label>
                   <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecciona una cuenta" />
+                      <SelectValue placeholder={t("invites.selectAccountPlaceholder")} />
                     </SelectTrigger>
                     <SelectContent>
                       {accounts.map((account) => (
@@ -319,7 +329,7 @@ export default function InvitesPage() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="role">Rol</Label>
+                  <Label htmlFor="role">{t("invites.roleLabel")}</Label>
                   <Select
                     value={selectedRole}
                     onValueChange={(v: any) => setSelectedRole(v)}
@@ -328,17 +338,21 @@ export default function InvitesPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="viewer">Viewer (Solo lectura)</SelectItem>
-                      <SelectItem value="contributor">
-                        Contributor (Lectura + Edición)
+                      <SelectItem value="viewer">
+                        {t("invites.roleViewer")}
                       </SelectItem>
-                      <SelectItem value="admin">Admin (Acceso completo)</SelectItem>
+                      <SelectItem value="contributor">
+                        {t("invites.roleContributor")}
+                      </SelectItem>
+                      <SelectItem value="admin">
+                        {t("invites.roleAdmin")}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="expires">Expira en (horas)</Label>
+                  <Label htmlFor="expires">{t("invites.expiresInLabel")}</Label>
                   <Input
                     id="expires"
                     type="number"
@@ -351,15 +365,18 @@ export default function InvitesPage() {
 
                 <div className="grid gap-2">
                   <Label htmlFor="maxUses">
-                    Usos máximos (opcional, dejar vacío para ilimitado)
+                    {t("invites.maxUsesLabel")}
                   </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t("invites.maxUsesHelper")}
+                  </p>
                   <Input
                     id="maxUses"
                     type="number"
                     value={maxUses}
                     onChange={(e) => setMaxUses(e.target.value)}
                     min="1"
-                    placeholder="Ilimitado"
+                    placeholder={t("invites.maxUsesPlaceholder")}
                   />
                 </div>
                 </>
@@ -369,7 +386,9 @@ export default function InvitesPage() {
             </SlidePanelBody>
             <SlidePanelFooter>
               {createdInviteUrl ? (
-                <Button onClick={closeCreateDialog}>Cerrar</Button>
+                <Button onClick={closeCreateDialog}>
+                  {t("invites.closeButton")}
+                </Button>
               ) : (
                 <Button
                   onClick={() => {
@@ -382,7 +401,7 @@ export default function InvitesPage() {
                   }}
                   disabled={isCreating || !selectedAccountId || accounts.length === 0}
                 >
-                  {isCreating ? "Creando..." : "Crear Invitación"}
+                  {isCreating ? t("common.creating") : t("invites.createButton")}
                 </Button>
               )}
             </SlidePanelFooter>
@@ -396,50 +415,59 @@ export default function InvitesPage() {
             size="sm"
             onClick={() => setFilter("all")}
           >
-            Todas ({invites.length})
+            {t("invites.filterAll", { count: invites.length })}
           </Button>
           <Button
             variant={filter === "active" ? "default" : "outline"}
             size="sm"
             onClick={() => setFilter("active")}
           >
-            Activas (
-            {invites.filter((i) => getInviteStatus(i) === "active").length})
+            {t("invites.filterActive", {
+              count: invites.filter((i) => getInviteStatus(i) === "active").length,
+            })}
           </Button>
           <Button
             variant={filter === "expired" ? "default" : "outline"}
             size="sm"
             onClick={() => setFilter("expired")}
           >
-            Expiradas (
-            {invites.filter((i) => getInviteStatus(i) === "expired").length})
+            {t("invites.filterExpired", {
+              count: invites.filter((i) => getInviteStatus(i) === "expired").length,
+            })}
           </Button>
           <Button
             variant={filter === "revoked" ? "default" : "outline"}
             size="sm"
             onClick={() => setFilter("revoked")}
           >
-            Revocadas (
-            {invites.filter((i) => getInviteStatus(i) === "revoked").length})
+            {t("invites.filterRevoked", {
+              count: invites.filter((i) => getInviteStatus(i) === "revoked").length,
+            })}
           </Button>
         </div>
 
         {/* Invites list */}
         <Card>
           <CardHeader>
-            <CardTitle>Invitaciones</CardTitle>
+            <CardTitle>{t("invites.cardTitle")}</CardTitle>
             <CardDescription>
-              {filteredInvites.length} invitaciones encontradas
+              {t("invites.cardDescription", { count: filteredInvites.length })}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
               <div className="text-center py-8 text-muted-foreground">
-                Cargando...
+                {t("common.loading")}
               </div>
             ) : filteredInvites.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No hay invitaciones {filter !== "all" && filter + "s"}
+                {filter === "all"
+                  ? t("invites.emptyAll")
+                  : filter === "active"
+                  ? t("invites.emptyActive")
+                  : filter === "expired"
+                  ? t("invites.emptyExpired")
+                  : t("invites.emptyRevoked")}
               </div>
             ) : (
               <div className="space-y-4">
@@ -455,7 +483,8 @@ export default function InvitesPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">
-                            {(invite.account as any)?.name || "Cuenta desconocida"}
+                            {(invite.account as any)?.name ||
+                              t("invites.accountUnknown")}
                           </span>
                           <span
                             className={`px-2 py-1 text-xs rounded ${
@@ -467,19 +496,19 @@ export default function InvitesPage() {
                             }`}
                           >
                             {status === "active"
-                              ? "Activa"
+                              ? t("invites.statusActive")
                               : status === "expired"
-                              ? "Expirada"
-                              : "Revocada"}
+                              ? t("invites.statusExpired")
+                              : t("invites.statusRevoked")}
                           </span>
                           <span className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-700">
                             {invite.role}
                           </span>
                         </div>
                         <div className="text-sm text-muted-foreground mt-1">
-                          Expira:{" "}
+                          {t("invites.expiresLabel")}:{" "}
                           {new Date(invite.expires_at).toLocaleDateString()} •
-                          Usos: {invite.uses_count}/
+                          {t("invites.usesLabel")}: {invite.uses_count}/
                           {invite.max_uses || "∞"}
                         </div>
                       </div>
@@ -489,25 +518,26 @@ export default function InvitesPage() {
                           <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button size="sm" variant="destructive">
-                                  Revocar
+                                  {t("invites.revokeButton")}
                                 </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>
-                                    ¿Revocar invitación?
+                                    {t("invites.revokePromptTitle")}
                                   </AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Esta acción no se puede deshacer. El link de
-                                    invitación dejará de funcionar inmediatamente.
+                                    {t("invites.revokeDialogDescription")}
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogCancel>
+                                    {t("common.cancel")}
+                                  </AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() => revokeInvite(invite.id)}
                                   >
-                                    Revocar
+                                    {t("invites.revokeButton")}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>

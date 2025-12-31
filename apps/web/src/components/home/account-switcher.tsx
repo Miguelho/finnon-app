@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import {
   SlidePanel,
   SlidePanelBody,
@@ -31,6 +32,8 @@ export function AccountSwitcher({
   initialActiveAccountId,
 }: AccountSwitcherProps) {
   const router = useRouter();
+  const t = useTranslations();
+  const locale = useLocale();
   const [activeAccountId, setActiveAccountId] = useState(initialActiveAccountId);
   const [isOpen, setIsOpen] = useState(false);
   const lastSyncedAccountId = useRef<string | null>(null);
@@ -92,14 +95,14 @@ export function AccountSwitcher({
         className="inline-flex max-w-[260px] items-center gap-2 rounded-full border border-border bg-muted px-4 py-2 text-sm font-semibold text-foreground"
       >
         <span className="truncate">
-          {activeAccount?.name ?? "Cuenta"} · {activeAccount?.base_currency ?? ""} v
+          {activeAccount?.name ?? t("account.labelAccount")} · {activeAccount?.base_currency ?? ""} v
         </span>
       </button>
 
       <SlidePanel open={isOpen} onOpenChange={setIsOpen}>
         <SlidePanelContent>
           <SlidePanelHeader>
-            <SlidePanelTitle>Cuentas</SlidePanelTitle>
+            <SlidePanelTitle>{t("dashboard.accountsTitle")}</SlidePanelTitle>
           </SlidePanelHeader>
           <SlidePanelBody className="space-y-3">
             {accounts.map((account) => {
@@ -126,7 +129,7 @@ export function AccountSwitcher({
                       {account.name}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {account.base_currency} · {formatParticipantCount(account.memberCount)}
+                      {account.base_currency} · {formatParticipantCount(locale, account.memberCount)}
                     </p>
                   </div>
                   <span
@@ -137,7 +140,7 @@ export function AccountSwitcher({
                         : "border-border text-muted-foreground"
                     )}
                   >
-                    {isActive ? "Activa" : "Elegir"}
+                    {isActive ? t("dashboard.accountsActiveBadge") : t("dashboard.accountsSelectBadge")}
                   </span>
                 </button>
               );

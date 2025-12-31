@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -93,7 +93,9 @@ export function TransactionsClient({
 }: TransactionsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const tGlobal = useTranslations();
   const t = useTranslations("transactions");
+  const locale = useLocale();
   const [transactions, setTransactions] = useState(initialTransactions);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -198,10 +200,14 @@ export function TransactionsClient({
         });
         router.refresh();
       } else {
-        alert(result.error || "Error creating transaction");
+        alert(
+          result.error
+            ? tGlobal(result.error.key, result.error.params)
+            : t("createError")
+        );
       }
     } catch (error) {
-      alert("Error creating transaction");
+      alert(t("createError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -242,10 +248,14 @@ export function TransactionsClient({
         });
         router.refresh();
       } else {
-        alert(result.error || "Error updating transaction");
+        alert(
+          result.error
+            ? tGlobal(result.error.key, result.error.params)
+            : t("updateError")
+        );
       }
     } catch (error) {
-      alert("Error updating transaction");
+      alert(t("updateError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -267,10 +277,14 @@ export function TransactionsClient({
         setSelectedTransaction(null);
         router.refresh();
       } else {
-        alert(result.error || "Error deleting transaction");
+        alert(
+          result.error
+            ? tGlobal(result.error.key, result.error.params)
+            : t("deleteError")
+        );
       }
     } catch (error) {
-      alert("Error deleting transaction");
+      alert(t("deleteError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -308,7 +322,10 @@ export function TransactionsClient({
   // Helper function to get monthly context for a date
   const getMonthContext = (dateString: string) => {
     const date = new Date(dateString + "T00:00:00");
-    const monthName = date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const monthName = date.toLocaleDateString(locale, {
+      month: "long",
+      year: "numeric",
+    });
     const dateMonth = dateString.slice(0, 7);
     const isCurrent = dateMonth === currentMonth;
 
@@ -415,7 +432,10 @@ export function TransactionsClient({
           <CardHeader>
             <CardTitle>
               {t("transactionsFor", {
-                month: new Date(selectedMonth + "-01").toLocaleDateString("en-US", { month: "long", year: "numeric" })
+                month: new Date(selectedMonth + "-01").toLocaleDateString(locale, {
+                  month: "long",
+                  year: "numeric",
+                }),
               })}
             </CardTitle>
             <CardDescription>
@@ -453,7 +473,9 @@ export function TransactionsClient({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-baseline gap-2">
                             <span className="font-medium">
-                              {transaction.merchant || category?.name || "Uncategorized"}
+                              {transaction.merchant ||
+                                category?.name ||
+                                t("create.categoryNone")}
                             </span>
                             {transaction.merchant && category && (
                               <span className="text-sm text-muted-foreground">
@@ -631,7 +653,12 @@ export function TransactionsClient({
                       <SelectItem value="none">{t("create.categoryNone")}</SelectItem>
                       {availableCategories.length === 0 ? (
                         <SelectItem value="empty" disabled>
-                          {t("create.categoryEmpty", { type: formData.type })}
+                          {t("create.categoryEmpty", {
+                            type:
+                              formData.type === "income"
+                                ? t("income")
+                                : t("expenses"),
+                          })}
                         </SelectItem>
                       ) : (
                         availableCategories.map((cat) => (
@@ -807,7 +834,12 @@ export function TransactionsClient({
                       <SelectItem value="none">{t("create.categoryNone")}</SelectItem>
                       {availableCategories.length === 0 ? (
                         <SelectItem value="empty" disabled>
-                          {t("create.categoryEmpty", { type: formData.type })}
+                          {t("create.categoryEmpty", {
+                            type:
+                              formData.type === "income"
+                                ? t("income")
+                                : t("expenses"),
+                          })}
                         </SelectItem>
                       ) : (
                         availableCategories.map((cat) => (

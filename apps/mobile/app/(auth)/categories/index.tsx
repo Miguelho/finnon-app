@@ -14,6 +14,7 @@ import { useAuth } from "../../../src/contexts/AuthContext";
 import { Button } from "../../../src/components/Button";
 import { Card } from "../../../src/components/Card";
 import { getIconById } from "@poleursus/shared";
+import { useCopy, t } from "../../../src/lib/i18n";
 
 type Category = {
   id: string;
@@ -26,7 +27,8 @@ type Category = {
 
 export default function CategoriesScreen() {
   const router = useRouter();
-  const { user, selectedAccountId } = useAuth();
+  const { selectedAccountId } = useAuth();
+  const { dictionary } = useCopy();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +58,7 @@ export default function CategoriesScreen() {
       setCategories(data || []);
     } catch (e: any) {
       console.error("Error loading categories:", e);
-      setError(e?.message || "Failed to load categories");
+      setError(e?.message || t(dictionary, "categories.loadError"));
     } finally {
       setLoading(false);
     }
@@ -64,12 +66,12 @@ export default function CategoriesScreen() {
 
   const handleDelete = async (category: Category) => {
     Alert.alert(
-      "Delete Category",
-      `Are you sure you want to delete "${category.name}"?`,
+      t(dictionary, "categories.deleteConfirmTitle"),
+      t(dictionary, "categories.deleteConfirmDescription", { name: category.name }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t(dictionary, "common.cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: t(dictionary, "common.delete"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -82,7 +84,10 @@ export default function CategoriesScreen() {
 
               setCategories(categories.filter((c) => c.id !== category.id));
             } catch (e: any) {
-              Alert.alert("Error", e?.message || "Failed to delete category");
+              Alert.alert(
+                t(dictionary, "common.errorTitle"),
+                e?.message || t(dictionary, "categories.deleteError")
+              );
             }
           },
         },
@@ -104,8 +109,8 @@ export default function CategoriesScreen() {
   if (error) {
     return (
       <View style={styles.container}>
-        <Card title="Error" description={error}>
-          <Button title="Retry" onPress={loadCategories} />
+        <Card title={t(dictionary, "common.errorTitle")} description={error}>
+          <Button title={t(dictionary, "common.retry")} onPress={loadCategories} />
         </Card>
       </View>
     );
@@ -116,9 +121,9 @@ export default function CategoriesScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Categories</Text>
+          <Text style={styles.title}>{t(dictionary, "categories.title")}</Text>
           <Text style={styles.subtitle}>
-            Manage your income and expense categories
+            {t(dictionary, "categories.subtitle")}
           </Text>
         </View>
       </View>
@@ -126,11 +131,11 @@ export default function CategoriesScreen() {
       {/* Actions */}
       <View style={styles.actions}>
         <Button
-          title="Create Category"
+          title={t(dictionary, "categories.createTitle")}
           onPress={() => router.push("/(auth)/categories/create")}
         />
         <Button
-          title="Back"
+          title={t(dictionary, "common.back")}
           onPress={() => router.back()}
           variant="secondary"
         />
@@ -139,11 +144,13 @@ export default function CategoriesScreen() {
       {/* Expense Categories */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>
-          Expense Categories ({expenseCategories.length})
+          {t(dictionary, "categories.listExpenseTitle", {
+            count: expenseCategories.length,
+          })}
         </Text>
         {expenseCategories.length === 0 ? (
           <Text style={styles.emptyText}>
-            No expense categories yet. Create one to get started.
+            {t(dictionary, "categories.emptyExpense")}
           </Text>
         ) : (
           <View style={styles.list}>
@@ -162,13 +169,17 @@ export default function CategoriesScreen() {
                       }
                       style={styles.actionButton}
                     >
-                      <Text style={styles.actionButtonText}>Edit</Text>
+                      <Text style={styles.actionButtonText}>
+                        {t(dictionary, "common.edit")}
+                      </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleDelete(category)}
                       style={[styles.actionButton, styles.deleteButton]}
                     >
-                      <Text style={styles.deleteButtonText}>Delete</Text>
+                      <Text style={styles.deleteButtonText}>
+                        {t(dictionary, "common.delete")}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -181,11 +192,13 @@ export default function CategoriesScreen() {
       {/* Income Categories */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>
-          Income Categories ({incomeCategories.length})
+          {t(dictionary, "categories.listIncomeTitle", {
+            count: incomeCategories.length,
+          })}
         </Text>
         {incomeCategories.length === 0 ? (
           <Text style={styles.emptyText}>
-            No income categories yet. Create one to get started.
+            {t(dictionary, "categories.emptyIncome")}
           </Text>
         ) : (
           <View style={styles.list}>
@@ -204,13 +217,17 @@ export default function CategoriesScreen() {
                       }
                       style={styles.actionButton}
                     >
-                      <Text style={styles.actionButtonText}>Edit</Text>
+                      <Text style={styles.actionButtonText}>
+                        {t(dictionary, "common.edit")}
+                      </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleDelete(category)}
                       style={[styles.actionButton, styles.deleteButton]}
                     >
-                      <Text style={styles.deleteButtonText}>Delete</Text>
+                      <Text style={styles.deleteButtonText}>
+                        {t(dictionary, "common.delete")}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 </View>

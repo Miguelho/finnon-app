@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       if (error || !authUser) {
         console.log("Auth error with token:", error);
         return NextResponse.json(
-          { error: "Invalid or expired token" },
+          { errorKey: "errors.unauthorized" },
           { status: 401 }
         );
       }
@@ -61,14 +61,14 @@ export async function POST(request: NextRequest) {
 
     if (memberError || !membership) {
       return NextResponse.json(
-        { error: "Account not found or access denied" },
+        { errorKey: "errors.accountNotFoundOrDenied" },
         { status: 404 }
       );
     }
 
     if (membership.role !== "admin") {
       return NextResponse.json(
-        { error: "Only admins can create invites" },
+        { errorKey: "errors.inviteOnlyAdmins" },
         { status: 403 }
       );
     }
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       console.error("Error creating invite:", insertError);
       return NextResponse.json(
-        { error: "Failed to create invite" },
+        { errorKey: "errors.inviteCreateFailed" },
         { status: 500 }
       );
     }
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     // Handle authentication errors
     if (error instanceof Error && error.message === "No hay sesión activa válida") {
       return NextResponse.json(
-        { error: "Authentication required" },
+        { errorKey: "errors.authRequired" },
         { status: 401 }
       );
     }
@@ -128,13 +128,13 @@ export async function POST(request: NextRequest) {
     // Handle Zod validation errors
     if (error instanceof Error && error.name === "ZodError") {
       return NextResponse.json(
-        { error: "Invalid request data", details: error },
+        { errorKey: "errors.invalidRequest", details: error },
         { status: 400 }
       );
     }
 
     return NextResponse.json(
-      { error: "Internal server error" },
+      { errorKey: "errors.internalServer" },
       { status: 500 }
     );
   }

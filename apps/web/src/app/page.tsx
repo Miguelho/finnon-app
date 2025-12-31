@@ -9,8 +9,10 @@ import {
   buildHomeViewModel,
   CURRENCIES,
   formatMoneyWithSymbol,
+  getDictionary,
   getIconById,
   getMonthRange,
+  t,
   themeTokens,
   type UserRole,
 } from "@poleursus/shared";
@@ -37,6 +39,8 @@ export default async function DashboardPage() {
 
   const cookieStore = await cookies();
   const cookieAccountId = cookieStore.get("finnon:activeAccountId")?.value;
+  const locale = cookieStore.get("NEXT_LOCALE")?.value || "es";
+  const dictionary = getDictionary(locale);
   const mainAccount =
     accounts.find((account) => account.id === cookieAccountId) ?? accounts[0];
 
@@ -99,6 +103,7 @@ export default async function DashboardPage() {
       base_currency: mainAccount.base_currency,
     },
     role: mainAccountRole,
+    dictionary,
     obligations: [],
     monthlyTransactions: monthlyTransactions ?? [],
     recentTransactions: recentTransactions ?? [],
@@ -138,7 +143,7 @@ export default async function DashboardPage() {
           <div className="flex items-center gap-2">
             <AddAction canEdit={viewModel.permissions.canEdit} />
             <Button variant="outline" asChild>
-              <Link href="/settings">Ajustes</Link>
+              <Link href="/settings">{t(dictionary, "dashboard.settingsCta")}</Link>
             </Button>
           </div>
         </div>
@@ -151,7 +156,9 @@ export default async function DashboardPage() {
           }}
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-2xl font-semibold">Este mes</h1>
+            <h1 className="text-2xl font-semibold">
+              {t(dictionary, "dashboard.thisMonth")}
+            </h1>
           </div>
 
           <div className="mt-5 grid gap-4 md:grid-cols-3">
@@ -201,11 +208,11 @@ export default async function DashboardPage() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-xs text-muted-foreground">
-                    Próxima obligación
+                    {t(dictionary, "dashboard.nextObligation")}
                   </p>
                   <p className="text-sm font-semibold">
-                    {viewModel.monthlyHero.nextObligation.name} · {" "}
-                    {viewModel.monthlyHero.nextObligation.dueDate.toLocaleDateString("es-ES", {
+                    {viewModel.monthlyHero.nextObligation.name} ·{" "}
+                    {viewModel.monthlyHero.nextObligation.dueDate.toLocaleDateString(locale, {
                       day: "2-digit",
                       month: "short",
                     })}
@@ -263,7 +270,9 @@ export default async function DashboardPage() {
 
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold">Próximos 7 días</h2>
+            <h2 className="text-lg font-semibold">
+              {t(dictionary, "dashboard.upcomingTitle")}
+            </h2>
             {upcomingItems.length > 0 && (
               <Button variant="link" asChild>
                 <Link href="/transactions">{viewModel.copy.upcomingCta}</Link>
@@ -288,7 +297,7 @@ export default async function DashboardPage() {
                   <div>
                     <p className="text-sm font-semibold">{item.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {item.dueDate.toLocaleDateString("es-ES", {
+                      {item.dueDate.toLocaleDateString(locale, {
                         day: "2-digit",
                         month: "short",
                       })}
@@ -309,7 +318,9 @@ export default async function DashboardPage() {
 
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold">Actividad reciente</h2>
+            <h2 className="text-lg font-semibold">
+              {t(dictionary, "dashboard.recentActivityTitle")}
+            </h2>
             <Button variant="link" asChild>
               <Link href="/transactions">{viewModel.copy.recentCta}</Link>
             </Button>
@@ -338,7 +349,7 @@ export default async function DashboardPage() {
                       <div>
                         <p className="text-sm font-semibold">{item.title}</p>
                         <p className="text-xs text-muted-foreground">
-                          {item.date.toLocaleDateString("es-ES", {
+                          {item.date.toLocaleDateString(locale, {
                             day: "2-digit",
                             month: "short",
                           })}

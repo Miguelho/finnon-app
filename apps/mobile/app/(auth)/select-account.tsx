@@ -11,6 +11,7 @@ import { supabase } from "../../src/lib/supabase";
 import { Card } from "../../src/components/Card";
 import { useAuth } from "../../src/contexts/AuthContext";
 import { useRouter } from "expo-router";
+import { useCopy, t } from "../../src/lib/i18n";
 
 interface Account {
   id: string;
@@ -24,6 +25,7 @@ export default function SelectAccountScreen() {
   const [error, setError] = useState<string | null>(null);
   const { user, setSelectedAccountId } = useAuth();
   const router = useRouter();
+  const { dictionary } = useCopy();
 
   useEffect(() => {
     loadAccounts();
@@ -31,7 +33,7 @@ export default function SelectAccountScreen() {
 
   const loadAccounts = async () => {
     if (!user) {
-      setError("No user session found");
+      setError(t(dictionary, "mobile.selectAccount.noSessionError"));
       setLoading(false);
       return;
     }
@@ -53,7 +55,7 @@ export default function SelectAccountScreen() {
       setAccounts(accountsList);
     } catch (err) {
       console.error("Error loading accounts:", err);
-      setError(err instanceof Error ? err.message : "Error loading accounts");
+      setError(err instanceof Error ? err.message : t(dictionary, "mobile.selectAccount.loadError"));
     } finally {
       setLoading(false);
     }
@@ -76,9 +78,9 @@ export default function SelectAccountScreen() {
   if (error) {
     return (
       <View style={styles.container}>
-        <Card title="Error" description={error}>
+        <Card title={t(dictionary, "mobile.selectAccount.errorTitle")} description={error}>
           <Text style={styles.errorText}>
-            No se pudieron cargar las cuentas
+            {t(dictionary, "mobile.selectAccount.errorDescription")}
           </Text>
         </Card>
       </View>
@@ -88,8 +90,8 @@ export default function SelectAccountScreen() {
   return (
     <ScrollView contentContainerStyle={styles.scrollContent}>
       <Card
-        title="Selecciona una cuenta"
-        description="Elige la cuenta con la que deseas trabajar"
+        title={t(dictionary, "mobile.selectAccount.title")}
+        description={t(dictionary, "mobile.selectAccount.description")}
       >
         <View style={styles.accountsList}>
           {accounts.map((account) => (

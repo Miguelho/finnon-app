@@ -15,6 +15,7 @@ import { Input } from "../../src/components/Input";
 import { Button } from "../../src/components/Button";
 import { CURRENCIES } from "@poleursus/shared";
 import { useAuth } from "../../src/contexts/AuthContext";
+import { useCopy, t } from "../../src/lib/i18n";
 
 export default function OnboardingScreen() {
   const [accountName, setAccountName] = useState("");
@@ -23,10 +24,11 @@ export default function OnboardingScreen() {
   const [error, setError] = useState<string | null>(null);
   const { user, setSelectedAccountId } = useAuth();
   const router = useRouter();
+  const { dictionary } = useCopy();
 
   const handleCreateAccount = async () => {
     if (!accountName || !currency || !user) {
-      setError("Nombre de cuenta y moneda son requeridos");
+      setError(t(dictionary, "mobile.onboarding.errorRequired"));
       return;
     }
 
@@ -56,7 +58,9 @@ export default function OnboardingScreen() {
       router.replace("/");
     } catch (err) {
       console.error("Error creating account:", err);
-      setError(err instanceof Error ? err.message : "Error al crear la cuenta");
+      setError(
+        err instanceof Error ? err.message : t(dictionary, "mobile.onboarding.createError")
+      );
     } finally {
       setLoading(false);
     }
@@ -69,21 +73,21 @@ export default function OnboardingScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Card
-          title="Configura tu cuenta"
-          description="Crea tu primera cuenta para comenzar a gestionar tus finanzas"
+          title={t(dictionary, "mobile.onboarding.title")}
+          description={t(dictionary, "mobile.onboarding.description")}
         >
           <Input
-            label="Nombre de la cuenta"
+            label={t(dictionary, "mobile.onboarding.accountNameLabel")}
             value={accountName}
             onChangeText={setAccountName}
-            placeholder="Mi cuenta personal"
+            placeholder={t(dictionary, "mobile.onboarding.accountNamePlaceholder")}
             maxLength={255}
             disabled={loading}
-            helperText="Puedes cambiar esto más tarde"
+            helperText={t(dictionary, "mobile.onboarding.accountNameHelper")}
           />
 
           <View style={styles.pickerContainer}>
-            <Text style={styles.pickerLabel}>Moneda</Text>
+            <Text style={styles.pickerLabel}>{t(dictionary, "mobile.onboarding.currencyLabel")}</Text>
             <View style={styles.pickerWrapper}>
               <Picker
                 selectedValue={currency}
@@ -101,7 +105,7 @@ export default function OnboardingScreen() {
               </Picker>
             </View>
             <Text style={styles.helperText}>
-              Esta será la moneda base de tu cuenta
+              {t(dictionary, "mobile.onboarding.currencyHelper")}
             </Text>
           </View>
 
@@ -112,7 +116,7 @@ export default function OnboardingScreen() {
           )}
 
           <Button
-            title="Crear cuenta"
+            title={t(dictionary, "mobile.onboarding.submitButton")}
             onPress={handleCreateAccount}
             disabled={loading || !accountName}
             loading={loading}

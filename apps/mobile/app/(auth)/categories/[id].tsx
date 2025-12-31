@@ -16,6 +16,7 @@ import { Input } from "../../../src/components/Input";
 import { Card } from "../../../src/components/Card";
 import { IconPicker } from "../../../src/components/IconPicker";
 import type { CategoryType } from "@poleursus/shared";
+import { useCopy, t } from "../../../src/lib/i18n";
 
 type Category = {
   id: string;
@@ -36,6 +37,7 @@ export default function EditCategoryScreen() {
   const [type, setType] = useState<CategoryType>("expense");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { dictionary } = useCopy();
 
   useEffect(() => {
     loadCategory();
@@ -63,12 +65,16 @@ export default function EditCategoryScreen() {
       }
     } catch (e: any) {
       console.error("Error loading category:", e);
-      Alert.alert("Error", e?.message || "Failed to load category", [
-        {
-          text: "OK",
-          onPress: () => router.back(),
-        },
-      ]);
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        e?.message || t(dictionary, "categories.loadError"),
+        [
+          {
+            text: t(dictionary, "common.ok"),
+            onPress: () => router.back(),
+          },
+        ]
+      );
     } finally {
       setIsLoading(false);
     }
@@ -76,7 +82,10 @@ export default function EditCategoryScreen() {
 
   const handleUpdate = async () => {
     if (!name.trim()) {
-      Alert.alert("Error", "Please enter a category name");
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "categories.nameRequired")
+      );
       return;
     }
 
@@ -96,15 +105,22 @@ export default function EditCategoryScreen() {
 
       if (error) throw error;
 
-      Alert.alert("Success", "Category updated successfully", [
-        {
-          text: "OK",
-          onPress: () => router.back(),
-        },
-      ]);
+      Alert.alert(
+        t(dictionary, "common.successTitle"),
+        t(dictionary, "categories.updateSuccess"),
+        [
+          {
+            text: t(dictionary, "common.ok"),
+            onPress: () => router.back(),
+          },
+        ]
+      );
     } catch (e: any) {
       console.error("Error updating category:", e);
-      Alert.alert("Error", e?.message || "Failed to update category");
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        e?.message || t(dictionary, "categories.updateError")
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -121,8 +137,11 @@ export default function EditCategoryScreen() {
   if (!category) {
     return (
       <View style={styles.container}>
-        <Card title="Error" description="Category not found">
-          <Button title="Go Back" onPress={() => router.back()} />
+        <Card
+          title={t(dictionary, "categories.notFoundTitle")}
+          description={t(dictionary, "categories.notFoundDescription")}
+        >
+          <Button title={t(dictionary, "transactions.goBack")} onPress={() => router.back()} />
         </Card>
       </View>
     );
@@ -130,31 +149,34 @@ export default function EditCategoryScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Card title="Edit Category" description="Update the category details">
+      <Card
+        title={t(dictionary, "categories.editTitle")}
+        description={t(dictionary, "categories.editDescription")}
+      >
         <View style={styles.form}>
           <Input
-            label="Name"
+            label={t(dictionary, "categories.nameLabel")}
             value={name}
             onChangeText={setName}
-            placeholder="e.g., Groceries"
+            placeholder={t(dictionary, "categories.namePlaceholder")}
           />
 
           <View style={styles.field}>
-            <Text style={styles.label}>Type</Text>
+            <Text style={styles.label}>{t(dictionary, "categories.typeLabel")}</Text>
             <View style={styles.pickerContainer}>
               <Picker
                 selectedValue={type}
                 onValueChange={(value) => setType(value as CategoryType)}
                 style={styles.picker}
               >
-                <Picker.Item label="Expense" value="expense" />
-                <Picker.Item label="Income" value="income" />
+                <Picker.Item label={t(dictionary, "categories.expenseLabel")} value="expense" />
+                <Picker.Item label={t(dictionary, "categories.incomeLabel")} value="income" />
               </Picker>
             </View>
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Icon</Text>
+            <Text style={styles.label}>{t(dictionary, "categories.iconLabel")}</Text>
             <IconPicker
               value={iconId}
               onChange={setIconId}
@@ -165,7 +187,7 @@ export default function EditCategoryScreen() {
           <View style={styles.actions}>
             <View style={{ flex: 1 }}>
               <Button
-                title="Cancel"
+                title={t(dictionary, "common.cancel")}
                 onPress={() => router.back()}
                 variant="secondary"
                 disabled={isSubmitting}
@@ -173,7 +195,11 @@ export default function EditCategoryScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Button
-                title={isSubmitting ? "Saving..." : "Save Changes"}
+                title={
+                  isSubmitting
+                    ? t(dictionary, "common.saving")
+                    : t(dictionary, "transactions.saveChanges")
+                }
                 onPress={handleUpdate}
                 disabled={isSubmitting}
               />

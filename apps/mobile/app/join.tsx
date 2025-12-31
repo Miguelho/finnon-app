@@ -5,6 +5,7 @@ import { supabase } from "../src/lib/supabase";
 import { useAuth } from "../src/contexts/AuthContext";
 import { Card } from "../src/components/Card";
 import { Button } from "../src/components/Button";
+import { useCopy, t } from "../src/lib/i18n";
 
 type JoinState =
   | { status: "loading" }
@@ -16,13 +17,14 @@ export default function JoinScreen() {
   const router = useRouter();
   const { token } = useLocalSearchParams<{ token: string }>();
   const { setSelectedAccountId } = useAuth();
+  const { dictionary } = useCopy();
   const [state, setState] = useState<JoinState>({ status: "loading" });
 
   useEffect(() => {
     if (!token) {
       setState({
         status: "error",
-        message: "No se proporcionó token de invitación",
+        message: t(dictionary, "mobile.join.missingToken"),
       });
       return;
     }
@@ -47,8 +49,7 @@ export default function JoinScreen() {
             console.error("[Join] Anonymous auth failed:", anonError);
             setState({
               status: "error",
-              message:
-                "No se pudo crear sesión de invitado. Por favor intenta de nuevo.",
+              message: t(dictionary, "mobile.join.guestSessionError"),
             });
             return;
           }
@@ -72,7 +73,9 @@ export default function JoinScreen() {
           const errorData = await response.json();
           setState({
             status: "error",
-            message: errorData.error || "No se pudo aceptar la invitación",
+            message: errorData.errorKey
+              ? t(dictionary, errorData.errorKey, errorData.errorParams)
+              : t(dictionary, "mobile.join.acceptError"),
           });
           return;
         }
@@ -93,7 +96,7 @@ export default function JoinScreen() {
         console.error("[Join] Error:", error);
         setState({
           status: "error",
-          message: "Ocurrió un error inesperado",
+          message: t(dictionary, "mobile.join.unexpectedError"),
         });
       }
     }
@@ -105,8 +108,8 @@ export default function JoinScreen() {
     return (
       <View style={styles.container}>
         <Card
-          title="Uniéndote a la cuenta..."
-          description="Por favor espera mientras procesamos tu invitación"
+          title={t(dictionary, "mobile.join.loadingTitle")}
+          description={t(dictionary, "mobile.join.loadingDescription")}
         >
           <View style={styles.loading}>
             <ActivityIndicator size="large" color="#007AFF" />
@@ -119,9 +122,9 @@ export default function JoinScreen() {
   if (state.status === "error") {
     return (
       <View style={styles.container}>
-        <Card title="Error de invitación" description={state.message}>
+        <Card title={t(dictionary, "mobile.join.errorTitle")} description={state.message}>
           <Button
-            title="Ir al inicio de sesión"
+            title={t(dictionary, "mobile.join.loginCta")}
             onPress={() => router.replace("/(auth)/login")}
           />
         </Card>
@@ -133,10 +136,10 @@ export default function JoinScreen() {
     return (
       <View style={styles.container}>
         <Card
-          title="¡Éxito!"
-          description="Te has unido a la cuenta exitosamente"
+          title={t(dictionary, "mobile.join.successTitle")}
+          description={t(dictionary, "mobile.join.successDescription")}
         >
-          <Text style={styles.text}>Redirigiendo a inicio...</Text>
+          <Text style={styles.text}>{t(dictionary, "mobile.join.redirecting")}</Text>
           <View style={styles.loading}>
             <ActivityIndicator size="large" color="#007AFF" />
           </View>

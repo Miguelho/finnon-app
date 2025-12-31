@@ -18,6 +18,7 @@ import {
   formatMoneyWithSymbol,
   CURRENCIES,
 } from "@poleursus/shared";
+import { useCopy, t } from "../../../src/lib/i18n";
 
 type Category = {
   id: string;
@@ -45,6 +46,7 @@ type Transaction = {
 export default function TransactionsScreen(): React.JSX.Element {
   const router = useRouter();
   const { selectedAccountId } = useAuth();
+  const { dictionary } = useCopy();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [baseCurrency, setBaseCurrency] = useState("EUR");
   const [loading, setLoading] = useState(true);
@@ -96,7 +98,7 @@ export default function TransactionsScreen(): React.JSX.Element {
       setTransactions(data || []);
     } catch (e: any) {
       console.error("Error loading transactions:", e);
-      setError(e?.message || "Failed to load transactions");
+      setError(e?.message || t(dictionary, "transactions.loadError"));
     } finally {
       setLoading(false);
     }
@@ -104,12 +106,12 @@ export default function TransactionsScreen(): React.JSX.Element {
 
   const handleDelete = async (transaction: Transaction) => {
     Alert.alert(
-      "Delete Transaction",
-      "Are you sure you want to delete this transaction?",
+      t(dictionary, "transactions.deleteConfirmTitle"),
+      t(dictionary, "transactions.deleteConfirmDescription"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t(dictionary, "common.cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: t(dictionary, "common.delete"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -122,7 +124,10 @@ export default function TransactionsScreen(): React.JSX.Element {
 
               setTransactions(transactions.filter((t) => t.id !== transaction.id));
             } catch (e: any) {
-              Alert.alert("Error", e?.message || "Failed to delete transaction");
+              Alert.alert(
+                t(dictionary, "common.errorTitle"),
+                e?.message || t(dictionary, "transactions.deleteError")
+              );
             }
           },
         },
@@ -181,7 +186,7 @@ export default function TransactionsScreen(): React.JSX.Element {
   // Format month for display
   const formatMonth = (monthStr: string) => {
     const date = new Date(monthStr + "-01");
-    return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    return date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
   };
 
   if (loading) {
@@ -195,8 +200,8 @@ export default function TransactionsScreen(): React.JSX.Element {
   if (error) {
     return (
       <View style={styles.container}>
-        <Card title="Error" description={error}>
-          <Button title="Retry" onPress={loadData} />
+        <Card title={t(dictionary, "common.errorTitle")} description={error}>
+          <Button title={t(dictionary, "common.retry")} onPress={loadData} />
         </Card>
       </View>
     );
@@ -206,35 +211,35 @@ export default function TransactionsScreen(): React.JSX.Element {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Transactions</Text>
-        <Text style={styles.subtitle}>Track your income and expenses</Text>
+        <Text style={styles.title}>{t(dictionary, "transactions.pageTitle")}</Text>
+        <Text style={styles.subtitle}>{t(dictionary, "transactions.pageDescription")}</Text>
       </View>
 
       {/* Actions */}
       <View style={styles.actions}>
         <Button
-          title="New Transaction"
+          title={t(dictionary, "transactions.newTransaction")}
           onPress={() => router.push("/(auth)/transactions/create")}
         />
         <Button
-          title="Back"
+          title={t(dictionary, "common.back")}
           onPress={() => router.back()}
           variant="secondary"
         />
       </View>
 
       {/* Month Selector */}
-      <Card title="Filter by Month">
+      <Card title={t(dictionary, "transactions.filterByMonth")}>
         <View style={styles.monthSelector}>
           <TouchableOpacity
             onPress={goToPreviousMonth}
             style={styles.monthButton}
           >
-            <Text style={styles.monthButtonText}>← Prev</Text>
+            <Text style={styles.monthButtonText}>{t(dictionary, "transactions.previousMonth")}</Text>
           </TouchableOpacity>
           <Text style={styles.monthText}>{formatMonth(selectedMonth)}</Text>
           <TouchableOpacity onPress={goToNextMonth} style={styles.monthButton}>
-            <Text style={styles.monthButtonText}>Next →</Text>
+            <Text style={styles.monthButtonText}>{t(dictionary, "transactions.nextMonth")}</Text>
           </TouchableOpacity>
         </View>
       </Card>
@@ -242,7 +247,7 @@ export default function TransactionsScreen(): React.JSX.Element {
       {/* Monthly Summary */}
       <View style={styles.summaryContainer}>
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Income</Text>
+          <Text style={styles.summaryLabel}>{t(dictionary, "transactions.income")}</Text>
           <Text style={[styles.summaryValue, styles.incomeText]}>
             {formatMoneyWithSymbol(
               monthlySummary.income,
@@ -253,7 +258,7 @@ export default function TransactionsScreen(): React.JSX.Element {
         </View>
 
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Expenses</Text>
+          <Text style={styles.summaryLabel}>{t(dictionary, "transactions.expenses")}</Text>
           <Text style={[styles.summaryValue, styles.expenseText]}>
             {formatMoneyWithSymbol(
               monthlySummary.expense,
@@ -264,7 +269,7 @@ export default function TransactionsScreen(): React.JSX.Element {
         </View>
 
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Balance</Text>
+          <Text style={styles.summaryLabel}>{t(dictionary, "transactions.balance")}</Text>
           <Text
             style={[
               styles.summaryValue,
@@ -288,12 +293,14 @@ export default function TransactionsScreen(): React.JSX.Element {
       {/* Transactions List */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>
-          Transactions ({filteredTransactions.length})
+          {t(dictionary, "transactions.listTitle", {
+            count: filteredTransactions.length,
+          })}
         </Text>
 
         {filteredTransactions.length === 0 ? (
           <Text style={styles.emptyText}>
-            No transactions for this month. Create one to get started.
+            {t(dictionary, "transactions.emptyList")}
           </Text>
         ) : (
           <View style={styles.list}>
@@ -306,7 +313,9 @@ export default function TransactionsScreen(): React.JSX.Element {
                 currencySymbol
               );
               const displayName =
-                transaction.merchant || category?.name || "Uncategorized";
+                transaction.merchant ||
+                category?.name ||
+                t(dictionary, "transactions.uncategorized");
 
               return (
                 <View key={transaction.id} style={styles.transactionItem}>
@@ -345,13 +354,17 @@ export default function TransactionsScreen(): React.JSX.Element {
                         }
                         style={styles.actionButton}
                       >
-                        <Text style={styles.actionButtonText}>Edit</Text>
+                        <Text style={styles.actionButtonText}>
+                          {t(dictionary, "transactions.editActionShort")}
+                        </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => handleDelete(transaction)}
                         style={[styles.actionButton, styles.deleteButton]}
                       >
-                        <Text style={styles.deleteButtonText}>Del</Text>
+                        <Text style={styles.deleteButtonText}>
+                          {t(dictionary, "transactions.deleteActionShort")}
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   </View>

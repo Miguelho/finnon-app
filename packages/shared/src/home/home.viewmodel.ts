@@ -5,7 +5,8 @@ import type {
   Transaction,
   UserRole,
 } from "../domain/types";
-import { homeCopy } from "../copy/home";
+import type { CopyDictionary } from "../copy";
+import { t } from "../copy";
 import {
   computeMonthlySummary,
   getMonthRange,
@@ -67,6 +68,7 @@ export type HomeViewModel = {
 export type BuildHomeViewModelInput = {
   account: Account;
   role: UserRole;
+  dictionary: CopyDictionary;
   participants?: Participant[];
   obligations?: Obligation[];
   monthlyTransactions?: Transaction[];
@@ -92,6 +94,7 @@ const toMonthKey = (date: Date) => {
 export function buildHomeViewModel({
   account,
   role,
+  dictionary,
   obligations = [],
   monthlyTransactions = [],
   recentTransactions,
@@ -122,14 +125,17 @@ export function buildHomeViewModel({
   const recentItems = getRecentActivity(
     recentTransactions ?? monthlyTransactions,
     recentLimit,
-    account.base_currency
+    account.base_currency,
+    t(dictionary, "home.recentFallbackTitle")
   );
 
   const hasObligations = monthlySummary.obligationsCount > 0;
   const hasActivity = monthlySummary.activityCount > 0;
   const isGuestReadOnly = role === "viewer";
 
-  const paidLabel = hasObligations ? homeCopy.paidLabel : homeCopy.registeredLabel;
+  const paidLabel = hasObligations
+    ? t(dictionary, "home.paidLabel")
+    : t(dictionary, "home.registeredLabel");
   const paidMinor = hasObligations
     ? monthlySummary.paidMinor
     : monthlySummary.registeredMinor;
@@ -155,29 +161,29 @@ export function buildHomeViewModel({
     },
     emptyStates: {
       obligations: {
-        title: homeCopy.emptyObligationsTitle,
-        cta: homeCopy.emptyObligationsCta,
+        title: t(dictionary, "home.emptyObligationsTitle"),
+        cta: t(dictionary, "home.emptyObligationsCta"),
       },
       activity: {
-        title: homeCopy.emptyActivityTitle,
-        cta: homeCopy.emptyActivityCta,
+        title: t(dictionary, "home.emptyActivityTitle"),
+        cta: t(dictionary, "home.emptyActivityCta"),
       },
-      upcoming: homeCopy.upcomingEmpty,
-      recent: homeCopy.recentEmpty,
+      upcoming: t(dictionary, "home.upcomingEmpty"),
+      recent: t(dictionary, "home.recentEmpty"),
     },
     permissions: {
       isGuestReadOnly,
       canEdit: !isGuestReadOnly,
     },
     copy: {
-      guestBadge: homeCopy.guestBadge,
-      guestBlurb: homeCopy.guestBlurb,
-      guestCta: homeCopy.guestCta,
-      addCta: homeCopy.addCta,
-      upcomingCta: homeCopy.upcomingCta,
-      recentCta: homeCopy.recentCta,
-      committedLabel: homeCopy.committedLabel,
-      pendingLabel: homeCopy.pendingLabel,
+      guestBadge: t(dictionary, "home.guestBadge"),
+      guestBlurb: t(dictionary, "home.guestBlurb"),
+      guestCta: t(dictionary, "home.guestCta"),
+      addCta: t(dictionary, "home.addCta"),
+      upcomingCta: t(dictionary, "home.upcomingCta"),
+      recentCta: t(dictionary, "home.recentCta"),
+      committedLabel: t(dictionary, "home.committedLabel"),
+      pendingLabel: t(dictionary, "home.pendingLabel"),
     },
   };
 }

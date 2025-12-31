@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -63,6 +64,7 @@ export function CategoriesClient({
   role,
 }: CategoriesClientProps) {
   const router = useRouter();
+  const t = useTranslations();
   const [categories, setCategories] = useState(initialCategories);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -97,10 +99,14 @@ export function CategoriesClient({
         setFormData({ name: "", icon_id: "general", type: "expense" });
         router.refresh();
       } else {
-        alert(result.error || "Error creating category");
+        alert(
+          result.error
+            ? t(result.error.key, result.error.params)
+            : t("categories.createError")
+        );
       }
     } catch (error) {
-      alert("Error creating category");
+      alert(t("categories.createError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -129,10 +135,14 @@ export function CategoriesClient({
         setFormData({ name: "", icon_id: "general", type: "expense" });
         router.refresh();
       } else {
-        alert(result.error || "Error updating category");
+        alert(
+          result.error
+            ? t(result.error.key, result.error.params)
+            : t("categories.updateError")
+        );
       }
     } catch (error) {
-      alert("Error updating category");
+      alert(t("categories.updateError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -152,10 +162,14 @@ export function CategoriesClient({
         setSelectedCategory(null);
         router.refresh();
       } else {
-        alert(result.error || "Error deleting category");
+        alert(
+          result.error
+            ? t(result.error.key, result.error.params)
+            : t("categories.deleteError")
+        );
       }
     } catch (error) {
-      alert("Error deleting category");
+      alert(t("categories.deleteError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -187,22 +201,22 @@ export function CategoriesClient({
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Categories</h1>
-            <p className="text-muted-foreground">
-              Manage your income and expense categories
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {t("categories.title")}
+            </h1>
+            <p className="text-muted-foreground">{t("categories.subtitle")}</p>
             {!canEdit && (
               <p className="text-sm text-muted-foreground">
-                Read-only access. Ask the account owner to grant edit permissions.
+                {t("categories.readOnlyNotice")}
               </p>
             )}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => router.push("/")}>
-              Back to Dashboard
+              {t("categories.backToDashboard")}
             </Button>
             <Button onClick={() => setIsCreateOpen(true)} disabled={!canEdit}>
-              Create Category
+              {t("categories.createTitle")}
             </Button>
           </div>
         </div>
@@ -212,17 +226,17 @@ export function CategoriesClient({
           {/* Expense Categories */}
           <Card>
             <CardHeader>
-              <CardTitle>Expense Categories</CardTitle>
+              <CardTitle>{t("categories.expenseTitle")}</CardTitle>
               <CardDescription>
-                {expenseCategories.length} categories
+                {t("categories.countLabel", { count: expenseCategories.length })}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {expenseCategories.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   {canEdit
-                    ? "No expense categories yet. Create one to get started."
-                    : "No expense categories yet."}
+                    ? t("categories.emptyExpense")
+                    : t("categories.emptyExpenseReadOnly")}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -244,14 +258,14 @@ export function CategoriesClient({
                               size="sm"
                               onClick={() => openEditDialog(category)}
                             >
-                              Edit
+                              {t("common.edit")}
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => openDeleteDialog(category)}
                             >
-                              Delete
+                              {t("common.delete")}
                             </Button>
                           </div>
                         )}
@@ -266,17 +280,17 @@ export function CategoriesClient({
           {/* Income Categories */}
           <Card>
             <CardHeader>
-              <CardTitle>Income Categories</CardTitle>
+              <CardTitle>{t("categories.incomeTitle")}</CardTitle>
               <CardDescription>
-                {incomeCategories.length} categories
+                {t("categories.countLabel", { count: incomeCategories.length })}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {incomeCategories.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   {canEdit
-                    ? "No income categories yet. Create one to get started."
-                    : "No income categories yet."}
+                    ? t("categories.emptyIncome")
+                    : t("categories.emptyIncomeReadOnly")}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -298,14 +312,14 @@ export function CategoriesClient({
                               size="sm"
                               onClick={() => openEditDialog(category)}
                             >
-                              Edit
+                              {t("common.edit")}
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => openDeleteDialog(category)}
                             >
-                              Delete
+                              {t("common.delete")}
                             </Button>
                           </div>
                         )}
@@ -323,26 +337,26 @@ export function CategoriesClient({
           <SlidePanel open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <SlidePanelContent>
             <SlidePanelHeader>
-              <SlidePanelTitle>Create Category</SlidePanelTitle>
+              <SlidePanelTitle>{t("categories.createTitle")}</SlidePanelTitle>
               <SlidePanelDescription>
-                Add a new category to organize your transactions
+                {t("categories.createDescription")}
               </SlidePanelDescription>
             </SlidePanelHeader>
             <SlidePanelBody>
               <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name">{t("categories.nameLabel")}</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  placeholder="e.g., Groceries"
+                  placeholder={t("categories.namePlaceholder")}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="type">Type</Label>
+                <Label htmlFor="type">{t("categories.typeLabel")}</Label>
                 <Select
                   value={formData.type}
                   onValueChange={(value: CategoryType) =>
@@ -353,13 +367,17 @@ export function CategoriesClient({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="expense">Expense</SelectItem>
-                    <SelectItem value="income">Income</SelectItem>
+                    <SelectItem value="expense">
+                      {t("categories.expenseLabel")}
+                    </SelectItem>
+                    <SelectItem value="income">
+                      {t("categories.incomeLabel")}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Icon</Label>
+                <Label>{t("categories.iconLabel")}</Label>
                 <IconPicker
                   value={formData.icon_id}
                   onChange={(iconId) =>
@@ -376,10 +394,10 @@ export function CategoriesClient({
                 onClick={() => setIsCreateOpen(false)}
                 disabled={isSubmitting}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button onClick={handleCreate} disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create"}
+                {isSubmitting ? t("common.creating") : t("common.create")}
               </Button>
             </SlidePanelFooter>
             </SlidePanelContent>
@@ -391,15 +409,15 @@ export function CategoriesClient({
           <SlidePanel open={isEditOpen} onOpenChange={setIsEditOpen}>
             <SlidePanelContent>
             <SlidePanelHeader>
-              <SlidePanelTitle>Edit Category</SlidePanelTitle>
+              <SlidePanelTitle>{t("categories.editTitle")}</SlidePanelTitle>
               <SlidePanelDescription>
-                Update the category details
+                {t("categories.editDescription")}
               </SlidePanelDescription>
             </SlidePanelHeader>
             <SlidePanelBody>
               <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-name">Name</Label>
+                <Label htmlFor="edit-name">{t("categories.nameLabel")}</Label>
                 <Input
                   id="edit-name"
                   value={formData.name}
@@ -409,7 +427,7 @@ export function CategoriesClient({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-type">Type</Label>
+                <Label htmlFor="edit-type">{t("categories.typeLabel")}</Label>
                 <Select
                   value={formData.type}
                   onValueChange={(value: CategoryType) =>
@@ -420,13 +438,17 @@ export function CategoriesClient({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="expense">Expense</SelectItem>
-                    <SelectItem value="income">Income</SelectItem>
+                    <SelectItem value="expense">
+                      {t("categories.expenseLabel")}
+                    </SelectItem>
+                    <SelectItem value="income">
+                      {t("categories.incomeLabel")}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Icon</Label>
+                <Label>{t("categories.iconLabel")}</Label>
                 <IconPicker
                   value={formData.icon_id}
                   onChange={(iconId) =>
@@ -443,10 +465,10 @@ export function CategoriesClient({
                 onClick={() => setIsEditOpen(false)}
                 disabled={isSubmitting}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button onClick={handleEdit} disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save Changes"}
+                {isSubmitting ? t("common.saving") : t("common.saveChanges")}
               </Button>
             </SlidePanelFooter>
             </SlidePanelContent>
@@ -458,18 +480,19 @@ export function CategoriesClient({
           <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
             <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogTitle>{t("categories.deleteConfirmTitle")}</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete the category &quot;
-                {selectedCategory?.name}&quot;. This action cannot be undone.
+                {t("categories.deleteConfirmDescription", {
+                  name: selectedCategory?.name ?? "",
+                })}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={isSubmitting}>
-                Cancel
+                {t("common.cancel")}
               </AlertDialogCancel>
               <AlertDialogAction onClick={handleDelete} disabled={isSubmitting}>
-                {isSubmitting ? "Deleting..." : "Delete"}
+                {isSubmitting ? t("common.deleting") : t("common.delete")}
               </AlertDialogAction>
             </AlertDialogFooter>
             </AlertDialogContent>

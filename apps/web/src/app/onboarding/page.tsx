@@ -17,6 +17,7 @@ import { CURRENCIES } from "@poleursus/shared";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 
 export default function OnboardingPage() {
+  const tGlobal = useTranslations();
   const t = useTranslations("onboarding");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,15 +32,15 @@ export default function OnboardingPage() {
       const result = await createAccountAction(formData);
 
       if (result?.error) {
-        setError(result.error);
+        setError(
+          tGlobal(result.error.key, result.error.params)
+        );
         setLoading(false);
       }
       // Si no hay error, el redirect se manejará en la action
     } catch (err) {
       console.error("Error creating account:", err);
-      setError(
-        err instanceof Error ? err.message : "Error al crear la cuenta"
-      );
+      setError(t("createError"));
       setLoading(false);
     }
   };

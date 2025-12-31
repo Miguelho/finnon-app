@@ -8,7 +8,7 @@ export async function createAccountAction(formData: FormData) {
   const currency = formData.get("currency") as string;
 
   if (!accountName || !currency) {
-    return { error: "Nombre de cuenta y moneda son requeridos" };
+    return { error: { key: "errors.onboardingMissingFields" } };
   }
 
   const supabase = await createClient();
@@ -17,7 +17,7 @@ export async function createAccountAction(formData: FormData) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { error: "No hay sesión activa" };
+    return { error: { key: "errors.noSession" } };
   }
 
   console.log("Creating account for user:", user.id);
@@ -35,7 +35,7 @@ export async function createAccountAction(formData: FormData) {
 
   if (accountError) {
     console.error("Error creating account:", accountError);
-    return { error: accountError.message };
+    return { error: { key: "errors.internalServer" } };
   }
 
   console.log("Account created successfully:", account.id);

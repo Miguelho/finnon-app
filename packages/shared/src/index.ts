@@ -11,7 +11,7 @@ export * from "./domain/types";
 export * from "./home/home.compute";
 export * from "./home/home.viewmodel";
 export * from "./theme/tokens";
-export * from "./copy/home";
+export * from "./copy";
 
 // Note: utils/invite.ts contains Node.js crypto APIs
 // Import directly only in server-side code:

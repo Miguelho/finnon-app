@@ -4,9 +4,11 @@ import { Redirect } from "expo-router";
 import { supabase } from "../src/lib/supabase";
 import { useAuth } from "../src/contexts/AuthContext";
 import { Button } from "../src/components/Button";
+import { useCopy, t } from "../src/lib/i18n";
 
 export default function IndexGateAndHome() {
   const { session, user, signOut, loading: authLoading, isInitialized, selectedAccountId } = useAuth();
+  const { dictionary } = useCopy();
 
   const [accountCount, setAccountCount] = useState<number | null>(null);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
@@ -99,12 +101,20 @@ export default function IndexGateAndHome() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Bienvenido a Finnon</Text>
-      <Text style={styles.text}>Email: {user?.email}</Text>
-      <Text style={styles.text}>ID: {user?.id}</Text>
+      <Text style={styles.title}>{t(dictionary, "mobile.index.title")}</Text>
+      <Text style={styles.text}>
+        {t(dictionary, "mobile.index.emailLabel")} {user?.email}
+      </Text>
+      <Text style={styles.text}>
+        {t(dictionary, "mobile.index.idLabel")} {user?.id}
+      </Text>
 
       <View style={styles.buttonContainer}>
-        <Button title="Cerrar sesión" onPress={handleSignOut} variant="secondary" />
+        <Button
+          title={t(dictionary, "dashboard.signOut")}
+          onPress={handleSignOut}
+          variant="secondary"
+        />
       </View>
     </View>
   );

@@ -17,13 +17,12 @@ import {
   buildHomeViewModel,
   CURRENCIES,
   formatMoneyWithSymbol,
-  formatParticipantCount,
   getIconById,
   getMonthRange,
-  homeCopy,
   themeTokens,
   type UserRole,
 } from "@poleursus/shared";
+import { useCopy, t, formatParticipantCount } from "../../src/lib/i18n";
 
 type AccountMember = {
   account_id: string;
@@ -63,8 +62,8 @@ type Transaction = {
 const tokens = themeTokens.light;
 const colors = tokens.colors;
 
-function formatDateShort(value: Date) {
-  return value.toLocaleDateString("es-ES", {
+function formatDateShort(value: Date, locale: string) {
+  return value.toLocaleDateString(locale, {
     day: "2-digit",
     month: "short",
   });
@@ -107,6 +106,7 @@ function HomeSheet({
 export default function HomeScreen() {
   const router = useRouter();
   const { user, session, selectedAccountId, setSelectedAccountId } = useAuth();
+  const { dictionary, locale } = useCopy();
 
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [membersByAccountId, setMembersByAccountId] = useState<
@@ -194,7 +194,9 @@ export default function HomeScreen() {
         }
       } catch (e: any) {
         console.error("[Home] Error loading accounts:", e);
-        if (!cancelled) setError(e?.message ?? "Error loading accounts");
+        if (!cancelled) {
+          setError(e?.message ?? t(dictionary, "mobile.home.errorLoadAccounts"));
+        }
       } finally {
         if (!cancelled) setLoadingAccounts(false);
       }
@@ -257,7 +259,9 @@ export default function HomeScreen() {
         }
       } catch (e: any) {
         console.error("[Home] Error loading transactions:", e);
-        if (!cancelled) setError(e?.message ?? "Error loading transactions");
+        if (!cancelled) {
+          setError(e?.message ?? t(dictionary, "mobile.home.errorLoadTransactions"));
+        }
       } finally {
         if (!cancelled) setLoadingTransactions(false);
       }
@@ -289,11 +293,11 @@ export default function HomeScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.errorCard}>
-          <Text style={styles.errorTitle}>Error</Text>
+          <Text style={styles.errorTitle}>{t(dictionary, "common.errorTitle")}</Text>
           <Text style={styles.errorText}>{error}</Text>
           <View style={{ height: tokens.spacing.md }} />
           <Button
-            title="Reintentar"
+            title={t(dictionary, "mobile.home.retry")}
             onPress={() => {
               setError(null);
               router.replace("/(auth)/home");
@@ -328,6 +332,7 @@ export default function HomeScreen() {
   const viewModel = buildHomeViewModel({
     account: mainAccount,
     role: activeRole,
+    dictionary,
     obligations: [],
     monthlyTransactions,
     recentTransactions,
@@ -364,14 +369,16 @@ export default function HomeScreen() {
             style={styles.profileButton}
             onPress={() => router.push("/(auth)/settings")}
           >
-            <Text style={styles.profileButtonText}>Ajustes</Text>
+            <Text style={styles.profileButtonText}>
+              {t(dictionary, "mobile.home.settingsTitle")}
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Hero */}
         <View style={styles.heroCard}>
           <View style={styles.heroHeader}>
-            <Text style={styles.heroTitle}>Este mes</Text>
+            <Text style={styles.heroTitle}>{t(dictionary, "mobile.home.monthTitle")}</Text>
           </View>
 
           <View style={styles.heroMetrics}>
@@ -418,7 +425,7 @@ export default function HomeScreen() {
               <Text style={styles.nextObligationLabel}>Próxima obligación</Text>
               <Text style={styles.nextObligationValue} numberOfLines={1}>
                 {viewModel.monthlyHero.nextObligation.name} · {" "}
-                {formatDateShort(viewModel.monthlyHero.nextObligation.dueDate)} · {" "}
+                {formatDateShort(viewModel.monthlyHero.nextObligation.dueDate, locale)} ·{" "}
                 {formatMoneyWithSymbol(
                   viewModel.monthlyHero.nextObligation.amountMinor,
                   mainAccount.base_currency,
@@ -496,7 +503,7 @@ export default function HomeScreen() {
                       {item.name}
                     </Text>
                     <Text style={styles.listRowMeta}>
-                      {formatDateShort(item.dueDate)}
+                      {formatDateShort(item.dueDate, locale)}
                     </Text>
                   </View>
                   <Text style={styles.listRowAmount}>
@@ -540,7 +547,7 @@ export default function HomeScreen() {
                         </Text>
                       </View>
                       <Text style={styles.listRowMeta}>
-                        {formatDateShort(item.date)}
+                        {formatDateShort(item.date, locale)}
                       </Text>
                     </View>
                     <Text
@@ -581,7 +588,7 @@ export default function HomeScreen() {
       <HomeSheet
         visible={isAccountSheetOpen}
         onClose={() => setIsAccountSheetOpen(false)}
-        title="Cuentas"
+        title={t(dictionary, "mobile.home.accountsTitle")}
       >
         <View style={styles.sheetList}>
           {accounts.map((account) => {
@@ -602,7 +609,7 @@ export default function HomeScreen() {
                 <View style={styles.sheetRowInfo}>
                   <Text style={styles.sheetRowTitle}>{account.name}</Text>
                   <Text style={styles.sheetRowMeta}>
-                    {account.base_currency} · {formatParticipantCount(memberCount)}
+                    {account.base_currency} · {formatParticipantCount(locale, memberCount)}
                   </Text>
                 </View>
                 <View
@@ -617,7 +624,9 @@ export default function HomeScreen() {
                       isActive && styles.sheetBadgeTextActive,
                     ]}
                   >
-                    {isActive ? "Activa" : "Elegir"}
+                    {isActive
+                      ? t(dictionary, "mobile.home.activeBadge")
+                      : t(dictionary, "mobile.home.selectBadge")}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -630,10 +639,10 @@ export default function HomeScreen() {
       <HomeSheet
         visible={isAddSheetOpen}
         onClose={() => setIsAddSheetOpen(false)}
-        title="Añadir"
+        title={t(dictionary, "mobile.home.addTitle")}
       >
         {viewModel.permissions.isGuestReadOnly && (
-          <Text style={styles.sheetNotice}>{homeCopy.guestBlurb}</Text>
+          <Text style={styles.sheetNotice}>{viewModel.copy.guestBlurb}</Text>
         )}
         <View style={styles.sheetActions}>
           <TouchableOpacity
@@ -647,9 +656,11 @@ export default function HomeScreen() {
               router.push("/(auth)/transactions/create?type=expense");
             }}
           >
-            <Text style={styles.sheetActionTitle}>Añadir gasto</Text>
+            <Text style={styles.sheetActionTitle}>
+              {t(dictionary, "mobile.home.addExpenseTitle")}
+            </Text>
             <Text style={styles.sheetActionMeta}>
-              Registra un pago del día a día.
+              {t(dictionary, "mobile.home.addExpenseDescription")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -663,9 +674,11 @@ export default function HomeScreen() {
               router.push("/(auth)/transactions/create?type=income");
             }}
           >
-            <Text style={styles.sheetActionTitle}>Añadir ingreso</Text>
+            <Text style={styles.sheetActionTitle}>
+              {t(dictionary, "mobile.home.addIncomeTitle")}
+            </Text>
             <Text style={styles.sheetActionMeta}>
-              Suma un ingreso a tu mes.
+              {t(dictionary, "mobile.home.addIncomeDescription")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -679,9 +692,11 @@ export default function HomeScreen() {
               router.push("/(auth)/transactions/create?type=expense&kind=obligation");
             }}
           >
-            <Text style={styles.sheetActionTitle}>Añadir obligación</Text>
+            <Text style={styles.sheetActionTitle}>
+              {t(dictionary, "mobile.home.addObligationTitle")}
+            </Text>
             <Text style={styles.sheetActionMeta}>
-              Programa un pago recurrente.
+              {t(dictionary, "mobile.home.addObligationDescription")}
             </Text>
           </TouchableOpacity>
         </View>

@@ -146,7 +146,8 @@ export function getUpcomingItems(
 export function getRecentActivity(
   transactions: Transaction[],
   limit: number,
-  baseCurrency?: string
+  baseCurrency: string | undefined,
+  fallbackTitle: string
 ): RecentActivityItem[] {
   const sorted = [...transactions].sort((a, b) => {
     const dateA = toDate(a.date)?.getTime() ?? 0;
@@ -169,8 +170,7 @@ export function getRecentActivity(
 
     return {
       id: transaction.id,
-      title:
-        transaction.merchant || categoryName || "Movimiento",
+      title: transaction.merchant || categoryName || fallbackTitle,
       date,
       amountMinor,
       currency: baseCurrency || transaction.currency,

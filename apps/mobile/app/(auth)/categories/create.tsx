@@ -16,6 +16,7 @@ import { Input } from "../../../src/components/Input";
 import { Card } from "../../../src/components/Card";
 import { IconPicker } from "../../../src/components/IconPicker";
 import type { CategoryType } from "@poleursus/shared";
+import { useCopy, t } from "../../../src/lib/i18n";
 
 export default function CreateCategoryScreen() {
   const router = useRouter();
@@ -24,15 +25,22 @@ export default function CreateCategoryScreen() {
   const [iconId, setIconId] = useState("general");
   const [type, setType] = useState<CategoryType>("expense");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { dictionary } = useCopy();
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      Alert.alert("Error", "Please enter a category name");
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "categories.nameRequired")
+      );
       return;
     }
 
     if (!selectedAccountId) {
-      Alert.alert("Error", "No active account selected");
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "categories.noAccountSelected")
+      );
       return;
     }
 
@@ -54,15 +62,21 @@ export default function CreateCategoryScreen() {
 
       if (error) throw error;
 
-      Alert.alert("Success", "Category created successfully", [
+      Alert.alert(
+        t(dictionary, "common.successTitle"),
+        t(dictionary, "categories.createSuccess"),
+        [
         {
-          text: "OK",
+          text: t(dictionary, "common.ok"),
           onPress: () => router.back(),
         },
       ]);
     } catch (e: any) {
       console.error("Error creating category:", e);
-      Alert.alert("Error", e?.message || "Failed to create category");
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        e?.message || t(dictionary, "categories.createError")
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -70,31 +84,34 @@ export default function CreateCategoryScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Card title="Create Category" description="Add a new category to organize your transactions">
+      <Card
+        title={t(dictionary, "categories.createTitle")}
+        description={t(dictionary, "categories.createDescription")}
+      >
         <View style={styles.form}>
           <Input
-            label="Name"
+            label={t(dictionary, "categories.nameLabel")}
             value={name}
             onChangeText={setName}
-            placeholder="e.g., Groceries"
+            placeholder={t(dictionary, "categories.namePlaceholder")}
           />
 
           <View style={styles.field}>
-            <Text style={styles.label}>Type</Text>
+            <Text style={styles.label}>{t(dictionary, "categories.typeLabel")}</Text>
             <View style={styles.pickerContainer}>
               <Picker
                 selectedValue={type}
                 onValueChange={(value) => setType(value as CategoryType)}
                 style={styles.picker}
               >
-                <Picker.Item label="Expense" value="expense" />
-                <Picker.Item label="Income" value="income" />
+                <Picker.Item label={t(dictionary, "categories.expenseLabel")} value="expense" />
+                <Picker.Item label={t(dictionary, "categories.incomeLabel")} value="income" />
               </Picker>
             </View>
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Icon</Text>
+            <Text style={styles.label}>{t(dictionary, "categories.iconLabel")}</Text>
             <IconPicker
               value={iconId}
               onChange={setIconId}
@@ -105,7 +122,7 @@ export default function CreateCategoryScreen() {
           <View style={styles.actions}>
             <View style={{ flex: 1 }}>
               <Button
-                title="Cancel"
+                title={t(dictionary, "common.cancel")}
                 onPress={() => router.back()}
                 variant="secondary"
                 disabled={isSubmitting}
@@ -113,7 +130,11 @@ export default function CreateCategoryScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Button
-                title={isSubmitting ? "Creating..." : "Create"}
+                title={
+                  isSubmitting
+                    ? t(dictionary, "common.creating")
+                    : t(dictionary, "common.create")
+                }
                 onPress={handleCreate}
                 disabled={isSubmitting}
               />

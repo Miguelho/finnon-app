@@ -4,6 +4,7 @@ import { useLocalSearchParams } from "expo-router";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
 import { Card } from "../../../src/components/Card";
+import { useCopy, t } from "../../../src/lib/i18n";
 
 type Account = {
   id: string;
@@ -21,6 +22,7 @@ type MemberProfile = {
 export default function AccountDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, setSelectedAccountId } = useAuth();
+  const { dictionary } = useCopy();
 
   const [account, setAccount] = useState<Account | null>(null);
   const [members, setMembers] = useState<MemberProfile[]>([]);
@@ -58,7 +60,7 @@ export default function AccountDetailScreen() {
 
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
-          throw new Error("No hay sesión activa");
+          throw new Error(t(dictionary, "account.noSessionError"));
         }
 
         const apiUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
@@ -73,7 +75,7 @@ export default function AccountDetailScreen() {
 
         if (!response.ok) {
           const errorBody = await response.json().catch(() => ({}));
-          throw new Error(errorBody.error || "Error cargando participantes");
+          throw new Error(errorBody.error || t(dictionary, "account.participantsLoadError"));
         }
 
         const payload = await response.json();
@@ -83,7 +85,7 @@ export default function AccountDetailScreen() {
       } catch (err: any) {
         console.error("[AccountDetail] Error:", err);
         if (!cancelled) {
-          setError(err?.message ?? "No se pudo cargar la cuenta");
+          setError(err?.message ?? t(dictionary, "account.loadError"));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -107,8 +109,8 @@ export default function AccountDetailScreen() {
   if (error) {
     return (
       <View style={styles.container}>
-        <Card title="Error" description={error}>
-          <Text style={styles.errorText}>No se pudo cargar el detalle</Text>
+        <Card title={t(dictionary, "account.errorTitle")} description={error}>
+          <Text style={styles.errorText}>{t(dictionary, "account.errorDescription")}</Text>
         </Card>
       </View>
     );
@@ -117,30 +119,36 @@ export default function AccountDetailScreen() {
   return (
     <ScrollView contentContainerStyle={styles.scroll}>
       <Card
-        title="Detalle de cuenta"
-        description="Participantes y contexto de la cuenta"
+        title={t(dictionary, "account.title")}
+        description={t(dictionary, "account.description")}
       >
         <View style={styles.section}>
-          <Text style={styles.label}>Cuenta</Text>
+          <Text style={styles.label}>{t(dictionary, "account.labelAccount")}</Text>
           <Text style={styles.value}>{account?.name ?? "-"}</Text>
           <Text style={styles.meta}>
-            Moneda base: {account?.base_currency ?? "-"}
+            {t(dictionary, "account.baseCurrencyLabel", {
+              currency: account?.base_currency ?? "-",
+            })}
           </Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Participantes ({members.length})</Text>
+          <Text style={styles.label}>
+            {t(dictionary, "account.participantsLabel", { count: members.length })}
+          </Text>
           {members.length === 0 ? (
-            <Text style={styles.empty}>Sin participantes</Text>
+            <Text style={styles.empty}>{t(dictionary, "account.participantsEmpty")}</Text>
           ) : (
             <View style={styles.memberList}>
               {members.map((member) => {
                 const isCurrentUser = member.user_id === user?.id;
-                const fallback = `Miembro ${member.user_id.slice(0, 6)}`;
+                const fallback = t(dictionary, "account.memberFallback", {
+                  id: member.user_id.slice(0, 6),
+                });
                 const displayName =
                   member.name ||
                   member.email ||
-                  (isCurrentUser ? "Tú" : fallback);
+                  (isCurrentUser ? t(dictionary, "account.youLabel") : fallback);
                 return (
                   <View
                     key={`${member.user_id}-${member.role}`}
@@ -148,7 +156,7 @@ export default function AccountDetailScreen() {
                   >
                     <View style={styles.memberInfo}>
                       <Text style={styles.memberName}>
-                        {isCurrentUser ? "Tú" : displayName}
+                        {isCurrentUser ? t(dictionary, "account.youLabel") : displayName}
                       </Text>
                       {member.email && !isCurrentUser && (
                         <Text style={styles.memberMeta}>{member.email}</Text>

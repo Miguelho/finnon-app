@@ -21,6 +21,7 @@ import {
   parseMoneyToMinor,
   convertCurrency,
 } from "@poleursus/shared";
+import { useCopy, t } from "../../../src/lib/i18n";
 
 type Category = {
   id: string;
@@ -33,6 +34,7 @@ export default function CreateTransactionScreen(): React.JSX.Element {
   const router = useRouter();
   const params = useLocalSearchParams<{ type?: string }>();
   const { selectedAccountId } = useAuth();
+  const { dictionary } = useCopy();
 
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState("");
@@ -97,12 +99,18 @@ export default function CreateTransactionScreen(): React.JSX.Element {
 
   const handleCreate = async () => {
     if (!amount.trim()) {
-      Alert.alert("Error", "Please enter an amount");
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "transactions.amountRequired")
+      );
       return;
     }
 
     if (!selectedAccountId) {
-      Alert.alert("Error", "No active account selected");
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "transactions.noAccountSelected")
+      );
       return;
     }
 
@@ -112,7 +120,10 @@ export default function CreateTransactionScreen(): React.JSX.Element {
       // Parse amount to minor units
       const amountMinor = parseMoneyToMinor(amount, currency);
       if (typeof amountMinor === "object" && "error" in amountMinor) {
-        Alert.alert("Error", amountMinor.error);
+        Alert.alert(
+          t(dictionary, "common.errorTitle"),
+          t(dictionary, amountMinor.error.key, amountMinor.error.params)
+        );
         setIsSubmitting(false);
         return;
       }
@@ -140,7 +151,10 @@ export default function CreateTransactionScreen(): React.JSX.Element {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        Alert.alert("Error", "Not authenticated");
+        Alert.alert(
+          t(dictionary, "common.errorTitle"),
+          t(dictionary, "transactions.notAuthenticated")
+        );
         setIsSubmitting(false);
         return;
       }
@@ -166,15 +180,22 @@ export default function CreateTransactionScreen(): React.JSX.Element {
 
       if (error) throw error;
 
-      Alert.alert("Success", "Transaction created successfully", [
-        {
-          text: "OK",
-          onPress: () => router.back(),
-        },
-      ]);
+      Alert.alert(
+        t(dictionary, "common.successTitle"),
+        t(dictionary, "transactions.createSuccess"),
+        [
+          {
+            text: t(dictionary, "common.ok"),
+            onPress: () => router.back(),
+          },
+        ]
+      );
     } catch (e: any) {
       console.error("Error creating transaction:", e);
-      Alert.alert("Error", e?.message || "Failed to create transaction");
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        e?.message || t(dictionary, "transactions.createError")
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -186,13 +207,13 @@ export default function CreateTransactionScreen(): React.JSX.Element {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Card
-        title="New Transaction"
-        description="Record a new income or expense transaction"
+        title={t(dictionary, "transactions.newTransaction")}
+        description={t(dictionary, "transactions.create.description")}
       >
         <View style={styles.form}>
           {/* Type - Pill Selector */}
           <View style={styles.field}>
-            <Text style={styles.label}>Type</Text>
+            <Text style={styles.label}>{t(dictionary, "transactions.create.typeLabel")}</Text>
             <View style={styles.pillContainer}>
               <TouchableOpacity
                 style={[
@@ -210,7 +231,7 @@ export default function CreateTransactionScreen(): React.JSX.Element {
                     type === "expense" ? styles.pillTextSelected : styles.pillTextUnselected,
                   ]}
                 >
-                  Expense
+                  {t(dictionary, "transactions.create.typeExpense")}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -229,7 +250,7 @@ export default function CreateTransactionScreen(): React.JSX.Element {
                     type === "income" ? styles.pillTextSelected : styles.pillTextUnselected,
                   ]}
                 >
-                  Income
+                  {t(dictionary, "transactions.create.typeIncome")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -237,16 +258,16 @@ export default function CreateTransactionScreen(): React.JSX.Element {
 
           {/* Amount */}
           <Input
-            label="Amount"
+            label={t(dictionary, "transactions.create.amountLabel")}
             value={amount}
             onChangeText={setAmount}
-            placeholder="0.00"
+            placeholder={t(dictionary, "transactions.create.amountPlaceholder")}
             keyboardType="numeric"
           />
 
           {/* Currency */}
           <View style={styles.field}>
-            <Text style={styles.label}>Currency</Text>
+            <Text style={styles.label}>{t(dictionary, "transactions.create.currencyLabel")}</Text>
             <View style={styles.pickerContainer}>
               <Picker
                 selectedValue={currency}
@@ -266,25 +287,30 @@ export default function CreateTransactionScreen(): React.JSX.Element {
 
           {/* Date */}
           <Input
-            label="Date"
+            label={t(dictionary, "transactions.create.dateLabel")}
             value={date}
             onChangeText={setDate}
-            placeholder="YYYY-MM-DD"
+            placeholder={t(dictionary, "transactions.datePlaceholder")}
           />
 
           {/* Category */}
           <View style={styles.field}>
-            <Text style={styles.label}>Category (optional)</Text>
+            <Text style={styles.label}>{t(dictionary, "transactions.categoryOptionalLabel")}</Text>
             <View style={styles.pickerContainer}>
               <Picker
                 selectedValue={categoryId}
                 onValueChange={(value) => setCategoryId(value)}
                 style={styles.picker}
               >
-                <Picker.Item label="None" value="" />
+                <Picker.Item label={t(dictionary, "common.noneOption")} value="" />
                 {availableCategories.length === 0 ? (
                   <Picker.Item
-                    label={`No ${type} categories yet`}
+                    label={t(dictionary, "transactions.create.categoryEmpty", {
+                      type:
+                        type === "income"
+                          ? t(dictionary, "categories.incomeLabel")
+                          : t(dictionary, "categories.expenseLabel"),
+                    })}
                     value=""
                     enabled={false}
                   />
@@ -303,18 +329,18 @@ export default function CreateTransactionScreen(): React.JSX.Element {
 
           {/* Merchant */}
           <Input
-            label="Merchant (optional)"
+            label={t(dictionary, "transactions.merchantOptionalLabel")}
             value={merchant}
             onChangeText={setMerchant}
-            placeholder="e.g., Starbucks"
+            placeholder={t(dictionary, "transactions.create.merchantPlaceholder")}
           />
 
           {/* Notes */}
           <Input
-            label="Notes (optional)"
+            label={t(dictionary, "transactions.notesOptionalLabel")}
             value={notes}
             onChangeText={setNotes}
-            placeholder="Add any additional notes"
+            placeholder={t(dictionary, "transactions.notesPlaceholder")}
             multiline
             numberOfLines={3}
           />
@@ -322,7 +348,7 @@ export default function CreateTransactionScreen(): React.JSX.Element {
           <View style={styles.actions}>
             <View style={{ flex: 1 }}>
               <Button
-                title="Cancel"
+                title={t(dictionary, "common.cancel")}
                 onPress={() => router.back()}
                 variant="secondary"
                 disabled={isSubmitting}
@@ -330,7 +356,11 @@ export default function CreateTransactionScreen(): React.JSX.Element {
             </View>
             <View style={{ flex: 1 }}>
               <Button
-                title={isSubmitting ? "Creating..." : "Create"}
+                title={
+                  isSubmitting
+                    ? t(dictionary, "common.creating")
+                    : t(dictionary, "common.create")
+                }
                 onPress={handleCreate}
                 disabled={isSubmitting}
               />

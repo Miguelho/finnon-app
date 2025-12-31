@@ -11,6 +11,7 @@ import {
   SlidePanelTitle,
 } from "@/components/ui/slide-panel";
 import { cn } from "@/lib/utils";
+import { formatParticipantCount } from "@poleursus/shared";
 
 type Account = {
   id: string;
@@ -45,6 +46,7 @@ type AccountMenuProps = {
   initialActiveAccountId: string;
   currentUserId: string;
   labels: AccountMenuLabels;
+  locale: string;
 };
 
 const STORAGE_KEY = "finnon:activeAccountId";
@@ -54,6 +56,7 @@ export function AccountMenu({
   initialActiveAccountId,
   currentUserId,
   labels,
+  locale,
 }: AccountMenuProps) {
   const [activeAccountId, setActiveAccountId] = useState(initialActiveAccountId);
   const [members, setMembers] = useState<MemberProfile[]>([]);
@@ -102,7 +105,8 @@ export function AccountMenu({
 
         if (!response.ok) {
           const errorBody = await response.json().catch(() => ({}));
-          throw new Error(errorBody.error || "Error cargando participantes");
+          console.error("[AccountMenu] Error loading members:", errorBody);
+          throw new Error(String(response.status));
         }
 
         const payload = await response.json();
@@ -155,7 +159,8 @@ export function AccountMenu({
                     {account.name}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {account.base_currency} • {account.memberCount} participantes
+                    {account.base_currency} •{" "}
+                    {formatParticipantCount(locale, account.memberCount)}
                   </p>
                 </div>
                 <span

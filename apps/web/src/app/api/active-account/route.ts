@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
 
     if (!accountId) {
       return NextResponse.json(
-        { error: "Invalid request data" },
+        { errorKey: "errors.invalidRequest" },
         { status: 400 }
       );
     }
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     if (error || !membership) {
       return NextResponse.json(
-        { error: "Account not found or access denied" },
+        { errorKey: "errors.accountNotFoundOrDenied" },
         { status: 403 }
       );
     }
@@ -44,13 +44,13 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof Error && error.message === "No hay sesión activa válida") {
       return NextResponse.json(
-        { error: "Authentication required" },
+        { errorKey: "errors.authRequired" },
         { status: 401 }
       );
     }
 
     return NextResponse.json(
-      { error: "Internal server error" },
+      { errorKey: "errors.internalServer" },
       { status: 500 }
     );
   }

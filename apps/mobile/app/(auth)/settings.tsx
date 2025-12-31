@@ -16,6 +16,7 @@ import { supabase } from "../../src/lib/supabase";
 import { Card } from "../../src/components/Card";
 import { Button } from "../../src/components/Button";
 import { Picker } from "@react-native-picker/picker";
+import { useCopy, t } from "../../src/lib/i18n";
 
 type Invite = {
   id: string;
@@ -42,6 +43,7 @@ export default function SettingsScreen() {
   const [filter, setFilter] = useState<FilterStatus>("active");
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [createdInviteUrl, setCreatedInviteUrl] = useState<string | null>(null);
+  const { dictionary } = useCopy();
 
   // Form state
   const [selectedAccountId, setSelectedAccountId] = useState("");
@@ -113,7 +115,10 @@ export default function SettingsScreen() {
 
   async function createInvite() {
     if (!selectedAccountId) {
-      Alert.alert("Error", "Selecciona una cuenta");
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "invites.selectAccountError")
+      );
       return;
     }
 
@@ -121,9 +126,14 @@ export default function SettingsScreen() {
 
     try {
       // Get current session to send auth token
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) {
-        Alert.alert("Error", "No hay sesión activa");
+        Alert.alert(
+          t(dictionary, "common.errorTitle"),
+          t(dictionary, "invites.noSessionError")
+        );
         setIsCreating(false);
         return;
       }
@@ -146,7 +156,10 @@ export default function SettingsScreen() {
 
       if (!response.ok) {
         const error = await response.json();
-        Alert.alert("Error", error.error || "Error creando invitación");
+        Alert.alert(
+          t(dictionary, "common.errorTitle"),
+          error.error || t(dictionary, "invites.createError")
+        );
         setIsCreating(false);
         return;
       }
@@ -156,7 +169,10 @@ export default function SettingsScreen() {
       fetchInvites();
     } catch (error) {
       console.error("Error creating invite:", error);
-      Alert.alert("Error", "Error creando invitación");
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "invites.createError")
+      );
     } finally {
       setIsCreating(false);
     }
@@ -170,22 +186,31 @@ export default function SettingsScreen() {
         .eq("id", inviteId);
 
       if (error) {
-        Alert.alert("Error", "Error revocando invitación");
+        Alert.alert(
+          t(dictionary, "common.errorTitle"),
+          t(dictionary, "invites.revokeError")
+        );
         return;
       }
 
-      Alert.alert("Éxito", "Invitación revocada exitosamente");
+      Alert.alert(
+        t(dictionary, "common.successTitle"),
+        t(dictionary, "invites.revokeSuccess")
+      );
       fetchInvites();
     } catch (error) {
       console.error("Error revoking invite:", error);
-      Alert.alert("Error", "Error revocando invitación");
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "invites.revokeError")
+      );
     }
   }
 
   async function shareInviteUrl(url: string) {
     try {
       await Share.share({
-        message: `Te invito a unirte a mi cuenta en Finnon: ${url}`,
+        message: t(dictionary, "invites.shareMessage", { url }),
       });
     } catch (error) {
       console.error("Error sharing:", error);
@@ -232,13 +257,14 @@ export default function SettingsScreen() {
     >
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>Invitaciones</Text>
-          <Text style={styles.subtitle}>
-            Gestiona los links de invitación a tus cuentas
-          </Text>
+          <Text style={styles.title}>{t(dictionary, "invites.title")}</Text>
+          <Text style={styles.subtitle}>{t(dictionary, "invites.subtitle")}</Text>
         </View>
 
-        <Button title="Crear Invitación" onPress={() => setIsCreateModalVisible(true)} />
+        <Button
+          title={t(dictionary, "invites.createButton")}
+          onPress={() => setIsCreateModalVisible(true)}
+        />
 
         {/* Filter buttons */}
         <View style={styles.filters}>
@@ -247,7 +273,7 @@ export default function SettingsScreen() {
             onPress={() => setFilter("all")}
           >
             <Text style={[styles.filterText, filter === "all" && styles.filterTextActive]}>
-              Todas ({statusCounts.all})
+              {t(dictionary, "invites.filterAll", { count: statusCounts.all })}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -255,7 +281,7 @@ export default function SettingsScreen() {
             onPress={() => setFilter("active")}
           >
             <Text style={[styles.filterText, filter === "active" && styles.filterTextActive]}>
-              Activas ({statusCounts.active})
+              {t(dictionary, "invites.filterActive", { count: statusCounts.active })}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -263,7 +289,7 @@ export default function SettingsScreen() {
             onPress={() => setFilter("expired")}
           >
             <Text style={[styles.filterText, filter === "expired" && styles.filterTextActive]}>
-              Expiradas ({statusCounts.expired})
+              {t(dictionary, "invites.filterExpired", { count: statusCounts.expired })}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -271,18 +297,27 @@ export default function SettingsScreen() {
             onPress={() => setFilter("revoked")}
           >
             <Text style={[styles.filterText, filter === "revoked" && styles.filterTextActive]}>
-              Revocadas ({statusCounts.revoked})
+              {t(dictionary, "invites.filterRevoked", { count: statusCounts.revoked })}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Invites list */}
-        <Card title="Invitaciones" description={`${filteredInvites.length} encontradas`}>
+        <Card
+          title={t(dictionary, "invites.cardTitle")}
+          description={t(dictionary, "invites.cardDescription", { count: filteredInvites.length })}
+        >
           {loading ? (
             <ActivityIndicator size="large" color="#007AFF" />
           ) : filteredInvites.length === 0 ? (
             <Text style={styles.emptyText}>
-              No hay invitaciones {filter !== "all" && filter + "s"}
+              {filter === "all"
+                ? t(dictionary, "invites.emptyAll")
+                : filter === "active"
+                ? t(dictionary, "invites.emptyActive")
+                : filter === "expired"
+                ? t(dictionary, "invites.emptyExpired")
+                : t(dictionary, "invites.emptyRevoked")}
             </Text>
           ) : (
             filteredInvites.map((invite) => {
@@ -293,7 +328,7 @@ export default function SettingsScreen() {
                 <View key={invite.id} style={styles.inviteCard}>
                   <View style={styles.inviteHeader}>
                     <Text style={styles.inviteAccount}>
-                      {(invite.accounts as any)?.name || "Cuenta desconocida"}
+                      {(invite.accounts as any)?.name || t(dictionary, "invites.accountUnknown")}
                     </Text>
                     <View style={styles.badges}>
                       <View
@@ -308,10 +343,10 @@ export default function SettingsScreen() {
                       >
                         <Text style={styles.badgeText}>
                           {status === "active"
-                            ? "Activa"
+                            ? t(dictionary, "invites.statusActive")
                             : status === "expired"
-                            ? "Expirada"
-                            : "Revocada"}
+                            ? t(dictionary, "invites.statusExpired")
+                            : t(dictionary, "invites.statusRevoked")}
                         </Text>
                       </View>
                       <View style={styles.badgeRole}>
@@ -320,8 +355,9 @@ export default function SettingsScreen() {
                     </View>
                   </View>
                   <Text style={styles.inviteDetails}>
-                    Expira: {new Date(invite.expires_at).toLocaleDateString()} •
-                    Usos: {invite.uses_count}/{invite.max_uses || "∞"}
+                    {t(dictionary, "invites.expiresLabel")}:{" \\"}
+                    {new Date(invite.expires_at).toLocaleDateString()} •{" "}
+                    {t(dictionary, "invites.usesLabel")}: {invite.uses_count}/{invite.max_uses || "∞\\"}
                   </Text>
                   {isActive && (
                     <View style={styles.inviteActions}>
@@ -329,12 +365,12 @@ export default function SettingsScreen() {
                         style={styles.revokeButton}
                         onPress={() => {
                           Alert.alert(
-                            "¿Revocar invitación?",
-                            "El link dejará de funcionar inmediatamente",
+                            t(dictionary, "invites.revokePromptTitle"),
+                            t(dictionary, "invites.revokePromptDescription"),
                             [
-                              { text: "Cancelar", style: "cancel" },
+                              { text: t(dictionary, "common.cancel"), style: "cancel" },
                               {
-                                text: "Revocar",
+                                text: t(dictionary, "invites.revokeButton"),
                                 style: "destructive",
                                 onPress: () => revokeInvite(invite.id),
                               },
@@ -342,7 +378,9 @@ export default function SettingsScreen() {
                           );
                         }}
                       >
-                        <Text style={styles.revokeButtonText}>Revocar</Text>
+                        <Text style={styles.revokeButtonText}>
+                          {t(dictionary, "invites.revokeButton")}
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -363,12 +401,14 @@ export default function SettingsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              {createdInviteUrl ? "Invitación creada" : "Crear nueva invitación"}
+              {createdInviteUrl
+                ? t(dictionary, "invites.createdTitle")
+                : t(dictionary, "invites.createTitle")}
             </Text>
             <Text style={styles.modalDescription}>
               {createdInviteUrl
-                ? "Comparte este link. No podrás verlo de nuevo."
-                : "Genera un link de invitación"}
+                ? t(dictionary, "invites.createdDescription")
+                : t(dictionary, "invites.createDescription")}
             </Text>
 
             {createdInviteUrl ? (
@@ -380,18 +420,22 @@ export default function SettingsScreen() {
                   multiline
                 />
                 <Button
-                  title="Compartir"
+                  title={t(dictionary, "invites.shareButton")}
                   onPress={() => shareInviteUrl(createdInviteUrl)}
                 />
                 <Text style={styles.warning}>
-                  ⚠️ Guarda este link ahora. Por seguridad, no podrás verlo de nuevo.
+                  {t(dictionary, "invites.warning")}
                 </Text>
-                <Button title="Cerrar" onPress={closeCreateModal} variant="secondary" />
+                <Button
+                  title={t(dictionary, "invites.closeButton")}
+                  onPress={closeCreateModal}
+                  variant="secondary"
+                />
               </View>
             ) : (
               <>
                 <View style={styles.formField}>
-                  <Text style={styles.label}>Cuenta</Text>
+                  <Text style={styles.label}>{t(dictionary, "invites.accountLabel")}</Text>
                   <Picker
                     selectedValue={selectedAccountId}
                     onValueChange={setSelectedAccountId}
@@ -408,37 +452,40 @@ export default function SettingsScreen() {
                 </View>
 
                 <View style={styles.formField}>
-                  <Text style={styles.label}>Rol</Text>
+                  <Text style={styles.label}>{t(dictionary, "invites.roleLabel")}</Text>
                   <Picker
                     selectedValue={selectedRole}
                     onValueChange={(v: any) => setSelectedRole(v)}
                     style={styles.picker}
                   >
-                    <Picker.Item label="Viewer (Solo lectura)" value="viewer" />
-                    <Picker.Item label="Contributor (Lectura + Edición)" value="contributor" />
-                    <Picker.Item label="Admin (Acceso completo)" value="admin" />
+                    <Picker.Item label={t(dictionary, "invites.roleViewer")} value="viewer" />
+                    <Picker.Item
+                      label={t(dictionary, "invites.roleContributor")}
+                      value="contributor"
+                    />
+                    <Picker.Item label={t(dictionary, "invites.roleAdmin")} value="admin" />
                   </Picker>
                 </View>
 
                 <View style={styles.formField}>
-                  <Text style={styles.label}>Expira en (horas)</Text>
+                  <Text style={styles.label}>{t(dictionary, "invites.expiresInLabel")}</Text>
                   <TextInput
                     style={styles.input}
                     value={expiresInHours}
                     onChangeText={setExpiresInHours}
                     keyboardType="number-pad"
-                    placeholder="24"
+                    placeholder={expiresInHours || "24"}
                   />
                 </View>
 
                 <View style={styles.formField}>
-                  <Text style={styles.label}>Usos máximos (opcional)</Text>
+                  <Text style={styles.label}>{t(dictionary, "invites.maxUsesLabel")}</Text>
                   <TextInput
                     style={styles.input}
                     value={maxUses}
                     onChangeText={setMaxUses}
                     keyboardType="number-pad"
-                    placeholder="Ilimitado"
+                    placeholder={t(dictionary, "invites.maxUsesPlaceholder")}
                   />
                 </View>
 
@@ -447,7 +494,9 @@ export default function SettingsScreen() {
                     style={styles.cancelButton}
                     onPress={closeCreateModal}
                   >
-                    <Text style={styles.cancelButtonText}>Cancelar</Text>
+                    <Text style={styles.cancelButtonText}>
+                      {t(dictionary, "common.cancel")}
+                    </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[
@@ -458,7 +507,9 @@ export default function SettingsScreen() {
                     disabled={isCreating || !selectedAccountId}
                   >
                     <Text style={styles.createButtonText}>
-                      {isCreating ? "Creando..." : "Crear"}
+                      {isCreating
+                        ? t(dictionary, "common.creating")
+                        : t(dictionary, "common.create")}
                     </Text>
                   </TouchableOpacity>
                 </View>

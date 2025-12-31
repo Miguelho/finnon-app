@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { supabase } from "@/lib/supabaseClient";
 import {
   Card,
@@ -21,13 +22,15 @@ type JoinState =
 export default function JoinPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const tGlobal = useTranslations();
+  const t = useTranslations("join");
   const [state, setState] = useState<JoinState>({ status: "loading" });
 
   useEffect(() => {
     const token = searchParams.get("token");
 
     if (!token) {
-      setState({ status: "error", message: "No se proporcionó token de invitación" });
+      setState({ status: "error", message: t("missingToken") });
       return;
     }
 
@@ -51,7 +54,7 @@ export default function JoinPage() {
             console.error("[Join] Anonymous auth failed:", anonError);
             setState({
               status: "error",
-              message: "No se pudo crear sesión de invitado. Por favor intenta de nuevo.",
+              message: t("guestSessionError"),
             });
             return;
           }
@@ -76,7 +79,9 @@ export default function JoinPage() {
           const errorData = await response.json();
           setState({
             status: "error",
-            message: errorData.error || "No se pudo aceptar la invitación",
+            message: errorData.errorKey
+              ? tGlobal(errorData.errorKey, errorData.errorParams)
+              : t("acceptError"),
           });
           return;
         }
@@ -104,7 +109,7 @@ export default function JoinPage() {
         console.error("[Join] Error:", error);
         setState({
           status: "error",
-          message: "Ocurrió un error inesperado",
+          message: t("unexpectedError"),
         });
       }
     }
@@ -117,9 +122,9 @@ export default function JoinPage() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>Uniéndote a la cuenta...</CardTitle>
+            <CardTitle>{t("loadingTitle")}</CardTitle>
             <CardDescription>
-              Por favor espera mientras procesamos tu invitación
+              {t("loadingDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -137,12 +142,12 @@ export default function JoinPage() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>Error de invitación</CardTitle>
+            <CardTitle>{t("errorTitle")}</CardTitle>
             <CardDescription>{state.message}</CardDescription>
           </CardHeader>
           <CardContent>
             <Button onClick={() => router.push("/login")} className="w-full">
-              Ir al inicio de sesión
+              {t("loginCta")}
             </Button>
           </CardContent>
         </Card>
@@ -155,12 +160,12 @@ export default function JoinPage() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>¡Éxito!</CardTitle>
-            <CardDescription>Te has unido a la cuenta exitosamente</CardDescription>
+            <CardTitle>{t("successTitle")}</CardTitle>
+            <CardDescription>{t("successDescription")}</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Redirigiendo al panel de control...
+              {t("redirecting")}
             </p>
             <div className="flex justify-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
