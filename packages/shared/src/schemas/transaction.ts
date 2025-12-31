@@ -9,6 +9,8 @@ export const transactionSchema = z.object({
   amount_minor: z.bigint(),
   currency: z.string().length(3),
   amount_base_minor: z.bigint(),
+  fx_rate: z.string(),
+  fx_date: z.date(),
   category_id: z.string().uuid().nullable(),
   date: z.date(),
   merchant: z.string().max(255).nullable(),

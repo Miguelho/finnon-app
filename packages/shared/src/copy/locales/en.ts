@@ -152,6 +152,12 @@ export const en = {
     expenses: "Expenses",
     balance: "Balance",
     transactionsFor: "Transactions for {month}",
+    fxRateLabel: "FX rate",
+    fxRatePlaceholder: "e.g. 0.91",
+    fxRateHelper: "1 {currency} = X {baseCurrency}",
+    baseAmountPreview: "Base amount: {amount} {baseCurrency}",
+    fxRateRequired: "FX rate is required for currency conversion",
+    fxRateInvalid: "FX rate format is invalid",
     transactionsCount:
       "{count, plural, =0 {No transactions} =1 {1 transaction} other {# transactions}}",
     noTransactions: "No transactions this month. Create one to get started.",

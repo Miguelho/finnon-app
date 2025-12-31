@@ -5,7 +5,9 @@
 
 // Currency minor units (decimal places)
 // Based on ISO 4217 standard
-export const CURRENCY_MINOR_UNITS: Record<string, number> = {
+export type CurrencyMeta = Record<string, number>;
+
+export const CURRENCY_MINOR_UNITS: CurrencyMeta = {
   EUR: 2,
   USD: 2,
   GBP: 2,
@@ -28,8 +30,11 @@ export const CURRENCY_MINOR_UNITS: Record<string, number> = {
  * Get the number of decimal places for a currency
  * Defaults to 2 if currency not found
  */
-export function getMinorUnits(currency: string): number {
-  return CURRENCY_MINOR_UNITS[currency] ?? 2;
+export function getMinorUnits(
+  currency: string,
+  currencyMeta: CurrencyMeta = CURRENCY_MINOR_UNITS
+): number {
+  return currencyMeta[currency] ?? 2;
 }
 
 export type MoneyParseError = {
@@ -45,6 +50,50 @@ export type MoneyParseError = {
 
 export type MoneyParseResult = bigint | { error: MoneyParseError };
 
+type FxRateParseError = {
+  key: "transactions.fxRateInvalid";
+};
+
+export type FxRateParseResult = bigint | { error: FxRateParseError };
+
+const FX_RATE_SCALE = 10;
+
+const pow10BigInt = (exp: number) => {
+  if (exp <= 0) return 1n;
+  return 10n ** BigInt(exp);
+};
+
+const normalizeDecimalInput = (input: string) =>
+  input.trim().replace(",", ".");
+
+const parseDecimalToScaledInt = (
+  input: string,
+  scale: number
+): FxRateParseResult => {
+  const normalized = normalizeDecimalInput(input);
+  if (!/^\d+(\.\d+)?$/.test(normalized)) {
+    return { error: { key: "transactions.fxRateInvalid" } };
+  }
+
+  const parts = normalized.split(".");
+  const integerPart = parts[0] || "0";
+  const decimalPart = parts[1] || "";
+
+  if (decimalPart.length > scale) {
+    return { error: { key: "transactions.fxRateInvalid" } };
+  }
+
+  const paddedDecimals = decimalPart.padEnd(scale, "0");
+  return BigInt(integerPart + paddedDecimals);
+};
+
+const divideAndRoundHalfUp = (numerator: bigint, denominator: bigint) => {
+  const quotient = numerator / denominator;
+  const remainder = numerator % denominator;
+  if (remainder * 2n >= denominator) return quotient + 1n;
+  return quotient;
+};
+
 /**
  * Parse a money string to minor units (bigint)
  * Examples:
@@ -57,21 +106,22 @@ export type MoneyParseResult = bigint | { error: MoneyParseError };
  */
 export function parseMoneyToMinor(
   input: string,
-  currency: string
+  currency: string,
+  currencyMeta: CurrencyMeta = CURRENCY_MINOR_UNITS
 ): MoneyParseResult {
   if (!input || input.trim() === "") {
     return { error: { key: "money.amountRequired" } };
   }
 
   // Replace comma with dot for parsing
-  const normalized = input.trim().replace(",", ".");
+  const normalized = normalizeDecimalInput(input);
 
   // Check if valid number format
   if (!/^-?\d+(\.\d+)?$/.test(normalized)) {
     return { error: { key: "money.invalidFormat" } };
   }
 
-  const minorUnits = getMinorUnits(currency);
+  const minorUnits = getMinorUnits(currency, currencyMeta);
 
   // Split into integer and decimal parts
   const parts = normalized.split(".");
@@ -121,9 +171,10 @@ export function parseMoneyToMinor(
  */
 export function formatMinorToMoney(
   amountMinor: bigint,
-  currency: string
+  currency: string,
+  currencyMeta: CurrencyMeta = CURRENCY_MINOR_UNITS
 ): string {
-  const minorUnits = getMinorUnits(currency);
+  const minorUnits = getMinorUnits(currency, currencyMeta);
 
   if (minorUnits === 0) {
     return amountMinor.toString();
@@ -148,36 +199,68 @@ export function formatMinorToMoney(
 export function formatMoneyWithSymbol(
   amountMinor: bigint,
   currency: string,
-  currencySymbol: string
+  currencySymbol: string,
+  currencyMeta: CurrencyMeta = CURRENCY_MINOR_UNITS
 ): string {
-  const formatted = formatMinorToMoney(amountMinor, currency);
+  const formatted = formatMinorToMoney(amountMinor, currency, currencyMeta);
   return `${currencySymbol}${formatted}`;
+}
+
+export function computeAmountBaseMinor(params: {
+  amountMinor: bigint;
+  currency: string;
+  baseCurrency: string;
+  fxRate: string;
+  currencyMeta?: CurrencyMeta;
+}): FxRateParseResult {
+  const { amountMinor, currency, baseCurrency, fxRate, currencyMeta } = params;
+  const fromUnits = getMinorUnits(currency, currencyMeta);
+  const toUnits = getMinorUnits(baseCurrency, currencyMeta);
+  const fxRateScaled = parseDecimalToScaledInt(fxRate, FX_RATE_SCALE);
+  if (typeof fxRateScaled === "object" && "error" in fxRateScaled) {
+    return fxRateScaled;
+  }
+
+  if (fxRateScaled <= 0n) {
+    return { error: { key: "transactions.fxRateInvalid" } };
+  }
+
+  let numerator = amountMinor * fxRateScaled;
+  let denominator = pow10BigInt(FX_RATE_SCALE);
+  const unitsDiff = toUnits - fromUnits;
+
+  if (unitsDiff > 0) {
+    numerator *= pow10BigInt(unitsDiff);
+  } else if (unitsDiff < 0) {
+    denominator *= pow10BigInt(-unitsDiff);
+  }
+
+  return divideAndRoundHalfUp(numerator, denominator);
+}
+
+export function parseFxRate(input: string): FxRateParseResult {
+  return parseDecimalToScaledInt(input, FX_RATE_SCALE);
 }
 
 /**
  * Convert amount from one currency to another using FX rate
  * Convention: 1 unit of fromCurrency = fxRate units of toCurrency
  *
- * Example: Convert 100 USD to EUR with rate 0.91
+ * Example: Convert 100 USD to EUR with rate "0.91"
  *   10000n (100.00 USD) -> 9100n (91.00 EUR)
  */
 export function convertCurrency(
   amountMinor: bigint,
   fromCurrency: string,
   toCurrency: string,
-  fxRate: number
-): bigint {
-  const fromMinorUnits = getMinorUnits(fromCurrency);
-  const toMinorUnits = getMinorUnits(toCurrency);
-
-  // Convert to major units (as number for calculation)
-  const amountMajor = Number(amountMinor) / 10 ** fromMinorUnits;
-
-  // Apply FX rate
-  const convertedMajor = amountMajor * fxRate;
-
-  // Convert back to minor units and round (HALF_UP)
-  const convertedMinor = Math.round(convertedMajor * 10 ** toMinorUnits);
-
-  return BigInt(convertedMinor);
+  fxRate: string,
+  currencyMeta: CurrencyMeta = CURRENCY_MINOR_UNITS
+): FxRateParseResult {
+  return computeAmountBaseMinor({
+    amountMinor,
+    currency: fromCurrency,
+    baseCurrency: toCurrency,
+    fxRate,
+    currencyMeta,
+  });
 }

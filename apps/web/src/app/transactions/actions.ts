@@ -5,13 +5,49 @@ import { revalidatePath } from "next/cache";
 import {
   type TransactionType,
   parseMoneyToMinor,
-  convertCurrency,
+  computeAmountBaseMinor,
+  parseFxRate,
+  CURRENCY_MINOR_UNITS,
 } from "@poleursus/shared";
 
 type ActionResult<T = any> = {
   success: boolean;
   data?: T;
   error?: { key: string; params?: Record<string, string | number> };
+};
+
+const resolveFxRate = ({
+  currency,
+  baseCurrency,
+  date,
+  fxRateInput,
+}: {
+  currency: string;
+  baseCurrency: string;
+  date: string;
+  fxRateInput?: string | null;
+}):
+  | { fxRate: string; fxDate: string }
+  | { error: { key: string; params?: Record<string, string | number> } } => {
+  if (currency === baseCurrency) {
+    return { fxRate: "1", fxDate: date };
+  }
+
+  const raw = fxRateInput?.trim() ?? "";
+  if (!raw) {
+    return { error: { key: "errors.fxRateRequired" } };
+  }
+
+  const parsed = parseFxRate(raw);
+  if (typeof parsed === "object" && "error" in parsed) {
+    return { error: { key: "errors.invalidRequest" } };
+  }
+
+  if (parsed <= 0n) {
+    return { error: { key: "errors.invalidRequest" } };
+  }
+
+  return { fxRate: raw.replace(",", "."), fxDate: date };
 };
 
 export async function createTransaction(input: {
@@ -23,7 +59,7 @@ export async function createTransaction(input: {
   date: string; // ISO date string
   merchant: string | null;
   notes: string | null;
-  fx_rate?: number; // Optional for v1 multi-currency
+  fx_rate?: string | null; // Optional for v1 multi-currency
 }): Promise<ActionResult> {
   try {
     const supabase = await createClient();
@@ -61,33 +97,45 @@ export async function createTransaction(input: {
     }
 
     // Parse amount to minor units
-    const amountMinor = parseMoneyToMinor(input.amount, input.currency);
+    const amountMinor = parseMoneyToMinor(
+      input.amount,
+      input.currency,
+      CURRENCY_MINOR_UNITS
+    );
     if (typeof amountMinor === "object" && "error" in amountMinor) {
       return { success: false, error: amountMinor.error };
     }
 
     // Calculate amount_base_minor
     let amountBaseMinor: bigint;
-    let fxRate = input.fx_rate ?? 1;
+    const resolvedFx = resolveFxRate({
+      currency: input.currency,
+      baseCurrency: account.base_currency,
+      date: input.date,
+      fxRateInput: input.fx_rate,
+    });
+
+    if ("error" in resolvedFx) {
+      return { success: false, error: resolvedFx.error };
+    }
+
+    const { fxRate, fxDate } = resolvedFx;
 
     if (input.currency === account.base_currency) {
       // Same currency - no conversion needed
       amountBaseMinor = amountMinor;
-      fxRate = 1;
     } else {
-      // Different currency - convert
-      if (!input.fx_rate || input.fx_rate <= 0) {
-        return {
-          success: false,
-          error: { key: "errors.fxRateRequired" },
-        };
-      }
-      amountBaseMinor = convertCurrency(
+      const computed = computeAmountBaseMinor({
         amountMinor,
-        input.currency,
-        account.base_currency,
-        input.fx_rate
-      );
+        currency: input.currency,
+        baseCurrency: account.base_currency,
+        fxRate,
+        currencyMeta: CURRENCY_MINOR_UNITS,
+      });
+      if (typeof computed === "object" && "error" in computed) {
+        return { success: false, error: { key: "errors.invalidRequest" } };
+      }
+      amountBaseMinor = computed;
     }
 
     // Insert transaction
@@ -100,6 +148,8 @@ export async function createTransaction(input: {
           amount_minor: amountMinor.toString(), // Supabase expects string for bigint
           currency: input.currency,
           amount_base_minor: amountBaseMinor.toString(),
+          fx_rate: fxRate,
+          fx_date: fxDate,
           category_id: input.category_id,
           date: input.date,
           merchant: input.merchant,
@@ -136,7 +186,7 @@ export async function updateTransaction(
     date: string;
     merchant: string | null;
     notes: string | null;
-    fx_rate?: number;
+    fx_rate?: string | null;
   }
 ): Promise<ActionResult> {
   try {
@@ -186,31 +236,44 @@ export async function updateTransaction(
     }
 
     // Parse amount to minor units
-    const amountMinor = parseMoneyToMinor(input.amount, input.currency);
+    const amountMinor = parseMoneyToMinor(
+      input.amount,
+      input.currency,
+      CURRENCY_MINOR_UNITS
+    );
     if (typeof amountMinor === "object" && "error" in amountMinor) {
       return { success: false, error: amountMinor.error };
     }
 
     // Calculate amount_base_minor
     let amountBaseMinor: bigint;
-    let fxRate = input.fx_rate ?? 1;
+    const resolvedFx = resolveFxRate({
+      currency: input.currency,
+      baseCurrency: account.base_currency,
+      date: input.date,
+      fxRateInput: input.fx_rate,
+    });
+
+    if ("error" in resolvedFx) {
+      return { success: false, error: resolvedFx.error };
+    }
+
+    const { fxRate, fxDate } = resolvedFx;
 
     if (input.currency === account.base_currency) {
       amountBaseMinor = amountMinor;
-      fxRate = 1;
     } else {
-      if (!input.fx_rate || input.fx_rate <= 0) {
-        return {
-          success: false,
-          error: { key: "errors.fxRateRequired" },
-        };
-      }
-      amountBaseMinor = convertCurrency(
+      const computed = computeAmountBaseMinor({
         amountMinor,
-        input.currency,
-        account.base_currency,
-        input.fx_rate
-      );
+        currency: input.currency,
+        baseCurrency: account.base_currency,
+        fxRate,
+        currencyMeta: CURRENCY_MINOR_UNITS,
+      });
+      if (typeof computed === "object" && "error" in computed) {
+        return { success: false, error: { key: "errors.invalidRequest" } };
+      }
+      amountBaseMinor = computed;
     }
 
     // Update transaction
@@ -221,6 +284,8 @@ export async function updateTransaction(
         amount_minor: amountMinor.toString(),
         currency: input.currency,
         amount_base_minor: amountBaseMinor.toString(),
+        fx_rate: fxRate,
+        fx_date: fxDate,
         category_id: input.category_id,
         date: input.date,
         merchant: input.merchant,

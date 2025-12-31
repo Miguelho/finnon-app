@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -19,7 +19,10 @@ import {
   type TransactionType,
   CURRENCIES,
   parseMoneyToMinor,
-  convertCurrency,
+  computeAmountBaseMinor,
+  parseFxRate,
+  formatMinorToMoney,
+  CURRENCY_MINOR_UNITS,
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
 
@@ -39,6 +42,7 @@ export default function CreateTransactionScreen(): React.JSX.Element {
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState("EUR");
+  const [fxRate, setFxRate] = useState("1");
   const [categoryId, setCategoryId] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [merchant, setMerchant] = useState("");
@@ -47,6 +51,10 @@ export default function CreateTransactionScreen(): React.JSX.Element {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [baseCurrency, setBaseCurrency] = useState("EUR");
+  const [fxRateError, setFxRateError] = useState<string | null>(null);
+
+  const sanitizeNumericInput = (value: string) =>
+    value.replace(/[^0-9.,]/g, "");
 
   useEffect(() => {
     loadCategories();
@@ -92,6 +100,7 @@ export default function CreateTransactionScreen(): React.JSX.Element {
 
       setBaseCurrency(data.base_currency);
       setCurrency(data.base_currency); // Default to base currency
+      setFxRate("1");
     } catch (e: any) {
       console.error("Error loading account:", e);
     }
@@ -114,11 +123,31 @@ export default function CreateTransactionScreen(): React.JSX.Element {
       return;
     }
 
+    if (currency !== baseCurrency) {
+      if (!fxRate.trim()) {
+        setFxRateError(t(dictionary, "transactions.fxRateRequired"));
+        return;
+      }
+      const parsedFx = parseFxRate(fxRate);
+      if (typeof parsedFx === "object" && "error" in parsedFx) {
+        setFxRateError(t(dictionary, parsedFx.error.key));
+        return;
+      }
+    }
+
+    setFxRateError(null);
+    const fxRateValue =
+      currency === baseCurrency ? "1" : fxRate.replace(",", ".");
+
     setIsSubmitting(true);
 
     try {
       // Parse amount to minor units
-      const amountMinor = parseMoneyToMinor(amount, currency);
+      const amountMinor = parseMoneyToMinor(
+        amount,
+        currency,
+        CURRENCY_MINOR_UNITS
+      );
       if (typeof amountMinor === "object" && "error" in amountMinor) {
         Alert.alert(
           t(dictionary, "common.errorTitle"),
@@ -130,19 +159,25 @@ export default function CreateTransactionScreen(): React.JSX.Element {
 
       // Calculate amount_base_minor
       let amountBaseMinor: bigint;
-      const fxRate = 1; // v1 simple: always 1 (same currency or manual)
-
       if (currency === baseCurrency) {
         amountBaseMinor = amountMinor;
       } else {
-        // For v1, if currency differs, we'll use 1:1 conversion
-        // This should be improved in the future with real FX rates
-        amountBaseMinor = convertCurrency(
+        const computed = computeAmountBaseMinor({
           amountMinor,
           currency,
           baseCurrency,
-          fxRate
-        );
+          fxRate: fxRateValue,
+          currencyMeta: CURRENCY_MINOR_UNITS,
+        });
+        if (typeof computed === "object" && "error" in computed) {
+          Alert.alert(
+            t(dictionary, "common.errorTitle"),
+            t(dictionary, computed.error.key)
+          );
+          setIsSubmitting(false);
+          return;
+        }
+        amountBaseMinor = computed;
       }
 
       // Get current user
@@ -168,6 +203,8 @@ export default function CreateTransactionScreen(): React.JSX.Element {
             amount_minor: amountMinor.toString(),
             currency,
             amount_base_minor: amountBaseMinor.toString(),
+            fx_rate: fxRateValue,
+            fx_date: date,
             category_id: categoryId || null,
             date,
             merchant: merchant.trim() || null,
@@ -203,6 +240,32 @@ export default function CreateTransactionScreen(): React.JSX.Element {
 
   // Filter categories by type
   const availableCategories = categories.filter((cat) => cat.type === type);
+  const previewBaseAmount = useMemo(() => {
+    if (currency === baseCurrency) return null;
+    if (!amount.trim() || !fxRate.trim()) return null;
+
+    const amountMinor = parseMoneyToMinor(
+      amount,
+      currency,
+      CURRENCY_MINOR_UNITS
+    );
+    if (typeof amountMinor === "object" && "error" in amountMinor) {
+      return null;
+    }
+
+    const computed = computeAmountBaseMinor({
+      amountMinor,
+      currency,
+      baseCurrency,
+      fxRate,
+      currencyMeta: CURRENCY_MINOR_UNITS,
+    });
+    if (typeof computed === "object" && "error" in computed) {
+      return null;
+    }
+
+    return formatMinorToMoney(computed, baseCurrency, CURRENCY_MINOR_UNITS);
+  }, [amount, currency, baseCurrency, fxRate]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -250,7 +313,7 @@ export default function CreateTransactionScreen(): React.JSX.Element {
                     type === "income" ? styles.pillTextSelected : styles.pillTextUnselected,
                   ]}
                 >
-                  {t(dictionary, "transactions.create.typeIncome")}
+          {t(dictionary, "transactions.create.typeIncome")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -260,7 +323,7 @@ export default function CreateTransactionScreen(): React.JSX.Element {
           <Input
             label={t(dictionary, "transactions.create.amountLabel")}
             value={amount}
-            onChangeText={setAmount}
+            onChangeText={(value) => setAmount(sanitizeNumericInput(value))}
             placeholder={t(dictionary, "transactions.create.amountPlaceholder")}
             keyboardType="numeric"
           />
@@ -271,7 +334,13 @@ export default function CreateTransactionScreen(): React.JSX.Element {
             <View style={styles.pickerContainer}>
               <Picker
                 selectedValue={currency}
-                onValueChange={(value) => setCurrency(value)}
+                onValueChange={(value) => {
+                  setCurrency(value);
+                  if (value === baseCurrency) {
+                    setFxRate("1");
+                    setFxRateError(null);
+                  }
+                }}
                 style={styles.picker}
               >
                 {CURRENCIES.map((curr) => (
@@ -284,6 +353,32 @@ export default function CreateTransactionScreen(): React.JSX.Element {
               </Picker>
             </View>
           </View>
+
+          {currency !== baseCurrency && (
+            <>
+              <Input
+                label={t(dictionary, "transactions.fxRateLabel")}
+                value={fxRate}
+                onChangeText={(value) => {
+                  setFxRateError(null);
+                  setFxRate(sanitizeNumericInput(value));
+                }}
+                placeholder={t(dictionary, "transactions.fxRatePlaceholder")}
+                keyboardType="numeric"
+                error={fxRateError ?? undefined}
+                helperText={t(dictionary, "transactions.fxRateHelper", {
+                  currency,
+                  baseCurrency,
+                })}
+              />
+              <Text style={styles.previewText}>
+                {t(dictionary, "transactions.baseAmountPreview", {
+                  amount: previewBaseAmount ?? "-",
+                  baseCurrency,
+                })}
+              </Text>
+            </>
+          )}
 
           {/* Date */}
           <Input
@@ -414,6 +509,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: colors.text.primary,
+  },
+  previewText: {
+    fontSize: 12,
+    color: colors.text.secondary,
   },
   // Pill selector styles
   pillContainer: {

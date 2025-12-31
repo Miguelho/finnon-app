@@ -523,6 +523,8 @@ Inmutabilidad:
   - mostrar campo opcional "FX rate" (v1) + helper text: "1 <currency> = X <base_currency>"
   - mostrar preview de `amount_base_minor` en moneda base usando util TS
 - Guardar siempre `amount_minor` (con parse util) y si currency != base -> enviar `fx_rate` (v1)
+- Formualario sólo permite introducción de números y/o "." o ",".
+- Uso de "," en idioma español, resto de idiomas "."
 
 ---
 

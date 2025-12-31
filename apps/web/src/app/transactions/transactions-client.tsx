@@ -46,6 +46,10 @@ import {
   formatMinorToMoney,
   formatMoneyWithSymbol,
   getIconById,
+  parseMoneyToMinor,
+  computeAmountBaseMinor,
+  parseFxRate,
+  CURRENCY_MINOR_UNITS,
 } from "@poleursus/shared";
 import {
   createTransaction,
@@ -67,6 +71,8 @@ type Transaction = {
   amount_minor: string;
   currency: string;
   amount_base_minor: string;
+  fx_rate?: string | null;
+  fx_date?: string | null;
   category_id: string | null;
   date: string;
   merchant: string | null;
@@ -114,6 +120,7 @@ export function TransactionsClient({
     type: TransactionType;
     amount: string;
     currency: string;
+    fx_rate: string;
     category_id: string | undefined;
     date: string;
     merchant: string;
@@ -122,11 +129,63 @@ export function TransactionsClient({
     type: "expense" as TransactionType,
     amount: "",
     currency: baseCurrency,
+    fx_rate: "1",
     category_id: undefined,
     date: new Date().toISOString().slice(0, 10),
     merchant: "",
     notes: "",
   });
+
+  const requiresFxRate = formData.currency !== baseCurrency;
+  const previewBaseAmount = useMemo(() => {
+    if (!requiresFxRate) return null;
+    if (!formData.amount.trim() || !formData.fx_rate.trim()) return null;
+
+    const amountMinor = parseMoneyToMinor(
+      formData.amount,
+      formData.currency,
+      CURRENCY_MINOR_UNITS
+    );
+    if (typeof amountMinor === "object" && "error" in amountMinor) {
+      return null;
+    }
+
+    const computed = computeAmountBaseMinor({
+      amountMinor,
+      currency: formData.currency,
+      baseCurrency,
+      fxRate: formData.fx_rate,
+      currencyMeta: CURRENCY_MINOR_UNITS,
+    });
+    if (typeof computed === "object" && "error" in computed) {
+      return null;
+    }
+
+    return formatMinorToMoney(computed, baseCurrency, CURRENCY_MINOR_UNITS);
+  }, [
+    formData.amount,
+    formData.currency,
+    formData.fx_rate,
+    baseCurrency,
+    requiresFxRate,
+  ]);
+
+  const validateFxRate = () => {
+    if (!requiresFxRate) return true;
+    if (!formData.fx_rate.trim()) {
+      alert(t("fxRateRequired"));
+      return false;
+    }
+    const parsed = parseFxRate(formData.fx_rate);
+    if (typeof parsed === "object" && "error" in parsed) {
+      alert(t("fxRateInvalid"));
+      return false;
+    }
+    return true;
+  };
+
+  const sanitizeNumericInput = (value: string) =>
+    value.replace(/[^0-9.,]/g, "");
 
   useEffect(() => {
     if (!searchParams?.get("new")) return;
@@ -172,6 +231,7 @@ export function TransactionsClient({
   const handleCreate = async () => {
     if (!canEdit) return;
     if (!formData.amount.trim()) return;
+    if (!validateFxRate()) return;
 
     setIsSubmitting(true);
     try {
@@ -180,6 +240,7 @@ export function TransactionsClient({
         type: formData.type,
         amount: formData.amount,
         currency: formData.currency,
+        fx_rate: requiresFxRate ? formData.fx_rate : null,
         category_id: formData.category_id || null,
         date: formData.date,
         merchant: formData.merchant || null,
@@ -193,6 +254,7 @@ export function TransactionsClient({
           type: "expense",
           amount: "",
           currency: baseCurrency,
+          fx_rate: "1",
           category_id: undefined,
           date: new Date().toISOString().slice(0, 10),
           merchant: "",
@@ -216,6 +278,7 @@ export function TransactionsClient({
   const handleEdit = async () => {
     if (!canEdit) return;
     if (!selectedTransaction || !formData.amount.trim()) return;
+    if (!validateFxRate()) return;
 
     setIsSubmitting(true);
     try {
@@ -223,6 +286,7 @@ export function TransactionsClient({
         type: formData.type,
         amount: formData.amount,
         currency: formData.currency,
+        fx_rate: requiresFxRate ? formData.fx_rate : null,
         category_id: formData.category_id || null,
         date: formData.date,
         merchant: formData.merchant || null,
@@ -241,6 +305,7 @@ export function TransactionsClient({
           type: "expense",
           amount: "",
           currency: baseCurrency,
+          fx_rate: "1",
           category_id: undefined,
           date: new Date().toISOString().slice(0, 10),
           merchant: "",
@@ -297,9 +362,11 @@ export function TransactionsClient({
       type: transaction.type,
       amount: formatMinorToMoney(
         BigInt(transaction.amount_minor),
-        transaction.currency
+        transaction.currency,
+        CURRENCY_MINOR_UNITS
       ),
       currency: transaction.currency,
+      fx_rate: transaction.fx_rate ?? "1",
       category_id: transaction.category_id || undefined,
       date: transaction.date,
       merchant: transaction.merchant || "",
@@ -599,7 +666,10 @@ export function TransactionsClient({
                     type="text"
                     value={formData.amount}
                     onChange={(e) =>
-                      setFormData({ ...formData, amount: e.target.value })
+                      setFormData({
+                        ...formData,
+                        amount: sanitizeNumericInput(e.target.value),
+                      })
                     }
                     placeholder={t("create.amountPlaceholder")}
                     className="flex-1"
@@ -607,7 +677,11 @@ export function TransactionsClient({
                   <Select
                     value={formData.currency}
                     onValueChange={(value) =>
-                      setFormData({ ...formData, currency: value })
+                      setFormData({
+                        ...formData,
+                        currency: value,
+                        fx_rate: value === baseCurrency ? "1" : formData.fx_rate,
+                      })
                     }
                   >
                     <SelectTrigger className="w-32">
@@ -623,6 +697,36 @@ export function TransactionsClient({
                   </Select>
                 </div>
               </div>
+
+              {requiresFxRate && (
+                <div className="space-y-2">
+                  <Label htmlFor="fx-rate">{t("fxRateLabel")}</Label>
+                  <Input
+                    id="fx-rate"
+                    type="text"
+                    value={formData.fx_rate}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        fx_rate: sanitizeNumericInput(e.target.value),
+                      })
+                    }
+                    placeholder={t("fxRatePlaceholder")}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t("fxRateHelper", {
+                      currency: formData.currency,
+                      baseCurrency,
+                    })}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {t("baseAmountPreview", {
+                      amount: previewBaseAmount ?? "-",
+                      baseCurrency,
+                    })}
+                  </p>
+                </div>
+              )}
 
               {/* Separator for Optional Fields */}
               <div className="relative">
@@ -780,7 +884,10 @@ export function TransactionsClient({
                     type="text"
                     value={formData.amount}
                     onChange={(e) =>
-                      setFormData({ ...formData, amount: e.target.value })
+                      setFormData({
+                        ...formData,
+                        amount: sanitizeNumericInput(e.target.value),
+                      })
                     }
                     placeholder={t("create.amountPlaceholder")}
                     className="flex-1"
@@ -788,7 +895,11 @@ export function TransactionsClient({
                   <Select
                     value={formData.currency}
                     onValueChange={(value) =>
-                      setFormData({ ...formData, currency: value })
+                      setFormData({
+                        ...formData,
+                        currency: value,
+                        fx_rate: value === baseCurrency ? "1" : formData.fx_rate,
+                      })
                     }
                   >
                     <SelectTrigger className="w-32">
@@ -804,6 +915,36 @@ export function TransactionsClient({
                   </Select>
                 </div>
               </div>
+
+              {requiresFxRate && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit-fx-rate">{t("fxRateLabel")}</Label>
+                  <Input
+                    id="edit-fx-rate"
+                    type="text"
+                    value={formData.fx_rate}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        fx_rate: sanitizeNumericInput(e.target.value),
+                      })
+                    }
+                    placeholder={t("fxRatePlaceholder")}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t("fxRateHelper", {
+                      currency: formData.currency,
+                      baseCurrency,
+                    })}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {t("baseAmountPreview", {
+                      amount: previewBaseAmount ?? "-",
+                      baseCurrency,
+                    })}
+                  </p>
+                </div>
+              )}
 
               {/* Separator for Optional Fields */}
               <div className="relative">

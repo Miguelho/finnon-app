@@ -22,13 +22,19 @@ export default function OnboardingScreen() {
   const [currency, setCurrency] = useState("EUR");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user, setSelectedAccountId } = useAuth();
+  const { user, setSelectedAccountId, signOut } = useAuth();
   const router = useRouter();
   const { dictionary } = useCopy();
 
   const handleCreateAccount = async () => {
-    if (!accountName || !currency || !user) {
+    if (!accountName || !currency) {
       setError(t(dictionary, "mobile.onboarding.errorRequired"));
+      return;
+    }
+
+    if (!user) {
+      await signOut();
+      router.replace("/(auth)/login");
       return;
     }
 
@@ -58,9 +64,25 @@ export default function OnboardingScreen() {
       router.replace("/");
     } catch (err) {
       console.error("Error creating account:", err);
-      setError(
-        err instanceof Error ? err.message : t(dictionary, "mobile.onboarding.createError")
-      );
+      const errorCode =
+        typeof err === "object" && err !== null && "code" in err ? (err as any).code : null;
+      const errorStatus =
+        typeof err === "object" && err !== null && "status" in err ? (err as any).status : null;
+      const isAuthError =
+        errorCode === "401" ||
+        errorCode === "403" ||
+        errorCode === "42501" ||
+        errorCode === "23503" ||
+        errorStatus === 401 ||
+        errorStatus === 403;
+
+      if (isAuthError) {
+        await signOut();
+        router.replace("/(auth)/login");
+        return;
+      }
+
+      setError(err instanceof Error ? err.message : t(dictionary, "mobile.onboarding.createError"));
     } finally {
       setLoading(false);
     }
