@@ -107,7 +107,7 @@ export default function EditTransactionScreen(): React.JSX.Element {
           )
         );
         setCurrency(data.currency);
-        setFxRate(data.fx_rate ?? "1");
+        setFxRate(String(data.fx_rate) ?? "1");
         setCategoryId(data.category_id || "");
         setDate(data.date);
         setMerchant(data.merchant || "");
