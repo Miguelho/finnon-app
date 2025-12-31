@@ -10,7 +10,7 @@ import {
 import { supabase } from "../../src/lib/supabase";
 import { Card } from "../../src/components/Card";
 import { useAuth } from "../../src/contexts/AuthContext";
-import { Redirect } from "expo-router";
+import { useRouter } from "expo-router";
 
 interface Account {
   id: string;
@@ -23,6 +23,7 @@ export default function SelectAccountScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user, setSelectedAccountId } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     loadAccounts();
@@ -61,7 +62,7 @@ export default function SelectAccountScreen() {
   const handleSelectAccount = async (accountId: string) => {
     console.log("[SelectAccount] Selected account:", accountId);
     await setSelectedAccountId(accountId);
-    return <Redirect href="/(auth)/home" />;
+    router.replace("/(auth)/home");
   };
 
   if (loading) {

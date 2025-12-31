@@ -88,7 +88,9 @@ export default function IndexGateAndHome() {
   }
   console.log("accountCount:", accountCount);
   console.log("selectedAccountId:", selectedAccountId);
-
+  if (selectedAccountId) {
+    return <Redirect href="/(auth)/select-account" />;
+  }
   // 5) OK: render Home (tu pantalla actual)
   const handleSignOut = async () => {
     await signOut();
