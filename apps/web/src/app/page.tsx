@@ -11,6 +11,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { AccountMenu } from "@/components/account-menu";
+import { cookies } from "next/headers";
 
 export default async function DashboardPage() {
   const t = await getTranslations("dashboard");
@@ -36,9 +38,35 @@ export default async function DashboardPage() {
     redirect("/onboarding");
   }
 
-  const mainAccount = accounts[0];
+  const cookieStore = await cookies();
+  const cookieAccountId = cookieStore.get("finnon:activeAccountId")?.value;
+  const mainAccount =
+    accounts.find((account) => account.id === cookieAccountId) ?? accounts[0];
   const mainAccountRole = mainAccount?.account_members?.[0]?.role ?? "viewer";
   const isViewer = mainAccountRole === "viewer";
+
+  const { data: members } = await supabase
+    .from("account_members")
+    .select("account_id")
+    .in(
+      "account_id",
+      accounts.map((account) => account.id)
+    );
+
+  const memberCounts = (members ?? []).reduce<Record<string, number>>(
+    (acc, member) => {
+      acc[member.account_id] = (acc[member.account_id] ?? 0) + 1;
+      return acc;
+    },
+    {}
+  );
+
+  const accountsWithCounts = accounts.map((account) => ({
+    id: account.id,
+    name: account.name,
+    base_currency: account.base_currency,
+    memberCount: memberCounts[account.id] ?? 0,
+  }));
 
   // Función para cerrar sesión
   async function signOut() {
@@ -85,6 +113,25 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         )}
+
+        <AccountMenu
+          accounts={accountsWithCounts}
+          initialActiveAccountId={mainAccount.id}
+          currentUserId={user.id}
+          labels={{
+            title: t("accountsTitle"),
+            description: t("accountsDescription"),
+            detailLabel: t("accountDetailLabel"),
+            participantsLabel: t("participantsLabel"),
+            participantsEmpty: t("participantsEmpty"),
+            participantsError: t("participantsError"),
+            participantsLoading: t("participantsLoading"),
+            memberFallbackLabel: t("accountsMemberFallbackLabel"),
+            activeBadge: t("accountsActiveBadge"),
+            selectBadge: t("accountsSelectBadge"),
+            youLabel: t("accountsYouLabel"),
+          }}
+        />
 
         {/* Welcome Card */}
         <Card>

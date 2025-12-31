@@ -23,6 +23,13 @@ export default function AuthLayout() {
           gestureEnabled: false,
         }}
       />
+      <Stack.Screen
+        name="account/[id]"
+        options={{
+          headerShown: true,
+          title: "Cuenta",
+        }}
+      />
     </Stack>
   );
 }

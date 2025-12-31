@@ -12,11 +12,18 @@ type Account = {
   base_currency: string;
 };
 
+type AccountMember = {
+  account_id: string;
+  user_id: string;
+  role: "viewer" | "contributor" | "admin";
+};
+
 export default function HomeScreen() {
   const router = useRouter();
   const { user, session, signOut, selectedAccountId, setSelectedAccountId } = useAuth();
 
   const [accounts, setAccounts] = useState<Account[] | null>(null);
+  const [membersByAccountId, setMembersByAccountId] = useState<Record<string, AccountMember[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +53,6 @@ export default function HomeScreen() {
 
       setLoading(true);
       setError(null);
-
       try {
         // Equivalente RN del query de web: accounts + join membership
         // En mobile normalmente basta con listar accounts del usuario
@@ -57,8 +63,43 @@ export default function HomeScreen() {
 
         if (qErr) throw qErr;
 
+        const accountsList = (data as Account[]) ?? [];
+
         if (!cancelled) {
-          setAccounts((data as any) ?? []);
+          setAccounts(accountsList);
+        }
+
+        if (accountsList.length > 0) {
+          try {
+            const { data: members, error: membersErr } = await supabase
+              .from("account_members")
+              .select("account_id, user_id, role")
+              .in("account_id", accountsList.map((account) => account.id));
+
+            if (membersErr) throw membersErr;
+
+            const groupedMembers = (members as AccountMember[]).reduce<Record<string, AccountMember[]>>(
+              (acc, member) => {
+                if (!acc[member.account_id]) acc[member.account_id] = [];
+                acc[member.account_id].push(member);
+                return acc;
+              },
+              {}
+            );
+
+            if (!cancelled) setMembersByAccountId(groupedMembers);
+          } catch (membersLoadError: any) {
+            console.error("[Home] Error loading members:", membersLoadError);
+            if (!cancelled) {
+              setMembersByAccountId({});
+            }
+          } finally {
+            if (!cancelled) {
+              // no-op; kept for future loading UI if needed
+            }
+          }
+        } else if (!cancelled) {
+          setMembersByAccountId({});
         }
       } catch (e: any) {
         console.error("[Home] Error loading accounts:", e);
@@ -151,6 +192,42 @@ export default function HomeScreen() {
           <Button title="Salir" onPress={handleSignOut} variant="secondary" />
         </View>
       </View>
+
+      {/* Accounts Menu */}
+      <Card
+        title="Cuentas"
+        description="Selecciona la cuenta activa y revisa participantes"
+      >
+        <View style={styles.accountList}>
+          {accounts.map((account) => {
+            const isActive = account.id === mainAccount?.id;
+            const memberCount = membersByAccountId[account.id]?.length ?? 0;
+
+            return (
+              <TouchableOpacity
+                key={account.id}
+                style={[styles.accountRow, isActive && styles.accountRowActive]}
+                onPress={async () => {
+                  await setSelectedAccountId(account.id);
+                  router.push(`/(auth)/account/${account.id}`);
+                }}
+              >
+                <View style={styles.accountRowInfo}>
+                  <Text style={styles.accountRowName}>{account.name}</Text>
+                  <Text style={styles.accountRowMeta}>
+                    {account.base_currency} • {memberCount} participantes
+                  </Text>
+                </View>
+                <View style={[styles.accountBadge, isActive && styles.accountBadgeActive]}>
+                  <Text style={[styles.accountBadgeText, isActive && styles.accountBadgeTextActive]}>
+                    {isActive ? "Activa" : "Elegir"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </Card>
 
       {/* Welcome Card */}
       <Card
@@ -285,5 +362,55 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.state.negative,
     marginTop: 8,
+  },
+  accountList: {
+    gap: 10,
+  },
+  accountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    backgroundColor: colors.bg.secondary,
+    borderRadius: 10,
+    padding: 12,
+  },
+  accountRowActive: {
+    borderColor: colors.action.primary,
+    backgroundColor: colors.action.secondary,
+  },
+  accountRowInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  accountRowName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text.primary,
+  },
+  accountRowMeta: {
+    fontSize: 13,
+    color: colors.text.secondary,
+  },
+  accountBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: colors.bg.surface,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+  },
+  accountBadgeActive: {
+    backgroundColor: colors.action.primary,
+    borderColor: colors.action.primary,
+  },
+  accountBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.text.secondary,
+  },
+  accountBadgeTextActive: {
+    color: colors.bg.primary,
   },
 });

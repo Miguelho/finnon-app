@@ -86,6 +86,13 @@ export default function JoinPage() {
         // 4. Save active account to localStorage
         localStorage.setItem("finnon:activeAccountId", data.accountId);
 
+        // 4.1 Sync active account cookie for server-rendered pages
+        await fetch("/api/active-account", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accountId: data.accountId }),
+        });
+
         // 5. Show success state
         setState({ status: "success", accountId: data.accountId });
 

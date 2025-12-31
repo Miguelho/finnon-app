@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { CategoriesClient } from "./categories-client";
+import { cookies } from "next/headers";
 
 export default async function CategoriesPage() {
   const supabase = await createClient();
@@ -23,7 +24,10 @@ export default async function CategoriesPage() {
     redirect("/onboarding");
   }
 
-  const activeAccount = accounts[0];
+  const cookieStore = await cookies();
+  const cookieAccountId = cookieStore.get("finnon:activeAccountId")?.value;
+  const activeAccount =
+    accounts.find((account) => account.id === cookieAccountId) ?? accounts[0];
   const activeRole = activeAccount?.account_members?.[0]?.role ?? "viewer";
 
   if (!activeAccount) {
