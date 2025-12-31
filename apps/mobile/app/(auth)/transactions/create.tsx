@@ -8,7 +8,7 @@ import {
   Platform,
   TouchableOpacity,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
@@ -31,6 +31,7 @@ type Category = {
 
 export default function CreateTransactionScreen(): React.JSX.Element {
   const router = useRouter();
+  const params = useLocalSearchParams<{ type?: string }>();
   const { selectedAccountId } = useAuth();
 
   const [type, setType] = useState<TransactionType>("expense");
@@ -49,6 +50,13 @@ export default function CreateTransactionScreen(): React.JSX.Element {
     loadCategories();
     loadAccount();
   }, [selectedAccountId]);
+
+  useEffect(() => {
+    if (params.type === "income" || params.type === "expense") {
+      setType(params.type);
+      setCategoryId("");
+    }
+  }, [params.type]);
 
   const loadCategories = async () => {
     if (!selectedAccountId) return;

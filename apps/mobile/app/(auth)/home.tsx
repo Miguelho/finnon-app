@@ -1,67 +1,162 @@
-import { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity } from "react-native";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  ScrollView,
+  TouchableOpacity,
+  Modal,
+  Pressable,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { useAuth } from "../../src/contexts/AuthContext";
 import { Button } from "../../src/components/Button";
-import { Card } from "../../src/components/Card";
+import {
+  buildHomeViewModel,
+  CURRENCIES,
+  formatMoneyWithSymbol,
+  formatParticipantCount,
+  getIconById,
+  getMonthRange,
+  homeCopy,
+  themeTokens,
+  type UserRole,
+} from "@poleursus/shared";
+
+type AccountMember = {
+  account_id: string;
+  user_id: string;
+  role: UserRole;
+};
 
 type Account = {
   id: string;
   name: string;
   base_currency: string;
+  account_members?: AccountMember[];
 };
 
-type AccountMember = {
-  account_id: string;
-  user_id: string;
-  role: "viewer" | "contributor" | "admin";
+type Category = {
+  id: string;
+  name: string;
+  icon_id: string;
 };
+
+type Transaction = {
+  id: string;
+  account_id: string;
+  type: "income" | "expense";
+  amount_minor: string;
+  currency: string;
+  amount_base_minor: string;
+  category_id: string | null;
+  date: string;
+  merchant: string | null;
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+  category?: Category | null;
+};
+
+const tokens = themeTokens.light;
+const colors = tokens.colors;
+
+function formatDateShort(value: Date) {
+  return value.toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "short",
+  });
+}
+
+function HomeSheet({
+  visible,
+  onClose,
+  title,
+  children,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <Modal
+      transparent
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.sheetOverlay}>
+        <Pressable style={styles.sheetBackdrop} onPress={onClose} />
+        <View style={styles.sheetContainer}>
+          <View style={styles.sheetHandle} />
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>{title}</Text>
+          </View>
+          <ScrollView contentContainerStyle={styles.sheetContent}>
+            {children}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, session, signOut, selectedAccountId, setSelectedAccountId } = useAuth();
+  const { user, session, selectedAccountId, setSelectedAccountId } = useAuth();
 
   const [accounts, setAccounts] = useState<Account[] | null>(null);
-  const [membersByAccountId, setMembersByAccountId] = useState<Record<string, AccountMember[]>>({});
-  const [loading, setLoading] = useState(true);
+  const [membersByAccountId, setMembersByAccountId] = useState<
+    Record<string, AccountMember[]>
+  >({});
+  const [monthlyTransactions, setMonthlyTransactions] = useState<Transaction[]>(
+    []
+  );
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false);
+  const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
 
   const mainAccount = useMemo(() => {
     if (!accounts || accounts.length === 0) return null;
-
-    // Si tienes selectedAccountId, úsalo como “cuenta activa”
     if (selectedAccountId) {
-      const selected = accounts.find((a) => a.id === selectedAccountId);
-      if (selected) return selected;
+      return accounts.find((account) => account.id === selectedAccountId) ?? accounts[0];
     }
-
-    // Fallback: primera cuenta
     return accounts[0];
   }, [accounts, selectedAccountId]);
+
+  const activeRole = useMemo<UserRole>(() => {
+    if (!mainAccount || !user) return "viewer";
+    return (
+      mainAccount.account_members?.find((member) => member.user_id === user.id)
+        ?.role ?? "viewer"
+    );
+  }, [mainAccount, user]);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
-      // Si tu gate está bien, normalmente no entras aquí sin sesión,
-      // pero lo dejamos robusto.
+    async function loadAccounts() {
       if (!session || !user) {
-        setLoading(false);
+        setLoadingAccounts(false);
         return;
       }
 
-      setLoading(true);
+      setLoadingAccounts(true);
       setError(null);
+
       try {
-        // Equivalente RN del query de web: accounts + join membership
-        // En mobile normalmente basta con listar accounts del usuario
-        const { data, error: qErr } = await supabase
+        const { data, error: accountsError } = await supabase
           .from("accounts")
-          .select("id, name, base_currency, account_members!inner(role)")
+          .select("id, name, base_currency, account_members!inner(role, user_id)")
           .eq("account_members.user_id", user.id);
 
-        if (qErr) throw qErr;
+        if (accountsError) throw accountsError;
 
         const accountsList = (data as Account[]) ?? [];
 
@@ -71,32 +166,28 @@ export default function HomeScreen() {
 
         if (accountsList.length > 0) {
           try {
-            const { data: members, error: membersErr } = await supabase
+            const { data: members, error: membersError } = await supabase
               .from("account_members")
               .select("account_id, user_id, role")
-              .in("account_id", accountsList.map((account) => account.id));
+              .in(
+                "account_id",
+                accountsList.map((account) => account.id)
+              );
 
-            if (membersErr) throw membersErr;
+            if (membersError) throw membersError;
 
-            const groupedMembers = (members as AccountMember[]).reduce<Record<string, AccountMember[]>>(
-              (acc, member) => {
-                if (!acc[member.account_id]) acc[member.account_id] = [];
-                acc[member.account_id].push(member);
-                return acc;
-              },
-              {}
-            );
+            const groupedMembers = (members as AccountMember[]).reduce<
+              Record<string, AccountMember[]>
+            >((acc, member) => {
+              if (!acc[member.account_id]) acc[member.account_id] = [];
+              acc[member.account_id].push(member);
+              return acc;
+            }, {});
 
             if (!cancelled) setMembersByAccountId(groupedMembers);
           } catch (membersLoadError: any) {
             console.error("[Home] Error loading members:", membersLoadError);
-            if (!cancelled) {
-              setMembersByAccountId({});
-            }
-          } finally {
-            if (!cancelled) {
-              // no-op; kept for future loading UI if needed
-            }
+            if (!cancelled) setMembersByAccountId({});
           }
         } else if (!cancelled) {
           setMembersByAccountId({});
@@ -105,36 +196,80 @@ export default function HomeScreen() {
         console.error("[Home] Error loading accounts:", e);
         if (!cancelled) setError(e?.message ?? "Error loading accounts");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setLoadingAccounts(false);
       }
     }
 
-    load();
+    loadAccounts();
     return () => {
       cancelled = true;
     };
-  }, [session?.user?.id]);
+  }, [session?.user?.id, user?.id]);
 
-  // Auto-select first account if none is selected
   useEffect(() => {
     if (accounts && accounts.length > 0 && !selectedAccountId) {
-      const firstAccount = accounts[0];
-      if (firstAccount) {
-        console.log("[Home] Auto-selecting first account:", firstAccount.id);
-        setSelectedAccountId(firstAccount.id);
-      }
+      setSelectedAccountId(accounts[0]?.id ?? null);
     }
   }, [accounts, selectedAccountId, setSelectedAccountId]);
 
-  const handleSignOut = async () => {
-    await signOut(); // limpia selectedAccountId + supabase.signOut :contentReference[oaicite:5]{index=5}
-    // Si tienes gate en index.tsx, no hace falta replace manual.
-    router.replace("/(auth)/login");
-  };
+  useEffect(() => {
+    let cancelled = false;
 
-  // UI states
+    async function loadTransactions() {
+      if (!mainAccount) return;
+
+      setLoadingTransactions(true);
+      setError(null);
+
+      const monthRange = getMonthRange(new Date());
+      const startDate = monthRange.start.toISOString().slice(0, 10);
+      const endDate = monthRange.end.toISOString().slice(0, 10);
+
+      try {
+        const { data: monthData, error: monthError } = await supabase
+          .from("transactions")
+          .select(
+            "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at"
+          )
+          .eq("account_id", mainAccount.id)
+          .gte("date", startDate)
+          .lte("date", endDate)
+          .order("date", { ascending: false })
+          .order("created_at", { ascending: false });
+
+        if (monthError) throw monthError;
+
+        const { data: recentData, error: recentError } = await supabase
+          .from("transactions")
+          .select(
+            "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id)"
+          )
+          .eq("account_id", mainAccount.id)
+          .order("date", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+        if (recentError) throw recentError;
+
+        if (!cancelled) {
+          setMonthlyTransactions((monthData as Transaction[]) ?? []);
+          setRecentTransactions((recentData as Transaction[]) ?? []);
+        }
+      } catch (e: any) {
+        console.error("[Home] Error loading transactions:", e);
+        if (!cancelled) setError(e?.message ?? "Error loading transactions");
+      } finally {
+        if (!cancelled) setLoadingTransactions(false);
+      }
+    }
+
+    loadTransactions();
+    return () => {
+      cancelled = true;
+    };
+  }, [mainAccount?.id]);
+
   if (!session || !user) {
-    // si has entrado aquí sin sesión, te mando a login
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" />
@@ -142,7 +277,7 @@ export default function HomeScreen() {
     );
   }
 
-  if (loading) {
+  if (loadingAccounts || loadingTransactions) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" />
@@ -153,22 +288,22 @@ export default function HomeScreen() {
   if (error) {
     return (
       <View style={styles.container}>
-        <Card title="Error" description={error}>
-          <Text style={styles.errorText}>No se pudieron cargar las cuentas</Text>
-          <View style={{ height: 12 }} />
-          <Button title="Reintentar" onPress={() => {
-            setAccounts(null);
-            setError(null);
-            setLoading(true);
-            // fuerza reload con pequeño truco: push a misma ruta
-            router.replace("/home");
-          }} />
-        </Card>
+        <View style={styles.errorCard}>
+          <Text style={styles.errorTitle}>Error</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <View style={{ height: tokens.spacing.md }} />
+          <Button
+            title="Reintentar"
+            onPress={() => {
+              setError(null);
+              router.replace("/(auth)/home");
+            }}
+          />
+        </View>
       </View>
     );
   }
 
-  // Si no hay cuentas, normalmente tu gate debería mandarte a onboarding
   if (!accounts || accounts.length === 0) {
     router.replace("/(auth)/onboarding");
     return (
@@ -178,48 +313,310 @@ export default function HomeScreen() {
     );
   }
 
-  return (
-    <ScrollView contentContainerStyle={styles.scroll}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.appName}>Finnon</Text>
-          <Text style={styles.tagline}>Gestiona tus finanzas sin fricción</Text>
-        </View>
-
-        <View style={styles.headerActions}>
-          {/* Si luego quieres LocaleSwitcher, lo metemos aquí */}
-          <Button title="Salir" onPress={handleSignOut} variant="secondary" />
-        </View>
+  if (!mainAccount) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" />
       </View>
+    );
+  }
 
-      {/* Accounts Menu */}
-      <Card
-        title="Cuentas"
-        description="Selecciona la cuenta activa y revisa participantes"
+  const currencySymbol =
+    CURRENCIES.find((c) => c.code === mainAccount.base_currency)?.symbol ||
+    mainAccount.base_currency;
+
+  const viewModel = buildHomeViewModel({
+    account: mainAccount,
+    role: activeRole,
+    obligations: [],
+    monthlyTransactions,
+    recentTransactions,
+    month: new Date(),
+    nextDays: 7,
+    recentLimit: 6,
+  });
+
+  const upcomingItems = viewModel.upcoming.items.slice(0, 5);
+
+  return (
+    <View style={styles.root}>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              style={styles.accountChip}
+              onPress={() => setIsAccountSheetOpen(true)}
+            >
+              <Text style={styles.accountChipText} numberOfLines={1}>
+                {mainAccount.name} · {mainAccount.base_currency} v
+              </Text>
+            </TouchableOpacity>
+            {viewModel.permissions.isGuestReadOnly && (
+              <View style={styles.readOnlyBadge}>
+                <Text style={styles.readOnlyBadgeText}>
+                  {viewModel.copy.guestBadge}
+                </Text>
+              </View>
+            )}
+          </View>
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={() => router.push("/(auth)/settings")}
+          >
+            <Text style={styles.profileButtonText}>Ajustes</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Hero */}
+        <View style={styles.heroCard}>
+          <View style={styles.heroHeader}>
+            <Text style={styles.heroTitle}>Este mes</Text>
+          </View>
+
+          <View style={styles.heroMetrics}>
+            <View style={styles.heroMetric}>
+              <Text style={styles.heroMetricLabel}>
+                {viewModel.copy.committedLabel}
+              </Text>
+              <Text style={styles.heroMetricValue}>
+                {formatMoneyWithSymbol(
+                  viewModel.monthlyHero.committedMinor,
+                  mainAccount.base_currency,
+                  currencySymbol
+                )}
+              </Text>
+            </View>
+            <View style={styles.heroMetric}>
+              <Text style={styles.heroMetricLabel}>
+                {viewModel.copy.pendingLabel}
+              </Text>
+              <Text style={styles.heroMetricValue}>
+                {formatMoneyWithSymbol(
+                  viewModel.monthlyHero.pendingMinor,
+                  mainAccount.base_currency,
+                  currencySymbol
+                )}
+              </Text>
+            </View>
+            <View style={styles.heroMetric}>
+              <Text style={styles.heroMetricLabel}>
+                {viewModel.monthlyHero.paidLabel}
+              </Text>
+              <Text style={styles.heroMetricValue}>
+                {formatMoneyWithSymbol(
+                  viewModel.monthlyHero.paidMinor,
+                  mainAccount.base_currency,
+                  currencySymbol
+                )}
+              </Text>
+            </View>
+          </View>
+
+          {viewModel.monthlyHero.nextObligation ? (
+            <View style={styles.nextObligationRow}>
+              <Text style={styles.nextObligationLabel}>Próxima obligación</Text>
+              <Text style={styles.nextObligationValue} numberOfLines={1}>
+                {viewModel.monthlyHero.nextObligation.name} · {" "}
+                {formatDateShort(viewModel.monthlyHero.nextObligation.dueDate)} · {" "}
+                {formatMoneyWithSymbol(
+                  viewModel.monthlyHero.nextObligation.amountMinor,
+                  mainAccount.base_currency,
+                  currencySymbol
+                )}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.heroEmptyRow}>
+              <Text style={styles.heroEmptyText}>
+                {viewModel.emptyStates.obligations.title}
+              </Text>
+              <TouchableOpacity
+                style={styles.heroEmptyCta}
+                onPress={() => setIsAddSheetOpen(true)}
+              >
+                <Text style={styles.heroEmptyCtaText}>
+                  {viewModel.emptyStates.obligations.cta}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {!viewModel.monthlyHero.hasActivity && (
+            <View style={styles.heroActivityEmpty}>
+              <Text style={styles.heroEmptyText}>
+                {viewModel.emptyStates.activity.title}
+              </Text>
+              <TouchableOpacity
+                style={styles.heroEmptyCta}
+                onPress={() => setIsAddSheetOpen(true)}
+              >
+                <Text style={styles.heroEmptyCtaText}>
+                  {viewModel.emptyStates.activity.cta}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {viewModel.permissions.isGuestReadOnly && (
+            <View style={styles.readOnlyRow}>
+              <Text style={styles.readOnlyText}>{viewModel.copy.guestBlurb}</Text>
+              <TouchableOpacity
+                style={styles.readOnlyCta}
+                onPress={() => router.push("/(auth)/onboarding")}
+              >
+                <Text style={styles.readOnlyCtaText}>
+                  {viewModel.copy.guestCta}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Upcoming */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Próximos 7 días</Text>
+            {upcomingItems.length > 0 && (
+              <TouchableOpacity onPress={() => router.push("/(auth)/transactions")}>
+                <Text style={styles.sectionCta} numberOfLines={1}>
+                  {viewModel.copy.upcomingCta}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {upcomingItems.length === 0 ? (
+            <Text style={styles.emptyText}>{viewModel.emptyStates.upcoming}</Text>
+          ) : (
+            <View style={styles.list}>
+              {upcomingItems.map((item) => (
+                <View key={item.id} style={styles.listRow}>
+                  <View style={styles.listRowInfo}>
+                    <Text style={styles.listRowTitle} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    <Text style={styles.listRowMeta}>
+                      {formatDateShort(item.dueDate)}
+                    </Text>
+                  </View>
+                  <Text style={styles.listRowAmount}>
+                    {formatMoneyWithSymbol(
+                      item.amountMinor,
+                      mainAccount.base_currency,
+                      currencySymbol
+                    )}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Recent Activity */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Actividad reciente</Text>
+            <TouchableOpacity onPress={() => router.push("/(auth)/transactions")}>
+              <Text style={styles.sectionCta} numberOfLines={1}>
+                {viewModel.copy.recentCta}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {viewModel.recentActivity.items.length === 0 ? (
+            <Text style={styles.emptyText}>{viewModel.emptyStates.recent}</Text>
+          ) : (
+            <View style={styles.list}>
+              {viewModel.recentActivity.items.map((item) => {
+                const icon = item.iconId ? getIconById(item.iconId) : null;
+                return (
+                  <View key={item.id} style={styles.listRow}>
+                    <View style={styles.listRowInfo}>
+                      <View style={styles.listRowTitleRow}>
+                        <Text style={styles.listRowIcon}>
+                          {icon?.emoji || (item.type === "income" ? "↑" : "↓")}
+                        </Text>
+                        <Text style={styles.listRowTitle} numberOfLines={1}>
+                          {item.title}
+                        </Text>
+                      </View>
+                      <Text style={styles.listRowMeta}>
+                        {formatDateShort(item.date)}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.listRowAmount,
+                        item.type === "income"
+                          ? styles.amountPositive
+                          : styles.amountNegative,
+                      ]}
+                    >
+                      {item.type === "income" ? "+" : "-"}
+                      {formatMoneyWithSymbol(
+                        item.amountMinor,
+                        mainAccount.base_currency,
+                        currencySymbol
+                      )}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Add Action */}
+      <TouchableOpacity
+        style={[
+          styles.addFab,
+          !viewModel.permissions.canEdit && styles.addFabDisabled,
+        ]}
+        onPress={() => setIsAddSheetOpen(true)}
       >
-        <View style={styles.accountList}>
-          {accounts.map((account) => {
-            const isActive = account.id === mainAccount?.id;
-            const memberCount = membersByAccountId[account.id]?.length ?? 0;
+        <Text style={styles.addFabText}>+ {viewModel.copy.addCta}</Text>
+      </TouchableOpacity>
 
+      {/* Account Switcher */}
+      <HomeSheet
+        visible={isAccountSheetOpen}
+        onClose={() => setIsAccountSheetOpen(false)}
+        title="Cuentas"
+      >
+        <View style={styles.sheetList}>
+          {accounts.map((account) => {
+            const isActive = account.id === mainAccount.id;
+            const memberCount = membersByAccountId[account.id]?.length ?? 0;
             return (
               <TouchableOpacity
                 key={account.id}
-                style={[styles.accountRow, isActive && styles.accountRowActive]}
+                style={[
+                  styles.sheetRow,
+                  isActive && styles.sheetRowActive,
+                ]}
                 onPress={async () => {
                   await setSelectedAccountId(account.id);
-                  router.push(`/(auth)/account/${account.id}`);
+                  setIsAccountSheetOpen(false);
                 }}
               >
-                <View style={styles.accountRowInfo}>
-                  <Text style={styles.accountRowName}>{account.name}</Text>
-                  <Text style={styles.accountRowMeta}>
-                    {account.base_currency} • {memberCount} participantes
+                <View style={styles.sheetRowInfo}>
+                  <Text style={styles.sheetRowTitle}>{account.name}</Text>
+                  <Text style={styles.sheetRowMeta}>
+                    {account.base_currency} · {formatParticipantCount(memberCount)}
                   </Text>
                 </View>
-                <View style={[styles.accountBadge, isActive && styles.accountBadgeActive]}>
-                  <Text style={[styles.accountBadgeText, isActive && styles.accountBadgeTextActive]}>
+                <View
+                  style={[
+                    styles.sheetBadge,
+                    isActive && styles.sheetBadgeActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.sheetBadgeText,
+                      isActive && styles.sheetBadgeTextActive,
+                    ]}
+                  >
                     {isActive ? "Activa" : "Elegir"}
                   </Text>
                 </View>
@@ -227,190 +624,467 @@ export default function HomeScreen() {
             );
           })}
         </View>
-      </Card>
+      </HomeSheet>
 
-      {/* Welcome Card */}
-      <Card
-        title="Bienvenido"
-        description="Tu panel está listo. Aquí verás tu cuenta activa y un resumen rápido."
+      {/* Add Sheet */}
+      <HomeSheet
+        visible={isAddSheetOpen}
+        onClose={() => setIsAddSheetOpen(false)}
+        title="Añadir"
       >
-        <View style={styles.kv}>
-          <Text style={styles.kvRow}>
-            <Text style={styles.kvLabel}>Email: </Text>
-            {user.email ?? "-"}
-          </Text>
-
-          <Text style={styles.kvRow}>
-            <Text style={styles.kvLabel}>Cuenta activa: </Text>
-            {mainAccount?.name ?? "-"}
-          </Text>
-
-          <Text style={styles.kvRow}>
-            <Text style={styles.kvLabel}>Moneda base: </Text>
-            {mainAccount?.base_currency ?? "-"}
-          </Text>
+        {viewModel.permissions.isGuestReadOnly && (
+          <Text style={styles.sheetNotice}>{homeCopy.guestBlurb}</Text>
+        )}
+        <View style={styles.sheetActions}>
+          <TouchableOpacity
+            style={[
+              styles.sheetAction,
+              !viewModel.permissions.canEdit && styles.sheetActionDisabled,
+            ]}
+            disabled={!viewModel.permissions.canEdit}
+            onPress={() => {
+              setIsAddSheetOpen(false);
+              router.push("/(auth)/transactions/create?type=expense");
+            }}
+          >
+            <Text style={styles.sheetActionTitle}>Añadir gasto</Text>
+            <Text style={styles.sheetActionMeta}>
+              Registra un pago del día a día.
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.sheetAction,
+              !viewModel.permissions.canEdit && styles.sheetActionDisabled,
+            ]}
+            disabled={!viewModel.permissions.canEdit}
+            onPress={() => {
+              setIsAddSheetOpen(false);
+              router.push("/(auth)/transactions/create?type=income");
+            }}
+          >
+            <Text style={styles.sheetActionTitle}>Añadir ingreso</Text>
+            <Text style={styles.sheetActionMeta}>
+              Suma un ingreso a tu mes.
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.sheetAction,
+              !viewModel.permissions.canEdit && styles.sheetActionDisabled,
+            ]}
+            disabled={!viewModel.permissions.canEdit}
+            onPress={() => {
+              setIsAddSheetOpen(false);
+              router.push("/(auth)/transactions/create?type=expense&kind=obligation");
+            }}
+          >
+            <Text style={styles.sheetActionTitle}>Añadir obligación</Text>
+            <Text style={styles.sheetActionMeta}>
+              Programa un pago recurrente.
+            </Text>
+          </TouchableOpacity>
         </View>
-      </Card>
-
-      {/* Feature cards (grid aproximado en RN) */}
-      <View style={styles.grid}>
-        <TouchableOpacity
-          style={styles.gridItem}
-          onPress={() => router.push("/(auth)/transactions")}
-        >
-          <Card title="Transacciones" description="Registra ingresos y gastos con detalle." ><Text>a</Text></Card>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.gridItem}
-          onPress={() => router.push("/(auth)/categories")}
-        >
-          <Card title="Categorías" description="Organiza tus gastos para entender hábitos." ><Text>a</Text></Card>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.gridItem}
-          onPress={() => router.push("/(auth)/settings")}
-        >
-          <Card title="Invitaciones" description="Gestiona invitaciones a tu cuenta." ><Text>a</Text></Card>
-        </TouchableOpacity>
-        <View style={styles.gridItem}>
-          <Card title="Resumen" description="Vista rápida de tu mes y obligaciones." ><Text>a</Text></Card>
-        </View>
-      </View>
-    </ScrollView>
+      </HomeSheet>
+    </View>
   );
 }
 
-// Finnon Color Tokens (color-guide.md)
-const colors = {
-  bg: {
-    primary: "#FFFFFF",
-    secondary: "#F7F8FA",
-    surface: "#FFFFFF",
-  },
-  text: {
-    primary: "#1C1E21",
-    secondary: "#5F6368",
-    muted: "#9AA0A6",
-  },
-  action: {
-    primary: "#5B8DFF",
-    secondary: "#E8EEFF",
-    disabled: "#C7D2FE",
-  },
-  state: {
-    positive: "#2E7D65",
-    negative: "#B23B3B",
-    neutral: "#DADCE0",
-  },
-};
-
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.bg.primary,
+  },
   loading: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-  },
-  scroll: {
-    padding: 16,
     backgroundColor: colors.bg.primary,
-    gap: 16,
   },
   container: {
     flex: 1,
-    padding: 16,
+    padding: tokens.spacing.lg,
     backgroundColor: colors.bg.primary,
     justifyContent: "center",
+  },
+  scroll: {
+    padding: tokens.spacing.lg,
+    paddingBottom: 120,
+    gap: tokens.spacing.lg,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: 12,
+    gap: tokens.spacing.sm,
   },
-  headerActions: {
+  headerLeft: {
     flexDirection: "row",
-    gap: 8,
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+    flex: 1,
   },
-  appName: {
-    fontSize: 28,
-    fontWeight: "800",
+  accountChip: {
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+    borderRadius: tokens.radii.pill,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    backgroundColor: colors.bg.secondary,
+    maxWidth: "75%",
+  },
+  accountChipText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: "600",
     color: colors.text.primary,
   },
-  tagline: {
-    marginTop: 4,
-    fontSize: 14,
+  readOnlyBadge: {
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: 4,
+    borderRadius: tokens.radii.pill,
+    backgroundColor: colors.action.secondary,
+  },
+  readOnlyBadgeText: {
+    fontSize: tokens.typography.size.xs,
+    fontWeight: "600",
+    color: colors.text.primary,
+  },
+  profileButton: {
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+    borderRadius: tokens.radii.pill,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+  },
+  profileButtonText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: "600",
+    color: colors.text.primary,
+  },
+  heroCard: {
+    borderRadius: tokens.radii.lg,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    padding: tokens.spacing.lg,
+    gap: tokens.spacing.md,
+    backgroundColor: colors.bg.surface,
+  },
+  heroHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  heroTitle: {
+    fontSize: tokens.typography.size.xl,
+    fontWeight: "700",
+    color: colors.text.primary,
+  },
+  heroMetrics: {
+    flexDirection: "row",
+    gap: tokens.spacing.md,
+    justifyContent: "space-between",
+  },
+  heroMetric: {
+    flex: 1,
+    gap: 4,
+  },
+  heroMetricLabel: {
+    fontSize: tokens.typography.size.xs,
     color: colors.text.secondary,
   },
-  kv: {
-    gap: 6,
-  },
-  kvRow: {
-    fontSize: 14,
+  heroMetricValue: {
+    fontSize: tokens.typography.size.lg,
+    fontWeight: "700",
     color: colors.text.primary,
   },
-  kvLabel: {
-    fontWeight: "700",
+  nextObligationRow: {
+    borderTopWidth: 1,
+    borderTopColor: colors.state.neutral,
+    paddingTop: tokens.spacing.md,
+    gap: 4,
   },
-  grid: {
+  nextObligationLabel: {
+    fontSize: tokens.typography.size.xs,
+    color: colors.text.secondary,
+  },
+  nextObligationValue: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.primary,
+    fontWeight: "600",
+  },
+  heroEmptyRow: {
+    gap: 6,
+  },
+  heroActivityEmpty: {
+    borderTopWidth: 1,
+    borderTopColor: colors.state.neutral,
+    paddingTop: tokens.spacing.md,
+    gap: 6,
+  },
+  heroEmptyText: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.secondary,
+  },
+  heroEmptyCta: {
+    alignSelf: "flex-start",
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+    borderRadius: tokens.radii.pill,
+    borderWidth: 1,
+    borderColor: colors.action.primary,
+  },
+  heroEmptyCtaText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: "600",
+    color: colors.action.primary,
+  },
+  readOnlyRow: {
+    borderTopWidth: 1,
+    borderTopColor: colors.state.neutral,
+    paddingTop: tokens.spacing.md,
+    gap: 6,
+  },
+  readOnlyText: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.secondary,
+  },
+  readOnlyCta: {
+    alignSelf: "flex-start",
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+    borderRadius: tokens.radii.pill,
+    backgroundColor: colors.action.secondary,
+  },
+  readOnlyCtaText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: "600",
+    color: colors.text.primary,
+  },
+  section: {
+    gap: tokens.spacing.md,
+  },
+  sectionHeader: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: tokens.spacing.sm,
   },
-  gridItem: {
-    width: "48%",
+  sectionTitle: {
+    fontSize: tokens.typography.size.lg,
+    fontWeight: "700",
+    color: colors.text.primary,
   },
-  errorText: {
+  sectionCta: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.action.primary,
+    fontWeight: "600",
+  },
+  emptyText: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.secondary,
+  },
+  list: {
+    gap: tokens.spacing.sm,
+  },
+  listRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: tokens.spacing.md,
+    borderRadius: tokens.radii.md,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    backgroundColor: colors.bg.secondary,
+    gap: tokens.spacing.md,
+  },
+  listRowInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  listRowTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+  },
+  listRowIcon: {
+    fontSize: tokens.typography.size.md,
+    color: colors.text.secondary,
+  },
+  listRowTitle: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: "600",
+    color: colors.text.primary,
+    flexShrink: 1,
+  },
+  listRowMeta: {
+    fontSize: tokens.typography.size.xs,
+    color: colors.text.secondary,
+  },
+  listRowAmount: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: "700",
+    color: colors.text.primary,
+  },
+  amountPositive: {
+    color: colors.state.positive,
+  },
+  amountNegative: {
     color: colors.state.negative,
-    marginTop: 8,
   },
-  accountList: {
-    gap: 10,
+  addFab: {
+    position: "absolute",
+    right: tokens.spacing.lg,
+    bottom: tokens.spacing.xxl,
+    backgroundColor: colors.action.primary,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.sm,
+    borderRadius: tokens.radii.pill,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  accountRow: {
+  addFabDisabled: {
+    backgroundColor: colors.action.disabled,
+  },
+  addFabText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: "700",
+    color: colors.bg.primary,
+  },
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "transparent",
+  },
+  sheetBackdrop: {
+    flex: 1,
+  },
+  sheetContainer: {
+    maxHeight: "80%",
+    backgroundColor: colors.bg.surface,
+    borderTopLeftRadius: tokens.radii.lg,
+    borderTopRightRadius: tokens.radii.lg,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    paddingBottom: tokens.spacing.lg,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 44,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: colors.state.neutral,
+    marginTop: tokens.spacing.sm,
+  },
+  sheetHeader: {
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.state.neutral,
+  },
+  sheetTitle: {
+    fontSize: tokens.typography.size.lg,
+    fontWeight: "700",
+    color: colors.text.primary,
+  },
+  sheetContent: {
+    padding: tokens.spacing.lg,
+    gap: tokens.spacing.md,
+  },
+  sheetList: {
+    gap: tokens.spacing.sm,
+  },
+  sheetRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     borderWidth: 1,
     borderColor: colors.state.neutral,
+    padding: tokens.spacing.md,
+    borderRadius: tokens.radii.md,
     backgroundColor: colors.bg.secondary,
-    borderRadius: 10,
-    padding: 12,
   },
-  accountRowActive: {
+  sheetRowActive: {
     borderColor: colors.action.primary,
     backgroundColor: colors.action.secondary,
   },
-  accountRowInfo: {
+  sheetRowInfo: {
     flex: 1,
     gap: 4,
   },
-  accountRowName: {
-    fontSize: 16,
+  sheetRowTitle: {
+    fontSize: tokens.typography.size.sm,
     fontWeight: "700",
     color: colors.text.primary,
   },
-  accountRowMeta: {
-    fontSize: 13,
+  sheetRowMeta: {
+    fontSize: tokens.typography.size.xs,
     color: colors.text.secondary,
   },
-  accountBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: colors.bg.surface,
+  sheetBadge: {
+    borderRadius: tokens.radii.pill,
     borderWidth: 1,
     borderColor: colors.state.neutral,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: 4,
+    backgroundColor: colors.bg.surface,
   },
-  accountBadgeActive: {
+  sheetBadgeActive: {
     backgroundColor: colors.action.primary,
     borderColor: colors.action.primary,
   },
-  accountBadgeText: {
-    fontSize: 12,
+  sheetBadgeText: {
+    fontSize: tokens.typography.size.xs,
     fontWeight: "600",
     color: colors.text.secondary,
   },
-  accountBadgeTextActive: {
+  sheetBadgeTextActive: {
     color: colors.bg.primary,
+  },
+  sheetNotice: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.secondary,
+  },
+  sheetActions: {
+    gap: tokens.spacing.sm,
+  },
+  sheetAction: {
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    borderRadius: tokens.radii.md,
+    padding: tokens.spacing.md,
+    backgroundColor: colors.bg.secondary,
+    gap: 4,
+  },
+  sheetActionDisabled: {
+    opacity: 0.6,
+  },
+  sheetActionTitle: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: "700",
+    color: colors.text.primary,
+  },
+  sheetActionMeta: {
+    fontSize: tokens.typography.size.xs,
+    color: colors.text.secondary,
+  },
+  errorCard: {
+    borderWidth: 1,
+    borderColor: colors.state.negative,
+    borderRadius: tokens.radii.md,
+    padding: tokens.spacing.lg,
+    backgroundColor: colors.bg.surface,
+    gap: tokens.spacing.sm,
+  },
+  errorTitle: {
+    fontSize: tokens.typography.size.lg,
+    fontWeight: "700",
+    color: colors.state.negative,
+  },
+  errorText: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.secondary,
   },
 });

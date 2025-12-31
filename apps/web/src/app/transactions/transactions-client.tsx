@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
@@ -92,6 +92,7 @@ export function TransactionsClient({
   role,
 }: TransactionsClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const t = useTranslations("transactions");
   const [transactions, setTransactions] = useState(initialTransactions);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -124,6 +125,19 @@ export function TransactionsClient({
     merchant: "",
     notes: "",
   });
+
+  useEffect(() => {
+    if (!searchParams?.get("new")) return;
+    setIsCreateOpen(true);
+    const typeParam = searchParams.get("type");
+    if (typeParam === "income" || typeParam === "expense") {
+      setFormData((prev) => ({
+        ...prev,
+        type: typeParam as TransactionType,
+        category_id: undefined,
+      }));
+    }
+  }, [searchParams]);
 
   // Filter transactions by selected month
   const filteredTransactions = useMemo(() => {

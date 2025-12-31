@@ -345,6 +345,7 @@ Errores:
 **Aceptación:**
 - Subes foto y se ve
 - Permisos respetan `account_id`
+** Despriorizado**
 
 ---
 
