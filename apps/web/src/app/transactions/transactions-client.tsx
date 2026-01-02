@@ -42,19 +42,29 @@ import {
 } from "@/components/ui/select";
 import {
   type TransactionType,
+  type RecurringFrequency,
+  type RecurringItem,
   CURRENCIES,
   formatMinorToMoney,
   formatMoneyWithSymbol,
-  getIconById,
   parseMoneyToMinor,
   computeAmountBaseMinor,
   parseFxRate,
   CURRENCY_MINOR_UNITS,
+  getOccurrencesBetween,
+  getOccurrenceKey,
+  addMonths,
+  formatMonthLabel,
+  toMonthKey,
 } from "@poleursus/shared";
+import { CategoryIcon } from "@/components/category-icon";
 import {
   createTransaction,
+  createRecurringItem,
+  createObligation,
   updateTransaction,
   deleteTransaction,
+  confirmRecurringTransaction,
 } from "./actions";
 
 type Category = {
@@ -80,20 +90,48 @@ type Transaction = {
   created_by: string;
   created_at: string;
   category?: Category | null;
+  recurring_item_id?: string | null;
+  recurring_occurrence_date?: string | null;
+};
+
+type RecurringOccurrenceItem = {
+  occurrenceDate: string;
+  item: RecurringItem;
 };
 
 type TransactionsClientProps = {
   accountId: string;
   baseCurrency: string;
   initialTransactions: Transaction[];
+  initialRecurringItems: RecurringItem[];
   categories: Category[];
   role: "viewer" | "contributor" | "admin";
+};
+
+const parseMonthKey = (monthKey: string) => {
+  const [yearStr, monthStr] = monthKey.split("-");
+  const year = Number(yearStr);
+  const monthIndex = Number(monthStr) - 1;
+  return {
+    year: Number.isFinite(year) ? year : new Date().getFullYear(),
+    monthIndex: Number.isFinite(monthIndex) ? monthIndex : new Date().getMonth(),
+  };
+};
+
+const getMonthRangeFromKey = (monthKey: string) => {
+  const { year, monthIndex } = parseMonthKey(monthKey);
+  const start = `${monthKey}-01`;
+  const end = new Date(Date.UTC(year, monthIndex + 1, 0))
+    .toISOString()
+    .slice(0, 10);
+  return { start, end };
 };
 
 export function TransactionsClient({
   accountId,
   baseCurrency,
   initialTransactions,
+  initialRecurringItems,
   categories,
   role,
 }: TransactionsClientProps) {
@@ -101,19 +139,42 @@ export function TransactionsClient({
   const searchParams = useSearchParams();
   const tGlobal = useTranslations();
   const t = useTranslations("transactions");
+  const tObligations = useTranslations("obligations");
   const locale = useLocale();
   const [transactions, setTransactions] = useState(initialTransactions);
+  const [recurringItems, setRecurringItems] = useState(initialRecurringItems);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
+  const [createKind, setCreateKind] = useState<
+    "transaction" | "recurring" | "obligation"
+  >("transaction");
   const canEdit = role !== "viewer";
 
   // Month filter state (format: YYYY-MM)
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const currentMonth = toMonthKey(new Date());
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
+  const [pickerMonthIndex, setPickerMonthIndex] = useState(new Date().getMonth());
+  const monthOptions = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, index) =>
+        new Date(2000, index, 1).toLocaleDateString(locale, {
+          month: "long",
+        })
+      ),
+    [locale]
+  );
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const startYear = currentYear - 5;
+    return Array.from({ length: 11 }, (_, index) => startYear + index);
+  }, []);
 
   // Form state
   const [formData, setFormData] = useState<{
@@ -134,6 +195,32 @@ export function TransactionsClient({
     date: new Date().toISOString().slice(0, 10),
     merchant: "",
     notes: "",
+  });
+
+  const [repeatConfig, setRepeatConfig] = useState<{
+    enabled: boolean;
+    frequency: RecurringFrequency;
+    interval: string;
+    startDate: string;
+    endDate: string;
+  }>({
+    enabled: false,
+    frequency: "monthly",
+    interval: "1",
+    startDate: new Date().toISOString().slice(0, 10),
+    endDate: "",
+  });
+
+  const [obligationForm, setObligationForm] = useState<{
+    name: string;
+    amount: string;
+    due_date: string;
+    status: "pending" | "paid";
+  }>({
+    name: "",
+    amount: "",
+    due_date: new Date().toISOString().slice(0, 10),
+    status: "pending",
   });
 
   const requiresFxRate = formData.currency !== baseCurrency;
@@ -190,6 +277,14 @@ export function TransactionsClient({
   useEffect(() => {
     if (!searchParams?.get("new")) return;
     setIsCreateOpen(true);
+    const kindParam = searchParams.get("kind");
+    const nextKind =
+      kindParam === "obligation"
+        ? "obligation"
+        : kindParam === "recurring"
+          ? "recurring"
+          : "transaction";
+    setCreateKind(nextKind);
     const typeParam = searchParams.get("type");
     if (typeParam === "income" || typeParam === "expense") {
       setFormData((prev) => ({
@@ -198,12 +293,97 @@ export function TransactionsClient({
         category_id: undefined,
       }));
     }
+    if (nextKind === "recurring") {
+      setRepeatConfig((prev) => ({
+        ...prev,
+        enabled: true,
+        startDate: prev.startDate || formData.date,
+      }));
+    } else if (nextKind === "transaction") {
+      setRepeatConfig((prev) => ({ ...prev, enabled: false }));
+    }
   }, [searchParams]);
+
+  const goToPreviousMonth = () => {
+    setSelectedMonth(addMonths(selectedMonth, -1));
+  };
+
+  const goToNextMonth = () => {
+    setSelectedMonth(addMonths(selectedMonth, 1));
+  };
+
+  const openMonthPicker = () => {
+    const { year, monthIndex } = parseMonthKey(selectedMonth);
+    setPickerYear(year);
+    setPickerMonthIndex(monthIndex);
+    setIsMonthPickerOpen(true);
+  };
+
+  const applyMonthPicker = () => {
+    const nextMonth = toMonthKey(new Date(pickerYear, pickerMonthIndex, 1));
+    setSelectedMonth(nextMonth);
+    setIsMonthPickerOpen(false);
+  };
 
   // Filter transactions by selected month
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => t.date.startsWith(selectedMonth));
   }, [transactions, selectedMonth]);
+
+  const monthRange = useMemo(
+    () => getMonthRangeFromKey(selectedMonth),
+    [selectedMonth]
+  );
+
+  const pendingOccurrences = useMemo<RecurringOccurrenceItem[]>(() => {
+    if (!recurringItems.length) return [];
+    const existingKeys = new Set(
+      filteredTransactions
+        .filter(
+          (transaction) =>
+            transaction.recurring_item_id && transaction.recurring_occurrence_date
+        )
+        .map((transaction) =>
+          getOccurrenceKey(
+            transaction.recurring_item_id!,
+            transaction.recurring_occurrence_date!
+          )
+        )
+    );
+
+    return recurringItems
+      .filter((item) => !item.is_paused)
+      .flatMap((item) =>
+        getOccurrencesBetween(item, monthRange.start, monthRange.end)
+          .filter((occurrence) => !existingKeys.has(occurrence.key))
+          .map((occurrence) => ({
+            occurrenceDate: occurrence.date,
+            item,
+          }))
+      );
+  }, [filteredTransactions, monthRange.end, monthRange.start, recurringItems]);
+
+  const mergedItems = useMemo(() => {
+    const mappedTransactions = filteredTransactions.map((transaction) => ({
+      kind: "transaction" as const,
+      date: transaction.date,
+      transaction,
+    }));
+
+    const mappedRecurring = pendingOccurrences.map((pending) => ({
+      kind: "recurring" as const,
+      date: pending.occurrenceDate,
+      recurring: pending,
+    }));
+
+    return [...mappedTransactions, ...mappedRecurring].sort((a, b) => {
+      const timeA = new Date(`${a.date}T00:00:00Z`).getTime();
+      const timeB = new Date(`${b.date}T00:00:00Z`).getTime();
+      if (timeA !== timeB) return timeB - timeA;
+      if (a.kind === b.kind) return 0;
+      return a.kind === "transaction" ? -1 : 1;
+    });
+  }, [filteredTransactions, pendingOccurrences]);
 
   // Calculate monthly summary
   const monthlySummary = useMemo(() => {
@@ -230,25 +410,104 @@ export function TransactionsClient({
 
   const handleCreate = async () => {
     if (!canEdit) return;
+    if (createKind === "obligation") {
+      if (!obligationForm.name.trim()) {
+        alert(tObligations("create.nameRequired"));
+        return;
+      }
+      if (!obligationForm.amount.trim()) {
+        alert(tObligations("create.amountRequired"));
+        return;
+      }
+      if (!obligationForm.due_date.trim()) {
+        alert(tObligations("create.dueDateRequired"));
+        return;
+      }
+
+      setIsSubmitting(true);
+      try {
+        const result = await createObligation({
+          account_id: accountId,
+          name: obligationForm.name.trim(),
+          amount: obligationForm.amount,
+          currency: baseCurrency,
+          due_date: obligationForm.due_date,
+          status: obligationForm.status,
+          paid_at:
+            obligationForm.status === "paid"
+              ? new Date().toISOString().slice(0, 10)
+              : null,
+        });
+
+        if (result.success && result.data) {
+          setIsCreateOpen(false);
+          setCreateKind("transaction");
+          setObligationForm({
+            name: "",
+            amount: "",
+            due_date: new Date().toISOString().slice(0, 10),
+            status: "pending",
+          });
+          router.replace("/transactions");
+        } else {
+          alert(
+            result.error
+              ? tGlobal(result.error.key, result.error.params)
+              : tGlobal("errors.internalServer")
+          );
+        }
+      } catch (error) {
+        alert(tGlobal("errors.internalServer"));
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
     if (!formData.amount.trim()) return;
+    if (repeatConfig.enabled && formData.currency !== baseCurrency) {
+      alert(t("repeat.baseCurrencyOnly"));
+      return;
+    }
+    if (repeatConfig.enabled && Number(repeatConfig.interval) < 1) {
+      alert(tGlobal("errors.invalidRequest"));
+      return;
+    }
     if (!validateFxRate()) return;
 
     setIsSubmitting(true);
     try {
-      const result = await createTransaction({
-        account_id: accountId,
-        type: formData.type,
-        amount: formData.amount,
-        currency: formData.currency,
-        fx_rate: requiresFxRate ? formData.fx_rate : null,
-        category_id: formData.category_id || null,
-        date: formData.date,
-        merchant: formData.merchant || null,
-        notes: formData.notes || null,
-      });
+      const result = repeatConfig.enabled
+        ? await createRecurringItem({
+            account_id: accountId,
+            type: formData.type,
+            amount: formData.amount,
+            currency: formData.currency,
+            category_id: formData.category_id || null,
+            start_date: repeatConfig.startDate,
+            frequency: repeatConfig.frequency,
+            interval: Number(repeatConfig.interval),
+            end_date: repeatConfig.endDate.trim() || null,
+            merchant: formData.merchant || null,
+            notes: formData.notes || null,
+          })
+        : await createTransaction({
+            account_id: accountId,
+            type: formData.type,
+            amount: formData.amount,
+            currency: formData.currency,
+            fx_rate: requiresFxRate ? formData.fx_rate : null,
+            category_id: formData.category_id || null,
+            date: formData.date,
+            merchant: formData.merchant || null,
+            notes: formData.notes || null,
+          });
 
       if (result.success && result.data) {
-        setTransactions([result.data, ...transactions]);
+        if (repeatConfig.enabled) {
+          setRecurringItems([result.data as RecurringItem, ...recurringItems]);
+        } else {
+          setTransactions([result.data as Transaction, ...transactions]);
+        }
         setIsCreateOpen(false);
         setFormData({
           type: "expense",
@@ -260,12 +519,21 @@ export function TransactionsClient({
           merchant: "",
           notes: "",
         });
+        setRepeatConfig({
+          enabled: false,
+          frequency: "monthly",
+          interval: "1",
+          startDate: new Date().toISOString().slice(0, 10),
+          endDate: "",
+        });
         router.refresh();
       } else {
         alert(
           result.error
             ? tGlobal(result.error.key, result.error.params)
-            : t("createError")
+            : repeatConfig.enabled
+              ? t("repeat.createError")
+              : t("createError")
         );
       }
     } catch (error) {
@@ -355,6 +623,31 @@ export function TransactionsClient({
     }
   };
 
+  const handleConfirmRecurring = async (pending: RecurringOccurrenceItem) => {
+    if (!canEdit) return;
+    setConfirmingKey(getOccurrenceKey(pending.item.id, pending.occurrenceDate));
+    try {
+      const result = await confirmRecurringTransaction({
+        recurring_item_id: pending.item.id,
+        occurrence_date: pending.occurrenceDate,
+      });
+
+      if (result.success && result.data) {
+        setTransactions([result.data as Transaction, ...transactions]);
+      } else if (!result.success) {
+        alert(
+          result.error
+            ? tGlobal(result.error.key, result.error.params)
+            : t("recurring.confirmError")
+        );
+      }
+    } catch (error) {
+      alert(t("recurring.confirmError"));
+    } finally {
+      setConfirmingKey(null);
+    }
+  };
+
   const openEditDialog = (transaction: Transaction) => {
     if (!canEdit) return;
     setSelectedTransaction(transaction);
@@ -425,7 +718,14 @@ export function TransactionsClient({
             <Button variant="outline" onClick={() => router.push("/")}>
               {t("backToDashboard")}
             </Button>
-            <Button onClick={() => setIsCreateOpen(true)} disabled={!canEdit}>
+            <Button
+              onClick={() => {
+                setCreateKind("transaction");
+                setRepeatConfig((prev) => ({ ...prev, enabled: false }));
+                setIsCreateOpen(true);
+              }}
+              disabled={!canEdit}
+            >
               {t("newTransaction")}
             </Button>
           </div>
@@ -436,13 +736,91 @@ export function TransactionsClient({
           <CardHeader>
             <CardTitle>{t("filterByMonth")}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <Input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="max-w-xs"
-            />
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <Button
+                variant="outline"
+                onClick={goToPreviousMonth}
+                aria-label={t("previousMonth")}
+              >
+                {t("previousMonth")}
+              </Button>
+              <div className="flex flex-col items-center gap-1 text-center">
+                <span className="text-lg font-semibold">
+                  {formatMonthLabel(selectedMonth, locale)}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={openMonthPicker}
+                  aria-label={t("openMonthPicker")}
+                >
+                  {t("openMonthPicker")}
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                onClick={goToNextMonth}
+                aria-label={t("nextMonth")}
+              >
+                {t("nextMonth")}
+              </Button>
+            </div>
+            {isMonthPickerOpen && (
+              <div className="space-y-4 rounded-lg border p-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>{t("monthPickerLabel")}</Label>
+                    <Select
+                      value={String(pickerMonthIndex)}
+                      onValueChange={(value) =>
+                        setPickerMonthIndex(Number(value))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {monthOptions.map((label, index) => (
+                          <SelectItem key={label} value={String(index)}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t("yearPickerLabel")}</Label>
+                    <Select
+                      value={String(pickerYear)}
+                      onValueChange={(value) => setPickerYear(Number(value))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {yearOptions.map((year) => (
+                          <SelectItem key={year} value={String(year)}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsMonthPickerOpen(false)}
+                  >
+                    {tGlobal("common.cancel")}
+                  </Button>
+                  <Button onClick={applyMonthPicker}>
+                    {t("applyMonthPicker")}
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -499,93 +877,177 @@ export function TransactionsClient({
           <CardHeader>
             <CardTitle>
               {t("transactionsFor", {
-                month: new Date(selectedMonth + "-01").toLocaleDateString(locale, {
-                  month: "long",
-                  year: "numeric",
-                }),
+                month: formatMonthLabel(selectedMonth, locale),
               })}
             </CardTitle>
             <CardDescription>
-              {t("transactionsCount", { count: filteredTransactions.length })}
+              {t("transactionsCount", { count: mergedItems.length })}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {filteredTransactions.length === 0 ? (
+            {mergedItems.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
                 {canEdit ? t("noTransactions") : t("noTransactionsReadOnly")}
               </p>
             ) : (
               <div className="space-y-2">
-                {filteredTransactions.map((transaction) => {
-                  const category = transaction.category;
-                  const icon = category ? getIconById(category.icon_id) : null;
+                {mergedItems.map((item) => {
+                  if (item.kind === "transaction") {
+                    const transaction = item.transaction;
+                    const category = transaction.category;
+                    const amount = formatMoneyWithSymbol(
+                      BigInt(transaction.amount_base_minor),
+                      baseCurrency,
+                      currencySymbol
+                    );
+
+                    return (
+                      <div
+                        key={transaction.id}
+                        className={`flex items-center justify-between rounded-lg border p-4 transition-colors ${
+                          canEdit ? "cursor-pointer hover:bg-muted/50" : ""
+                        }`}
+                        role={canEdit ? "button" : undefined}
+                        tabIndex={canEdit ? 0 : undefined}
+                        onClick={() => {
+                          if (canEdit) openEditDialog(transaction);
+                        }}
+                        onKeyDown={(event) => {
+                          if (!canEdit) return;
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openEditDialog(transaction);
+                          }
+                        }}
+                      >
+                        <div className="flex items-start gap-4 flex-1">
+                          <CategoryIcon
+                            iconId={category?.icon_id}
+                            size={20}
+                            tone="muted"
+                            accessibilityLabel={category?.name || undefined}
+                          />
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline gap-2">
+                              <span className="font-medium">
+                                {transaction.merchant ||
+                                  category?.name ||
+                                  t("create.categoryNone")}
+                              </span>
+                              {transaction.merchant && category && (
+                                <span className="text-sm text-muted-foreground">
+                                  • {category.name}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {new Date(transaction.date).toLocaleDateString()}
+                              {transaction.notes && (
+                                <span className="ml-2">• {transaction.notes}</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div
+                            className={`font-semibold text-lg ${
+                              transaction.type === "income"
+                                ? "text-green-600"
+                                : "text-red-600"
+                            }`}
+                          >
+                            {transaction.type === "income" ? "+" : "-"}
+                            {amount}
+                          </div>
+
+                          {canEdit && (
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openDeleteDialog(transaction);
+                                }}
+                              >
+                                {t("deleteButton")}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  const recurring = item.recurring;
+                  const category = categories.find(
+                    (cat) => cat.id === recurring.item.category_id
+                  );
                   const amount = formatMoneyWithSymbol(
-                    BigInt(transaction.amount_base_minor),
-                    baseCurrency,
-                    currencySymbol
+                    BigInt(recurring.item.amount_minor),
+                    recurring.item.currency,
+                    CURRENCIES.find((c) => c.code === recurring.item.currency)?.symbol ||
+                      recurring.item.currency
+                  );
+                  const confirmKey = getOccurrenceKey(
+                    recurring.item.id,
+                    recurring.occurrenceDate
                   );
 
                   return (
                     <div
-                      key={transaction.id}
+                      key={confirmKey}
                       className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-start gap-4 flex-1">
-                        {/* Icon */}
-                        <div className="text-2xl">
-                          {icon?.emoji || (transaction.type === "income" ? "💰" : "💸")}
-                        </div>
+                        <CategoryIcon
+                          iconId={category?.icon_id}
+                          size={20}
+                          tone="muted"
+                          accessibilityLabel={category?.name || undefined}
+                        />
 
-                        {/* Details */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-baseline gap-2">
                             <span className="font-medium">
-                              {transaction.merchant ||
+                              {recurring.item.merchant ||
                                 category?.name ||
                                 t("create.categoryNone")}
                             </span>
-                            {transaction.merchant && category && (
-                              <span className="text-sm text-muted-foreground">
-                                • {category.name}
-                              </span>
-                            )}
+                            <span className="text-xs text-muted-foreground">
+                              • {t("recurring.pendingLabel")}
+                            </span>
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {new Date(transaction.date).toLocaleDateString()}
-                            {transaction.notes && (
-                              <span className="ml-2">• {transaction.notes}</span>
+                            {new Date(recurring.occurrenceDate).toLocaleDateString()}
+                            {recurring.item.notes && (
+                              <span className="ml-2">• {recurring.item.notes}</span>
                             )}
                           </div>
                         </div>
 
-                        {/* Amount */}
                         <div
                           className={`font-semibold text-lg ${
-                            transaction.type === "income"
+                            recurring.item.type === "income"
                               ? "text-green-600"
                               : "text-red-600"
                           }`}
                         >
-                          {transaction.type === "income" ? "+" : "-"}
+                          {recurring.item.type === "income" ? "+" : "-"}
                           {amount}
                         </div>
 
-                        {/* Actions */}
                         {canEdit && (
                           <div className="flex gap-2">
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => openEditDialog(transaction)}
+                              onClick={() => handleConfirmRecurring(recurring)}
+                              disabled={confirmingKey === confirmKey}
                             >
-                              {t("editButton")}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openDeleteDialog(transaction)}
-                            >
-                              {t("deleteButton")}
+                              {confirmingKey === confirmKey
+                                ? t("recurring.confirming")
+                                : t("recurring.confirmAction")}
                             </Button>
                           </div>
                         )}
@@ -603,38 +1065,135 @@ export function TransactionsClient({
           <SlidePanel open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <SlidePanelContent>
             <SlidePanelHeader>
-              <SlidePanelTitle>{t("create.title")}</SlidePanelTitle>
+              <SlidePanelTitle>
+                {createKind === "obligation"
+                  ? tObligations("create.title")
+                  : t("create.title")}
+              </SlidePanelTitle>
               <SlidePanelDescription>
-                {t("create.description")}
+                {createKind === "obligation"
+                  ? tObligations("create.description")
+                  : t("create.description")}
               </SlidePanelDescription>
             </SlidePanelHeader>
             <SlidePanelBody>
-              <div className="grid gap-6">
+              {createKind === "obligation" ? (
+                <div className="grid gap-6">
+                  <div className="space-y-3">
+                    <Label htmlFor="obligation-name">
+                      {tObligations("create.nameLabel")}
+                    </Label>
+                    <Input
+                      id="obligation-name"
+                      value={obligationForm.name}
+                      onChange={(e) =>
+                        setObligationForm((prev) => ({
+                          ...prev,
+                          name: e.target.value,
+                        }))
+                      }
+                      placeholder={tObligations("create.namePlaceholder")}
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <Label htmlFor="obligation-amount">
+                      {tObligations("create.amountLabel")}
+                    </Label>
+                    <Input
+                      id="obligation-amount"
+                      type="text"
+                      value={obligationForm.amount}
+                      onChange={(e) =>
+                        setObligationForm((prev) => ({
+                          ...prev,
+                          amount: sanitizeNumericInput(e.target.value),
+                        }))
+                      }
+                      placeholder={tObligations("create.amountPlaceholder")}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {tObligations("create.currencyHelper", {
+                        currency: baseCurrency,
+                      })}
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    <Label htmlFor="obligation-due-date">
+                      {tObligations("create.dueDateLabel")}
+                    </Label>
+                    <Input
+                      id="obligation-due-date"
+                      type="date"
+                      value={obligationForm.due_date}
+                      onChange={(e) =>
+                        setObligationForm((prev) => ({
+                          ...prev,
+                          due_date: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <Label>{tObligations("create.statusLabel")}</Label>
+                    <Select
+                      value={obligationForm.status}
+                      onValueChange={(value) =>
+                        setObligationForm((prev) => ({
+                          ...prev,
+                          status: value as "pending" | "paid",
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">
+                          {tObligations("create.statusPending")}
+                        </SelectItem>
+                        <SelectItem value="paid">
+                          {tObligations("create.statusPaid")}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {tObligations("create.statusHelper")}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-6">
               {/* 1. Transaction Type - Pill Selector */}
               <div className="space-y-3">
                 <Label>{t("create.typeLabel")}</Label>
                 <div className="flex gap-2">
                   <Button
                     type="button"
-                    variant="outline"
-                    className={`flex-1 transition-colors ${
-                      formData.type === "expense"
-                        ? "bg-[#5B8DFF] text-white border-[#5B8DFF] hover:bg-[#4A7AE8] hover:border-[#4A7AE8]"
-                        : "bg-[#FFFFFF] text-[#1C1E21] border-[#DADCE0] hover:bg-[#F7F8FA]"
-                    }`}
-                    onClick={() => setFormData({ ...formData, type: "expense", category_id: undefined })}
+                    variant={formData.type === "expense" ? "default" : "outline"}
+                    className="flex-1"
+                    aria-pressed={formData.type === "expense"}
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        type: "expense",
+                        category_id: undefined,
+                      })
+                    }
                   >
                     {t("create.typeExpense")}
                   </Button>
                   <Button
                     type="button"
-                    variant="outline"
-                    className={`flex-1 transition-colors ${
-                      formData.type === "income"
-                        ? "bg-[#5B8DFF] text-white border-[#5B8DFF] hover:bg-[#4A7AE8] hover:border-[#4A7AE8]"
-                        : "bg-[#FFFFFF] text-[#1C1E21] border-[#DADCE0] hover:bg-[#F7F8FA]"
-                    }`}
-                    onClick={() => setFormData({ ...formData, type: "income", category_id: undefined })}
+                    variant={formData.type === "income" ? "default" : "outline"}
+                    className="flex-1"
+                    aria-pressed={formData.type === "income"}
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        type: "income",
+                        category_id: undefined,
+                      })
+                    }
                   >
                     {t("create.typeIncome")}
                   </Button>
@@ -656,6 +1215,98 @@ export function TransactionsClient({
                   {getMonthContext(formData.date).message}
                 </p>
               </div>
+
+              {createKind === "transaction" && (
+                <div className="space-y-3">
+                  <Label>{t("repeat.label")}</Label>
+                  <label className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={repeatConfig.enabled}
+                      onChange={(event) => {
+                        const enabled = event.target.checked;
+                        setRepeatConfig((prev) => ({
+                          ...prev,
+                          enabled,
+                          startDate: prev.startDate || formData.date,
+                        }));
+                        if (enabled && formData.currency !== baseCurrency) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            currency: baseCurrency,
+                            fx_rate: "1",
+                          }));
+                        }
+                      }}
+                    />
+                    {t("repeat.helper")}
+                  </label>
+                </div>
+              )}
+
+              {repeatConfig.enabled && (
+                <div className="grid gap-4 rounded-lg border p-4">
+                  <div className="space-y-2">
+                    <Label>{t("repeat.frequencyLabel")}</Label>
+                    <Select
+                      value={repeatConfig.frequency}
+                      onValueChange={(value) =>
+                        setRepeatConfig((prev) => ({
+                          ...prev,
+                          frequency: value as RecurringFrequency,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="weekly">{t("repeat.weekly")}</SelectItem>
+                        <SelectItem value="monthly">{t("repeat.monthly")}</SelectItem>
+                        <SelectItem value="yearly">{t("repeat.yearly")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t("repeat.intervalLabel")}</Label>
+                    <Input
+                      value={repeatConfig.interval}
+                      onChange={(e) =>
+                        setRepeatConfig((prev) => ({
+                          ...prev,
+                          interval: e.target.value.replace(/[^0-9]/g, ""),
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t("repeat.startDateLabel")}</Label>
+                    <Input
+                      type="date"
+                      value={repeatConfig.startDate}
+                      onChange={(e) =>
+                        setRepeatConfig((prev) => ({
+                          ...prev,
+                          startDate: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t("repeat.endDateLabel")}</Label>
+                    <Input
+                      type="date"
+                      value={repeatConfig.endDate}
+                      onChange={(e) =>
+                        setRepeatConfig((prev) => ({
+                          ...prev,
+                          endDate: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* 3. Amount + Currency (Grouped) */}
               <div className="space-y-3">
@@ -683,6 +1334,7 @@ export function TransactionsClient({
                         fx_rate: value === baseCurrency ? "1" : formData.fx_rate,
                       })
                     }
+                    disabled={repeatConfig.enabled}
                   >
                     <SelectTrigger className="w-32">
                       <SelectValue />
@@ -767,7 +1419,15 @@ export function TransactionsClient({
                       ) : (
                         availableCategories.map((cat) => (
                           <SelectItem key={cat.id} value={cat.id}>
-                            {getIconById(cat.icon_id)?.emoji || "📦"} {cat.name}
+                            <span className="flex items-center gap-2">
+                              <CategoryIcon
+                                iconId={cat.icon_id}
+                                size={16}
+                                tone="muted"
+                                accessibilityLabel={cat.name}
+                              />
+                              <span>{cat.name}</span>
+                            </span>
                           </SelectItem>
                         ))
                       )}
@@ -801,6 +1461,7 @@ export function TransactionsClient({
                 </div>
               </div>
               </div>
+              )}
             </SlidePanelBody>
             <SlidePanelFooter>
               <Button
@@ -834,25 +1495,31 @@ export function TransactionsClient({
                 <div className="flex gap-2">
                   <Button
                     type="button"
-                    variant="outline"
-                    className={`flex-1 transition-colors ${
-                      formData.type === "expense"
-                        ? "bg-[#5B8DFF] text-white border-[#5B8DFF] hover:bg-[#4A7AE8] hover:border-[#4A7AE8]"
-                        : "bg-[#FFFFFF] text-[#1C1E21] border-[#DADCE0] hover:bg-[#F7F8FA]"
-                    }`}
-                    onClick={() => setFormData({ ...formData, type: "expense", category_id: undefined })}
+                    variant={formData.type === "expense" ? "default" : "outline"}
+                    className="flex-1"
+                    aria-pressed={formData.type === "expense"}
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        type: "expense",
+                        category_id: undefined,
+                      })
+                    }
                   >
                     {t("create.typeExpense")}
                   </Button>
                   <Button
                     type="button"
-                    variant="outline"
-                    className={`flex-1 transition-colors ${
-                      formData.type === "income"
-                        ? "bg-[#5B8DFF] text-white border-[#5B8DFF] hover:bg-[#4A7AE8] hover:border-[#4A7AE8]"
-                        : "bg-[#FFFFFF] text-[#1C1E21] border-[#DADCE0] hover:bg-[#F7F8FA]"
-                    }`}
-                    onClick={() => setFormData({ ...formData, type: "income", category_id: undefined })}
+                    variant={formData.type === "income" ? "default" : "outline"}
+                    className="flex-1"
+                    aria-pressed={formData.type === "income"}
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        type: "income",
+                        category_id: undefined,
+                      })
+                    }
                   >
                     {t("create.typeIncome")}
                   </Button>
@@ -985,7 +1652,15 @@ export function TransactionsClient({
                       ) : (
                         availableCategories.map((cat) => (
                           <SelectItem key={cat.id} value={cat.id}>
-                            {getIconById(cat.icon_id)?.emoji || "📦"} {cat.name}
+                            <span className="flex items-center gap-2">
+                              <CategoryIcon
+                                iconId={cat.icon_id}
+                                size={16}
+                                tone="muted"
+                                accessibilityLabel={cat.name}
+                              />
+                              <span>{cat.name}</span>
+                            </span>
                           </SelectItem>
                         ))
                       )}

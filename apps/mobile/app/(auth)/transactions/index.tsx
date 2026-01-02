@@ -7,16 +7,26 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Modal,
+  Pressable,
 } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
 import { Button } from "../../../src/components/Button";
 import { Card } from "../../../src/components/Card";
+import { CategoryIcon } from "../../../src/components/CategoryIcon";
 import {
-  getIconById,
+  addMonths,
   formatMoneyWithSymbol,
   CURRENCIES,
+  formatMonthLabel,
+  themeTokens,
+  toMonthKey,
+  type RecurringItem,
+  getOccurrencesBetween,
+  getOccurrenceKey,
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
 
@@ -41,24 +51,81 @@ type Transaction = {
   created_by: string;
   created_at: string;
   category?: Category | null;
+  recurring_item_id?: string | null;
+  recurring_occurrence_date?: string | null;
+};
+
+type RecurringOccurrenceItem = {
+  occurrenceDate: string;
+  item: RecurringItem;
+};
+
+const tokens = themeTokens.light;
+const colors = tokens.colors;
+const spacing = tokens.spacing;
+const radii = tokens.radii;
+const typography = tokens.typography;
+
+const parseMonthKey = (monthKey: string) => {
+  const [yearStr, monthStr] = monthKey.split("-");
+  const year = Number(yearStr);
+  const monthIndex = Number(monthStr) - 1;
+  return {
+    year: Number.isFinite(year) ? year : new Date().getFullYear(),
+    monthIndex: Number.isFinite(monthIndex) ? monthIndex : new Date().getMonth(),
+  };
+};
+
+const getMonthRangeFromKey = (monthKey: string) => {
+  const { year, monthIndex } = parseMonthKey(monthKey);
+  const start = `${monthKey}-01`;
+  const end = new Date(Date.UTC(year, monthIndex + 1, 0))
+    .toISOString()
+    .slice(0, 10);
+  return { start, end };
 };
 
 export default function TransactionsScreen(): React.JSX.Element {
   const router = useRouter();
   const { selectedAccountId } = useAuth();
-  const { dictionary } = useCopy();
+  const { dictionary, locale } = useCopy();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [recurringItems, setRecurringItems] = useState<RecurringItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [baseCurrency, setBaseCurrency] = useState("EUR");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
 
   // Month filter (format: YYYY-MM)
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const currentMonth = toMonthKey(new Date());
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
+  const [pickerMonthIndex, setPickerMonthIndex] = useState(new Date().getMonth());
+
+  const monthRange = useMemo(
+    () => getMonthRangeFromKey(selectedMonth),
+    [selectedMonth]
+  );
+  const monthOptions = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, index) =>
+        new Date(2000, index, 1).toLocaleDateString(locale, {
+          month: "long",
+        })
+      ),
+    [locale]
+  );
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const startYear = currentYear - 5;
+    return Array.from({ length: 11 }, (_, index) => startYear + index);
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, [selectedAccountId]);
+  }, [selectedAccountId, selectedMonth]);
 
   const loadData = async () => {
     if (!selectedAccountId) {
@@ -70,14 +137,21 @@ export default function TransactionsScreen(): React.JSX.Element {
     setError(null);
 
     try {
+      const { start, end } = monthRange;
+
       // Fetch account to get base_currency
       const { data: accountData, error: accountError } = await supabase
         .from("accounts")
         .select("base_currency")
         .eq("id", selectedAccountId)
-        .single();
+        .maybeSingle();
 
       if (accountError) throw accountError;
+      if (!accountData) {
+        setError(t(dictionary, "transactions.noAccountSelected"));
+        setLoading(false);
+        return;
+      }
       setBaseCurrency(accountData.base_currency);
 
       // Fetch transactions
@@ -90,12 +164,34 @@ export default function TransactionsScreen(): React.JSX.Element {
         `
         )
         .eq("account_id", selectedAccountId)
+        .gte("date", start)
+        .lte("date", end)
         .order("date", { ascending: false })
         .order("created_at", { ascending: false });
 
       if (fetchError) throw fetchError;
 
       setTransactions(data || []);
+
+      const { data: categoryData, error: categoryError } = await supabase
+        .from("categories")
+        .select("id, name, icon_id, type")
+        .eq("account_id", selectedAccountId);
+
+      if (categoryError) throw categoryError;
+
+      setCategories((categoryData as Category[]) || []);
+
+      const { data: recurringData, error: recurringError } = await supabase
+        .from("recurring_items")
+        .select(
+          "id, account_id, type, amount_minor, currency, category_id, merchant, notes, start_date, frequency, interval, day_of_month, end_date, is_paused, created_by"
+        )
+        .eq("account_id", selectedAccountId);
+
+      if (recurringError) throw recurringError;
+
+      setRecurringItems((recurringData as RecurringItem[]) || []);
     } catch (e: any) {
       console.error("Error loading transactions:", e);
       setError(e?.message || t(dictionary, "transactions.loadError"));
@@ -137,28 +233,88 @@ export default function TransactionsScreen(): React.JSX.Element {
 
   // Navigate to previous month
   const goToPreviousMonth = () => {
-    const parts = selectedMonth.split("-").map(Number);
-    const year = parts[0] || new Date().getFullYear();
-    const month = parts[1] || new Date().getMonth() + 1;
-    const date = new Date(year, month - 2, 1); // month - 2 because month is 1-indexed but Date uses 0-indexed
-    const newMonth = date.toISOString().slice(0, 7);
-    setSelectedMonth(newMonth);
+    setSelectedMonth(addMonths(selectedMonth, -1));
   };
 
   // Navigate to next month
   const goToNextMonth = () => {
-    const parts = selectedMonth.split("-").map(Number);
-    const year = parts[0] || new Date().getFullYear();
-    const month = parts[1] || new Date().getMonth() + 1;
-    const date = new Date(year, month, 1); // month is already correct for next month
-    const newMonth = date.toISOString().slice(0, 7);
-    setSelectedMonth(newMonth);
+    setSelectedMonth(addMonths(selectedMonth, 1));
+  };
+
+  const openMonthPicker = () => {
+    const { year, monthIndex } = parseMonthKey(selectedMonth);
+    setPickerYear(year);
+    setPickerMonthIndex(monthIndex);
+    setIsMonthPickerOpen(true);
+  };
+
+  const applyMonthPicker = () => {
+    const nextMonth = toMonthKey(new Date(pickerYear, pickerMonthIndex, 1));
+    setSelectedMonth(nextMonth);
+    setIsMonthPickerOpen(false);
   };
 
   // Filter transactions by selected month
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => t.date.startsWith(selectedMonth));
   }, [transactions, selectedMonth]);
+
+  const pendingOccurrences = useMemo<RecurringOccurrenceItem[]>(() => {
+    if (!recurringItems.length) return [];
+    const existingKeys = new Set(
+      filteredTransactions
+        .filter(
+          (transaction) =>
+            transaction.recurring_item_id && transaction.recurring_occurrence_date
+        )
+        .map((transaction) =>
+          getOccurrenceKey(
+            transaction.recurring_item_id!,
+            transaction.recurring_occurrence_date!
+          )
+        )
+    );
+
+    return recurringItems
+      .filter((item) => !item.is_paused)
+      .flatMap((item) =>
+        getOccurrencesBetween(item, monthRange.start, monthRange.end)
+          .filter((occurrence) => !existingKeys.has(occurrence.key))
+          .map((occurrence) => ({
+            occurrenceDate: occurrence.date,
+            item,
+          }))
+      );
+  }, [filteredTransactions, monthRange.end, monthRange.start, recurringItems]);
+
+  const mergedItems = useMemo(() => {
+    const mappedTransactions = filteredTransactions.map((transaction) => ({
+      kind: "transaction" as const,
+      date: transaction.date,
+      transaction,
+    }));
+
+    const mappedRecurring = pendingOccurrences.map((pending) => ({
+      kind: "recurring" as const,
+      date: pending.occurrenceDate,
+      recurring: pending,
+    }));
+
+    return [...mappedTransactions, ...mappedRecurring].sort((a, b) => {
+      const timeA = new Date(`${a.date}T00:00:00Z`).getTime();
+      const timeB = new Date(`${b.date}T00:00:00Z`).getTime();
+      if (timeA !== timeB) return timeB - timeA;
+      if (a.kind === b.kind) return 0;
+      return a.kind === "transaction" ? -1 : 1;
+    });
+  }, [filteredTransactions, pendingOccurrences]);
+
+  const categoriesById = useMemo(() => {
+    return categories.reduce<Record<string, Category>>((acc, category) => {
+      acc[category.id] = category;
+      return acc;
+    }, {});
+  }, [categories]);
 
   // Calculate monthly summary
   const monthlySummary = useMemo(() => {
@@ -183,10 +339,78 @@ export default function TransactionsScreen(): React.JSX.Element {
   const currencySymbol =
     CURRENCIES.find((c) => c.code === baseCurrency)?.symbol || baseCurrency;
 
-  // Format month for display
-  const formatMonth = (monthStr: string) => {
-    const date = new Date(monthStr + "-01");
-    return date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const handleConfirmRecurring = async (pending: RecurringOccurrenceItem) => {
+    if (!selectedAccountId) return;
+
+    const confirmKey = getOccurrenceKey(
+      pending.item.id,
+      pending.occurrenceDate
+    );
+    setConfirmingKey(confirmKey);
+
+    try {
+      if (pending.item.currency !== baseCurrency) {
+        Alert.alert(
+          t(dictionary, "common.errorTitle"),
+          t(dictionary, "transactions.repeat.baseCurrencyOnly")
+        );
+        return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        Alert.alert(
+          t(dictionary, "common.errorTitle"),
+          t(dictionary, "transactions.notAuthenticated")
+        );
+        return;
+      }
+
+      const amountMinor = String(pending.item.amount_minor);
+      const payload = {
+        account_id: selectedAccountId,
+        type: pending.item.type,
+        amount_minor: amountMinor,
+        currency: pending.item.currency,
+        amount_base_minor: amountMinor,
+        fx_rate: "1",
+        fx_date: pending.occurrenceDate,
+        category_id: pending.item.category_id,
+        date: pending.occurrenceDate,
+        merchant: pending.item.merchant,
+        notes: pending.item.notes,
+        created_by: user.id,
+        recurring_item_id: pending.item.id,
+        recurring_occurrence_date: pending.occurrenceDate,
+      };
+
+      const { data, error: confirmError } = await supabase
+        .from("transactions")
+        .upsert([payload], {
+          onConflict: "account_id,recurring_item_id,recurring_occurrence_date",
+          ignoreDuplicates: true,
+        })
+        .select()
+        .single();
+
+      if (confirmError) throw confirmError;
+
+      if (data) {
+        setTransactions([data as Transaction, ...transactions]);
+      } else {
+        await loadData();
+      }
+    } catch (e: any) {
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        e?.message || t(dictionary, "transactions.recurring.confirmError")
+      );
+    } finally {
+      setConfirmingKey(null);
+    }
   };
 
   if (loading) {
@@ -230,16 +454,41 @@ export default function TransactionsScreen(): React.JSX.Element {
 
       {/* Month Selector */}
       <Card title={t(dictionary, "transactions.filterByMonth")}>
-        <View style={styles.monthSelector}>
+        <View style={styles.monthNavigator}>
           <TouchableOpacity
             onPress={goToPreviousMonth}
-            style={styles.monthButton}
+            style={styles.monthNavButton}
+            accessibilityRole="button"
+            accessibilityLabel={t(dictionary, "transactions.previousMonth")}
           >
-            <Text style={styles.monthButtonText}>{t(dictionary, "transactions.previousMonth")}</Text>
+            <Text style={styles.monthNavText}>
+              {t(dictionary, "transactions.previousMonth")}
+            </Text>
           </TouchableOpacity>
-          <Text style={styles.monthText}>{formatMonth(selectedMonth)}</Text>
-          <TouchableOpacity onPress={goToNextMonth} style={styles.monthButton}>
-            <Text style={styles.monthButtonText}>{t(dictionary, "transactions.nextMonth")}</Text>
+          <View style={styles.monthCenter}>
+            <Text style={styles.monthLabel}>
+              {formatMonthLabel(selectedMonth, locale)}
+            </Text>
+            <TouchableOpacity
+              onPress={openMonthPicker}
+              style={styles.monthPickerButton}
+              accessibilityRole="button"
+              accessibilityLabel={t(dictionary, "transactions.openMonthPicker")}
+            >
+              <Text style={styles.monthPickerText}>
+                {t(dictionary, "transactions.openMonthPicker")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            onPress={goToNextMonth}
+            style={styles.monthNavButton}
+            accessibilityRole="button"
+            accessibilityLabel={t(dictionary, "transactions.nextMonth")}
+          >
+            <Text style={styles.monthNavText}>
+              {t(dictionary, "transactions.nextMonth")}
+            </Text>
           </TouchableOpacity>
         </View>
       </Card>
@@ -294,79 +543,149 @@ export default function TransactionsScreen(): React.JSX.Element {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>
           {t(dictionary, "transactions.listTitle", {
-            count: filteredTransactions.length,
+            count: mergedItems.length,
           })}
         </Text>
 
-        {filteredTransactions.length === 0 ? (
+        {mergedItems.length === 0 ? (
           <Text style={styles.emptyText}>
             {t(dictionary, "transactions.emptyList")}
           </Text>
         ) : (
           <View style={styles.list}>
-            {filteredTransactions.map((transaction) => {
-              const category = transaction.category;
-              const icon = category ? getIconById(category.icon_id) : null;
-              const amount = formatMoneyWithSymbol(
-                BigInt(transaction.amount_base_minor),
-                baseCurrency,
-                currencySymbol
-              );
-              const displayName =
-                transaction.merchant ||
-                category?.name ||
-                t(dictionary, "transactions.uncategorized");
+            {mergedItems.map((entry) => {
+              if (entry.kind === "transaction") {
+                const transaction = entry.transaction;
+                const category = transaction.category;
+                const amount = formatMoneyWithSymbol(
+                  BigInt(transaction.amount_base_minor),
+                  baseCurrency,
+                  currencySymbol
+                );
+                const displayName =
+                  transaction.merchant ||
+                  category?.name ||
+                  t(dictionary, "transactions.uncategorized");
 
-              return (
-                <View key={transaction.id} style={styles.transactionItem}>
-                  {/* Left: Icon + Details */}
-                  <View style={styles.transactionLeft}>
-                    <Text style={styles.emoji}>
-                      {icon?.emoji ||
-                        (transaction.type === "income" ? "💰" : "💸")}
-                    </Text>
-                    <View style={styles.transactionInfo}>
-                      <Text style={styles.transactionName}>{displayName}</Text>
-                      <Text style={styles.transactionDate}>
-                        {new Date(transaction.date).toLocaleDateString()}
-                        {transaction.notes && ` • ${transaction.notes}`}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Right: Amount + Actions */}
-                  <View style={styles.transactionRight}>
-                    <Text
-                      style={[
-                        styles.transactionAmount,
-                        transaction.type === "income"
-                          ? styles.incomeText
-                          : styles.expenseText,
-                      ]}
-                    >
-                      {transaction.type === "income" ? "+" : "-"}
-                      {amount}
-                    </Text>
-                    <View style={styles.transactionActions}>
-                      <TouchableOpacity
-                        onPress={() =>
-                          router.push(`/(auth)/transactions/${transaction.id}`)
-                        }
-                        style={styles.actionButton}
-                      >
-                        <Text style={styles.actionButtonText}>
-                          {t(dictionary, "transactions.editActionShort")}
+                return (
+                  <TouchableOpacity
+                    key={transaction.id}
+                    style={styles.transactionItem}
+                    onPress={() =>
+                      router.push(`/(auth)/transactions/${transaction.id}`)
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={displayName}
+                  >
+                    <View style={styles.transactionLeft}>
+                      <CategoryIcon
+                        iconId={category?.icon_id}
+                        size={24}
+                        tone="muted"
+                        accessibilityLabel={category?.name}
+                      />
+                      <View style={styles.transactionInfo}>
+                        <Text style={styles.transactionName}>{displayName}</Text>
+                        <Text style={styles.transactionDate}>
+                          {new Date(transaction.date).toLocaleDateString()}
+                          {transaction.notes && ` • ${transaction.notes}`}
                         </Text>
-                      </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    <View style={styles.transactionRight}>
+                      <Text
+                        style={[
+                          styles.transactionAmount,
+                          transaction.type === "income"
+                            ? styles.incomeText
+                            : styles.expenseText,
+                        ]}
+                      >
+                        {transaction.type === "income" ? "+" : "-"}
+                        {amount}
+                      </Text>
                       <TouchableOpacity
                         onPress={() => handleDelete(transaction)}
-                        style={[styles.actionButton, styles.deleteButton]}
+                        style={styles.deleteAction}
+                        accessibilityRole="button"
+                        accessibilityLabel={t(dictionary, "transactions.deleteButton")}
                       >
-                        <Text style={styles.deleteButtonText}>
+                        <Text style={styles.deleteActionText}>
                           {t(dictionary, "transactions.deleteActionShort")}
                         </Text>
                       </TouchableOpacity>
                     </View>
+                  </TouchableOpacity>
+                );
+              }
+
+              const pending = entry.recurring;
+              const category = pending.item.category_id
+                ? categoriesById[pending.item.category_id]
+                : undefined;
+              const amount = formatMoneyWithSymbol(
+                BigInt(pending.item.amount_minor),
+                pending.item.currency,
+                CURRENCIES.find((c) => c.code === pending.item.currency)?.symbol ||
+                  pending.item.currency
+              );
+              const displayName =
+                pending.item.merchant ||
+                category?.name ||
+                t(dictionary, "transactions.uncategorized");
+              const confirmKey = getOccurrenceKey(
+                pending.item.id,
+                pending.occurrenceDate
+              );
+
+              return (
+                <View key={confirmKey} style={styles.transactionItem}>
+                  <View style={styles.transactionLeft}>
+                    <CategoryIcon
+                      iconId={category?.icon_id}
+                      size={24}
+                      tone="muted"
+                      accessibilityLabel={category?.name}
+                    />
+                    <View style={styles.transactionInfo}>
+                      <Text style={styles.transactionName}>{displayName}</Text>
+                      <Text style={styles.transactionDate}>
+                        {new Date(pending.occurrenceDate).toLocaleDateString()} •{" "}
+                        {t(dictionary, "transactions.recurring.pendingLabel")}
+                        {pending.item.notes && ` • ${pending.item.notes}`}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.transactionRight}>
+                    <Text
+                      style={[
+                        styles.transactionAmount,
+                        pending.item.type === "income"
+                          ? styles.incomeText
+                          : styles.expenseText,
+                      ]}
+                    >
+                      {pending.item.type === "income" ? "+" : "-"}
+                      {amount}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => handleConfirmRecurring(pending)}
+                      style={styles.secondaryAction}
+                      disabled={confirmingKey === confirmKey}
+                      accessibilityRole="button"
+                      accessibilityLabel={t(
+                        dictionary,
+                        "transactions.recurring.confirmAction"
+                      )}
+                    >
+                      <Text style={styles.secondaryActionText}>
+                        {confirmingKey === confirmKey
+                          ? t(dictionary, "transactions.recurring.confirming")
+                          : t(dictionary, "transactions.recurring.confirmAction")}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               );
@@ -374,33 +693,74 @@ export default function TransactionsScreen(): React.JSX.Element {
           </View>
         )}
       </View>
+
+      <Modal
+        transparent
+        visible={isMonthPickerOpen}
+        animationType="slide"
+        onRequestClose={() => setIsMonthPickerOpen(false)}
+      >
+        <View style={styles.sheetOverlay}>
+          <Pressable
+            style={styles.sheetBackdrop}
+            onPress={() => setIsMonthPickerOpen(false)}
+          />
+          <View style={styles.sheetContainer}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>
+                {t(dictionary, "transactions.openMonthPicker")}
+              </Text>
+            </View>
+            <View style={styles.pickerContent}>
+              <View style={styles.pickerColumn}>
+                <Text style={styles.pickerLabel}>
+                  {t(dictionary, "transactions.monthPickerLabel")}
+                </Text>
+                <Picker
+                  selectedValue={pickerMonthIndex}
+                  onValueChange={(value) => setPickerMonthIndex(Number(value))}
+                  style={styles.picker}
+                  accessibilityLabel={t(dictionary, "transactions.monthPickerLabel")}
+                >
+                  {monthOptions.map((label, index) => (
+                    <Picker.Item key={label} label={label} value={index} />
+                  ))}
+                </Picker>
+              </View>
+              <View style={styles.pickerColumn}>
+                <Text style={styles.pickerLabel}>
+                  {t(dictionary, "transactions.yearPickerLabel")}
+                </Text>
+                <Picker
+                  selectedValue={pickerYear}
+                  onValueChange={(value) => setPickerYear(Number(value))}
+                  style={styles.picker}
+                  accessibilityLabel={t(dictionary, "transactions.yearPickerLabel")}
+                >
+                  {yearOptions.map((year) => (
+                    <Picker.Item key={year} label={String(year)} value={year} />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+            <View style={styles.sheetActions}>
+              <Button
+                title={t(dictionary, "common.cancel")}
+                onPress={() => setIsMonthPickerOpen(false)}
+                variant="secondary"
+              />
+              <Button
+                title={t(dictionary, "transactions.applyMonthPicker")}
+                onPress={applyMonthPicker}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
-
-// Finnon Color Tokens (color-guide.md)
-const colors = {
-  bg: {
-    primary: "#FFFFFF",
-    secondary: "#F7F8FA",
-    surface: "#FFFFFF",
-  },
-  text: {
-    primary: "#1C1E21",
-    secondary: "#5F6368",
-    muted: "#9AA0A6",
-  },
-  action: {
-    primary: "#5B8DFF",
-    secondary: "#E8EEFF",
-    disabled: "#C7D2FE",
-  },
-  state: {
-    positive: "#2E7D65",
-    negative: "#B23B3B",
-    neutral: "#DADCE0",
-  },
-};
 
 const styles = StyleSheet.create({
   loading: {
@@ -413,65 +773,81 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg.primary,
   },
   content: {
-    padding: 16,
-    gap: 16,
+    padding: spacing.lg,
+    gap: spacing.lg,
   },
   header: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "800",
+    fontSize: typography.size.display,
+    fontWeight: typography.weight.bold,
     color: colors.text.primary,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: typography.size.sm,
     color: colors.text.secondary,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   actions: {
     flexDirection: "row",
-    gap: 8,
+    gap: spacing.sm,
   },
-  monthSelector: {
+  monthNavigator: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 8,
+    gap: spacing.sm,
   },
-  monthButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: colors.action.primary,
+  monthNavButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.sm,
+    backgroundColor: colors.bg.secondary,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
   },
-  monthButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
-  },
-  monthText: {
-    fontSize: 16,
-    fontWeight: "600",
+  monthNavText: {
     color: colors.text.primary,
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+  },
+  monthCenter: {
+    flex: 1,
+    alignItems: "center",
+  },
+  monthLabel: {
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
+  },
+  monthPickerButton: {
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  monthPickerText: {
+    fontSize: typography.size.xs,
+    color: colors.text.secondary,
   },
   summaryContainer: {
     flexDirection: "row",
-    gap: 8,
+    gap: spacing.sm,
   },
   summaryCard: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
+    padding: spacing.md,
+    borderRadius: radii.md,
     backgroundColor: colors.bg.secondary,
   },
   summaryLabel: {
-    fontSize: 12,
+    fontSize: typography.size.xs,
     color: colors.text.secondary,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   summaryValue: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
   },
   incomeText: {
     color: colors.state.positive,
@@ -480,85 +856,133 @@ const styles = StyleSheet.create({
     color: colors.state.negative,
   },
   section: {
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 12,
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
+    marginBottom: spacing.md,
     color: colors.text.primary,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: typography.size.sm,
     color: colors.text.secondary,
     fontStyle: "italic",
     textAlign: "center",
-    paddingVertical: 32,
+    paddingVertical: spacing.xxl,
   },
   list: {
-    gap: 8,
+    gap: spacing.sm,
   },
   transactionItem: {
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: 12,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.state.neutral,
-    borderRadius: 8,
-    backgroundColor: colors.bg.primary,
+    borderRadius: radii.md,
+    backgroundColor: colors.bg.surface,
   },
   transactionLeft: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 12,
+    gap: spacing.md,
     flex: 1,
-  },
-  emoji: {
-    fontSize: 24,
   },
   transactionInfo: {
     flex: 1,
   },
   transactionName: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 2,
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    marginBottom: spacing.xs,
     color: colors.text.primary,
   },
   transactionDate: {
-    fontSize: 12,
+    fontSize: typography.size.xs,
     color: colors.text.secondary,
   },
   transactionRight: {
     alignItems: "flex-end",
-    gap: 8,
+    gap: spacing.sm,
   },
   transactionAmount: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.bold,
   },
-  transactionActions: {
-    flexDirection: "row",
-    gap: 6,
+  deleteAction: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.sm,
   },
-  actionButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: colors.action.primary,
-  },
-  actionButtonText: {
-    color: colors.action.primary,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  deleteButton: {
-    borderColor: colors.state.negative,
-  },
-  deleteButtonText: {
+  deleteActionText: {
     color: colors.state.negative,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
+  },
+  secondaryAction: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.sm,
+    backgroundColor: colors.bg.secondary,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+  },
+  secondaryActionText: {
+    color: colors.text.primary,
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
+  },
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: colors.shadow.soft,
+  },
+  sheetBackdrop: {
+    flex: 1,
+  },
+  sheetContainer: {
+    backgroundColor: colors.bg.surface,
+    padding: spacing.lg,
+    borderTopLeftRadius: radii.lg,
+    borderTopRightRadius: radii.lg,
+  },
+  sheetHandle: {
+    width: 48,
+    height: 4,
+    borderRadius: radii.pill,
+    backgroundColor: colors.state.neutral,
+    alignSelf: "center",
+    marginBottom: spacing.sm,
+  },
+  sheetHeader: {
+    marginBottom: spacing.sm,
+  },
+  sheetTitle: {
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
+    textAlign: "center",
+  },
+  pickerContent: {
+    flexDirection: "row",
+    gap: spacing.md,
+  },
+  pickerColumn: {
+    flex: 1,
+  },
+  pickerLabel: {
+    fontSize: typography.size.xs,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  picker: {
+    backgroundColor: colors.bg.secondary,
+    borderRadius: radii.md,
+  },
+  sheetActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.md,
   },
 });

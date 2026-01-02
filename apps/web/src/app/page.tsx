@@ -74,6 +74,11 @@ export default async function DashboardPage() {
   const monthRange = getMonthRange(new Date());
   const startDate = monthRange.start.toISOString().slice(0, 10);
   const endDate = monthRange.end.toISOString().slice(0, 10);
+  const upcomingEnd = new Date();
+  upcomingEnd.setDate(upcomingEnd.getDate() + 7);
+  const obligationsEnd =
+    upcomingEnd > monthRange.end ? upcomingEnd : monthRange.end;
+  const obligationsEndDate = obligationsEnd.toISOString().slice(0, 10);
 
   const { data: monthlyTransactions } = await supabase
     .from("transactions")
@@ -96,6 +101,16 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: false })
     .limit(8);
 
+  const { data: obligations } = await supabase
+    .from("obligations")
+    .select(
+      "id, account_id, name, amount_minor, amount_base_minor, currency, due_date, status, paid_at"
+    )
+    .eq("account_id", mainAccount.id)
+    .gte("due_date", startDate)
+    .lte("due_date", obligationsEndDate)
+    .order("due_date", { ascending: true });
+
   const viewModel = buildHomeViewModel({
     account: {
       id: mainAccount.id,
@@ -104,7 +119,7 @@ export default async function DashboardPage() {
     },
     role: mainAccountRole,
     dictionary,
-    obligations: [],
+    obligations: obligations ?? [],
     monthlyTransactions: monthlyTransactions ?? [],
     recentTransactions: recentTransactions ?? [],
     month: new Date(),
@@ -232,7 +247,7 @@ export default async function DashboardPage() {
                   {viewModel.emptyStates.obligations.title}
                 </p>
                 <Button variant="outline" asChild>
-                  <Link href="/transactions?new=1&type=expense&kind=obligation">
+                  <Link href="/transactions?new=1&kind=obligation">
                     {viewModel.emptyStates.obligations.cta}
                   </Link>
                 </Button>

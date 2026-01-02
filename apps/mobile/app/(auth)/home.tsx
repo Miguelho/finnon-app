@@ -8,7 +8,9 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
+  Alert,
 } from "react-native";
+import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { useAuth } from "../../src/contexts/AuthContext";
@@ -21,6 +23,7 @@ import {
   getMonthRange,
   themeTokens,
   type UserRole,
+  type Obligation,
 } from "@poleursus/shared";
 import { useCopy, t, formatParticipantCount } from "../../src/lib/i18n";
 
@@ -107,6 +110,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user, session, selectedAccountId, setSelectedAccountId } = useAuth();
   const { dictionary, locale } = useCopy();
+  const isFocused = useIsFocused();
 
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [membersByAccountId, setMembersByAccountId] = useState<
@@ -116,11 +120,15 @@ export default function HomeScreen() {
     []
   );
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [obligations, setObligations] = useState<Obligation[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false);
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
+  const [updatingObligationId, setUpdatingObligationId] = useState<string | null>(
+    null
+  );
 
   const mainAccount = useMemo(() => {
     if (!accounts || accounts.length === 0) return null;
@@ -218,7 +226,7 @@ export default function HomeScreen() {
     let cancelled = false;
 
     async function loadTransactions() {
-      if (!mainAccount) return;
+      if (!mainAccount || !isFocused) return;
 
       setLoadingTransactions(true);
       setError(null);
@@ -226,6 +234,11 @@ export default function HomeScreen() {
       const monthRange = getMonthRange(new Date());
       const startDate = monthRange.start.toISOString().slice(0, 10);
       const endDate = monthRange.end.toISOString().slice(0, 10);
+      const upcomingEnd = new Date();
+      upcomingEnd.setDate(upcomingEnd.getDate() + 7);
+      const obligationsEnd =
+        upcomingEnd > monthRange.end ? upcomingEnd : monthRange.end;
+      const obligationsEndDate = obligationsEnd.toISOString().slice(0, 10);
 
       try {
         const { data: monthData, error: monthError } = await supabase
@@ -253,9 +266,22 @@ export default function HomeScreen() {
 
         if (recentError) throw recentError;
 
+        const { data: obligationsData, error: obligationsError } = await supabase
+          .from("obligations")
+          .select(
+            "id, account_id, name, amount_minor, amount_base_minor, currency, due_date, status, paid_at"
+          )
+          .eq("account_id", mainAccount.id)
+          .gte("due_date", startDate)
+          .lte("due_date", obligationsEndDate)
+          .order("due_date", { ascending: true });
+
+        if (obligationsError) throw obligationsError;
+
         if (!cancelled) {
           setMonthlyTransactions((monthData as Transaction[]) ?? []);
           setRecentTransactions((recentData as Transaction[]) ?? []);
+          setObligations((obligationsData as Obligation[]) ?? []);
         }
       } catch (e: any) {
         console.error("[Home] Error loading transactions:", e);
@@ -271,7 +297,7 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [mainAccount?.id]);
+  }, [mainAccount?.id, isFocused]);
 
   if (!session || !user) {
     return (
@@ -333,7 +359,7 @@ export default function HomeScreen() {
     account: mainAccount,
     role: activeRole,
     dictionary,
-    obligations: [],
+    obligations,
     monthlyTransactions,
     recentTransactions,
     month: new Date(),
@@ -342,6 +368,46 @@ export default function HomeScreen() {
   });
 
   const upcomingItems = viewModel.upcoming.items.slice(0, 5);
+
+  const handleToggleObligationStatus = async (item: {
+    id: string;
+    status?: "pending" | "paid";
+  }) => {
+    if (!viewModel.permissions.canEdit) return;
+    const nextStatus = item.status === "paid" ? "pending" : "paid";
+    const paidAt =
+      nextStatus === "paid" ? new Date().toISOString().slice(0, 10) : null;
+
+    setUpdatingObligationId(item.id);
+    try {
+      const { error: updateError } = await supabase
+        .from("obligations")
+        .update({ status: nextStatus, paid_at: paidAt })
+        .eq("id", item.id);
+
+      if (updateError) throw updateError;
+
+      setObligations((prev) =>
+        prev.map((obligation) =>
+          obligation.id === item.id
+            ? {
+                ...obligation,
+                status: nextStatus,
+                paid_at: paidAt,
+              }
+            : obligation
+        )
+      );
+    } catch (e: any) {
+      console.error("[Home] Error updating obligation:", e);
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        e?.message ?? t(dictionary, "errors.internalServer")
+      );
+    } finally {
+      setUpdatingObligationId(null);
+    }
+  };
 
   return (
     <View style={styles.root}>
@@ -483,7 +549,9 @@ export default function HomeScreen() {
         {/* Upcoming */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Próximos 7 días</Text>
+            <Text style={styles.sectionTitle}>
+              {t(dictionary, "mobile.home.upcomingObligationsTitle")}
+            </Text>
             {upcomingItems.length > 0 && (
               <TouchableOpacity onPress={() => router.push("/(auth)/transactions")}>
                 <Text style={styles.sectionCta} numberOfLines={1}>
@@ -497,23 +565,77 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.list}>
               {upcomingItems.map((item) => (
-                <View key={item.id} style={styles.listRow}>
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    styles.listRow,
+                    !viewModel.permissions.canEdit && styles.listRowDisabled,
+                  ]}
+                  onPress={() => router.push(`/(auth)/obligations/${item.id}`)}
+                  disabled={!viewModel.permissions.canEdit}
+                >
                   <View style={styles.listRowInfo}>
                     <Text style={styles.listRowTitle} numberOfLines={1}>
                       {item.name}
                     </Text>
-                    <Text style={styles.listRowMeta}>
-                      {formatDateShort(item.dueDate, locale)}
-                    </Text>
+                    <View style={styles.listRowMetaRow}>
+                      <Text style={styles.listRowMeta}>
+                        {formatDateShort(item.dueDate, locale)}
+                      </Text>
+                      <View
+                        style={[
+                          styles.statusChip,
+                          item.status === "paid"
+                            ? styles.statusChipPaid
+                            : styles.statusChipPending,
+                        ]}
+                      >
+                        <Text style={styles.statusChipText}>
+                          {item.status === "paid"
+                            ? t(dictionary, "obligations.create.statusPaid")
+                            : t(dictionary, "obligations.create.statusPending")}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
-                  <Text style={styles.listRowAmount}>
-                    {formatMoneyWithSymbol(
-                      item.amountMinor,
-                      mainAccount.base_currency,
-                      currencySymbol
-                    )}
-                  </Text>
-                </View>
+                  <View style={styles.listRowActions}>
+                    <Text style={styles.listRowAmount}>
+                      {formatMoneyWithSymbol(
+                        item.amountMinor,
+                        mainAccount.base_currency,
+                        currencySymbol
+                      )}
+                    </Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.obligationAction,
+                        item.status === "paid"
+                          ? styles.obligationActionSecondary
+                          : styles.obligationActionPrimary,
+                        (updatingObligationId === item.id ||
+                          !viewModel.permissions.canEdit) &&
+                          styles.obligationActionDisabled,
+                      ]}
+                      onPress={() => handleToggleObligationStatus(item)}
+                      disabled={
+                        updatingObligationId === item.id ||
+                        !viewModel.permissions.canEdit
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.obligationActionText,
+                          item.status === "paid" &&
+                            styles.obligationActionTextSecondary,
+                        ]}
+                      >
+                        {item.status === "paid"
+                          ? t(dictionary, "mobile.home.markPending")
+                          : t(dictionary, "mobile.home.markPaid")}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}
@@ -689,7 +811,7 @@ export default function HomeScreen() {
             disabled={!viewModel.permissions.canEdit}
             onPress={() => {
               setIsAddSheetOpen(false);
-              router.push("/(auth)/transactions/create?type=expense&kind=obligation");
+              router.push("/(auth)/obligations/create");
             }}
           >
             <Text style={styles.sheetActionTitle}>
@@ -697,6 +819,24 @@ export default function HomeScreen() {
             </Text>
             <Text style={styles.sheetActionMeta}>
               {t(dictionary, "mobile.home.addObligationDescription")}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.sheetAction,
+              !viewModel.permissions.canEdit && styles.sheetActionDisabled,
+            ]}
+            disabled={!viewModel.permissions.canEdit}
+            onPress={() => {
+              setIsAddSheetOpen(false);
+              router.push("/(auth)/transactions/create?type=expense&kind=recurring");
+            }}
+          >
+            <Text style={styles.sheetActionTitle}>
+              {t(dictionary, "mobile.home.addRecurringTitle")}
+            </Text>
+            <Text style={styles.sheetActionMeta}>
+              {t(dictionary, "mobile.home.addRecurringDescription")}
             </Text>
           </TouchableOpacity>
         </View>
@@ -912,9 +1052,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg.secondary,
     gap: tokens.spacing.md,
   },
+  listRowDisabled: {
+    opacity: 0.6,
+  },
   listRowInfo: {
     flex: 1,
     gap: 4,
+  },
+  listRowMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.xs,
   },
   listRowTitleRow: {
     flexDirection: "row",
@@ -935,9 +1083,55 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.xs,
     color: colors.text.secondary,
   },
+  statusChip: {
+    paddingHorizontal: tokens.spacing.xs,
+    paddingVertical: 2,
+    borderRadius: tokens.radii.pill,
+  },
+  statusChipPending: {
+    backgroundColor: colors.bg.primary,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+  },
+  statusChipPaid: {
+    backgroundColor: colors.action.secondary,
+  },
+  statusChipText: {
+    fontSize: tokens.typography.size.xs,
+    color: colors.text.primary,
+    fontWeight: "600",
+  },
+  listRowActions: {
+    alignItems: "flex-end",
+    gap: tokens.spacing.xs,
+  },
   listRowAmount: {
     fontSize: tokens.typography.size.sm,
     fontWeight: "700",
+    color: colors.text.primary,
+  },
+  obligationAction: {
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: 6,
+    borderRadius: tokens.radii.pill,
+  },
+  obligationActionPrimary: {
+    backgroundColor: colors.action.primary,
+  },
+  obligationActionSecondary: {
+    backgroundColor: colors.bg.primary,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+  },
+  obligationActionDisabled: {
+    opacity: 0.6,
+  },
+  obligationActionText: {
+    fontSize: tokens.typography.size.xs,
+    fontWeight: "600",
+    color: colors.bg.primary,
+  },
+  obligationActionTextSecondary: {
     color: colors.text.primary,
   },
   amountPositive: {

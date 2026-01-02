@@ -47,6 +47,13 @@ export default async function TransactionsPage() {
     .order("date", { ascending: false })
     .order("created_at", { ascending: false });
 
+  const { data: recurringItems } = await supabase
+    .from("recurring_items")
+    .select(
+      "id, account_id, type, amount_minor, currency, category_id, merchant, notes, start_date, frequency, interval, day_of_month, end_date, is_paused, created_by"
+    )
+    .eq("account_id", activeAccount.id);
+
   // Fetch categories for the active account (for the form dropdown)
   const { data: categories } = await supabase
     .from("categories")
@@ -59,6 +66,7 @@ export default async function TransactionsPage() {
       accountId={activeAccount.id}
       baseCurrency={activeAccount.base_currency}
       initialTransactions={transactions || []}
+      initialRecurringItems={recurringItems || []}
       categories={categories || []}
       role={activeRole}
     />

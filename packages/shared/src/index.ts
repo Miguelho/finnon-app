@@ -6,10 +6,14 @@ export type { TransactionType, CreateTransaction } from "./schemas/transaction";
 export * from "./schemas/invite";
 export * from "./constants/currencies";
 export * from "./constants/icons";
+export * from "./icons/categories";
+export * from "./icons/category-icon";
 export * from "./utils/money";
 export * from "./domain/types";
+export * from "./date/month";
 export * from "./home/home.compute";
 export * from "./home/home.viewmodel";
+export * from "./recurring";
 export * from "./theme/tokens";
 export * from "./copy";
 

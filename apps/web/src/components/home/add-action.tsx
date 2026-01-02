@@ -35,7 +35,12 @@ export function AddAction({ canEdit }: AddActionProps) {
     {
       label: t("home.addObligationTitle"),
       description: t("home.addObligationDescription"),
-      href: "/transactions?new=1&type=expense&kind=obligation",
+      href: "/transactions?new=1&kind=obligation",
+    },
+    {
+      label: t("home.addRecurringTitle"),
+      description: t("home.addRecurringDescription"),
+      href: "/transactions?new=1&kind=recurring",
     },
   ];
 

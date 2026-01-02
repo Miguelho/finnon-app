@@ -17,6 +17,7 @@ import { Input } from "../../../src/components/Input";
 import { Card } from "../../../src/components/Card";
 import {
   type TransactionType,
+  type RecurringFrequency,
   CURRENCIES,
   parseMoneyToMinor,
   computeAmountBaseMinor,
@@ -35,7 +36,7 @@ type Category = {
 
 export default function CreateTransactionScreen(): React.JSX.Element {
   const router = useRouter();
-  const params = useLocalSearchParams<{ type?: string }>();
+  const params = useLocalSearchParams<{ type?: string; kind?: string }>();
   const { selectedAccountId } = useAuth();
   const { dictionary } = useCopy();
 
@@ -48,6 +49,15 @@ export default function CreateTransactionScreen(): React.JSX.Element {
   const [merchant, setMerchant] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [repeatEnabled, setRepeatEnabled] = useState(false);
+  const [repeatLocked, setRepeatLocked] = useState(false);
+  const [repeatFrequency, setRepeatFrequency] =
+    useState<RecurringFrequency>("monthly");
+  const [repeatInterval, setRepeatInterval] = useState("1");
+  const [repeatStartDate, setRepeatStartDate] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
+  const [repeatEndDate, setRepeatEndDate] = useState("");
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [baseCurrency, setBaseCurrency] = useState("EUR");
@@ -67,6 +77,21 @@ export default function CreateTransactionScreen(): React.JSX.Element {
       setCategoryId("");
     }
   }, [params.type]);
+
+  useEffect(() => {
+    if (params.kind === "recurring") {
+      setRepeatEnabled(true);
+      setRepeatLocked(true);
+      setRepeatStartDate(date);
+      if (currency !== baseCurrency) {
+        setCurrency(baseCurrency);
+        setFxRate("1");
+        setFxRateError(null);
+      }
+    } else {
+      setRepeatLocked(false);
+    }
+  }, [params.kind]);
 
   const loadCategories = async () => {
     if (!selectedAccountId) return;
@@ -123,7 +148,23 @@ export default function CreateTransactionScreen(): React.JSX.Element {
       return;
     }
 
-    if (currency !== baseCurrency) {
+    if (repeatEnabled && currency !== baseCurrency) {
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "transactions.repeat.baseCurrencyOnly")
+      );
+      return;
+    }
+
+    if (repeatEnabled && Number(repeatInterval) < 1) {
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "errors.invalidRequest")
+      );
+      return;
+    }
+
+    if (!repeatEnabled && currency !== baseCurrency) {
       if (!fxRate.trim()) {
         setFxRateError(t(dictionary, "transactions.fxRateRequired"));
         return;
@@ -142,6 +183,20 @@ export default function CreateTransactionScreen(): React.JSX.Element {
     setIsSubmitting(true);
 
     try {
+      // Get current user
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        Alert.alert(
+          t(dictionary, "common.errorTitle"),
+          t(dictionary, "transactions.notAuthenticated")
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
       // Parse amount to minor units
       const amountMinor = parseMoneyToMinor(
         amount,
@@ -157,81 +212,111 @@ export default function CreateTransactionScreen(): React.JSX.Element {
         return;
       }
 
-      // Calculate amount_base_minor
-      let amountBaseMinor: bigint;
-      if (currency === baseCurrency) {
-        amountBaseMinor = amountMinor;
-      } else {
-        const computed = computeAmountBaseMinor({
-          amountMinor,
-          currency,
-          baseCurrency,
-          fxRate: fxRateValue,
-          currencyMeta: CURRENCY_MINOR_UNITS,
-        });
-        if (typeof computed === "object" && "error" in computed) {
-          Alert.alert(
-            t(dictionary, "common.errorTitle"),
-            t(dictionary, computed.error.key)
-          );
-          setIsSubmitting(false);
-          return;
-        }
-        amountBaseMinor = computed;
-      }
+      if (repeatEnabled) {
+        const { error } = await supabase
+          .from("recurring_items")
+          .insert([
+            {
+              account_id: selectedAccountId,
+              type,
+              amount_minor: amountMinor.toString(),
+              currency,
+              category_id: categoryId || null,
+              start_date: repeatStartDate,
+              frequency: repeatFrequency,
+              interval: Number(repeatInterval),
+              end_date: repeatEndDate.trim() || null,
+              merchant: merchant.trim() || null,
+              notes: notes.trim() || null,
+              is_paused: false,
+              created_by: user.id,
+            },
+          ])
+          .select()
+          .single();
 
-      // Get current user
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        if (error) throw error;
 
-      if (!user) {
         Alert.alert(
-          t(dictionary, "common.errorTitle"),
-          t(dictionary, "transactions.notAuthenticated")
+          t(dictionary, "common.successTitle"),
+          t(dictionary, "transactions.repeat.createSuccess"),
+          [
+            {
+              text: t(dictionary, "common.ok"),
+              onPress: () => router.back(),
+            },
+          ]
         );
-        setIsSubmitting(false);
-        return;
+      } else {
+        // Calculate amount_base_minor
+        let amountBaseMinor: bigint;
+        if (currency === baseCurrency) {
+          amountBaseMinor = amountMinor;
+        } else {
+          const computed = computeAmountBaseMinor({
+            amountMinor,
+            currency,
+            baseCurrency,
+            fxRate: fxRateValue,
+            currencyMeta: CURRENCY_MINOR_UNITS,
+          });
+          if (typeof computed === "object" && "error" in computed) {
+            Alert.alert(
+              t(dictionary, "common.errorTitle"),
+              t(dictionary, computed.error.key)
+            );
+            setIsSubmitting(false);
+            return;
+          }
+          amountBaseMinor = computed;
+        }
+
+        const { error } = await supabase
+          .from("transactions")
+          .insert([
+            {
+              account_id: selectedAccountId,
+              type,
+              amount_minor: amountMinor.toString(),
+              currency,
+              amount_base_minor: amountBaseMinor.toString(),
+              fx_rate: fxRateValue,
+              fx_date: date,
+              category_id: categoryId || null,
+              date,
+              merchant: merchant.trim() || null,
+              notes: notes.trim() || null,
+              created_by: user.id,
+            },
+          ])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        Alert.alert(
+          t(dictionary, "common.successTitle"),
+          t(dictionary, "transactions.createSuccess"),
+          [
+            {
+              text: t(dictionary, "common.ok"),
+              onPress: () => router.back(),
+            },
+          ]
+        );
       }
 
-      const { data, error } = await supabase
-        .from("transactions")
-        .insert([
-          {
-            account_id: selectedAccountId,
-            type,
-            amount_minor: amountMinor.toString(),
-            currency,
-            amount_base_minor: amountBaseMinor.toString(),
-            fx_rate: fxRateValue,
-            fx_date: date,
-            category_id: categoryId || null,
-            date,
-            merchant: merchant.trim() || null,
-            notes: notes.trim() || null,
-            created_by: user.id,
-          },
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      Alert.alert(
-        t(dictionary, "common.successTitle"),
-        t(dictionary, "transactions.createSuccess"),
-        [
-          {
-            text: t(dictionary, "common.ok"),
-            onPress: () => router.back(),
-          },
-        ]
-      );
     } catch (e: any) {
       console.error("Error creating transaction:", e);
       Alert.alert(
         t(dictionary, "common.errorTitle"),
-        e?.message || t(dictionary, "transactions.createError")
+        e?.message ||
+          t(
+            dictionary,
+            repeatEnabled
+              ? "transactions.repeat.createError"
+              : "transactions.createError"
+          )
       );
     } finally {
       setIsSubmitting(false);
@@ -342,6 +427,7 @@ export default function CreateTransactionScreen(): React.JSX.Element {
                   }
                 }}
                 style={styles.picker}
+                enabled={!repeatEnabled}
               >
                 {CURRENCIES.map((curr) => (
                   <Picker.Item
@@ -387,6 +473,97 @@ export default function CreateTransactionScreen(): React.JSX.Element {
             onChangeText={setDate}
             placeholder={t(dictionary, "transactions.datePlaceholder")}
           />
+
+          <View style={styles.field}>
+            <Text style={styles.label}>{t(dictionary, "transactions.repeat.label")}</Text>
+            <TouchableOpacity
+              style={[
+                styles.toggleRow,
+                repeatLocked && styles.toggleRowDisabled,
+              ]}
+              onPress={() => {
+                if (repeatLocked) return;
+                const next = !repeatEnabled;
+                setRepeatEnabled(next);
+                if (next) {
+                  setRepeatStartDate(date);
+                  if (currency !== baseCurrency) {
+                    setCurrency(baseCurrency);
+                    setFxRate("1");
+                    setFxRateError(null);
+                  }
+                }
+              }}
+              disabled={repeatLocked}
+            >
+              <View style={styles.toggleChip}>
+                <Text style={styles.toggleChipText}>
+                  {repeatEnabled
+                    ? t(dictionary, "common.on")
+                    : t(dictionary, "common.off")}
+                </Text>
+              </View>
+              <Text style={styles.toggleHelper}>
+                {t(dictionary, "transactions.repeat.helper")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {repeatEnabled && (
+            <>
+              <View style={styles.field}>
+                <Text style={styles.label}>
+                  {t(dictionary, "transactions.repeat.frequencyLabel")}
+                </Text>
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={repeatFrequency}
+                    onValueChange={(value) =>
+                      setRepeatFrequency(value as RecurringFrequency)
+                    }
+                    style={styles.picker}
+                  >
+                    <Picker.Item
+                      label={t(dictionary, "transactions.repeat.weekly")}
+                      value="weekly"
+                    />
+                    <Picker.Item
+                      label={t(dictionary, "transactions.repeat.monthly")}
+                      value="monthly"
+                    />
+                    <Picker.Item
+                      label={t(dictionary, "transactions.repeat.yearly")}
+                      value="yearly"
+                    />
+                  </Picker>
+                </View>
+              </View>
+
+              <Input
+                label={t(dictionary, "transactions.repeat.intervalLabel")}
+                value={repeatInterval}
+                onChangeText={(value) =>
+                  setRepeatInterval(value.replace(/[^0-9]/g, ""))
+                }
+                placeholder="1"
+                keyboardType="numeric"
+              />
+
+              <Input
+                label={t(dictionary, "transactions.repeat.startDateLabel")}
+                value={repeatStartDate}
+                onChangeText={setRepeatStartDate}
+                placeholder={t(dictionary, "transactions.datePlaceholder")}
+              />
+
+              <Input
+                label={t(dictionary, "transactions.repeat.endDateLabel")}
+                value={repeatEndDate}
+                onChangeText={setRepeatEndDate}
+                placeholder={t(dictionary, "transactions.datePlaceholder")}
+              />
+            </>
+          )}
 
           {/* Category */}
           <View style={styles.field}>
@@ -513,6 +690,30 @@ const styles = StyleSheet.create({
   previewText: {
     fontSize: 12,
     color: colors.text.secondary,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  toggleRowDisabled: {
+    opacity: 0.6,
+  },
+  toggleChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: colors.action.secondary,
+  },
+  toggleChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.text.primary,
+  },
+  toggleHelper: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    flex: 1,
   },
   // Pill selector styles
   pillContainer: {

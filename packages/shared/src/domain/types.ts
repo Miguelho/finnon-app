@@ -31,6 +31,8 @@ export type Transaction = {
   notes?: string | null;
   category_id?: string | null;
   category?: TransactionCategory | null;
+  recurring_item_id?: string | null;
+  recurring_occurrence_date?: string | null;
   created_at?: string | Date;
 };
 
