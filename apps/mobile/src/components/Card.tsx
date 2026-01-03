@@ -1,5 +1,9 @@
 import { View, Text, StyleSheet } from "react-native";
 import { ReactNode } from "react";
+import { themeTokens } from "@poleursus/shared";
+
+const tokens = themeTokens.light;
+const colors = tokens.colors;
 
 interface CardProps {
   title?: string;
@@ -23,27 +27,27 @@ export function Card({ title, description, children }: CardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: "#000",
+    backgroundColor: colors.bg.surface,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.lg,
+    shadowColor: colors.shadow.soft,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
   },
   header: {
-    marginBottom: 20,
+    marginBottom: tokens.spacing.lg,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 8,
-    color: "#000",
+    fontSize: tokens.typography.size.xl,
+    fontWeight: tokens.typography.weight.bold,
+    marginBottom: tokens.spacing.sm,
+    color: colors.text.primary,
   },
   description: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.secondary,
   },
   content: {
     // Container for card content

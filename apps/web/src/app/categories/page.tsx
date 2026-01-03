@@ -39,7 +39,7 @@ export default async function CategoriesPage() {
     .from("categories")
     .select("*")
     .eq("account_id", activeAccount.id)
-    .order("created_at", { ascending: false });
+    .order("name", { ascending: true });
 
   return (
     <CategoriesClient

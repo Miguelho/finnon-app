@@ -4,16 +4,10 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
+import { themeTokens } from "@poleursus/shared";
 
-// Finnon neutral colors (aligned with web)
-const colors = {
-  text: {
-    primary: "#1C1E21",
-  },
-  state: {
-    neutral: "#DADCE0",
-  },
-};
+const tokens = themeTokens.light;
+const colors = tokens.colors;
 
 interface ButtonProps {
   onPress: () => void;
@@ -41,7 +35,9 @@ export function Button({
       disabled={disabled || loading}
     >
       {loading ? (
-        <ActivityIndicator color={variant === "primary" ? "#fff" : colors.text.primary} />
+        <ActivityIndicator
+          color={variant === "primary" ? colors.bg.primary : colors.text.primary}
+        />
       ) : (
         <Text
           style={[
@@ -61,7 +57,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.text.primary,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 8,
+    borderRadius: tokens.radii.md,
     alignItems: "center",
   },
   buttonSecondary: {
@@ -73,9 +69,9 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   buttonText: {
-    color: "#fff",
+    color: colors.bg.primary,
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: tokens.typography.weight.semibold,
   },
   buttonTextSecondary: {
     color: colors.text.primary,

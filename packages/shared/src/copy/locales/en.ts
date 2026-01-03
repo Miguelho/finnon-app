@@ -295,6 +295,11 @@ export const en = {
     updateError: "Failed to update category",
     nameRequired: "Please enter a category name",
     noAccountSelected: "No active account selected",
+    error: {
+      duplicateName: "A category with this name already exists.",
+      nameLength: "Category name must be between 2 and 40 characters.",
+      inUse: "This category is in use and cannot be deleted.",
+    },
   },
   invites: {
     title: "Invites",
@@ -377,6 +382,52 @@ export const en = {
     featureInviteList: "View active invites",
     featureInviteRevoke: "Revoke invites",
     featureInviteAnalytics: "View invite usage analytics",
+    menu: {
+      sections: {
+        user: {
+          title: "User",
+          items: {
+            details: {
+              title: "User details",
+              description: "View your account information",
+            },
+            language: {
+              title: "Language",
+              description: "App display language",
+            },
+          },
+        },
+        account: {
+          title: "Account",
+          items: {
+            invitations: {
+              title: "Invitations",
+              description: "Manage invite links",
+            },
+          },
+        },
+      },
+    },
+    userDetails: {
+      title: "User details",
+      subtitle: "Your account information",
+      fields: {
+        email: "Email",
+        id: "User ID",
+      },
+      loading: "Loading user data...",
+      error: "Could not load user information",
+    },
+    language: {
+      title: "Language",
+      subtitle: "Choose your preferred language",
+      description: "App display language",
+      options: {
+        en: "English",
+        es: "Spanish",
+      },
+      current: "Current: {language}",
+    },
   },
   account: {
     title: "Account details",
@@ -419,6 +470,8 @@ export const en = {
     addExpenseDescription: "Log an everyday payment.",
     addIncomeTitle: "Add income",
     addIncomeDescription: "Add income to your month.",
+    addCategoryTitle: "Add category",
+    addCategoryDescription: "Create or update shared categories.",
     addObligationTitle: "Add obligation (one-time)",
     addObligationDescription: "A one-time payment with a due date.",
     addRecurringTitle: "Add recurring",
@@ -526,6 +579,8 @@ export const en = {
       addExpenseDescription: "Log an everyday payment.",
       addIncomeTitle: "Add income",
       addIncomeDescription: "Add income to your month.",
+      addCategoryTitle: "Add category",
+      addCategoryDescription: "Create or update shared categories.",
       addObligationTitle: "Add obligation (one-time)",
       addObligationDescription: "A one-time payment with a due date.",
       addRecurringTitle: "Add recurring",

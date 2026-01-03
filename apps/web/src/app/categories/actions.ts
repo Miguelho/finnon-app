@@ -2,7 +2,12 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { createCategorySchema, type CategoryType } from "@poleursus/shared";
+import {
+  categoryCreateInputSchema,
+  categoryUpdateInputSchema,
+  normalizeCategoryName,
+  type CategoryType,
+} from "@poleursus/shared";
 
 type ActionResult<T = any> = {
   success: boolean;
@@ -41,7 +46,27 @@ export async function createCategory(input: {
     }
 
     // Validate input
-    const validated = createCategorySchema.parse(input);
+    const validated = categoryCreateInputSchema.parse(input);
+
+    const { data: existingCategories, error: existingError } = await supabase
+      .from("categories")
+      .select("id, name")
+      .eq("account_id", validated.account_id);
+
+    if (existingError) {
+      console.error("Error checking duplicate categories:", existingError);
+      return { success: false, error: { key: "errors.internalServer" } };
+    }
+
+    const normalizedName = validated.name.toLowerCase();
+    const isDuplicate = (existingCategories ?? []).some(
+      (category) =>
+        normalizeCategoryName(category.name).toLowerCase() === normalizedName
+    );
+
+    if (isDuplicate) {
+      return { success: false, error: { key: "categories.error.duplicateName" } };
+    }
 
     // Insert category
     const { data, error } = await supabase
@@ -52,10 +77,17 @@ export async function createCategory(input: {
 
     if (error) {
       console.error("Error creating category:", error);
+      if (error.code === "23505") {
+        return {
+          success: false,
+          error: { key: "categories.error.duplicateName" },
+        };
+      }
       return { success: false, error: { key: "errors.internalServer" } };
     }
 
     revalidatePath("/categories");
+    revalidatePath("/transactions");
     return { success: true, data };
   } catch (error: any) {
     console.error("Error in createCategory:", error);
@@ -109,13 +141,36 @@ export async function updateCategory(
       return { success: false, error: { key: "errors.notMember" } };
     }
 
+    const validated = categoryUpdateInputSchema.parse(input);
+
+    const { data: existingCategories, error: existingError } = await supabase
+      .from("categories")
+      .select("id, name")
+      .eq("account_id", category.account_id);
+
+    if (existingError) {
+      console.error("Error checking duplicate categories:", existingError);
+      return { success: false, error: { key: "errors.internalServer" } };
+    }
+
+    const normalizedName = validated.name.toLowerCase();
+    const isDuplicate = (existingCategories ?? []).some(
+      (existing) =>
+        existing.id !== categoryId &&
+        normalizeCategoryName(existing.name).toLowerCase() === normalizedName
+    );
+
+    if (isDuplicate) {
+      return { success: false, error: { key: "categories.error.duplicateName" } };
+    }
+
     // Update category
     const { data, error } = await supabase
       .from("categories")
       .update({
-        name: input.name,
-        icon_id: input.icon_id,
-        type: input.type,
+        name: validated.name,
+        icon_id: validated.icon_id,
+        type: validated.type,
       })
       .eq("id", categoryId)
       .select()
@@ -123,10 +178,17 @@ export async function updateCategory(
 
     if (error) {
       console.error("Error updating category:", error);
+      if (error.code === "23505") {
+        return {
+          success: false,
+          error: { key: "categories.error.duplicateName" },
+        };
+      }
       return { success: false, error: { key: "errors.internalServer" } };
     }
 
     revalidatePath("/categories");
+    revalidatePath("/transactions");
     return { success: true, data };
   } catch (error: any) {
     console.error("Error in updateCategory:", error);
@@ -183,10 +245,14 @@ export async function deleteCategory(
 
     if (error) {
       console.error("Error deleting category:", error);
+      if (error.code === "23503") {
+        return { success: false, error: { key: "categories.error.inUse" } };
+      }
       return { success: false, error: { key: "errors.internalServer" } };
     }
 
     revalidatePath("/categories");
+    revalidatePath("/transactions");
     return { success: true };
   } catch (error: any) {
     console.error("Error in deleteCategory:", error);

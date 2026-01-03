@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { getDictionary, t } from "@poleursus/shared";
+import { getDictionary, buildSettingsMenuVM } from "@poleursus/shared";
+import { cookies } from "next/headers";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -8,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cookies } from "next/headers";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -23,38 +24,46 @@ export default async function SettingsPage() {
   const cookieStore = await cookies();
   const locale = cookieStore.get("NEXT_LOCALE")?.value || "es";
   const dictionary = getDictionary(locale);
+  const viewModel = buildSettingsMenuVM(dictionary, "web");
 
   return (
     <div className="min-h-screen bg-background p-4">
-      <div className="mx-auto max-w-4xl space-y-6">
+      <div className="mx-auto max-w-2xl space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            {t(dictionary, "settings.title")}
+            {viewModel.title}
           </h1>
-          <p className="text-muted-foreground">
-            {t(dictionary, "settings.subtitle")}
-          </p>
+          <p className="text-muted-foreground">{viewModel.subtitle}</p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{t(dictionary, "settings.accountTitle")}</CardTitle>
-            <CardDescription>
-              {t(dictionary, "settings.accountDescription")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              {t(dictionary, "settings.featuresIntro")}
-            </p>
-            <ul className="list-disc list-inside text-sm text-muted-foreground mt-2 space-y-1">
-              <li>{t(dictionary, "settings.featureInviteCreate")}</li>
-              <li>{t(dictionary, "settings.featureInviteList")}</li>
-              <li>{t(dictionary, "settings.featureInviteRevoke")}</li>
-              <li>{t(dictionary, "settings.featureInviteAnalytics")}</li>
-            </ul>
-          </CardContent>
-        </Card>
+        {viewModel.sections.map((section) => (
+          <div key={section.id} className="space-y-3">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">
+              {section.title}
+            </h2>
+            <Card>
+              <CardContent className="p-0">
+                {section.items.map((item, index) => (
+                  <Link
+                    key={item.id}
+                    href={item.route}
+                    className={`flex items-center justify-between p-4 hover:bg-muted/50 transition-colors ${
+                      index !== section.items.length - 1 ? "border-b" : ""
+                    }`}
+                  >
+                    <div>
+                      <div className="font-medium">{item.title}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {item.description}
+                      </div>
+                    </div>
+                    <span className="text-muted-foreground text-xl">›</span>
+                  </Link>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        ))}
       </div>
     </div>
   );

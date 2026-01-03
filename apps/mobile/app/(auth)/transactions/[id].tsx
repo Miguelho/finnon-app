@@ -9,6 +9,7 @@ import {
   Platform,
   TouchableOpacity,
 } from "react-native";
+import { useIsFocused } from "@react-navigation/native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../../../src/lib/supabase";
@@ -56,6 +57,7 @@ export default function EditTransactionScreen(): React.JSX.Element {
   const { id } = useLocalSearchParams();
   const { selectedAccountId } = useAuth();
   const { dictionary } = useCopy();
+  const isFocused = useIsFocused();
 
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [type, setType] = useState<TransactionType>("expense");
@@ -77,10 +79,12 @@ export default function EditTransactionScreen(): React.JSX.Element {
     value.replace(/[^0-9.,]/g, "");
 
   useEffect(() => {
-    loadTransaction();
-    loadCategories();
-    loadAccount();
-  }, [id]);
+    if (isFocused) {
+      loadTransaction();
+      loadCategories();
+      loadAccount();
+    }
+  }, [id, isFocused]);
 
   const loadTransaction = async () => {
     if (!id) return;

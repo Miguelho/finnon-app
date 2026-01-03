@@ -10,12 +10,15 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../../../src/lib/supabase";
-import { useAuth } from "../../../src/contexts/AuthContext";
 import { Button } from "../../../src/components/Button";
 import { Input } from "../../../src/components/Input";
 import { Card } from "../../../src/components/Card";
 import { IconPicker } from "../../../src/components/IconPicker";
-import type { CategoryType } from "@poleursus/shared";
+import {
+  normalizeCategoryName,
+  themeTokens,
+  type CategoryType,
+} from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
 
 type Category = {
@@ -27,10 +30,12 @@ type Category = {
   created_at: string;
 };
 
+const tokens = themeTokens.light;
+const colors = tokens.colors;
+
 export default function EditCategoryScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const { selectedAccountId } = useAuth();
   const [category, setCategory] = useState<Category | null>(null);
   const [name, setName] = useState("");
   const [iconId, setIconId] = useState("general");
@@ -81,10 +86,19 @@ export default function EditCategoryScreen() {
   };
 
   const handleUpdate = async () => {
-    if (!name.trim()) {
+    const normalizedName = normalizeCategoryName(name);
+    if (!normalizedName) {
       Alert.alert(
         t(dictionary, "common.errorTitle"),
         t(dictionary, "categories.nameRequired")
+      );
+      return;
+    }
+
+    if (normalizedName.length < 2 || normalizedName.length > 40) {
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "categories.error.nameLength")
       );
       return;
     }
@@ -94,16 +108,48 @@ export default function EditCategoryScreen() {
     setIsSubmitting(true);
 
     try {
+      const { data: existing, error: existingError } = await supabase
+        .from("categories")
+        .select("id, name")
+        .eq("account_id", category.account_id);
+
+      if (existingError) throw existingError;
+
+      const normalizedLower = normalizedName.toLowerCase();
+      const isDuplicate = (existing ?? []).some(
+        (existingCategory) =>
+          existingCategory.id !== category.id &&
+          normalizeCategoryName(existingCategory.name).toLowerCase() ===
+            normalizedLower
+      );
+
+      if (isDuplicate) {
+        Alert.alert(
+          t(dictionary, "common.errorTitle"),
+          t(dictionary, "categories.error.duplicateName")
+        );
+        return;
+      }
+
       const { error } = await supabase
         .from("categories")
         .update({
-          name: name.trim(),
+          name: normalizedName,
           icon_id: iconId,
           type,
         })
         .eq("id", category.id);
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === "23505") {
+          Alert.alert(
+            t(dictionary, "common.errorTitle"),
+            t(dictionary, "categories.error.duplicateName")
+          );
+          return;
+        }
+        throw error;
+      }
 
       Alert.alert(
         t(dictionary, "common.successTitle"),
@@ -159,6 +205,7 @@ export default function EditCategoryScreen() {
             value={name}
             onChangeText={setName}
             placeholder={t(dictionary, "categories.namePlaceholder")}
+            maxLength={40}
           />
 
           <View style={styles.field}>
@@ -216,10 +263,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: colors.bg.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.bg.primary,
   },
   content: {
     padding: 16,
@@ -231,15 +279,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.text.primary,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
+    borderColor: colors.state.neutral,
+    borderRadius: tokens.radii.md,
     overflow: "hidden",
+    backgroundColor: colors.bg.surface,
   },
   picker: {
     height: 50,

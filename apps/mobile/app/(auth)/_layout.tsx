@@ -33,6 +33,34 @@ export default function AuthLayout() {
           title: t(dictionary, "account.labelAccount"),
         }}
       />
+      <Stack.Screen
+        name="settings/index"
+        options={{
+          headerShown: true,
+          title: t(dictionary, "settings.title"),
+        }}
+      />
+      <Stack.Screen
+        name="settings/user-details"
+        options={{
+          headerShown: true,
+          title: t(dictionary, "settings.userDetails.title"),
+        }}
+      />
+      <Stack.Screen
+        name="settings/invitations"
+        options={{
+          headerShown: true,
+          title: t(dictionary, "invites.title"),
+        }}
+      />
+      <Stack.Screen
+        name="settings/language"
+        options={{
+          headerShown: true,
+          title: t(dictionary, "settings.language.title"),
+        }}
+      />
     </Stack>
   );
 }

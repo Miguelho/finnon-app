@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -12,16 +12,24 @@ import {
   SlidePanelTitle,
 } from "@/components/ui/slide-panel";
 import { cn } from "@/lib/utils";
+import { CategoryIcon } from "@/components/category-icon";
 
 type AddActionProps = {
   canEdit: boolean;
+};
+
+type AddActionItem = {
+  label: string;
+  description: string;
+  href: string;
+  icon?: ReactNode;
 };
 
 export function AddAction({ canEdit }: AddActionProps) {
   const router = useRouter();
   const t = useTranslations();
   const [isOpen, setIsOpen] = useState(false);
-  const actions = [
+  const actions: AddActionItem[] = [
     {
       label: t("home.addExpenseTitle"),
       description: t("home.addExpenseDescription"),
@@ -31,6 +39,19 @@ export function AddAction({ canEdit }: AddActionProps) {
       label: t("home.addIncomeTitle"),
       description: t("home.addIncomeDescription"),
       href: "/transactions?new=1&type=income",
+    },
+    {
+      label: t("home.addCategoryTitle"),
+      description: t("home.addCategoryDescription"),
+      href: "/categories",
+      icon: (
+        <CategoryIcon
+          iconId="default"
+          size={20}
+          tone="muted"
+          accessibilityLabel={t("categories.title")}
+        />
+      ),
     },
     {
       label: t("home.addObligationTitle"),
@@ -83,12 +104,19 @@ export function AddAction({ canEdit }: AddActionProps) {
                       : "border-border"
                   )}
                 >
-                  <p className="text-sm font-semibold text-foreground">
-                    {action.label}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {action.description}
-                  </p>
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 flex h-5 w-5 items-center justify-center text-muted-foreground">
+                      {action.icon}
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        {action.label}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {action.description}
+                      </p>
+                    </div>
+                  </div>
                 </button>
               ))}
             </div>

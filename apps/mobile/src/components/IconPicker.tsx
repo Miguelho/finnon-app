@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
-import { ICONS, type IconDefinition } from "@poleursus/shared";
+import { ICONS, themeTokens, type IconDefinition } from "@poleursus/shared";
 
 type IconPickerProps = {
   value?: string;
@@ -35,6 +35,9 @@ export function IconPicker({ value, onChange, filterType }: IconPickerProps) {
   );
 }
 
+const tokens = themeTokens.light;
+const colors = tokens.colors;
+
 const styles = StyleSheet.create({
   container: {
     maxHeight: 300,
@@ -50,13 +53,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    backgroundColor: "#fff",
+    borderColor: colors.state.neutral,
+    borderRadius: tokens.radii.md,
+    backgroundColor: colors.bg.surface,
   },
   iconButtonSelected: {
-    borderColor: "#007AFF",
-    backgroundColor: "#E3F2FD",
+    borderColor: colors.action.primary,
+    backgroundColor: colors.action.secondary,
   },
   emoji: {
     fontSize: 24,

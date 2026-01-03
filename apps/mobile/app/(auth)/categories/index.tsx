@@ -9,11 +9,12 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useIsFocused } from "@react-navigation/native";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
 import { Button } from "../../../src/components/Button";
 import { Card } from "../../../src/components/Card";
-import { getIconById } from "@poleursus/shared";
+import { getIconById, themeTokens } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
 
 type Category = {
@@ -25,17 +26,23 @@ type Category = {
   created_at: string;
 };
 
+const tokens = themeTokens.light;
+const colors = tokens.colors;
+
 export default function CategoriesScreen() {
   const router = useRouter();
   const { selectedAccountId } = useAuth();
   const { dictionary } = useCopy();
+  const isFocused = useIsFocused();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadCategories();
-  }, [selectedAccountId]);
+    if (isFocused) {
+      loadCategories();
+    }
+  }, [selectedAccountId, isFocused]);
 
   const loadCategories = async () => {
     if (!selectedAccountId) {
@@ -51,7 +58,7 @@ export default function CategoriesScreen() {
         .from("categories")
         .select("*")
         .eq("account_id", selectedAccountId)
-        .order("created_at", { ascending: false });
+        .order("name", { ascending: true });
 
       if (fetchError) throw fetchError;
 
@@ -80,7 +87,16 @@ export default function CategoriesScreen() {
                 .delete()
                 .eq("id", category.id);
 
-              if (error) throw error;
+              if (error) {
+                if (error.code === "23503") {
+                  Alert.alert(
+                    t(dictionary, "common.errorTitle"),
+                    t(dictionary, "categories.error.inUse")
+                  );
+                  return;
+                }
+                throw error;
+              }
 
               setCategories(categories.filter((c) => c.id !== category.id));
             } catch (e: any) {
@@ -245,10 +261,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: colors.bg.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.bg.primary,
   },
   content: {
     padding: 16,
@@ -258,12 +275,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "800",
+    fontSize: tokens.typography.size.display,
+    fontWeight: tokens.typography.weight.bold,
+    color: colors.text.primary,
   },
   subtitle: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.secondary,
     marginTop: 4,
   },
   actions: {
@@ -274,13 +292,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: tokens.typography.size.lg,
+    fontWeight: tokens.typography.weight.bold,
+    color: colors.text.primary,
     marginBottom: 12,
   },
   emptyText: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.secondary,
     fontStyle: "italic",
   },
   list: {
@@ -292,9 +311,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 12,
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: colors.state.neutral,
     borderRadius: 8,
-    backgroundColor: "#fff",
+    backgroundColor: colors.bg.surface,
   },
   categoryInfo: {
     flexDirection: "row",
@@ -306,8 +325,9 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   categoryName: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: tokens.typography.size.md,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.text.primary,
   },
   categoryActions: {
     flexDirection: "row",
@@ -318,19 +338,19 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: "#007AFF",
+    borderColor: colors.action.primary,
   },
   actionButtonText: {
-    color: "#007AFF",
-    fontSize: 14,
-    fontWeight: "600",
+    color: colors.action.primary,
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
   },
   deleteButton: {
-    borderColor: "#FF3B30",
+    borderColor: colors.state.negative,
   },
   deleteButtonText: {
-    color: "#FF3B30",
-    fontSize: 14,
-    fontWeight: "600",
+    color: colors.state.negative,
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
   },
 });

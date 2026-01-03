@@ -1,4 +1,8 @@
 import { TextInput, Text, View, StyleSheet } from "react-native";
+import { themeTokens } from "@poleursus/shared";
+
+const tokens = themeTokens.light;
+const colors = tokens.colors;
 
 interface InputProps {
   label: string;
@@ -60,24 +64,25 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: tokens.typography.weight.semibold,
     marginBottom: 8,
-    color: "#000",
+    color: colors.text.primary,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
+    borderColor: colors.state.neutral,
+    borderRadius: tokens.radii.md,
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 16,
-    backgroundColor: "#fff",
+    backgroundColor: colors.bg.surface,
+    color: colors.text.primary,
   },
   inputError: {
-    borderColor: "#ff3b30",
+    borderColor: colors.state.negative,
   },
   inputDisabled: {
-    backgroundColor: "#f5f5f5",
+    backgroundColor: colors.bg.secondary,
     opacity: 0.6,
   },
   inputMultiline: {
@@ -86,12 +91,12 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   errorText: {
-    color: "#ff3b30",
+    color: colors.state.negative,
     fontSize: 12,
     marginTop: 4,
   },
   helperText: {
-    color: "#666",
+    color: colors.text.secondary,
     fontSize: 12,
     marginTop: 4,
   },

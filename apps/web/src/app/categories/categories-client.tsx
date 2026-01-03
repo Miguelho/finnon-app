@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -40,7 +40,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IconPicker } from "@/components/icon-picker";
-import { getIconById, type CategoryType } from "@poleursus/shared";
+import {
+  getIconById,
+  normalizeCategoryName,
+  type CategoryType,
+} from "@poleursus/shared";
 import { createCategory, updateCategory, deleteCategory } from "./actions";
 
 type Category = {
@@ -65,6 +69,7 @@ export function CategoriesClient({
 }: CategoriesClientProps) {
   const router = useRouter();
   const t = useTranslations();
+  const locale = useLocale();
   const [categories, setCategories] = useState(initialCategories);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -84,17 +89,26 @@ export function CategoriesClient({
 
   const handleCreate = async () => {
     if (!canEdit) return;
-    if (!formData.name.trim()) return;
+    const normalizedName = normalizeCategoryName(formData.name);
+    if (!normalizedName) {
+      alert(t("categories.nameRequired"));
+      return;
+    }
+    if (normalizedName.length < 2 || normalizedName.length > 40) {
+      alert(t("categories.error.nameLength"));
+      return;
+    }
 
     setIsSubmitting(true);
     try {
       const result = await createCategory({
         account_id: accountId,
         ...formData,
+        name: normalizedName,
       });
 
       if (result.success && result.data) {
-        setCategories([result.data, ...categories]);
+        setCategories((prev) => [...prev, result.data]);
         setIsCreateOpen(false);
         setFormData({ name: "", icon_id: "general", type: "expense" });
         router.refresh();
@@ -114,19 +128,28 @@ export function CategoriesClient({
 
   const handleEdit = async () => {
     if (!canEdit) return;
-    if (!selectedCategory || !formData.name.trim()) return;
+    if (!selectedCategory) return;
+    const normalizedName = normalizeCategoryName(formData.name);
+    if (!normalizedName) {
+      alert(t("categories.nameRequired"));
+      return;
+    }
+    if (normalizedName.length < 2 || normalizedName.length > 40) {
+      alert(t("categories.error.nameLength"));
+      return;
+    }
 
     setIsSubmitting(true);
     try {
       const result = await updateCategory(selectedCategory.id, {
-        name: formData.name,
+        name: normalizedName,
         icon_id: formData.icon_id,
         type: formData.type,
       });
 
       if (result.success && result.data) {
-        setCategories(
-          categories.map((cat) =>
+        setCategories((prev) =>
+          prev.map((cat) =>
             cat.id === selectedCategory.id ? result.data! : cat
           )
         );
@@ -157,7 +180,9 @@ export function CategoriesClient({
       const result = await deleteCategory(selectedCategory.id);
 
       if (result.success) {
-        setCategories(categories.filter((cat) => cat.id !== selectedCategory.id));
+        setCategories((prev) =>
+          prev.filter((cat) => cat.id !== selectedCategory.id)
+        );
         setIsDeleteOpen(false);
         setSelectedCategory(null);
         router.refresh();
@@ -192,8 +217,15 @@ export function CategoriesClient({
     setIsDeleteOpen(true);
   };
 
-  const incomeCategories = categories.filter((cat) => cat.type === "income");
-  const expenseCategories = categories.filter((cat) => cat.type === "expense");
+  const sortedCategories = [...categories].sort((a, b) =>
+    a.name.localeCompare(b.name, locale, { sensitivity: "base" })
+  );
+  const incomeCategories = sortedCategories.filter(
+    (cat) => cat.type === "income"
+  );
+  const expenseCategories = sortedCategories.filter(
+    (cat) => cat.type === "expense"
+  );
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -353,6 +385,7 @@ export function CategoriesClient({
                     setFormData({ ...formData, name: e.target.value })
                   }
                   placeholder={t("categories.namePlaceholder")}
+                  maxLength={40}
                 />
               </div>
               <div className="space-y-2">
@@ -424,6 +457,7 @@ export function CategoriesClient({
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
+                  maxLength={40}
                 />
               </div>
               <div className="space-y-2">

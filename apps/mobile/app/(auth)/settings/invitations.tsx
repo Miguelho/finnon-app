@@ -12,13 +12,16 @@ import {
   Alert,
   Share,
 } from "react-native";
-import { supabase } from "../../src/lib/supabase";
-import { Card } from "../../src/components/Card";
-import { Button } from "../../src/components/Button";
+import { supabase } from "../../../src/lib/supabase";
+import { Card } from "../../../src/components/Card";
+import { Button } from "../../../src/components/Button";
 import { Picker } from "@react-native-picker/picker";
-import { useCopy, t } from "../../src/lib/i18n";
+import { useCopy, t } from "../../../src/lib/i18n";
+import { mapInvitesToInvitesVM, themeTokens, type InviteItemVM } from "@poleursus/shared";
 
-type Invite = {
+const tokens = themeTokens.light;
+
+type RawInvite = {
   id: string;
   account_id: string;
   role: "viewer" | "contributor" | "admin";
@@ -35,8 +38,9 @@ type Invite = {
 
 type FilterStatus = "all" | "active" | "expired" | "revoked";
 
-export default function SettingsScreen() {
-  const [invites, setInvites] = useState<Invite[]>([]);
+export default function InvitationsScreen() {
+  const [invites, setInvites] = useState<InviteItemVM[]>([]);
+  const [rawInvites, setRawInvites] = useState<RawInvite[]>([]);
   const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,7 +86,7 @@ export default function SettingsScreen() {
       }));
 
     setAccounts(accountsList);
-    if (accountsList.length > 0 && !selectedAccountId) {
+    if (accountsList.length > 0 && accountsList[0] && !selectedAccountId) {
       setSelectedAccountId(accountsList[0].id);
     }
   }
@@ -108,7 +112,8 @@ export default function SettingsScreen() {
       return;
     }
 
-    setInvites(data || []);
+    setRawInvites(data || []);
+    setInvites(mapInvitesToInvitesVM(data || []));
     setLoading(false);
     setRefreshing(false);
   }
@@ -125,7 +130,6 @@ export default function SettingsScreen() {
     setIsCreating(true);
 
     try {
-      // Get current session to send auth token
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -144,7 +148,7 @@ export default function SettingsScreen() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           accountId: selectedAccountId,
@@ -225,39 +229,33 @@ export default function SettingsScreen() {
     setMaxUses("");
   }
 
-  function getInviteStatus(invite: Invite): "active" | "expired" | "revoked" {
-    if (invite.revoked_at) return "revoked";
-    if (new Date(invite.expires_at) < new Date()) return "expired";
-    if (invite.max_uses !== null && invite.uses_count >= invite.max_uses)
-      return "expired";
-    return "active";
-  }
-
   const filteredInvites = invites.filter((invite) => {
     if (filter === "all") return true;
-    return getInviteStatus(invite) === filter;
+    return invite.status === filter;
   });
 
   const statusCounts = {
     all: invites.length,
-    active: invites.filter((i) => getInviteStatus(i) === "active").length,
-    expired: invites.filter((i) => getInviteStatus(i) === "expired").length,
-    revoked: invites.filter((i) => getInviteStatus(i) === "revoked").length,
+    active: invites.filter((i) => i.status === "active").length,
+    expired: invites.filter((i) => i.status === "expired").length,
+    revoked: invites.filter((i) => i.status === "revoked").length,
   };
 
   return (
     <ScrollView
       style={styles.container}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={() => {
-          setRefreshing(true);
-          fetchInvites();
-        }} />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => {
+            setRefreshing(true);
+            fetchInvites();
+          }}
+        />
       }
     >
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>{t(dictionary, "invites.title")}</Text>
           <Text style={styles.subtitle}>{t(dictionary, "invites.subtitle")}</Text>
         </View>
 
@@ -268,38 +266,19 @@ export default function SettingsScreen() {
 
         {/* Filter buttons */}
         <View style={styles.filters}>
-          <TouchableOpacity
-            style={[styles.filterButton, filter === "all" && styles.filterButtonActive]}
-            onPress={() => setFilter("all")}
-          >
-            <Text style={[styles.filterText, filter === "all" && styles.filterTextActive]}>
-              {t(dictionary, "invites.filterAll", { count: statusCounts.all })}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, filter === "active" && styles.filterButtonActive]}
-            onPress={() => setFilter("active")}
-          >
-            <Text style={[styles.filterText, filter === "active" && styles.filterTextActive]}>
-              {t(dictionary, "invites.filterActive", { count: statusCounts.active })}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, filter === "expired" && styles.filterButtonActive]}
-            onPress={() => setFilter("expired")}
-          >
-            <Text style={[styles.filterText, filter === "expired" && styles.filterTextActive]}>
-              {t(dictionary, "invites.filterExpired", { count: statusCounts.expired })}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, filter === "revoked" && styles.filterButtonActive]}
-            onPress={() => setFilter("revoked")}
-          >
-            <Text style={[styles.filterText, filter === "revoked" && styles.filterTextActive]}>
-              {t(dictionary, "invites.filterRevoked", { count: statusCounts.revoked })}
-            </Text>
-          </TouchableOpacity>
+          {(["all", "active", "expired", "revoked"] as FilterStatus[]).map((status) => (
+            <TouchableOpacity
+              key={status}
+              style={[styles.filterButton, filter === status && styles.filterButtonActive]}
+              onPress={() => setFilter(status)}
+            >
+              <Text style={[styles.filterText, filter === status && styles.filterTextActive]}>
+                {t(dictionary, `invites.filter${status.charAt(0).toUpperCase() + status.slice(1)}` as any, {
+                  count: statusCounts[status],
+                })}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Invites list */}
@@ -308,7 +287,7 @@ export default function SettingsScreen() {
           description={t(dictionary, "invites.cardDescription", { count: filteredInvites.length })}
         >
           {loading ? (
-            <ActivityIndicator size="large" color="#007AFF" />
+            <ActivityIndicator size="large" color={tokens.colors.text.muted} />
           ) : filteredInvites.length === 0 ? (
             <Text style={styles.emptyText}>
               {filter === "all"
@@ -320,73 +299,67 @@ export default function SettingsScreen() {
                 : t(dictionary, "invites.emptyRevoked")}
             </Text>
           ) : (
-            filteredInvites.map((invite) => {
-              const status = getInviteStatus(invite);
-              const isActive = status === "active";
-
-              return (
-                <View key={invite.id} style={styles.inviteCard}>
-                  <View style={styles.inviteHeader}>
-                    <Text style={styles.inviteAccount}>
-                      {(invite.accounts as any)?.name || t(dictionary, "invites.accountUnknown")}
-                    </Text>
-                    <View style={styles.badges}>
-                      <View
-                        style={[
-                          styles.badge,
-                          status === "active"
-                            ? styles.badgeActive
-                            : status === "expired"
-                            ? styles.badgeExpired
-                            : styles.badgeRevoked,
-                        ]}
-                      >
-                        <Text style={styles.badgeText}>
-                          {status === "active"
-                            ? t(dictionary, "invites.statusActive")
-                            : status === "expired"
-                            ? t(dictionary, "invites.statusExpired")
-                            : t(dictionary, "invites.statusRevoked")}
-                        </Text>
-                      </View>
-                      <View style={styles.badgeRole}>
-                        <Text style={styles.badgeText}>{invite.role}</Text>
-                      </View>
+            filteredInvites.map((invite) => (
+              <View key={invite.id} style={styles.inviteCard}>
+                <View style={styles.inviteHeader}>
+                  <Text style={styles.inviteAccount}>{invite.accountName}</Text>
+                  <View style={styles.badges}>
+                    <View
+                      style={[
+                        styles.badge,
+                        invite.status === "active"
+                          ? styles.badgeActive
+                          : invite.status === "expired"
+                          ? styles.badgeExpired
+                          : styles.badgeRevoked,
+                      ]}
+                    >
+                      <Text style={styles.badgeText}>
+                        {invite.status === "active"
+                          ? t(dictionary, "invites.statusActive")
+                          : invite.status === "expired"
+                          ? t(dictionary, "invites.statusExpired")
+                          : t(dictionary, "invites.statusRevoked")}
+                      </Text>
+                    </View>
+                    <View style={styles.badgeRole}>
+                      <Text style={styles.badgeText}>{invite.role}</Text>
                     </View>
                   </View>
-                  <Text style={styles.inviteDetails}>
-                    {t(dictionary, "invites.expiresLabel")}:{" \\"}
-                    {new Date(invite.expires_at).toLocaleDateString()} •{" "}
-                    {t(dictionary, "invites.usesLabel")}: {invite.uses_count}/{invite.max_uses || "∞\\"}
-                  </Text>
-                  {isActive && (
-                    <View style={styles.inviteActions}>
-                      <TouchableOpacity
-                        style={styles.revokeButton}
-                        onPress={() => {
-                          Alert.alert(
-                            t(dictionary, "invites.revokePromptTitle"),
-                            t(dictionary, "invites.revokePromptDescription"),
-                            [
-                              { text: t(dictionary, "common.cancel"), style: "cancel" },
-                              {
-                                text: t(dictionary, "invites.revokeButton"),
-                                style: "destructive",
-                                onPress: () => revokeInvite(invite.id),
-                              },
-                            ]
-                          );
-                        }}
-                      >
-                        <Text style={styles.revokeButtonText}>
-                          {t(dictionary, "invites.revokeButton")}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
                 </View>
-              );
-            })
+                <Text style={styles.inviteDetails}>
+                  {t(dictionary, "invites.expiresLabel")}:{" "}
+                  {invite.expiresAt.toLocaleDateString()} •{" "}
+                  {t(dictionary, "invites.usesLabel")}: {invite.usesCount}/
+                  {invite.maxUses || "∞"}
+                </Text>
+                {invite.isActive && (
+                  <View style={styles.inviteActions}>
+                    <TouchableOpacity
+                      style={styles.revokeButton}
+                      onPress={() => {
+                        Alert.alert(
+                          t(dictionary, "invites.revokePromptTitle"),
+                          t(dictionary, "invites.revokePromptDescription"),
+                          [
+                            { text: t(dictionary, "common.cancel"), style: "cancel" },
+                            {
+                              text: t(dictionary, "invites.revokeButton"),
+                              style: "destructive",
+                              onPress: () => revokeInvite(invite.id),
+                            },
+                          ]
+                        );
+                      }}
+                    >
+                      <Text style={styles.revokeButtonText}>
+                        {t(dictionary, "invites.revokeButton")}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            ))
           )}
         </Card>
       </View>
@@ -423,9 +396,7 @@ export default function SettingsScreen() {
                   title={t(dictionary, "invites.shareButton")}
                   onPress={() => shareInviteUrl(createdInviteUrl)}
                 />
-                <Text style={styles.warning}>
-                  {t(dictionary, "invites.warning")}
-                </Text>
+                <Text style={styles.warning}>{t(dictionary, "invites.warning")}</Text>
                 <Button
                   title={t(dictionary, "invites.closeButton")}
                   onPress={closeCreateModal}
@@ -442,11 +413,7 @@ export default function SettingsScreen() {
                     style={styles.picker}
                   >
                     {accounts.map((account) => (
-                      <Picker.Item
-                        key={account.id}
-                        label={account.name}
-                        value={account.id}
-                      />
+                      <Picker.Item key={account.id} label={account.name} value={account.id} />
                     ))}
                   </Picker>
                 </View>
@@ -459,10 +426,7 @@ export default function SettingsScreen() {
                     style={styles.picker}
                   >
                     <Picker.Item label={t(dictionary, "invites.roleViewer")} value="viewer" />
-                    <Picker.Item
-                      label={t(dictionary, "invites.roleContributor")}
-                      value="contributor"
-                    />
+                    <Picker.Item label={t(dictionary, "invites.roleContributor")} value="contributor" />
                     <Picker.Item label={t(dictionary, "invites.roleAdmin")} value="admin" />
                   </Picker>
                 </View>
@@ -490,13 +454,8 @@ export default function SettingsScreen() {
                 </View>
 
                 <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={styles.cancelButton}
-                    onPress={closeCreateModal}
-                  >
-                    <Text style={styles.cancelButtonText}>
-                      {t(dictionary, "common.cancel")}
-                    </Text>
+                  <TouchableOpacity style={styles.cancelButton} onPress={closeCreateModal}>
+                    <Text style={styles.cancelButtonText}>{t(dictionary, "common.cancel")}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[
@@ -507,9 +466,7 @@ export default function SettingsScreen() {
                     disabled={isCreating || !selectedAccountId}
                   >
                     <Text style={styles.createButtonText}>
-                      {isCreating
-                        ? t(dictionary, "common.creating")
-                        : t(dictionary, "common.create")}
+                      {isCreating ? t(dictionary, "common.creating") : t(dictionary, "common.create")}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -525,81 +482,77 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: tokens.colors.bg.secondary,
   },
   content: {
-    padding: 20,
+    padding: tokens.spacing.xl,
   },
   header: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 8,
+    marginBottom: tokens.spacing.xl,
   },
   subtitle: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 16,
+    fontSize: tokens.typography.size.md,
+    color: tokens.colors.text.secondary,
+    marginBottom: tokens.spacing.lg,
   },
   filters: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
-    marginVertical: 16,
+    gap: tokens.spacing.sm,
+    marginVertical: tokens.spacing.lg,
   },
   filterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+    borderRadius: tokens.radii.sm,
     borderWidth: 1,
-    borderColor: "#ddd",
-    backgroundColor: "#fff",
+    borderColor: tokens.colors.state.neutral,
+    backgroundColor: tokens.colors.bg.surface,
   },
   filterButtonActive: {
-    backgroundColor: "#007AFF",
-    borderColor: "#007AFF",
+    backgroundColor: tokens.colors.text.primary,
+    borderColor: tokens.colors.text.primary,
   },
   filterText: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: tokens.typography.size.sm,
+    color: tokens.colors.text.secondary,
   },
   filterTextActive: {
-    color: "#fff",
+    color: tokens.colors.bg.primary,
   },
   emptyText: {
     textAlign: "center",
-    color: "#666",
-    paddingVertical: 20,
+    color: tokens.colors.text.secondary,
+    paddingVertical: tokens.spacing.xl,
   },
   inviteCard: {
-    padding: 12,
+    padding: tokens.spacing.md,
     borderWidth: 1,
-    borderColor: "#e5e5e5",
-    borderRadius: 8,
-    marginBottom: 12,
-    backgroundColor: "#fafafa",
+    borderColor: tokens.colors.state.neutral,
+    borderRadius: tokens.radii.sm,
+    marginBottom: tokens.spacing.md,
+    backgroundColor: tokens.colors.bg.secondary,
   },
   inviteHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 8,
+    marginBottom: tokens.spacing.sm,
   },
   inviteAccount: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: tokens.typography.size.md,
+    fontWeight: tokens.typography.weight.semibold,
+    color: tokens.colors.text.primary,
     flex: 1,
   },
   badges: {
     flexDirection: "row",
-    gap: 4,
+    gap: tokens.spacing.xs,
   },
   badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: tokens.spacing.xs,
+    borderRadius: tokens.radii.sm,
   },
   badgeActive: {
     backgroundColor: "#d1fae5",
@@ -612,33 +565,34 @@ const styles = StyleSheet.create({
   },
   badgeRole: {
     backgroundColor: "#dbeafe",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: tokens.spacing.xs,
+    borderRadius: tokens.radii.sm,
   },
   badgeText: {
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: tokens.typography.size.xs,
+    fontWeight: tokens.typography.weight.medium,
+    color: tokens.colors.text.primary,
   },
   inviteDetails: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 8,
+    fontSize: tokens.typography.size.sm,
+    color: tokens.colors.text.secondary,
+    marginBottom: tokens.spacing.sm,
   },
   inviteActions: {
     flexDirection: "row",
-    gap: 8,
+    gap: tokens.spacing.sm,
   },
   revokeButton: {
-    backgroundColor: "#ef4444",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
+    backgroundColor: tokens.colors.state.negative,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+    borderRadius: tokens.radii.sm,
   },
   revokeButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "500",
+    color: tokens.colors.bg.primary,
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.medium,
   },
   modalOverlay: {
     flex: 1,
@@ -647,89 +601,94 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalContent: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 24,
+    backgroundColor: tokens.colors.bg.surface,
+    borderRadius: tokens.radii.md,
+    padding: tokens.spacing.xxl,
     width: "90%",
     maxWidth: 400,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 8,
+    fontSize: tokens.typography.size.xl,
+    fontWeight: tokens.typography.weight.bold,
+    color: tokens.colors.text.primary,
+    marginBottom: tokens.spacing.sm,
   },
   modalDescription: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 20,
+    fontSize: tokens.typography.size.sm,
+    color: tokens.colors.text.secondary,
+    marginBottom: tokens.spacing.xl,
   },
   urlContainer: {
-    gap: 12,
+    gap: tokens.spacing.md,
   },
   urlInput: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 6,
-    padding: 12,
-    fontSize: 12,
+    borderColor: tokens.colors.state.neutral,
+    borderRadius: tokens.radii.sm,
+    padding: tokens.spacing.md,
+    fontSize: tokens.typography.size.xs,
     fontFamily: "monospace",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: tokens.colors.bg.secondary,
+    color: tokens.colors.text.primary,
   },
   warning: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: tokens.typography.size.xs,
+    color: tokens.colors.text.secondary,
     fontStyle: "italic",
   },
   formField: {
-    marginBottom: 16,
+    marginBottom: tokens.spacing.lg,
   },
   label: {
-    fontSize: 14,
-    fontWeight: "500",
-    marginBottom: 8,
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.medium,
+    color: tokens.colors.text.primary,
+    marginBottom: tokens.spacing.sm,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 6,
-    padding: 12,
-    fontSize: 16,
+    borderColor: tokens.colors.state.neutral,
+    borderRadius: tokens.radii.sm,
+    padding: tokens.spacing.md,
+    fontSize: tokens.typography.size.md,
+    backgroundColor: tokens.colors.bg.surface,
+    color: tokens.colors.text.primary,
   },
   picker: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 6,
+    borderColor: tokens.colors.state.neutral,
+    borderRadius: tokens.radii.sm,
   },
   modalButtons: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 8,
+    gap: tokens.spacing.md,
+    marginTop: tokens.spacing.sm,
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 6,
+    paddingVertical: tokens.spacing.md,
+    borderRadius: tokens.radii.sm,
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: tokens.colors.state.neutral,
     alignItems: "center",
   },
   cancelButtonText: {
-    fontSize: 16,
-    color: "#666",
+    fontSize: tokens.typography.size.md,
+    color: tokens.colors.text.secondary,
   },
   createButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 6,
-    backgroundColor: "#007AFF",
+    paddingVertical: tokens.spacing.md,
+    borderRadius: tokens.radii.sm,
+    backgroundColor: tokens.colors.text.primary,
     alignItems: "center",
   },
   createButtonDisabled: {
-    backgroundColor: "#ccc",
+    backgroundColor: tokens.colors.action.disabled,
   },
   createButtonText: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "500",
+    fontSize: tokens.typography.size.md,
+    color: tokens.colors.bg.primary,
+    fontWeight: tokens.typography.weight.medium,
   },
 });

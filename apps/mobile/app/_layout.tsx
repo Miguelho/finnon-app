@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
 import { AuthProvider } from "../src/contexts/AuthContext";
-import { useCopy, t } from "../src/lib/i18n";
+import { LocaleProvider, useCopy, t } from "../src/lib/i18n";
 
 function RootLayoutNav() {
   const { dictionary } = useCopy();
@@ -23,8 +23,10 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-    </AuthProvider>
+    <LocaleProvider>
+      <AuthProvider>
+        <RootLayoutNav />
+      </AuthProvider>
+    </LocaleProvider>
   );
 }

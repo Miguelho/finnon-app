@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { useAuth } from "../../src/contexts/AuthContext";
 import { Button } from "../../src/components/Button";
+import { CategoryIcon } from "../../src/components/CategoryIcon";
 import {
   buildHomeViewModel,
   CURRENCIES,
@@ -778,12 +779,17 @@ export default function HomeScreen() {
               router.push("/(auth)/transactions/create?type=expense");
             }}
           >
-            <Text style={styles.sheetActionTitle}>
-              {t(dictionary, "mobile.home.addExpenseTitle")}
-            </Text>
-            <Text style={styles.sheetActionMeta}>
-              {t(dictionary, "mobile.home.addExpenseDescription")}
-            </Text>
+            <View style={styles.sheetActionRow}>
+              <View style={styles.sheetActionIcon} />
+              <View style={styles.sheetActionContent}>
+                <Text style={styles.sheetActionTitle}>
+                  {t(dictionary, "mobile.home.addExpenseTitle")}
+                </Text>
+                <Text style={styles.sheetActionMeta}>
+                  {t(dictionary, "mobile.home.addExpenseDescription")}
+                </Text>
+              </View>
+            </View>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -796,12 +802,47 @@ export default function HomeScreen() {
               router.push("/(auth)/transactions/create?type=income");
             }}
           >
-            <Text style={styles.sheetActionTitle}>
-              {t(dictionary, "mobile.home.addIncomeTitle")}
-            </Text>
-            <Text style={styles.sheetActionMeta}>
-              {t(dictionary, "mobile.home.addIncomeDescription")}
-            </Text>
+            <View style={styles.sheetActionRow}>
+              <View style={styles.sheetActionIcon} />
+              <View style={styles.sheetActionContent}>
+                <Text style={styles.sheetActionTitle}>
+                  {t(dictionary, "mobile.home.addIncomeTitle")}
+                </Text>
+                <Text style={styles.sheetActionMeta}>
+                  {t(dictionary, "mobile.home.addIncomeDescription")}
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.sheetAction,
+              !viewModel.permissions.canEdit && styles.sheetActionDisabled,
+            ]}
+            disabled={!viewModel.permissions.canEdit}
+            onPress={() => {
+              setIsAddSheetOpen(false);
+              router.push("/(auth)/categories");
+            }}
+          >
+            <View style={styles.sheetActionRow}>
+              <View style={styles.sheetActionIcon}>
+                <CategoryIcon
+                  iconId="default"
+                  size={20}
+                  tone="muted"
+                  accessibilityLabel={t(dictionary, "categories.title")}
+                />
+              </View>
+              <View style={styles.sheetActionContent}>
+                <Text style={styles.sheetActionTitle}>
+                  {t(dictionary, "mobile.home.addCategoryTitle")}
+                </Text>
+                <Text style={styles.sheetActionMeta}>
+                  {t(dictionary, "mobile.home.addCategoryDescription")}
+                </Text>
+              </View>
+            </View>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -814,12 +855,17 @@ export default function HomeScreen() {
               router.push("/(auth)/obligations/create");
             }}
           >
-            <Text style={styles.sheetActionTitle}>
-              {t(dictionary, "mobile.home.addObligationTitle")}
-            </Text>
-            <Text style={styles.sheetActionMeta}>
-              {t(dictionary, "mobile.home.addObligationDescription")}
-            </Text>
+            <View style={styles.sheetActionRow}>
+              <View style={styles.sheetActionIcon} />
+              <View style={styles.sheetActionContent}>
+                <Text style={styles.sheetActionTitle}>
+                  {t(dictionary, "mobile.home.addObligationTitle")}
+                </Text>
+                <Text style={styles.sheetActionMeta}>
+                  {t(dictionary, "mobile.home.addObligationDescription")}
+                </Text>
+              </View>
+            </View>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -832,12 +878,17 @@ export default function HomeScreen() {
               router.push("/(auth)/transactions/create?type=expense&kind=recurring");
             }}
           >
-            <Text style={styles.sheetActionTitle}>
-              {t(dictionary, "mobile.home.addRecurringTitle")}
-            </Text>
-            <Text style={styles.sheetActionMeta}>
-              {t(dictionary, "mobile.home.addRecurringDescription")}
-            </Text>
+            <View style={styles.sheetActionRow}>
+              <View style={styles.sheetActionIcon} />
+              <View style={styles.sheetActionContent}>
+                <Text style={styles.sheetActionTitle}>
+                  {t(dictionary, "mobile.home.addRecurringTitle")}
+                </Text>
+                <Text style={styles.sheetActionMeta}>
+                  {t(dictionary, "mobile.home.addRecurringDescription")}
+                </Text>
+              </View>
+            </View>
           </TouchableOpacity>
         </View>
       </HomeSheet>
@@ -1265,6 +1316,21 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radii.md,
     padding: tokens.spacing.md,
     backgroundColor: colors.bg.secondary,
+  },
+  sheetActionRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: tokens.spacing.md,
+  },
+  sheetActionIcon: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  sheetActionContent: {
+    flex: 1,
     gap: 4,
   },
   sheetActionDisabled: {

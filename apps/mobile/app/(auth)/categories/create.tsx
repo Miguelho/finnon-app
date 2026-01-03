@@ -15,8 +15,15 @@ import { Button } from "../../../src/components/Button";
 import { Input } from "../../../src/components/Input";
 import { Card } from "../../../src/components/Card";
 import { IconPicker } from "../../../src/components/IconPicker";
-import type { CategoryType } from "@poleursus/shared";
+import {
+  normalizeCategoryName,
+  themeTokens,
+  type CategoryType,
+} from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
+
+const tokens = themeTokens.light;
+const colors = tokens.colors;
 
 export default function CreateCategoryScreen() {
   const router = useRouter();
@@ -28,10 +35,19 @@ export default function CreateCategoryScreen() {
   const { dictionary } = useCopy();
 
   const handleCreate = async () => {
-    if (!name.trim()) {
+    const normalizedName = normalizeCategoryName(name);
+    if (!normalizedName) {
       Alert.alert(
         t(dictionary, "common.errorTitle"),
         t(dictionary, "categories.nameRequired")
+      );
+      return;
+    }
+
+    if (normalizedName.length < 2 || normalizedName.length > 40) {
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "categories.error.nameLength")
       );
       return;
     }
@@ -47,12 +63,33 @@ export default function CreateCategoryScreen() {
     setIsSubmitting(true);
 
     try {
+      const { data: existing, error: existingError } = await supabase
+        .from("categories")
+        .select("id, name")
+        .eq("account_id", selectedAccountId);
+
+      if (existingError) throw existingError;
+
+      const normalizedLower = normalizedName.toLowerCase();
+      const isDuplicate = (existing ?? []).some(
+        (category) =>
+          normalizeCategoryName(category.name).toLowerCase() === normalizedLower
+      );
+
+      if (isDuplicate) {
+        Alert.alert(
+          t(dictionary, "common.errorTitle"),
+          t(dictionary, "categories.error.duplicateName")
+        );
+        return;
+      }
+
       const { data, error } = await supabase
         .from("categories")
         .insert([
           {
             account_id: selectedAccountId,
-            name: name.trim(),
+            name: normalizedName,
             icon_id: iconId,
             type,
           },
@@ -60,7 +97,16 @@ export default function CreateCategoryScreen() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === "23505") {
+          Alert.alert(
+            t(dictionary, "common.errorTitle"),
+            t(dictionary, "categories.error.duplicateName")
+          );
+          return;
+        }
+        throw error;
+      }
 
       Alert.alert(
         t(dictionary, "common.successTitle"),
@@ -94,6 +140,7 @@ export default function CreateCategoryScreen() {
             value={name}
             onChangeText={setName}
             placeholder={t(dictionary, "categories.namePlaceholder")}
+            maxLength={40}
           />
 
           <View style={styles.field}>
@@ -149,7 +196,7 @@ export default function CreateCategoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.bg.primary,
   },
   content: {
     padding: 16,
@@ -161,15 +208,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.text.primary,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
+    borderColor: colors.state.neutral,
+    borderRadius: tokens.radii.md,
     overflow: "hidden",
+    backgroundColor: colors.bg.surface,
   },
   picker: {
     height: 50,

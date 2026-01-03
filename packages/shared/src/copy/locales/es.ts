@@ -295,6 +295,11 @@ export const es = {
     updateError: "No se pudo actualizar la categoría",
     nameRequired: "Por favor ingresa un nombre de categoría",
     noAccountSelected: "No hay cuenta activa seleccionada",
+    error: {
+      duplicateName: "Ya existe una categoría con ese nombre.",
+      nameLength: "El nombre debe tener entre 2 y 40 caracteres.",
+      inUse: "Esta categoría está en uso y no se puede eliminar.",
+    },
   },
   invites: {
     title: "Invitaciones",
@@ -377,6 +382,52 @@ export const es = {
     featureInviteList: "Ver invitaciones activas",
     featureInviteRevoke: "Revocar invitaciones",
     featureInviteAnalytics: "Ver análisis de uso de invitaciones",
+    menu: {
+      sections: {
+        user: {
+          title: "Usuario",
+          items: {
+            details: {
+              title: "Detalles del usuario",
+              description: "Ver información de tu cuenta",
+            },
+            language: {
+              title: "Idioma",
+              description: "Idioma de la aplicación",
+            },
+          },
+        },
+        account: {
+          title: "Cuenta",
+          items: {
+            invitations: {
+              title: "Invitaciones",
+              description: "Gestionar links de invitación",
+            },
+          },
+        },
+      },
+    },
+    userDetails: {
+      title: "Detalles del usuario",
+      subtitle: "Información de tu cuenta",
+      fields: {
+        email: "Correo electrónico",
+        id: "ID de usuario",
+      },
+      loading: "Cargando datos del usuario...",
+      error: "No se pudo cargar la información del usuario",
+    },
+    language: {
+      title: "Idioma",
+      subtitle: "Elige tu idioma preferido",
+      description: "Idioma de la aplicación",
+      options: {
+        en: "Inglés",
+        es: "Español",
+      },
+      current: "Actual: {language}",
+    },
   },
   account: {
     title: "Detalle de cuenta",
@@ -419,6 +470,8 @@ export const es = {
     addExpenseDescription: "Registra un pago del día a día.",
     addIncomeTitle: "Añadir ingreso",
     addIncomeDescription: "Suma un ingreso a tu mes.",
+    addCategoryTitle: "Añadir categoría",
+    addCategoryDescription: "Crea o actualiza categorías compartidas.",
     addObligationTitle: "Añadir obligación (pago único)",
     addObligationDescription: "Un pago único con fecha de vencimiento.",
     addRecurringTitle: "Añadir recurrente",
@@ -526,6 +579,8 @@ export const es = {
       addExpenseDescription: "Registra un pago del día a día.",
       addIncomeTitle: "Añadir ingreso",
       addIncomeDescription: "Suma un ingreso a tu mes.",
+      addCategoryTitle: "Añadir categoría",
+      addCategoryDescription: "Crea o actualiza categorías compartidas.",
       addObligationTitle: "Añadir obligación (pago único)",
       addObligationDescription: "Un pago único con fecha de vencimiento.",
       addRecurringTitle: "Añadir recurrente",

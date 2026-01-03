@@ -10,6 +10,7 @@ export * from "./icons/categories";
 export * from "./icons/category-icon";
 export * from "./utils/money";
 export * from "./domain/types";
+export * from "./domain/settings";
 export * from "./date/month";
 export * from "./home/home.compute";
 export * from "./home/home.viewmodel";
