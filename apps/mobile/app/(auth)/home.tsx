@@ -10,6 +10,7 @@ import {
   Pressable,
   Alert,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
@@ -26,7 +27,7 @@ import {
   type UserRole,
   type Obligation,
 } from "@poleursus/shared";
-import { useCopy, t, formatParticipantCount } from "../../src/lib/i18n";
+import { useCopy, t } from "../../src/lib/i18n";
 
 type AccountMember = {
   account_id: string;
@@ -112,11 +113,9 @@ export default function HomeScreen() {
   const { user, session, selectedAccountId, setSelectedAccountId } = useAuth();
   const { dictionary, locale } = useCopy();
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
 
   const [accounts, setAccounts] = useState<Account[] | null>(null);
-  const [membersByAccountId, setMembersByAccountId] = useState<
-    Record<string, AccountMember[]>
-  >({});
   const [monthlyTransactions, setMonthlyTransactions] = useState<Transaction[]>(
     []
   );
@@ -125,7 +124,6 @@ export default function HomeScreen() {
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false);
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [updatingObligationId, setUpdatingObligationId] = useState<string | null>(
     null
@@ -171,35 +169,6 @@ export default function HomeScreen() {
 
         if (!cancelled) {
           setAccounts(accountsList);
-        }
-
-        if (accountsList.length > 0) {
-          try {
-            const { data: members, error: membersError } = await supabase
-              .from("account_members")
-              .select("account_id, user_id, role")
-              .in(
-                "account_id",
-                accountsList.map((account) => account.id)
-              );
-
-            if (membersError) throw membersError;
-
-            const groupedMembers = (members as AccountMember[]).reduce<
-              Record<string, AccountMember[]>
-            >((acc, member) => {
-              if (!acc[member.account_id]) acc[member.account_id] = [];
-              acc[member.account_id].push(member);
-              return acc;
-            }, {});
-
-            if (!cancelled) setMembersByAccountId(groupedMembers);
-          } catch (membersLoadError: any) {
-            console.error("[Home] Error loading members:", membersLoadError);
-            if (!cancelled) setMembersByAccountId({});
-          }
-        } else if (!cancelled) {
-          setMembersByAccountId({});
         }
       } catch (e: any) {
         console.error("[Home] Error loading accounts:", e);
@@ -327,7 +296,7 @@ export default function HomeScreen() {
             title={t(dictionary, "mobile.home.retry")}
             onPress={() => {
               setError(null);
-              router.replace("/(auth)/home");
+              router.replace("/(auth)/(tabs)/home");
             }}
           />
         </View>
@@ -412,34 +381,54 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.root}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingTop: tokens.spacing.lg + insets.top },
+        ]}
+      >
         {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
+        <View style={styles.headerBlock}>
+          <View style={styles.header}>
+            {/* Izquierda: Logo + Finnon */}
+            <View style={styles.headerLeft}>
+              <View style={styles.brandMark} />
+              <Text style={styles.brandText}>{t(dictionary, "common.appName")}</Text>
+            </View>
+
+            {/* Centro: Cuenta (clickeable) */}
             <TouchableOpacity
               style={styles.accountChip}
-              onPress={() => setIsAccountSheetOpen(true)}
+              onPress={() => router.push("/(auth)/select-account")}
+              accessibilityRole="button"
+              accessibilityLabel={`${mainAccount.name} · ${mainAccount.base_currency}`}
             >
               <Text style={styles.accountChipText} numberOfLines={1}>
-                {mainAccount.name} · {mainAccount.base_currency} v
+                {mainAccount.name} · {mainAccount.base_currency}
               </Text>
             </TouchableOpacity>
-            {viewModel.permissions.isGuestReadOnly && (
+
+            {/* Derecha: Settings */}
+            <TouchableOpacity
+              style={styles.headerRight}
+              onPress={() => router.push("/(auth)/(tabs)/settings")}
+            >
+              <Text style={styles.profileButtonText}>
+                {t(dictionary, "mobile.home.settingsTitle")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Badge read-only (debajo del header si aplica) */}
+          {viewModel.permissions.isGuestReadOnly && (
+            <View style={styles.readOnlyBadgeRow}>
               <View style={styles.readOnlyBadge}>
                 <Text style={styles.readOnlyBadgeText}>
                   {viewModel.copy.guestBadge}
                 </Text>
               </View>
-            )}
-          </View>
-          <TouchableOpacity
-            style={styles.profileButton}
-            onPress={() => router.push("/(auth)/settings")}
-          >
-            <Text style={styles.profileButtonText}>
-              {t(dictionary, "mobile.home.settingsTitle")}
-            </Text>
-          </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Hero */}
@@ -707,57 +696,6 @@ export default function HomeScreen() {
         <Text style={styles.addFabText}>+ {viewModel.copy.addCta}</Text>
       </TouchableOpacity>
 
-      {/* Account Switcher */}
-      <HomeSheet
-        visible={isAccountSheetOpen}
-        onClose={() => setIsAccountSheetOpen(false)}
-        title={t(dictionary, "mobile.home.accountsTitle")}
-      >
-        <View style={styles.sheetList}>
-          {accounts.map((account) => {
-            const isActive = account.id === mainAccount.id;
-            const memberCount = membersByAccountId[account.id]?.length ?? 0;
-            return (
-              <TouchableOpacity
-                key={account.id}
-                style={[
-                  styles.sheetRow,
-                  isActive && styles.sheetRowActive,
-                ]}
-                onPress={async () => {
-                  await setSelectedAccountId(account.id);
-                  setIsAccountSheetOpen(false);
-                }}
-              >
-                <View style={styles.sheetRowInfo}>
-                  <Text style={styles.sheetRowTitle}>{account.name}</Text>
-                  <Text style={styles.sheetRowMeta}>
-                    {account.base_currency} · {formatParticipantCount(locale, memberCount)}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.sheetBadge,
-                    isActive && styles.sheetBadgeActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.sheetBadgeText,
-                      isActive && styles.sheetBadgeTextActive,
-                    ]}
-                  >
-                    {isActive
-                      ? t(dictionary, "mobile.home.activeBadge")
-                      : t(dictionary, "mobile.home.selectBadge")}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </HomeSheet>
-
       {/* Add Sheet */}
       <HomeSheet
         visible={isAddSheetOpen}
@@ -918,6 +856,21 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
     gap: tokens.spacing.lg,
   },
+  headerBlock: {
+    gap: tokens.spacing.sm,
+  },
+  brandMark: {
+    width: tokens.spacing.lg,
+    height: tokens.spacing.lg,
+    borderRadius: tokens.radii.sm,
+    backgroundColor: colors.text.primary,
+  },
+  brandText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.text.primary,
+    textTransform: "capitalize",
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -930,6 +883,10 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.sm,
     flex: 1,
   },
+  headerRight: {
+    flex: 1,
+    alignItems: "flex-end",
+  },
   accountChip: {
     paddingHorizontal: tokens.spacing.md,
     paddingVertical: tokens.spacing.sm,
@@ -937,12 +894,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.state.neutral,
     backgroundColor: colors.bg.secondary,
-    maxWidth: "75%",
+    maxWidth: "50%",
   },
   accountChipText: {
     fontSize: tokens.typography.size.sm,
     fontWeight: "600",
     color: colors.text.primary,
+  },
+  readOnlyBadgeRow: {
+    flexDirection: "row",
+    justifyContent: "center",
   },
   readOnlyBadge: {
     paddingHorizontal: tokens.spacing.sm,
@@ -954,13 +915,6 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.xs,
     fontWeight: "600",
     color: colors.text.primary,
-  },
-  profileButton: {
-    paddingHorizontal: tokens.spacing.md,
-    paddingVertical: tokens.spacing.sm,
-    borderRadius: tokens.radii.pill,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
   },
   profileButtonText: {
     fontSize: tokens.typography.size.sm,

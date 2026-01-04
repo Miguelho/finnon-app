@@ -1,13 +1,16 @@
 import { Stack } from "expo-router";
 import { AuthProvider } from "../src/contexts/AuthContext";
 import { LocaleProvider, useCopy, t } from "../src/lib/i18n";
+import { useStackScreenOptions } from "../src/lib/navigation-presets";
 
 function RootLayoutNav() {
   const { dictionary } = useCopy();
+  const stackScreenOptions = useStackScreenOptions();
 
   return (
     <Stack
       screenOptions={{
+        ...stackScreenOptions,
         headerShown: false,
         animation: "none",
       }}

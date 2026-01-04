@@ -1,11 +1,13 @@
 import { Stack } from "expo-router";
 import { useCopy, t } from "../../src/lib/i18n";
+import { useStackScreenOptions } from "../../src/lib/navigation-presets";
 
 export default function AuthLayout() {
   const { dictionary } = useCopy();
+  const stackScreenOptions = useStackScreenOptions();
 
   return (
-    <Stack>
+    <Stack screenOptions={stackScreenOptions}>
       <Stack.Screen
         name="login"
         options={{
@@ -24,6 +26,12 @@ export default function AuthLayout() {
         options={{
           headerShown: false,
           gestureEnabled: false,
+        }}
+      />
+      <Stack.Screen
+        name="(tabs)"
+        options={{
+          headerShown: false,
         }}
       />
       <Stack.Screen

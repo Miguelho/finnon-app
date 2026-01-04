@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { CategoriesClient } from "./categories-client";
 import { cookies } from "next/headers";
+import { TopNav } from "@/components/navigation/top-nav";
 
 export default async function CategoriesPage() {
   const supabase = await createClient();
@@ -42,10 +43,13 @@ export default async function CategoriesPage() {
     .order("name", { ascending: true });
 
   return (
-    <CategoriesClient
-      accountId={activeAccount.id}
-      initialCategories={categories || []}
-      role={activeRole}
-    />
+    <div className="min-h-screen bg-background">
+      <TopNav containerClassName="max-w-6xl" />
+      <CategoriesClient
+        accountId={activeAccount.id}
+        initialCategories={categories || []}
+        role={activeRole}
+      />
+    </div>
   );
 }

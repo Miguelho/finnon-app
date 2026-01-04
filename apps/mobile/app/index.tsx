@@ -86,7 +86,7 @@ export default function IndexGateAndHome() {
 
    // 4) +1 cuenta y no seleccionada -> select-account
   if (accountCount == 1) {
-    return <Redirect href="/(auth)/home" />;
+    return <Redirect href="/(auth)/(tabs)/home" />;
   }
   console.log("accountCount:", accountCount);
   console.log("selectedAccountId:", selectedAccountId);

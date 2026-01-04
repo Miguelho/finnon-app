@@ -4,6 +4,7 @@ export * from "./schemas/category";
 export { transactionSchema, createTransactionSchema, transactionTypeSchema } from "./schemas/transaction";
 export type { TransactionType, CreateTransaction } from "./schemas/transaction";
 export * from "./schemas/invite";
+export * from "./schemas/participant";
 export * from "./constants/currencies";
 export * from "./constants/icons";
 export * from "./icons/categories";
@@ -17,6 +18,7 @@ export * from "./home/home.viewmodel";
 export * from "./recurring";
 export * from "./theme/tokens";
 export * from "./copy";
+export * from "./navigation";
 
 // Note: utils/invite.ts contains Node.js crypto APIs
 // Import directly only in server-side code:

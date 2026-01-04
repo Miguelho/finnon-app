@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { Button } from "@/components/ui/button";
-import { AccountSwitcher } from "@/components/home/account-switcher";
 import { AddAction } from "@/components/home/add-action";
+import { TopNav } from "@/components/navigation/top-nav";
+import { PageContainer } from "@/components/layout/page-container";
 import {
   buildHomeViewModel,
   CURRENCIES,
@@ -47,29 +48,6 @@ export default async function DashboardPage() {
   const mainAccountRole =
     (mainAccount?.account_members?.find((member) => member.user_id === user.id)
       ?.role as UserRole | undefined) ?? "viewer";
-
-  const { data: members } = await supabase
-    .from("account_members")
-    .select("account_id")
-    .in(
-      "account_id",
-      accounts.map((account) => account.id)
-    );
-
-  const memberCounts = (members ?? []).reduce<Record<string, number>>(
-    (acc, member) => {
-      acc[member.account_id] = (acc[member.account_id] ?? 0) + 1;
-      return acc;
-    },
-    {}
-  );
-
-  const accountsWithCounts = accounts.map((account) => ({
-    id: account.id,
-    name: account.name,
-    base_currency: account.base_currency,
-    memberCount: memberCounts[account.id] ?? 0,
-  }));
 
   const monthRange = getMonthRange(new Date());
   const startDate = monthRange.start.toISOString().slice(0, 10);
@@ -139,29 +117,19 @@ export default async function DashboardPage() {
       className="min-h-screen"
       style={{ backgroundColor: colors.bg.primary, color: colors.text.primary }}
     >
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <AccountSwitcher
-              accounts={accountsWithCounts}
-              initialActiveAccountId={mainAccount.id}
-            />
-            {viewModel.permissions.isGuestReadOnly && (
-              <span
-                className="rounded-full px-3 py-1 text-xs font-semibold"
-                style={{ backgroundColor: colors.action.secondary }}
-              >
-                {viewModel.copy.guestBadge}
-              </span>
-            )}
+      <TopNav />
+      <AddAction canEdit={viewModel.permissions.canEdit} />
+      <PageContainer className="flex flex-col gap-6">
+        {viewModel.permissions.isGuestReadOnly && (
+          <div className="flex justify-end">
+            <span
+              className="rounded-full px-3 py-1 text-xs font-semibold"
+              style={{ backgroundColor: colors.action.secondary }}
+            >
+              {viewModel.copy.guestBadge}
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            <AddAction canEdit={viewModel.permissions.canEdit} />
-            <Button variant="outline" asChild>
-              <Link href="/settings">{t(dictionary, "dashboard.settingsCta")}</Link>
-            </Button>
-          </div>
-        </div>
+        )}
 
         <section
           className="rounded-2xl border p-6"
@@ -389,7 +357,7 @@ export default async function DashboardPage() {
             </div>
           )}
         </section>
-      </div>
+      </PageContainer>
     </div>
   );
 }

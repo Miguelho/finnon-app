@@ -1,6 +1,6 @@
 export const es = {
   common: {
-    appName: "finnon",
+    appName: "Finnon",
     tagline: "Tus finanzas personales, organizadas",
     ok: "OK",
     cancel: "Cancelar",
@@ -33,6 +33,11 @@ export const es = {
     loading: "Cargando...",
     copy: "Copiar",
   },
+  navigation: {
+    home: "Inicio",
+    account: "Cuenta",
+    settings: "Ajustes",
+  },
   errors: {
     unauthorized: "No autorizado",
     authRequired: "Autenticación requerida",
@@ -54,6 +59,8 @@ export const es = {
     inviteJoinFailed: "No se pudo unir a la cuenta",
     inviteCreateFailed: "No se pudo crear la invitación",
     inviteOnlyAdmins: "Solo los administradores pueden crear invitaciones",
+    inviteUserNotFound: "No se encontró un usuario registrado con ese email",
+    inviteInvalidRecipient: "Esta invitación no es para este usuario",
     membersLoadFailed: "No se pudieron cargar los participantes",
     profilesLoadFailed: "No se pudieron cargar los perfiles",
     onboardingMissingFields: "Nombre de cuenta y moneda son requeridos",
@@ -305,6 +312,15 @@ export const es = {
     title: "Invitaciones",
     subtitle: "Gestiona los links de invitación a tus cuentas",
     createButton: "Crear invitación",
+    inviteTypeLabel: "Tipo de invitación",
+    inviteTypeLink: "Invitar con link",
+    inviteTypeRegistered: "Usuario registrado",
+    registeredTitle: "Invitar usuario registrado",
+    registeredDescription: "Invita a alguien que ya tiene cuenta",
+    registeredEmailLabel: "Email registrado",
+    registeredAlreadyMember: "Este usuario ya es participante",
+    registeredPending: "Ya hay una invitación pendiente para este usuario",
+    registeredInviteError: "Error invitando usuario",
     filterAll: "Todas ({count})",
     filterActive: "Activas ({count})",
     filterExpired: "Expiradas ({count})",
@@ -400,6 +416,10 @@ export const es = {
         account: {
           title: "Cuenta",
           items: {
+            activeAccount: {
+              title: "Cuenta activa",
+              description: "Selecciona la cuenta con la que trabajas",
+            },
             invitations: {
               title: "Invitaciones",
               description: "Gestionar links de invitación",

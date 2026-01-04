@@ -64,7 +64,7 @@ export default function SelectAccountScreen() {
   const handleSelectAccount = async (accountId: string) => {
     console.log("[SelectAccount] Selected account:", accountId);
     await setSelectedAccountId(accountId);
-    router.replace("/(auth)/home");
+    router.replace("/(auth)/(tabs)/home");
   };
 
   if (loading) {

@@ -3,13 +3,9 @@ import { redirect } from "next/navigation";
 import { getDictionary, buildSettingsMenuVM } from "@poleursus/shared";
 import { cookies } from "next/headers";
 import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { TopNav } from "@/components/navigation/top-nav";
+import { PageContainer } from "@/components/layout/page-container";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -27,8 +23,9 @@ export default async function SettingsPage() {
   const viewModel = buildSettingsMenuVM(dictionary, "web");
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="mx-auto max-w-2xl space-y-6">
+    <div className="min-h-screen bg-background">
+      <TopNav />
+      <PageContainer className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             {viewModel.title}
@@ -64,7 +61,7 @@ export default async function SettingsPage() {
             </Card>
           </div>
         ))}
-      </div>
+      </PageContainer>
     </div>
   );
 }

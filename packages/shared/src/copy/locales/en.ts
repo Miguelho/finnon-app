@@ -1,6 +1,6 @@
 export const en = {
   common: {
-    appName: "finnon",
+    appName: "Finnon",
     tagline: "Your personal finances, organized",
     ok: "OK",
     cancel: "Cancel",
@@ -33,6 +33,11 @@ export const en = {
     loading: "Loading...",
     copy: "Copy",
   },
+  navigation: {
+    home: "Home",
+    account: "Account",
+    settings: "Settings",
+  },
   errors: {
     unauthorized: "Unauthorized",
     authRequired: "Authentication required",
@@ -54,6 +59,8 @@ export const en = {
     inviteJoinFailed: "Failed to join account",
     inviteCreateFailed: "Failed to create invite",
     inviteOnlyAdmins: "Only admins can create invites",
+    inviteUserNotFound: "No registered user found with that email",
+    inviteInvalidRecipient: "This invite is not intended for this user",
     membersLoadFailed: "Failed to load account members",
     profilesLoadFailed: "Failed to load profiles",
     onboardingMissingFields: "Account name and currency are required",
@@ -305,6 +312,15 @@ export const en = {
     title: "Invites",
     subtitle: "Manage invitation links for your accounts",
     createButton: "Create invite",
+    inviteTypeLabel: "Invite type",
+    inviteTypeLink: "Invite via link",
+    inviteTypeRegistered: "Registered user",
+    registeredTitle: "Invite registered user",
+    registeredDescription: "Invite someone who already has an account",
+    registeredEmailLabel: "Registered email",
+    registeredAlreadyMember: "This user is already a participant",
+    registeredPending: "An invite is already pending for this user",
+    registeredInviteError: "Error inviting user",
     filterAll: "All ({count})",
     filterActive: "Active ({count})",
     filterExpired: "Expired ({count})",
@@ -400,6 +416,10 @@ export const en = {
         account: {
           title: "Account",
           items: {
+            activeAccount: {
+              title: "Active account",
+              description: "Select the account you're working on",
+            },
             invitations: {
               title: "Invitations",
               description: "Manage invite links",

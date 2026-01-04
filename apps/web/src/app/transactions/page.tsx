@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { TransactionsClient } from "./transactions-client";
 import { cookies } from "next/headers";
+import { TopNav } from "@/components/navigation/top-nav";
+import { AddAction } from "@/components/home/add-action";
 
 export default async function TransactionsPage() {
   const supabase = await createClient();
@@ -29,6 +31,7 @@ export default async function TransactionsPage() {
   const activeAccount =
     accounts.find((account) => account.id === cookieAccountId) ?? accounts[0];
   const activeRole = activeAccount?.account_members?.[0]?.role ?? "viewer";
+  const canEdit = activeRole !== "viewer";
 
   if (!activeAccount) {
     redirect("/onboarding");
@@ -62,13 +65,17 @@ export default async function TransactionsPage() {
     .order("name", { ascending: true });
 
   return (
-    <TransactionsClient
-      accountId={activeAccount.id}
-      baseCurrency={activeAccount.base_currency}
-      initialTransactions={transactions || []}
-      initialRecurringItems={recurringItems || []}
-      categories={categories || []}
-      role={activeRole}
-    />
+    <div className="min-h-screen bg-background">
+      <TopNav />
+      <AddAction canEdit={canEdit} />
+      <TransactionsClient
+        accountId={activeAccount.id}
+        baseCurrency={activeAccount.base_currency}
+        initialTransactions={transactions || []}
+        initialRecurringItems={recurringItems || []}
+        categories={categories || []}
+        role={activeRole}
+      />
+    </div>
   );
 }

@@ -78,7 +78,8 @@ export function buildSettingsMenuVM(
   dictionary: CopyDictionary,
   platform: "mobile" | "web"
 ): SettingsMenuVM {
-  const baseRoute = platform === "mobile" ? "/(auth)/settings" : "/settings";
+  const baseRoute =
+    platform === "mobile" ? "/(auth)/(tabs)/settings" : "/settings";
 
   return {
     title: t(dictionary, "settings.title"),
@@ -115,6 +116,21 @@ export function buildSettingsMenuVM(
         id: "account",
         title: t(dictionary, "settings.menu.sections.account.title"),
         items: [
+          {
+            id: "active-account",
+            title: t(
+              dictionary,
+              "settings.menu.sections.account.items.activeAccount.title"
+            ),
+            description: t(
+              dictionary,
+              "settings.menu.sections.account.items.activeAccount.description"
+            ),
+            route:
+              platform === "mobile"
+                ? "/(auth)/select-account"
+                : `${baseRoute}/account`,
+          },
           {
             id: "invitations",
             title: t(

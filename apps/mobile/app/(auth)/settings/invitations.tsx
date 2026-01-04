@@ -37,6 +37,7 @@ type RawInvite = {
 };
 
 type FilterStatus = "all" | "active" | "expired" | "revoked";
+type InviteMode = "link" | "registered";
 
 export default function InvitationsScreen() {
   const [invites, setInvites] = useState<InviteItemVM[]>([]);
@@ -47,6 +48,8 @@ export default function InvitationsScreen() {
   const [filter, setFilter] = useState<FilterStatus>("active");
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [createdInviteUrl, setCreatedInviteUrl] = useState<string | null>(null);
+  const [inviteMode, setInviteMode] = useState<InviteMode>("link");
+  const [inviteEmail, setInviteEmail] = useState("");
   const { dictionary } = useCopy();
 
   // Form state
@@ -55,6 +58,7 @@ export default function InvitationsScreen() {
   const [expiresInHours, setExpiresInHours] = useState("24");
   const [maxUses, setMaxUses] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [isInvitingRegistered, setIsInvitingRegistered] = useState(false);
 
   useEffect(() => {
     fetchAccounts();
@@ -182,6 +186,99 @@ export default function InvitationsScreen() {
     }
   }
 
+  async function createRegisteredInvite() {
+    if (!selectedAccountId) {
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "invites.selectAccountError")
+      );
+      return;
+    }
+
+    const trimmedEmail = inviteEmail.trim();
+    if (!trimmedEmail) {
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "errors.invalidRequest")
+      );
+      return;
+    }
+
+    setIsInvitingRegistered(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        Alert.alert(
+          t(dictionary, "common.errorTitle"),
+          t(dictionary, "invites.noSessionError")
+        );
+        setIsInvitingRegistered(false);
+        return;
+      }
+
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+      const maxUsesValue = maxUses ? parseInt(maxUses) : 1;
+
+      const response = await fetch(`${apiUrl}/api/participants/invite`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          accountId: selectedAccountId,
+          role: selectedRole,
+          email: trimmedEmail,
+          expiresInHours: parseInt(expiresInHours),
+          maxUses: Number.isNaN(maxUsesValue) ? 1 : maxUsesValue,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        const message = error.errorKey
+          ? t(dictionary, error.errorKey, error.errorParams)
+          : t(dictionary, "invites.registeredInviteError");
+        Alert.alert(t(dictionary, "common.errorTitle"), message);
+        return;
+      }
+
+      const data = await response.json();
+      if (data.status === "already_member") {
+        Alert.alert(
+          t(dictionary, "common.successTitle"),
+          t(dictionary, "invites.registeredAlreadyMember")
+        );
+        return;
+      }
+
+      if (data.status === "pending") {
+        Alert.alert(
+          t(dictionary, "common.successTitle"),
+          t(dictionary, "invites.registeredPending")
+        );
+        return;
+      }
+
+      if (data.inviteUrl) {
+        setCreatedInviteUrl(data.inviteUrl);
+      }
+
+      fetchInvites();
+    } catch (error) {
+      console.error("Error inviting registered user:", error);
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "invites.registeredInviteError")
+      );
+    } finally {
+      setIsInvitingRegistered(false);
+    }
+  }
+
   async function revokeInvite(inviteId: string) {
     try {
       const { error } = await supabase
@@ -227,6 +324,8 @@ export default function InvitationsScreen() {
     setSelectedRole("viewer");
     setExpiresInHours("24");
     setMaxUses("");
+    setInviteMode("link");
+    setInviteEmail("");
   }
 
   const filteredInvites = invites.filter((invite) => {
@@ -240,6 +339,22 @@ export default function InvitationsScreen() {
     expired: invites.filter((i) => i.status === "expired").length,
     revoked: invites.filter((i) => i.status === "revoked").length,
   };
+  const isRegisteredMode = inviteMode === "registered";
+  const modalTitle = createdInviteUrl
+    ? t(dictionary, "invites.createdTitle")
+    : isRegisteredMode
+    ? t(dictionary, "invites.registeredTitle")
+    : t(dictionary, "invites.createTitle");
+  const modalDescription = createdInviteUrl
+    ? t(dictionary, "invites.createdDescription")
+    : isRegisteredMode
+    ? t(dictionary, "invites.registeredDescription")
+    : t(dictionary, "invites.createDescription");
+  const isSubmitting = isRegisteredMode ? isInvitingRegistered : isCreating;
+  const isCreateDisabled =
+    isSubmitting ||
+    !selectedAccountId ||
+    (isRegisteredMode && inviteEmail.trim().length === 0);
 
   return (
     <ScrollView
@@ -374,14 +489,10 @@ export default function InvitationsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              {createdInviteUrl
-                ? t(dictionary, "invites.createdTitle")
-                : t(dictionary, "invites.createTitle")}
+              {modalTitle}
             </Text>
             <Text style={styles.modalDescription}>
-              {createdInviteUrl
-                ? t(dictionary, "invites.createdDescription")
-                : t(dictionary, "invites.createDescription")}
+              {modalDescription}
             </Text>
 
             {createdInviteUrl ? (
@@ -406,6 +517,44 @@ export default function InvitationsScreen() {
             ) : (
               <>
                 <View style={styles.formField}>
+                  <Text style={styles.label}>{t(dictionary, "invites.inviteTypeLabel")}</Text>
+                  <View style={styles.inviteTypeButtons}>
+                    <TouchableOpacity
+                      style={[
+                        styles.inviteTypeButton,
+                        inviteMode === "link" && styles.inviteTypeButtonActive,
+                      ]}
+                      onPress={() => setInviteMode("link")}
+                    >
+                      <Text
+                        style={[
+                          styles.inviteTypeButtonText,
+                          inviteMode === "link" && styles.inviteTypeButtonTextActive,
+                        ]}
+                      >
+                        {t(dictionary, "invites.inviteTypeLink")}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.inviteTypeButton,
+                        inviteMode === "registered" && styles.inviteTypeButtonActive,
+                      ]}
+                      onPress={() => setInviteMode("registered")}
+                    >
+                      <Text
+                        style={[
+                          styles.inviteTypeButtonText,
+                          inviteMode === "registered" && styles.inviteTypeButtonTextActive,
+                        ]}
+                      >
+                        {t(dictionary, "invites.inviteTypeRegistered")}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.formField}>
                   <Text style={styles.label}>{t(dictionary, "invites.accountLabel")}</Text>
                   <Picker
                     selectedValue={selectedAccountId}
@@ -417,6 +566,22 @@ export default function InvitationsScreen() {
                     ))}
                   </Picker>
                 </View>
+
+                {inviteMode === "registered" && (
+                  <View style={styles.formField}>
+                    <Text style={styles.label}>
+                      {t(dictionary, "invites.registeredEmailLabel")}
+                    </Text>
+                    <TextInput
+                      style={styles.input}
+                      value={inviteEmail}
+                      onChangeText={setInviteEmail}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                      placeholder={t(dictionary, "login.emailPlaceholder")}
+                    />
+                  </View>
+                )}
 
                 <View style={styles.formField}>
                   <Text style={styles.label}>{t(dictionary, "invites.roleLabel")}</Text>
@@ -460,13 +625,13 @@ export default function InvitationsScreen() {
                   <TouchableOpacity
                     style={[
                       styles.createButton,
-                      (isCreating || !selectedAccountId) && styles.createButtonDisabled,
+                      isCreateDisabled && styles.createButtonDisabled,
                     ]}
-                    onPress={createInvite}
-                    disabled={isCreating || !selectedAccountId}
+                    onPress={isRegisteredMode ? createRegisteredInvite : createInvite}
+                    disabled={isCreateDisabled}
                   >
                     <Text style={styles.createButtonText}>
-                      {isCreating ? t(dictionary, "common.creating") : t(dictionary, "common.create")}
+                      {isSubmitting ? t(dictionary, "common.creating") : t(dictionary, "common.create")}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -638,6 +803,31 @@ const styles = StyleSheet.create({
   },
   formField: {
     marginBottom: tokens.spacing.lg,
+  },
+  inviteTypeButtons: {
+    flexDirection: "row",
+    gap: tokens.spacing.sm,
+  },
+  inviteTypeButton: {
+    flex: 1,
+    paddingVertical: tokens.spacing.sm,
+    borderRadius: tokens.radii.sm,
+    borderWidth: 1,
+    borderColor: tokens.colors.state.neutral,
+    backgroundColor: tokens.colors.bg.surface,
+    alignItems: "center",
+  },
+  inviteTypeButtonActive: {
+    borderColor: tokens.colors.text.primary,
+    backgroundColor: tokens.colors.bg.secondary,
+  },
+  inviteTypeButtonText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.medium,
+    color: tokens.colors.text.secondary,
+  },
+  inviteTypeButtonTextActive: {
+    color: tokens.colors.text.primary,
   },
   label: {
     fontSize: tokens.typography.size.sm,

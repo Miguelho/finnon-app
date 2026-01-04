@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { PageContainer } from "@/components/layout/page-container";
 import {
   Card,
   CardContent,
@@ -699,305 +700,206 @@ export function TransactionsClient({
   };
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="mx-auto max-w-6xl space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">{t("pageTitle")}</h1>
-            <p className="text-muted-foreground">
-              {t("pageDescription")}
-            </p>
-            {!canEdit && (
-              <p className="text-sm text-muted-foreground">
-                {t("readOnlyNotice")}
-              </p>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => router.push("/")}>
-              {t("backToDashboard")}
-            </Button>
-            <Button
-              onClick={() => {
-                setCreateKind("transaction");
-                setRepeatConfig((prev) => ({ ...prev, enabled: false }));
-                setIsCreateOpen(true);
-              }}
-              disabled={!canEdit}
-            >
-              {t("newTransaction")}
-            </Button>
-          </div>
-        </div>
+    <PageContainer className="space-y-6">
+      {/* Header */}
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold tracking-tight">{t("pageTitle")}</h1>
+        <p className="text-muted-foreground">{t("pageDescription")}</p>
+        {!canEdit && (
+          <p className="text-sm text-muted-foreground">
+            {t("readOnlyNotice")}
+          </p>
+        )}
+      </div>
 
-        {/* Month Filter */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("filterByMonth")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Month Filter */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("filterByMonth")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={goToPreviousMonth}
+              aria-label={t("previousMonth")}
+            >
+              {t("previousMonth")}
+            </Button>
+            <div className="flex flex-col items-center gap-1 text-center">
+              <span className="text-lg font-semibold">
+                {formatMonthLabel(selectedMonth, locale)}
+              </span>
               <Button
-                variant="outline"
-                onClick={goToPreviousMonth}
-                aria-label={t("previousMonth")}
+                variant="ghost"
+                size="sm"
+                onClick={openMonthPicker}
+                aria-label={t("openMonthPicker")}
               >
-                {t("previousMonth")}
-              </Button>
-              <div className="flex flex-col items-center gap-1 text-center">
-                <span className="text-lg font-semibold">
-                  {formatMonthLabel(selectedMonth, locale)}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={openMonthPicker}
-                  aria-label={t("openMonthPicker")}
-                >
-                  {t("openMonthPicker")}
-                </Button>
-              </div>
-              <Button
-                variant="outline"
-                onClick={goToNextMonth}
-                aria-label={t("nextMonth")}
-              >
-                {t("nextMonth")}
+                {t("openMonthPicker")}
               </Button>
             </div>
-            {isMonthPickerOpen && (
-              <div className="space-y-4 rounded-lg border p-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>{t("monthPickerLabel")}</Label>
-                    <Select
-                      value={String(pickerMonthIndex)}
-                      onValueChange={(value) =>
-                        setPickerMonthIndex(Number(value))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {monthOptions.map((label, index) => (
-                          <SelectItem key={label} value={String(index)}>
-                            {label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t("yearPickerLabel")}</Label>
-                    <Select
-                      value={String(pickerYear)}
-                      onValueChange={(value) => setPickerYear(Number(value))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {yearOptions.map((year) => (
-                          <SelectItem key={year} value={String(year)}>
-                            {year}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsMonthPickerOpen(false)}
+            <Button
+              variant="outline"
+              onClick={goToNextMonth}
+              aria-label={t("nextMonth")}
+            >
+              {t("nextMonth")}
+            </Button>
+          </div>
+          {isMonthPickerOpen && (
+            <div className="space-y-4 rounded-lg border p-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>{t("monthPickerLabel")}</Label>
+                  <Select
+                    value={String(pickerMonthIndex)}
+                    onValueChange={(value) =>
+                      setPickerMonthIndex(Number(value))
+                    }
                   >
-                    {tGlobal("common.cancel")}
-                  </Button>
-                  <Button onClick={applyMonthPicker}>
-                    {t("applyMonthPicker")}
-                  </Button>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {monthOptions.map((label, index) => (
+                        <SelectItem key={label} value={String(index)}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("yearPickerLabel")}</Label>
+                  <Select
+                    value={String(pickerYear)}
+                    onValueChange={(value) => setPickerYear(Number(value))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {yearOptions.map((year) => (
+                        <SelectItem key={year} value={String(year)}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsMonthPickerOpen(false)}
+                >
+                  {tGlobal("common.cancel")}
+                </Button>
+                <Button onClick={applyMonthPicker}>
+                  {t("applyMonthPicker")}
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* Monthly Summary */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>{t("income")}</CardDescription>
-              <CardTitle className="text-3xl text-green-600">
-                {formatMoneyWithSymbol(
-                  monthlySummary.income,
-                  baseCurrency,
-                  currencySymbol
-                )}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>{t("expenses")}</CardDescription>
-              <CardTitle className="text-3xl text-red-600">
-                {formatMoneyWithSymbol(
-                  monthlySummary.expense,
-                  baseCurrency,
-                  currencySymbol
-                )}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>{t("balance")}</CardDescription>
-              <CardTitle
-                className={`text-3xl ${
-                  monthlySummary.balance >= 0n
-                    ? "text-green-600"
-                    : "text-red-600"
-                }`}
-              >
-                {formatMoneyWithSymbol(
-                  monthlySummary.balance >= 0n
-                    ? monthlySummary.balance
-                    : -monthlySummary.balance,
-                  baseCurrency,
-                  monthlySummary.balance >= 0n ? currencySymbol : `-${currencySymbol}`
-                )}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-        </div>
-
-        {/* Transactions List */}
+      {/* Monthly Summary */}
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
-          <CardHeader>
-            <CardTitle>
-              {t("transactionsFor", {
-                month: formatMonthLabel(selectedMonth, locale),
-              })}
+          <CardHeader className="pb-2">
+            <CardDescription>{t("income")}</CardDescription>
+            <CardTitle className="text-3xl text-green-600">
+              {formatMoneyWithSymbol(
+                monthlySummary.income,
+                baseCurrency,
+                currencySymbol
+              )}
             </CardTitle>
-            <CardDescription>
-              {t("transactionsCount", { count: mergedItems.length })}
-            </CardDescription>
           </CardHeader>
-          <CardContent>
-            {mergedItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                {canEdit ? t("noTransactions") : t("noTransactionsReadOnly")}
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {mergedItems.map((item) => {
-                  if (item.kind === "transaction") {
-                    const transaction = item.transaction;
-                    const category = transaction.category;
-                    const amount = formatMoneyWithSymbol(
-                      BigInt(transaction.amount_base_minor),
-                      baseCurrency,
-                      currencySymbol
-                    );
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>{t("expenses")}</CardDescription>
+            <CardTitle className="text-3xl text-red-600">
+              {formatMoneyWithSymbol(
+                monthlySummary.expense,
+                baseCurrency,
+                currencySymbol
+              )}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>{t("balance")}</CardDescription>
+            <CardTitle
+              className={`text-3xl ${
+                monthlySummary.balance >= 0n
+                  ? "text-green-600"
+                  : "text-red-600"
+              }`}
+            >
+              {formatMoneyWithSymbol(
+                monthlySummary.balance >= 0n
+                  ? monthlySummary.balance
+                  : -monthlySummary.balance,
+                baseCurrency,
+                monthlySummary.balance >= 0n ? currencySymbol : `-${currencySymbol}`
+              )}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
 
-                    return (
-                      <div
-                        key={transaction.id}
-                        className={`flex items-center justify-between rounded-lg border p-4 transition-colors ${
-                          canEdit ? "cursor-pointer hover:bg-muted/50" : ""
-                        }`}
-                        role={canEdit ? "button" : undefined}
-                        tabIndex={canEdit ? 0 : undefined}
-                        onClick={() => {
-                          if (canEdit) openEditDialog(transaction);
-                        }}
-                        onKeyDown={(event) => {
-                          if (!canEdit) return;
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            openEditDialog(transaction);
-                          }
-                        }}
-                      >
-                        <div className="flex items-start gap-4 flex-1">
-                          <CategoryIcon
-                            iconId={category?.icon_id}
-                            size={20}
-                            tone="muted"
-                            accessibilityLabel={category?.name || undefined}
-                          />
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-baseline gap-2">
-                              <span className="font-medium">
-                                {transaction.merchant ||
-                                  category?.name ||
-                                  t("create.categoryNone")}
-                              </span>
-                              {transaction.merchant && category && (
-                                <span className="text-sm text-muted-foreground">
-                                  • {category.name}
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {new Date(transaction.date).toLocaleDateString()}
-                              {transaction.notes && (
-                                <span className="ml-2">• {transaction.notes}</span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div
-                            className={`font-semibold text-lg ${
-                              transaction.type === "income"
-                                ? "text-green-600"
-                                : "text-red-600"
-                            }`}
-                          >
-                            {transaction.type === "income" ? "+" : "-"}
-                            {amount}
-                          </div>
-
-                          {canEdit && (
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  openDeleteDialog(transaction);
-                                }}
-                              >
-                                {t("deleteButton")}
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  const recurring = item.recurring;
-                  const category = categories.find(
-                    (cat) => cat.id === recurring.item.category_id
-                  );
+      {/* Transactions List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {t("transactionsFor", {
+              month: formatMonthLabel(selectedMonth, locale),
+            })}
+          </CardTitle>
+          <CardDescription>
+            {t("transactionsCount", { count: mergedItems.length })}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {mergedItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              {canEdit ? t("noTransactions") : t("noTransactionsReadOnly")}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {mergedItems.map((item) => {
+                if (item.kind === "transaction") {
+                  const transaction = item.transaction;
+                  const category = transaction.category;
                   const amount = formatMoneyWithSymbol(
-                    BigInt(recurring.item.amount_minor),
-                    recurring.item.currency,
-                    CURRENCIES.find((c) => c.code === recurring.item.currency)?.symbol ||
-                      recurring.item.currency
-                  );
-                  const confirmKey = getOccurrenceKey(
-                    recurring.item.id,
-                    recurring.occurrenceDate
+                    BigInt(transaction.amount_base_minor),
+                    baseCurrency,
+                    currencySymbol
                   );
 
                   return (
                     <div
-                      key={confirmKey}
-                      className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors"
+                      key={transaction.id}
+                      className={`flex items-center justify-between rounded-lg border p-4 transition-colors ${
+                        canEdit ? "cursor-pointer hover:bg-muted/50" : ""
+                      }`}
+                      role={canEdit ? "button" : undefined}
+                      tabIndex={canEdit ? 0 : undefined}
+                      onClick={() => {
+                        if (canEdit) openEditDialog(transaction);
+                      }}
+                      onKeyDown={(event) => {
+                        if (!canEdit) return;
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openEditDialog(transaction);
+                        }
+                      }}
                     >
                       <div className="flex items-start gap-4 flex-1">
                         <CategoryIcon
@@ -1010,30 +912,32 @@ export function TransactionsClient({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-baseline gap-2">
                             <span className="font-medium">
-                              {recurring.item.merchant ||
+                              {transaction.merchant ||
                                 category?.name ||
                                 t("create.categoryNone")}
                             </span>
-                            <span className="text-xs text-muted-foreground">
-                              • {t("recurring.pendingLabel")}
-                            </span>
+                            {transaction.merchant && category && (
+                              <span className="text-sm text-muted-foreground">
+                                • {category.name}
+                              </span>
+                            )}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {new Date(recurring.occurrenceDate).toLocaleDateString()}
-                            {recurring.item.notes && (
-                              <span className="ml-2">• {recurring.item.notes}</span>
+                            {new Date(transaction.date).toLocaleDateString()}
+                            {transaction.notes && (
+                              <span className="ml-2">• {transaction.notes}</span>
                             )}
                           </div>
                         </div>
 
                         <div
                           className={`font-semibold text-lg ${
-                            recurring.item.type === "income"
+                            transaction.type === "income"
                               ? "text-green-600"
                               : "text-red-600"
                           }`}
                         >
-                          {recurring.item.type === "income" ? "+" : "-"}
+                          {transaction.type === "income" ? "+" : "-"}
                           {amount}
                         </div>
 
@@ -1042,28 +946,105 @@ export function TransactionsClient({
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleConfirmRecurring(recurring)}
-                              disabled={confirmingKey === confirmKey}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openDeleteDialog(transaction);
+                              }}
                             >
-                              {confirmingKey === confirmKey
-                                ? t("recurring.confirming")
-                                : t("recurring.confirmAction")}
+                              {t("deleteButton")}
                             </Button>
                           </div>
                         )}
                       </div>
                     </div>
                   );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                }
 
-        {/* Create Panel */}
-        {canEdit && (
-          <SlidePanel open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <SlidePanelContent>
+                const recurring = item.recurring;
+                const category = categories.find(
+                  (cat) => cat.id === recurring.item.category_id
+                );
+                const amount = formatMoneyWithSymbol(
+                  BigInt(recurring.item.amount_minor),
+                  recurring.item.currency,
+                  CURRENCIES.find((c) => c.code === recurring.item.currency)?.symbol ||
+                    recurring.item.currency
+                );
+                const confirmKey = getOccurrenceKey(
+                  recurring.item.id,
+                  recurring.occurrenceDate
+                );
+
+                return (
+                  <div
+                    key={confirmKey}
+                    className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-start gap-4 flex-1">
+                      <CategoryIcon
+                        iconId={category?.icon_id}
+                        size={20}
+                        tone="muted"
+                        accessibilityLabel={category?.name || undefined}
+                      />
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-medium">
+                            {recurring.item.merchant ||
+                              category?.name ||
+                              t("create.categoryNone")}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            • {t("recurring.pendingLabel")}
+                          </span>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {new Date(recurring.occurrenceDate).toLocaleDateString()}
+                          {recurring.item.notes && (
+                            <span className="ml-2">• {recurring.item.notes}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div
+                        className={`font-semibold text-lg ${
+                          recurring.item.type === "income"
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {recurring.item.type === "income" ? "+" : "-"}
+                        {amount}
+                      </div>
+
+                      {canEdit && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleConfirmRecurring(recurring)}
+                            disabled={confirmingKey === confirmKey}
+                          >
+                            {confirmingKey === confirmKey
+                              ? t("recurring.confirming")
+                              : t("recurring.confirmAction")}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Create Panel */}
+      {canEdit && (
+        <SlidePanel open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <SlidePanelContent>
             <SlidePanelHeader>
               <SlidePanelTitle>
                 {createKind === "obligation"
@@ -1163,304 +1144,332 @@ export function TransactionsClient({
                 </div>
               ) : (
                 <div className="grid gap-6">
-              {/* 1. Transaction Type - Pill Selector */}
-              <div className="space-y-3">
-                <Label>{t("create.typeLabel")}</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={formData.type === "expense" ? "default" : "outline"}
-                    className="flex-1"
-                    aria-pressed={formData.type === "expense"}
-                    onClick={() =>
-                      setFormData({
-                        ...formData,
-                        type: "expense",
-                        category_id: undefined,
-                      })
-                    }
-                  >
-                    {t("create.typeExpense")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={formData.type === "income" ? "default" : "outline"}
-                    className="flex-1"
-                    aria-pressed={formData.type === "income"}
-                    onClick={() =>
-                      setFormData({
-                        ...formData,
-                        type: "income",
-                        category_id: undefined,
-                      })
-                    }
-                  >
-                    {t("create.typeIncome")}
-                  </Button>
-                </div>
-              </div>
-
-              {/* 2. Date with Monthly Context */}
-              <div className="space-y-3">
-                <Label htmlFor="date">{t("create.dateLabel")}</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, date: e.target.value })
-                  }
-                />
-                <p className={`text-sm ${getMonthContext(formData.date).isCurrent ? "text-muted-foreground" : "text-amber-600"}`}>
-                  {getMonthContext(formData.date).message}
-                </p>
-              </div>
-
-              {createKind === "transaction" && (
-                <div className="space-y-3">
-                  <Label>{t("repeat.label")}</Label>
-                  <label className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      checked={repeatConfig.enabled}
-                      onChange={(event) => {
-                        const enabled = event.target.checked;
-                        setRepeatConfig((prev) => ({
-                          ...prev,
-                          enabled,
-                          startDate: prev.startDate || formData.date,
-                        }));
-                        if (enabled && formData.currency !== baseCurrency) {
-                          setFormData((prev) => ({
-                            ...prev,
-                            currency: baseCurrency,
-                            fx_rate: "1",
-                          }));
+                  {/* 1. Transaction Type - Pill Selector */}
+                  <div className="space-y-3">
+                    <Label>{t("create.typeLabel")}</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={
+                          formData.type === "expense" ? "default" : "outline"
                         }
-                      }}
-                    />
-                    {t("repeat.helper")}
-                  </label>
-                </div>
-              )}
+                        className="flex-1"
+                        aria-pressed={formData.type === "expense"}
+                        onClick={() =>
+                          setFormData({
+                            ...formData,
+                            type: "expense",
+                            category_id: undefined,
+                          })
+                        }
+                      >
+                        {t("create.typeExpense")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={
+                          formData.type === "income" ? "default" : "outline"
+                        }
+                        className="flex-1"
+                        aria-pressed={formData.type === "income"}
+                        onClick={() =>
+                          setFormData({
+                            ...formData,
+                            type: "income",
+                            category_id: undefined,
+                          })
+                        }
+                      >
+                        {t("create.typeIncome")}
+                      </Button>
+                    </div>
+                  </div>
 
-              {repeatConfig.enabled && (
-                <div className="grid gap-4 rounded-lg border p-4">
-                  <div className="space-y-2">
-                    <Label>{t("repeat.frequencyLabel")}</Label>
-                    <Select
-                      value={repeatConfig.frequency}
-                      onValueChange={(value) =>
-                        setRepeatConfig((prev) => ({
-                          ...prev,
-                          frequency: value as RecurringFrequency,
-                        }))
+                  {/* 2. Date with Monthly Context */}
+                  <div className="space-y-3">
+                    <Label htmlFor="date">{t("create.dateLabel")}</Label>
+                    <Input
+                      id="date"
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) =>
+                        setFormData({ ...formData, date: e.target.value })
                       }
+                    />
+                    <p
+                      className={`text-sm ${
+                        getMonthContext(formData.date).isCurrent
+                          ? "text-muted-foreground"
+                          : "text-amber-600"
+                      }`}
                     >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="weekly">{t("repeat.weekly")}</SelectItem>
-                        <SelectItem value="monthly">{t("repeat.monthly")}</SelectItem>
-                        <SelectItem value="yearly">{t("repeat.yearly")}</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      {getMonthContext(formData.date).message}
+                    </p>
                   </div>
-                  <div className="space-y-2">
-                    <Label>{t("repeat.intervalLabel")}</Label>
-                    <Input
-                      value={repeatConfig.interval}
-                      onChange={(e) =>
-                        setRepeatConfig((prev) => ({
-                          ...prev,
-                          interval: e.target.value.replace(/[^0-9]/g, ""),
-                        }))
-                      }
-                    />
+
+                  {createKind === "transaction" && (
+                    <div className="space-y-3">
+                      <Label>{t("repeat.label")}</Label>
+                      <label className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          checked={repeatConfig.enabled}
+                          onChange={(event) => {
+                            const enabled = event.target.checked;
+                            setRepeatConfig((prev) => ({
+                              ...prev,
+                              enabled,
+                              startDate: prev.startDate || formData.date,
+                            }));
+                            if (enabled && formData.currency !== baseCurrency) {
+                              setFormData((prev) => ({
+                                ...prev,
+                                currency: baseCurrency,
+                                fx_rate: "1",
+                              }));
+                            }
+                          }}
+                        />
+                        {t("repeat.helper")}
+                      </label>
+                    </div>
+                  )}
+
+                  {repeatConfig.enabled && (
+                    <div className="grid gap-4 rounded-lg border p-4">
+                      <div className="space-y-2">
+                        <Label>{t("repeat.frequencyLabel")}</Label>
+                        <Select
+                          value={repeatConfig.frequency}
+                          onValueChange={(value) =>
+                            setRepeatConfig((prev) => ({
+                              ...prev,
+                              frequency: value as RecurringFrequency,
+                            }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="weekly">
+                              {t("repeat.weekly")}
+                            </SelectItem>
+                            <SelectItem value="monthly">
+                              {t("repeat.monthly")}
+                            </SelectItem>
+                            <SelectItem value="yearly">
+                              {t("repeat.yearly")}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t("repeat.intervalLabel")}</Label>
+                        <Input
+                          value={repeatConfig.interval}
+                          onChange={(e) =>
+                            setRepeatConfig((prev) => ({
+                              ...prev,
+                              interval: e.target.value.replace(/[^0-9]/g, ""),
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t("repeat.startDateLabel")}</Label>
+                        <Input
+                          type="date"
+                          value={repeatConfig.startDate}
+                          onChange={(e) =>
+                            setRepeatConfig((prev) => ({
+                              ...prev,
+                              startDate: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t("repeat.endDateLabel")}</Label>
+                        <Input
+                          type="date"
+                          value={repeatConfig.endDate}
+                          onChange={(e) =>
+                            setRepeatConfig((prev) => ({
+                              ...prev,
+                              endDate: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3. Amount + Currency (Grouped) */}
+                  <div className="space-y-3">
+                    <Label>{t("create.amountLabel")}</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="amount"
+                        type="text"
+                        value={formData.amount}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            amount: sanitizeNumericInput(e.target.value),
+                          })
+                        }
+                        placeholder={t("create.amountPlaceholder")}
+                        className="flex-1"
+                      />
+                      <Select
+                        value={formData.currency}
+                        onValueChange={(value) =>
+                          setFormData({
+                            ...formData,
+                            currency: value,
+                            fx_rate:
+                              value === baseCurrency ? "1" : formData.fx_rate,
+                          })
+                        }
+                        disabled={repeatConfig.enabled}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CURRENCIES.map((curr) => (
+                            <SelectItem key={curr.code} value={curr.code}>
+                              {curr.code}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>{t("repeat.startDateLabel")}</Label>
-                    <Input
-                      type="date"
-                      value={repeatConfig.startDate}
-                      onChange={(e) =>
-                        setRepeatConfig((prev) => ({
-                          ...prev,
-                          startDate: e.target.value,
-                        }))
-                      }
-                    />
+
+                  {requiresFxRate && (
+                    <div className="space-y-2">
+                      <Label htmlFor="fx-rate">{t("fxRateLabel")}</Label>
+                      <Input
+                        id="fx-rate"
+                        type="text"
+                        value={formData.fx_rate}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            fx_rate: sanitizeNumericInput(e.target.value),
+                          })
+                        }
+                        placeholder={t("fxRatePlaceholder")}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {t("fxRateHelper", {
+                          currency: formData.currency,
+                          baseCurrency,
+                        })}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t("baseAmountPreview", {
+                          amount: previewBaseAmount ?? "-",
+                          baseCurrency,
+                        })}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Separator for Optional Fields */}
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">
+                        {t("create.optionalSeparator")}
+                      </span>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>{t("repeat.endDateLabel")}</Label>
-                    <Input
-                      type="date"
-                      value={repeatConfig.endDate}
-                      onChange={(e) =>
-                        setRepeatConfig((prev) => ({
-                          ...prev,
-                          endDate: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-              )}
 
-              {/* 3. Amount + Currency (Grouped) */}
-              <div className="space-y-3">
-                <Label>{t("create.amountLabel")}</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="amount"
-                    type="text"
-                    value={formData.amount}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        amount: sanitizeNumericInput(e.target.value),
-                      })
-                    }
-                    placeholder={t("create.amountPlaceholder")}
-                    className="flex-1"
-                  />
-                  <Select
-                    value={formData.currency}
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        currency: value,
-                        fx_rate: value === baseCurrency ? "1" : formData.fx_rate,
-                      })
-                    }
-                    disabled={repeatConfig.enabled}
-                  >
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CURRENCIES.map((curr) => (
-                        <SelectItem key={curr.code} value={curr.code}>
-                          {curr.code}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {requiresFxRate && (
-                <div className="space-y-2">
-                  <Label htmlFor="fx-rate">{t("fxRateLabel")}</Label>
-                  <Input
-                    id="fx-rate"
-                    type="text"
-                    value={formData.fx_rate}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        fx_rate: sanitizeNumericInput(e.target.value),
-                      })
-                    }
-                    placeholder={t("fxRatePlaceholder")}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {t("fxRateHelper", {
-                      currency: formData.currency,
-                      baseCurrency,
-                    })}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {t("baseAmountPreview", {
-                      amount: previewBaseAmount ?? "-",
-                      baseCurrency,
-                    })}
-                  </p>
-                </div>
-              )}
-
-              {/* Separator for Optional Fields */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    {t("create.optionalSeparator")}
-                  </span>
-                </div>
-              </div>
-
-              {/* 4. Optional Fields */}
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="category">{t("create.categoryLabel")}</Label>
-                  <Select
-                    value={formData.category_id || "none"}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, category_id: value === "none" ? undefined : value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={t("create.categoryPlaceholder")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">{t("create.categoryNone")}</SelectItem>
-                      {availableCategories.length === 0 ? (
-                        <SelectItem value="empty" disabled>
-                          {t("create.categoryEmpty", {
-                            type:
-                              formData.type === "income"
-                                ? t("income")
-                                : t("expenses"),
-                          })}
-                        </SelectItem>
-                      ) : (
-                        availableCategories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            <span className="flex items-center gap-2">
-                              <CategoryIcon
-                                iconId={cat.icon_id}
-                                size={16}
-                                tone="muted"
-                                accessibilityLabel={cat.name}
-                              />
-                              <span>{cat.name}</span>
-                            </span>
+                  {/* 4. Optional Fields */}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="category">
+                        {t("create.categoryLabel")}
+                      </Label>
+                      <Select
+                        value={formData.category_id || "none"}
+                        onValueChange={(value) =>
+                          setFormData({
+                            ...formData,
+                            category_id: value === "none" ? undefined : value,
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={t("create.categoryPlaceholder")}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">
+                            {t("create.categoryNone")}
                           </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
+                          {availableCategories.length === 0 ? (
+                            <SelectItem value="empty" disabled>
+                              {t("create.categoryEmpty", {
+                                type:
+                                  formData.type === "income"
+                                    ? t("income")
+                                    : t("expenses"),
+                              })}
+                            </SelectItem>
+                          ) : (
+                            availableCategories.map((cat) => (
+                              <SelectItem key={cat.id} value={cat.id}>
+                                <span className="flex items-center gap-2">
+                                  <CategoryIcon
+                                    iconId={cat.icon_id}
+                                    size={16}
+                                    tone="muted"
+                                    accessibilityLabel={cat.name}
+                                  />
+                                  <span>{cat.name}</span>
+                                </span>
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="merchant">{t("create.merchantLabel")}</Label>
-                  <Input
-                    id="merchant"
-                    value={formData.merchant}
-                    onChange={(e) =>
-                      setFormData({ ...formData, merchant: e.target.value })
-                    }
-                    placeholder={t("create.merchantPlaceholder")}
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="merchant">
+                        {t("create.merchantLabel")}
+                      </Label>
+                      <Input
+                        id="merchant"
+                        value={formData.merchant}
+                        onChange={(e) =>
+                          setFormData({ ...formData, merchant: e.target.value })
+                        }
+                        placeholder={t("create.merchantPlaceholder")}
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="notes">{t("create.notesLabel")}</Label>
-                  <Textarea
-                    id="notes"
-                    value={formData.notes}
-                    onChange={(e) =>
-                      setFormData({ ...formData, notes: e.target.value })
-                    }
-                    placeholder={t("create.notesPlaceholder")}
-                    rows={3}
-                  />
+                    <div className="space-y-2">
+                      <Label htmlFor="notes">{t("create.notesLabel")}</Label>
+                      <Textarea
+                        id="notes"
+                        value={formData.notes}
+                        onChange={(e) =>
+                          setFormData({ ...formData, notes: e.target.value })
+                        }
+                        placeholder={t("create.notesPlaceholder")}
+                        rows={3}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              </div>
               )}
             </SlidePanelBody>
             <SlidePanelFooter>
@@ -1475,224 +1484,244 @@ export function TransactionsClient({
                 {isSubmitting ? t("create.saving") : t("create.save")}
               </Button>
             </SlidePanelFooter>
-            </SlidePanelContent>
-          </SlidePanel>
-        )}
+          </SlidePanelContent>
+        </SlidePanel>
+      )}
 
-        {/* Edit Panel */}
-        {canEdit && (
-          <SlidePanel open={isEditOpen} onOpenChange={setIsEditOpen}>
-            <SlidePanelContent>
+      {/* Edit Panel */}
+      {canEdit && (
+        <SlidePanel open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <SlidePanelContent>
             <SlidePanelHeader>
               <SlidePanelTitle>{t("edit.title")}</SlidePanelTitle>
               <SlidePanelDescription>{t("edit.description")}</SlidePanelDescription>
             </SlidePanelHeader>
             <SlidePanelBody>
               <div className="grid gap-6">
-              {/* 1. Transaction Type - Pill Selector */}
-              <div className="space-y-3">
-                <Label>{t("create.typeLabel")}</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={formData.type === "expense" ? "default" : "outline"}
-                    className="flex-1"
-                    aria-pressed={formData.type === "expense"}
-                    onClick={() =>
-                      setFormData({
-                        ...formData,
-                        type: "expense",
-                        category_id: undefined,
-                      })
-                    }
-                  >
-                    {t("create.typeExpense")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={formData.type === "income" ? "default" : "outline"}
-                    className="flex-1"
-                    aria-pressed={formData.type === "income"}
-                    onClick={() =>
-                      setFormData({
-                        ...formData,
-                        type: "income",
-                        category_id: undefined,
-                      })
-                    }
-                  >
-                    {t("create.typeIncome")}
-                  </Button>
+                {/* 1. Transaction Type - Pill Selector */}
+                <div className="space-y-3">
+                  <Label>{t("create.typeLabel")}</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={
+                        formData.type === "expense" ? "default" : "outline"
+                      }
+                      className="flex-1"
+                      aria-pressed={formData.type === "expense"}
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          type: "expense",
+                          category_id: undefined,
+                        })
+                      }
+                    >
+                      {t("create.typeExpense")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={formData.type === "income" ? "default" : "outline"}
+                      className="flex-1"
+                      aria-pressed={formData.type === "income"}
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          type: "income",
+                          category_id: undefined,
+                        })
+                      }
+                    >
+                      {t("create.typeIncome")}
+                    </Button>
+                  </div>
                 </div>
-              </div>
 
-              {/* 2. Date with Monthly Context */}
-              <div className="space-y-3">
-                <Label htmlFor="edit-date">{t("create.dateLabel")}</Label>
-                <Input
-                  id="edit-date"
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, date: e.target.value })
-                  }
-                />
-                <p className={`text-sm ${getMonthContext(formData.date).isCurrent ? "text-muted-foreground" : "text-amber-600"}`}>
-                  {getMonthContext(formData.date).message}
-                </p>
-              </div>
-
-              {/* 3. Amount + Currency (Grouped) */}
-              <div className="space-y-3">
-                <Label>{t("create.amountLabel")}</Label>
-                <div className="flex gap-2">
+                {/* 2. Date with Monthly Context */}
+                <div className="space-y-3">
+                  <Label htmlFor="edit-date">{t("create.dateLabel")}</Label>
                   <Input
-                    id="edit-amount"
-                    type="text"
-                    value={formData.amount}
+                    id="edit-date"
+                    type="date"
+                    value={formData.date}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        amount: sanitizeNumericInput(e.target.value),
-                      })
+                      setFormData({ ...formData, date: e.target.value })
                     }
-                    placeholder={t("create.amountPlaceholder")}
-                    className="flex-1"
                   />
-                  <Select
-                    value={formData.currency}
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        currency: value,
-                        fx_rate: value === baseCurrency ? "1" : formData.fx_rate,
-                      })
-                    }
+                  <p
+                    className={`text-sm ${
+                      getMonthContext(formData.date).isCurrent
+                        ? "text-muted-foreground"
+                        : "text-amber-600"
+                    }`}
                   >
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CURRENCIES.map((curr) => (
-                        <SelectItem key={curr.code} value={curr.code}>
-                          {curr.code}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {requiresFxRate && (
-                <div className="space-y-2">
-                  <Label htmlFor="edit-fx-rate">{t("fxRateLabel")}</Label>
-                  <Input
-                    id="edit-fx-rate"
-                    type="text"
-                    value={formData.fx_rate}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        fx_rate: sanitizeNumericInput(e.target.value),
-                      })
-                    }
-                    placeholder={t("fxRatePlaceholder")}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {t("fxRateHelper", {
-                      currency: formData.currency,
-                      baseCurrency,
-                    })}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {t("baseAmountPreview", {
-                      amount: previewBaseAmount ?? "-",
-                      baseCurrency,
-                    })}
+                    {getMonthContext(formData.date).message}
                   </p>
                 </div>
-              )}
 
-              {/* Separator for Optional Fields */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    {t("create.optionalSeparator")}
-                  </span>
-                </div>
-              </div>
-
-              {/* 4. Optional Fields */}
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-category">{t("create.categoryLabel")}</Label>
-                  <Select
-                    value={formData.category_id || "none"}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, category_id: value === "none" ? undefined : value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={t("create.categoryPlaceholder")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">{t("create.categoryNone")}</SelectItem>
-                      {availableCategories.length === 0 ? (
-                        <SelectItem value="empty" disabled>
-                          {t("create.categoryEmpty", {
-                            type:
-                              formData.type === "income"
-                                ? t("income")
-                                : t("expenses"),
-                          })}
-                        </SelectItem>
-                      ) : (
-                        availableCategories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            <span className="flex items-center gap-2">
-                              <CategoryIcon
-                                iconId={cat.icon_id}
-                                size={16}
-                                tone="muted"
-                                accessibilityLabel={cat.name}
-                              />
-                              <span>{cat.name}</span>
-                            </span>
+                {/* 3. Amount + Currency (Grouped) */}
+                <div className="space-y-3">
+                  <Label>{t("create.amountLabel")}</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="edit-amount"
+                      type="text"
+                      value={formData.amount}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          amount: sanitizeNumericInput(e.target.value),
+                        })
+                      }
+                      placeholder={t("create.amountPlaceholder")}
+                      className="flex-1"
+                    />
+                    <Select
+                      value={formData.currency}
+                      onValueChange={(value) =>
+                        setFormData({
+                          ...formData,
+                          currency: value,
+                          fx_rate:
+                            value === baseCurrency ? "1" : formData.fx_rate,
+                        })
+                      }
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CURRENCIES.map((curr) => (
+                          <SelectItem key={curr.code} value={curr.code}>
+                            {curr.code}
                           </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="edit-merchant">{t("create.merchantLabel")}</Label>
-                  <Input
-                    id="edit-merchant"
-                    value={formData.merchant}
-                    onChange={(e) =>
-                      setFormData({ ...formData, merchant: e.target.value })
-                    }
-                    placeholder={t("create.merchantPlaceholder")}
-                  />
+                {requiresFxRate && (
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-fx-rate">{t("fxRateLabel")}</Label>
+                    <Input
+                      id="edit-fx-rate"
+                      type="text"
+                      value={formData.fx_rate}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          fx_rate: sanitizeNumericInput(e.target.value),
+                        })
+                      }
+                      placeholder={t("fxRatePlaceholder")}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t("fxRateHelper", {
+                        currency: formData.currency,
+                        baseCurrency,
+                      })}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("baseAmountPreview", {
+                        amount: previewBaseAmount ?? "-",
+                        baseCurrency,
+                      })}
+                    </p>
+                  </div>
+                )}
+
+                {/* Separator for Optional Fields */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">
+                      {t("create.optionalSeparator")}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="edit-notes">{t("create.notesLabel")}</Label>
-                  <Textarea
-                    id="edit-notes"
-                    value={formData.notes}
-                    onChange={(e) =>
-                      setFormData({ ...formData, notes: e.target.value })
-                    }
-                    placeholder={t("create.notesPlaceholder")}
-                    rows={3}
-                  />
+                {/* 4. Optional Fields */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-category">
+                      {t("create.categoryLabel")}
+                    </Label>
+                    <Select
+                      value={formData.category_id || "none"}
+                      onValueChange={(value) =>
+                        setFormData({
+                          ...formData,
+                          category_id: value === "none" ? undefined : value,
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={t("create.categoryPlaceholder")}
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          {t("create.categoryNone")}
+                        </SelectItem>
+                        {availableCategories.length === 0 ? (
+                          <SelectItem value="empty" disabled>
+                            {t("create.categoryEmpty", {
+                              type:
+                                formData.type === "income"
+                                  ? t("income")
+                                  : t("expenses"),
+                            })}
+                          </SelectItem>
+                        ) : (
+                          availableCategories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              <span className="flex items-center gap-2">
+                                <CategoryIcon
+                                  iconId={cat.icon_id}
+                                  size={16}
+                                  tone="muted"
+                                  accessibilityLabel={cat.name}
+                                />
+                                <span>{cat.name}</span>
+                              </span>
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-merchant">
+                      {t("create.merchantLabel")}
+                    </Label>
+                    <Input
+                      id="edit-merchant"
+                      value={formData.merchant}
+                      onChange={(e) =>
+                        setFormData({ ...formData, merchant: e.target.value })
+                      }
+                      placeholder={t("create.merchantPlaceholder")}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-notes">{t("create.notesLabel")}</Label>
+                    <Textarea
+                      id="edit-notes"
+                      value={formData.notes}
+                      onChange={(e) =>
+                        setFormData({ ...formData, notes: e.target.value })
+                      }
+                      placeholder={t("create.notesPlaceholder")}
+                      rows={3}
+                    />
+                  </div>
                 </div>
-              </div>
               </div>
             </SlidePanelBody>
             <SlidePanelFooter>
@@ -1707,14 +1736,14 @@ export function TransactionsClient({
                 {isSubmitting ? t("create.saving") : t("create.save")}
               </Button>
             </SlidePanelFooter>
-            </SlidePanelContent>
-          </SlidePanel>
-        )}
+          </SlidePanelContent>
+        </SlidePanel>
+      )}
 
-        {/* Delete Confirmation Dialog */}
-        {canEdit && (
-          <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-            <AlertDialogContent>
+      {/* Delete Confirmation Dialog */}
+      {canEdit && (
+        <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+          <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>{t("delete.title")}</AlertDialogTitle>
               <AlertDialogDescription>
@@ -1729,10 +1758,9 @@ export function TransactionsClient({
                 {isSubmitting ? t("delete.deleting") : t("delete.confirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
-      </div>
-    </div>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </PageContainer>
   );
 }

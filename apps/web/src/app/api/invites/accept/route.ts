@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     const { data: invite, error: inviteError } = await supabase
       .from("invites")
       .select(
-        "id, account_id, role, expires_at, revoked_at, max_uses, uses_count"
+        "id, account_id, role, expires_at, revoked_at, max_uses, uses_count, invitee_user_id, invitee_email"
       )
       .eq("token_hash", tokenHash)
       .single();
@@ -59,6 +59,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { errorKey: "errors.inviteInvalidToken" },
         { status: 404 }
+      );
+    }
+
+    const inviteTargetEmail =
+      typeof invite.invitee_email === "string"
+        ? invite.invitee_email.toLowerCase()
+        : null;
+
+    if (invite.invitee_user_id && invite.invitee_user_id !== user.id) {
+      return NextResponse.json(
+        { errorKey: "errors.inviteInvalidRecipient" },
+        { status: 403 }
+      );
+    }
+
+    if (inviteTargetEmail && user.email?.toLowerCase() !== inviteTargetEmail) {
+      return NextResponse.json(
+        { errorKey: "errors.inviteInvalidRecipient" },
+        { status: 403 }
       );
     }
 

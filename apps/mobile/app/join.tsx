@@ -90,7 +90,7 @@ export default function JoinScreen() {
 
         // 6. Redirect to home after 2 seconds
         setTimeout(() => {
-          router.replace("/(auth)/home");
+          router.replace("/(auth)/(tabs)/home");
         }, 2000);
       } catch (error) {
         console.error("[Join] Error:", error);

@@ -67,7 +67,6 @@ export function AddAction({ canEdit }: AddActionProps) {
 
   return (
     <>
-      <Button onClick={() => setIsOpen(true)}>+ {t("home.addCta")}</Button>
       <Button
         onClick={() => setIsOpen(true)}
         className="fixed bottom-6 right-6 z-40 rounded-full px-5 py-6 shadow-lg"
