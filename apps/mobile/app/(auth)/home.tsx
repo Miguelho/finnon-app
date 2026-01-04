@@ -430,13 +430,12 @@ export default function HomeScreen() {
             </View>
           )}
         </View>
-
+        
+        <View style={styles.heroHeader}>
+          <Text style={styles.heroTitle}>{t(dictionary, "mobile.home.monthTitle")}</Text>
+        </View>
         {/* Hero */}
         <View style={styles.heroCard}>
-          <View style={styles.heroHeader}>
-            <Text style={styles.heroTitle}>{t(dictionary, "mobile.home.monthTitle")}</Text>
-          </View>
-
           <View style={styles.heroMetrics}>
             <View style={styles.heroMetric}>
               <Text style={styles.heroMetricLabel}>
@@ -475,35 +474,6 @@ export default function HomeScreen() {
               </Text>
             </View>
           </View>
-
-          {viewModel.monthlyHero.nextObligation ? (
-            <View style={styles.nextObligationRow}>
-              <Text style={styles.nextObligationLabel}>Próxima obligación</Text>
-              <Text style={styles.nextObligationValue} numberOfLines={1}>
-                {viewModel.monthlyHero.nextObligation.name} · {" "}
-                {formatDateShort(viewModel.monthlyHero.nextObligation.dueDate, locale)} ·{" "}
-                {formatMoneyWithSymbol(
-                  viewModel.monthlyHero.nextObligation.amountMinor,
-                  mainAccount.base_currency,
-                  currencySymbol
-                )}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.heroEmptyRow}>
-              <Text style={styles.heroEmptyText}>
-                {viewModel.emptyStates.obligations.title}
-              </Text>
-              <TouchableOpacity
-                style={styles.heroEmptyCta}
-                onPress={() => setIsAddSheetOpen(true)}
-              >
-                <Text style={styles.heroEmptyCtaText}>
-                  {viewModel.emptyStates.obligations.cta}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
 
           {!viewModel.monthlyHero.hasActivity && (
             <View style={styles.heroActivityEmpty}>
