@@ -35,6 +35,28 @@ export type RecentActivityItem = {
   categoryName?: string | null;
 };
 
+export type AccountGlobalState = {
+  incomeMinor: bigint;
+  expenseMinor: bigint;
+  balanceMinor: bigint;
+};
+
+export type CashflowItem = {
+  id: string;
+  title: string;
+  date: Date;
+  amountMinor: bigint;
+  currency: string;
+  type: "income" | "expense";
+  source: "transaction" | "obligation";
+};
+
+export type CashflowWindow = {
+  incomeMinor: bigint;
+  expenseMinor: bigint;
+  items: CashflowItem[];
+};
+
 const toDate = (value: string | Date | null | undefined): Date | null => {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
@@ -180,4 +202,94 @@ export function getRecentActivity(
       categoryName,
     };
   });
+}
+
+export function getAccountGlobalState(
+  transactions: Transaction[]
+): AccountGlobalState {
+  let incomeMinor = 0n;
+  let expenseMinor = 0n;
+
+  transactions.forEach((transaction) => {
+    const amount = toMinor(
+      transaction.amount_base_minor ?? transaction.amount_minor
+    );
+
+    if (transaction.type === "income") {
+      incomeMinor += amount;
+    } else {
+      expenseMinor += amount;
+    }
+  });
+
+  return {
+    incomeMinor,
+    expenseMinor,
+    balanceMinor: incomeMinor - expenseMinor,
+  };
+}
+
+export function getUpcomingCashflowWindow(
+  obligations: Obligation[],
+  transactions: Transaction[],
+  range: DateRange,
+  baseCurrency: string | undefined,
+  fallbackTitle: string
+): CashflowWindow {
+  let incomeMinor = 0n;
+  let expenseMinor = 0n;
+  const items: CashflowItem[] = [];
+
+  obligations.forEach((obligation) => {
+    if (obligation.status === "paid") return;
+    const dueDate = toDate(obligation.due_date);
+    if (!dueDate || !isWithinRange(dueDate, range)) return;
+
+    const amount = toMinor(obligation.amount_base_minor ?? obligation.amount_minor);
+    expenseMinor += amount;
+    items.push({
+      id: obligation.id,
+      title: obligation.name,
+      date: dueDate,
+      amountMinor: amount,
+      currency: baseCurrency || obligation.currency,
+      type: "expense",
+      source: "obligation",
+    });
+  });
+
+  transactions.forEach((transaction) => {
+    const date = toDate(transaction.date);
+    if (!date || !isWithinRange(date, range)) return;
+
+    const amount = toMinor(
+      transaction.amount_base_minor ?? transaction.amount_minor
+    );
+    const categoryName = transaction.category?.name ?? null;
+    const title = transaction.merchant || categoryName || fallbackTitle;
+
+    if (transaction.type === "income") {
+      incomeMinor += amount;
+    } else {
+      expenseMinor += amount;
+    }
+
+    items.push({
+      id: transaction.id,
+      title,
+      date,
+      amountMinor: amount,
+      currency: baseCurrency || transaction.currency,
+      type: transaction.type,
+      source: "transaction",
+    });
+  });
+
+  items.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  return {
+    incomeMinor,
+    expenseMinor,
+    items,
+  };
 }

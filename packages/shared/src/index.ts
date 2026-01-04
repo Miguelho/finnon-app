@@ -14,6 +14,7 @@ export * from "./domain/types";
 export * from "./domain/settings";
 export * from "./date/month";
 export * from "./home/home.compute";
+export * from "./home/home.actions";
 export * from "./home/home.viewmodel";
 export * from "./recurring";
 export * from "./theme/tokens";

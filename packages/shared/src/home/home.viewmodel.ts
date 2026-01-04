@@ -8,10 +8,14 @@ import type {
 import type { CopyDictionary } from "../copy";
 import { t } from "../copy";
 import {
+  getAccountGlobalState,
   computeMonthlySummary,
   getMonthRange,
+  getUpcomingCashflowWindow,
   getUpcomingItems,
   getRecentActivity,
+  type AccountGlobalState,
+  type CashflowItem,
   type DateRange,
   type MonthlySummary,
   type RecentActivityItem,
@@ -21,6 +25,7 @@ import {
 export type HomeViewModel = {
   account: Account;
   monthKey: string;
+  accountSummary: AccountGlobalState;
   monthlyHero: {
     committedMinor: bigint;
     pendingMinor: bigint;
@@ -32,6 +37,12 @@ export type HomeViewModel = {
   };
   upcoming: {
     items: UpcomingItem[];
+    range: DateRange;
+  };
+  cashflow: {
+    incomeMinor: bigint;
+    expenseMinor: bigint;
+    items: CashflowItem[];
     range: DateRange;
   };
   recentActivity: {
@@ -60,8 +71,15 @@ export type HomeViewModel = {
     addCta: string;
     upcomingCta: string;
     recentCta: string;
+    balanceLabel: string;
+    incomeLabel: string;
+    expenseLabel: string;
     committedLabel: string;
     pendingLabel: string;
+    upcomingObligationsTitle: string;
+    cashflowTitle: string;
+    markPaid: string;
+    markPending: string;
   };
 };
 
@@ -72,7 +90,9 @@ export type BuildHomeViewModelInput = {
   participants?: Participant[];
   obligations?: Obligation[];
   monthlyTransactions?: Transaction[];
+  upcomingTransactions?: Transaction[];
   recentTransactions?: Transaction[];
+  balanceTransactions?: Transaction[];
   month?: Date;
   nextDays?: number;
   recentLimit?: number;
@@ -97,20 +117,29 @@ export function buildHomeViewModel({
   dictionary,
   obligations = [],
   monthlyTransactions = [],
+  upcomingTransactions,
   recentTransactions,
+  balanceTransactions,
   month,
   nextDays = 7,
   recentLimit = 6,
   now,
 }: BuildHomeViewModelInput): HomeViewModel {
-  const today = now ?? new Date();
-  const activeMonth = month ?? today;
+  const nowDate = now ?? new Date();
+  const activeMonth = month ?? nowDate;
   const monthRange = getMonthRange(activeMonth);
+  const startOfToday = new Date(
+    nowDate.getFullYear(),
+    nowDate.getMonth(),
+    nowDate.getDate()
+  );
+  const balanceSource = balanceTransactions ?? monthlyTransactions;
   const upcomingRange: DateRange = {
-    start: today,
-    end: addDays(today, nextDays),
+    start: startOfToday,
+    end: addDays(startOfToday, nextDays),
   };
 
+  const accountSummary = getAccountGlobalState(balanceSource);
   const monthlySummary: MonthlySummary = computeMonthlySummary(
     obligations,
     monthlyTransactions,
@@ -118,8 +147,16 @@ export function buildHomeViewModel({
   );
 
   const upcomingItems = getUpcomingItems(obligations, upcomingRange);
+  const cashflowTransactions = upcomingTransactions ?? [];
+  const cashflowWindow = getUpcomingCashflowWindow(
+    obligations,
+    cashflowTransactions,
+    upcomingRange,
+    account.base_currency,
+    t(dictionary, "home.recentFallbackTitle")
+  );
   const nextObligation =
-    getUpcomingItems(obligations, { start: today, end: monthRange.end })[0] ??
+    getUpcomingItems(obligations, { start: startOfToday, end: monthRange.end })[0] ??
     null;
 
   const recentItems = getRecentActivity(
@@ -143,6 +180,7 @@ export function buildHomeViewModel({
   return {
     account,
     monthKey: toMonthKey(activeMonth),
+    accountSummary,
     monthlyHero: {
       committedMinor: monthlySummary.committedMinor,
       pendingMinor: hasObligations ? monthlySummary.pendingMinor : 0n,
@@ -154,6 +192,12 @@ export function buildHomeViewModel({
     },
     upcoming: {
       items: upcomingItems,
+      range: upcomingRange,
+    },
+    cashflow: {
+      incomeMinor: cashflowWindow.incomeMinor,
+      expenseMinor: cashflowWindow.expenseMinor,
+      items: cashflowWindow.items,
       range: upcomingRange,
     },
     recentActivity: {
@@ -168,7 +212,7 @@ export function buildHomeViewModel({
         title: t(dictionary, "home.emptyActivityTitle"),
         cta: t(dictionary, "home.emptyActivityCta"),
       },
-      upcoming: t(dictionary, "home.upcomingEmpty"),
+      upcoming: t(dictionary, "home.upcomingEmpty", { days: nextDays }),
       recent: t(dictionary, "home.recentEmpty"),
     },
     permissions: {
@@ -182,8 +226,15 @@ export function buildHomeViewModel({
       addCta: t(dictionary, "home.addCta"),
       upcomingCta: t(dictionary, "home.upcomingCta"),
       recentCta: t(dictionary, "home.recentCta"),
+      balanceLabel: t(dictionary, "common.balanceLabel"),
+      incomeLabel: t(dictionary, "common.incomeLabel"),
+      expenseLabel: t(dictionary, "common.expenseLabel"),
       committedLabel: t(dictionary, "home.committedLabel"),
       pendingLabel: t(dictionary, "home.pendingLabel"),
+      upcomingObligationsTitle: t(dictionary, "home.upcomingObligationsTitle"),
+      cashflowTitle: t(dictionary, "home.cashflowTitle", { days: nextDays }),
+      markPaid: t(dictionary, "home.markPaid"),
+      markPending: t(dictionary, "home.markPending"),
     },
   };
 }

@@ -23,6 +23,7 @@ import {
   formatMoneyWithSymbol,
   getIconById,
   getMonthRange,
+  markObligationPaid,
   themeTokens,
   type UserRole,
   type Obligation,
@@ -66,6 +67,7 @@ type Transaction = {
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
+const CASHFLOW_DAYS_OPTIONS = [7, 14, 30] as const;
 
 function formatDateShort(value: Date, locale: string) {
   return value.toLocaleDateString(locale, {
@@ -120,6 +122,9 @@ export default function HomeScreen() {
     []
   );
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [upcomingTransactions, setUpcomingTransactions] = useState<Transaction[]>(
+    []
+  );
   const [obligations, setObligations] = useState<Obligation[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
@@ -128,6 +133,7 @@ export default function HomeScreen() {
   const [updatingObligationId, setUpdatingObligationId] = useState<string | null>(
     null
   );
+  const [nextDays, setNextDays] = useState<number>(CASHFLOW_DAYS_OPTIONS[0]);
 
   const mainAccount = useMemo(() => {
     if (!accounts || accounts.length === 0) return null;
@@ -204,11 +210,15 @@ export default function HomeScreen() {
       const monthRange = getMonthRange(new Date());
       const startDate = monthRange.start.toISOString().slice(0, 10);
       const endDate = monthRange.end.toISOString().slice(0, 10);
-      const upcomingEnd = new Date();
-      upcomingEnd.setDate(upcomingEnd.getDate() + 7);
+      const today = new Date();
+      const maxUpcomingDays = Math.max(...CASHFLOW_DAYS_OPTIONS);
+      const upcomingEnd = new Date(today);
+      upcomingEnd.setDate(upcomingEnd.getDate() + maxUpcomingDays);
       const obligationsEnd =
         upcomingEnd > monthRange.end ? upcomingEnd : monthRange.end;
       const obligationsEndDate = obligationsEnd.toISOString().slice(0, 10);
+      const upcomingStartDate = today.toISOString().slice(0, 10);
+      const upcomingEndDate = upcomingEnd.toISOString().slice(0, 10);
 
       try {
         const { data: monthData, error: monthError } = await supabase
@@ -236,6 +246,18 @@ export default function HomeScreen() {
 
         if (recentError) throw recentError;
 
+        const { data: upcomingData, error: upcomingError } = await supabase
+          .from("transactions")
+          .select(
+            "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id)"
+          )
+          .eq("account_id", mainAccount.id)
+          .gte("date", upcomingStartDate)
+          .lte("date", upcomingEndDate)
+          .order("date", { ascending: true });
+
+        if (upcomingError) throw upcomingError;
+
         const { data: obligationsData, error: obligationsError } = await supabase
           .from("obligations")
           .select(
@@ -251,6 +273,7 @@ export default function HomeScreen() {
         if (!cancelled) {
           setMonthlyTransactions((monthData as Transaction[]) ?? []);
           setRecentTransactions((recentData as Transaction[]) ?? []);
+          setUpcomingTransactions((upcomingData as Transaction[]) ?? []);
           setObligations((obligationsData as Obligation[]) ?? []);
         }
       } catch (e: any) {
@@ -331,10 +354,12 @@ export default function HomeScreen() {
     dictionary,
     obligations,
     monthlyTransactions,
+    upcomingTransactions,
     recentTransactions,
     month: new Date(),
-    nextDays: 7,
+    nextDays,
     recentLimit: 6,
+    now: new Date(),
   });
 
   const upcomingItems = viewModel.upcoming.items.slice(0, 5);
@@ -344,26 +369,17 @@ export default function HomeScreen() {
     status?: "pending" | "paid";
   }) => {
     if (!viewModel.permissions.canEdit) return;
-    const nextStatus = item.status === "paid" ? "pending" : "paid";
-    const paidAt =
-      nextStatus === "paid" ? new Date().toISOString().slice(0, 10) : null;
-
     setUpdatingObligationId(item.id);
     try {
-      const { error: updateError } = await supabase
-        .from("obligations")
-        .update({ status: nextStatus, paid_at: paidAt })
-        .eq("id", item.id);
-
-      if (updateError) throw updateError;
+      const update = await markObligationPaid(supabase, item.id, item.status);
 
       setObligations((prev) =>
         prev.map((obligation) =>
           obligation.id === item.id
             ? {
                 ...obligation,
-                status: nextStatus,
-                paid_at: paidAt,
+                status: update.status,
+                paid_at: update.paidAt,
               }
             : obligation
         )
@@ -431,43 +447,40 @@ export default function HomeScreen() {
           )}
         </View>
         
-        <View style={styles.heroHeader}>
-          <Text style={styles.heroTitle}>{t(dictionary, "mobile.home.monthTitle")}</Text>
-        </View>
         {/* Hero */}
         <View style={styles.heroCard}>
-          <View style={styles.heroMetrics}>
-            <View style={styles.heroMetric}>
-              <Text style={styles.heroMetricLabel}>
-                {viewModel.copy.committedLabel}
-              </Text>
-              <Text style={styles.heroMetricValue}>
+          <View style={[styles.heroSection, styles.heroSectionFirst]}>
+            <Text style={styles.heroSectionLabel}>{viewModel.copy.balanceLabel}</Text>
+            <Text
+              style={[
+                styles.heroBalanceValue,
+                viewModel.accountSummary.balanceMinor < 0n
+                  ? styles.amountNegative
+                  : styles.amountPositive,
+              ]}
+            >
+              {viewModel.accountSummary.balanceMinor < 0n ? "-" : "+"}
+              {formatMoneyWithSymbol(
+                viewModel.accountSummary.balanceMinor < 0n
+                  ? -viewModel.accountSummary.balanceMinor
+                  : viewModel.accountSummary.balanceMinor,
+                mainAccount.base_currency,
+                currencySymbol
+              )}
+            </Text>
+            <View style={styles.heroBalanceRow}>
+              <Text style={styles.heroBalanceMeta}>
+                {viewModel.copy.incomeLabel}{" "}
                 {formatMoneyWithSymbol(
-                  viewModel.monthlyHero.committedMinor,
+                  viewModel.accountSummary.incomeMinor,
                   mainAccount.base_currency,
                   currencySymbol
                 )}
               </Text>
-            </View>
-            <View style={styles.heroMetric}>
-              <Text style={styles.heroMetricLabel}>
-                {viewModel.copy.pendingLabel}
-              </Text>
-              <Text style={styles.heroMetricValue}>
+              <Text style={styles.heroBalanceMeta}>
+                {viewModel.copy.expenseLabel}{" "}
                 {formatMoneyWithSymbol(
-                  viewModel.monthlyHero.pendingMinor,
-                  mainAccount.base_currency,
-                  currencySymbol
-                )}
-              </Text>
-            </View>
-            <View style={styles.heroMetric}>
-              <Text style={styles.heroMetricLabel}>
-                {viewModel.monthlyHero.paidLabel}
-              </Text>
-              <Text style={styles.heroMetricValue}>
-                {formatMoneyWithSymbol(
-                  viewModel.monthlyHero.paidMinor,
+                  viewModel.accountSummary.expenseMinor,
                   mainAccount.base_currency,
                   currencySymbol
                 )}
@@ -475,21 +488,234 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {!viewModel.monthlyHero.hasActivity && (
-            <View style={styles.heroActivityEmpty}>
-              <Text style={styles.heroEmptyText}>
-                {viewModel.emptyStates.activity.title}
+          <View style={styles.heroSection}>
+            <View style={styles.heroSectionHeader}>
+              <Text style={styles.heroSectionTitle}>
+                {t(dictionary, "mobile.home.monthTitle")}
               </Text>
-              <TouchableOpacity
-                style={styles.heroEmptyCta}
-                onPress={() => setIsAddSheetOpen(true)}
-              >
-                <Text style={styles.heroEmptyCtaText}>
-                  {viewModel.emptyStates.activity.cta}
-                </Text>
-              </TouchableOpacity>
             </View>
-          )}
+            <View style={styles.heroMetrics}>
+              <View style={styles.heroMetric}>
+                <Text style={styles.heroMetricLabel}>
+                  {viewModel.copy.committedLabel}
+                </Text>
+                <Text style={styles.heroMetricValue}>
+                  {formatMoneyWithSymbol(
+                    viewModel.monthlyHero.committedMinor,
+                    mainAccount.base_currency,
+                    currencySymbol
+                  )}
+                </Text>
+              </View>
+              <View style={styles.heroMetric}>
+                <Text style={styles.heroMetricLabel}>
+                  {viewModel.copy.pendingLabel}
+                </Text>
+                <Text style={styles.heroMetricValue}>
+                  {formatMoneyWithSymbol(
+                    viewModel.monthlyHero.pendingMinor,
+                    mainAccount.base_currency,
+                    currencySymbol
+                  )}
+                </Text>
+              </View>
+              <View style={styles.heroMetric}>
+                <Text style={styles.heroMetricLabel}>
+                  {viewModel.monthlyHero.paidLabel}
+                </Text>
+                <Text style={styles.heroMetricValue}>
+                  {formatMoneyWithSymbol(
+                    viewModel.monthlyHero.paidMinor,
+                    mainAccount.base_currency,
+                    currencySymbol
+                  )}
+                </Text>
+              </View>
+            </View>
+
+            {!viewModel.monthlyHero.hasActivity && (
+              <View style={styles.heroActivityEmpty}>
+                <Text style={styles.heroEmptyText}>
+                  {viewModel.emptyStates.activity.title}
+                </Text>
+                <TouchableOpacity
+                  style={styles.heroEmptyCta}
+                  onPress={() => setIsAddSheetOpen(true)}
+                >
+                  <Text style={styles.heroEmptyCtaText}>
+                    {viewModel.emptyStates.activity.cta}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.heroSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>
+                {viewModel.copy.upcomingObligationsTitle}
+              </Text>
+              {upcomingItems.length > 0 && (
+                <TouchableOpacity onPress={() => router.push("/(auth)/transactions")}>
+                  <Text style={styles.sectionCta} numberOfLines={1}>
+                    {viewModel.copy.upcomingCta}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {upcomingItems.length === 0 ? (
+              viewModel.monthlyHero.hasObligations ? (
+                <Text style={styles.emptyText}>{viewModel.emptyStates.upcoming}</Text>
+              ) : (
+                <View style={styles.heroEmptyRow}>
+                  <Text style={styles.heroEmptyText}>
+                    {viewModel.emptyStates.obligations.title}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.heroEmptyCta}
+                    onPress={() => setIsAddSheetOpen(true)}
+                  >
+                    <Text style={styles.heroEmptyCtaText}>
+                      {viewModel.emptyStates.obligations.cta}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )
+            ) : (
+              <View style={styles.list}>
+                {upcomingItems.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[
+                      styles.listRow,
+                      !viewModel.permissions.canEdit && styles.listRowDisabled,
+                    ]}
+                    onPress={() => router.push(`/(auth)/obligations/${item.id}`)}
+                    disabled={!viewModel.permissions.canEdit}
+                  >
+                    <View style={styles.listRowInfo}>
+                      <Text style={styles.listRowTitle} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      <View style={styles.listRowMetaRow}>
+                        <Text style={styles.listRowMeta}>
+                          {formatDateShort(item.dueDate, locale)}
+                        </Text>
+                        <View
+                          style={[
+                            styles.statusChip,
+                            item.status === "paid"
+                              ? styles.statusChipPaid
+                              : styles.statusChipPending,
+                          ]}
+                        >
+                          <Text style={styles.statusChipText}>
+                            {item.status === "paid"
+                              ? t(dictionary, "obligations.create.statusPaid")
+                              : t(dictionary, "obligations.create.statusPending")}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.listRowActions}>
+                      <Text style={styles.listRowAmount}>
+                        {formatMoneyWithSymbol(
+                          item.amountMinor,
+                          mainAccount.base_currency,
+                          currencySymbol
+                        )}
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.obligationAction,
+                          item.status === "paid"
+                            ? styles.obligationActionSecondary
+                            : styles.obligationActionPrimary,
+                          (updatingObligationId === item.id ||
+                            !viewModel.permissions.canEdit) &&
+                            styles.obligationActionDisabled,
+                        ]}
+                        onPress={() => handleToggleObligationStatus(item)}
+                        disabled={
+                          updatingObligationId === item.id ||
+                          !viewModel.permissions.canEdit
+                        }
+                      >
+                        <Text
+                          style={[
+                            styles.obligationActionText,
+                            item.status === "paid" &&
+                              styles.obligationActionTextSecondary,
+                          ]}
+                        >
+                          {item.status === "paid"
+                            ? viewModel.copy.markPending
+                            : viewModel.copy.markPaid}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
+          <View style={styles.heroSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{viewModel.copy.cashflowTitle}</Text>
+              <View style={styles.daySelector}>
+                {CASHFLOW_DAYS_OPTIONS.map((days) => (
+                  <TouchableOpacity
+                    key={days}
+                    style={[
+                      styles.dayOption,
+                      nextDays === days && styles.dayOptionActive,
+                    ]}
+                    onPress={() => setNextDays(days)}
+                  >
+                    <Text
+                      style={[
+                        styles.dayOptionText,
+                        nextDays === days && styles.dayOptionTextActive,
+                      ]}
+                    >
+                      {days}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            {viewModel.cashflow.items.length === 0 ? (
+              <Text style={styles.emptyText}>{viewModel.emptyStates.upcoming}</Text>
+            ) : (
+              <View style={styles.cashflowMetrics}>
+                <View style={styles.cashflowMetric}>
+                  <Text style={styles.heroMetricLabel}>
+                    {viewModel.copy.incomeLabel}
+                  </Text>
+                  <Text style={[styles.heroMetricValue, styles.amountPositive]}>
+                    +{formatMoneyWithSymbol(
+                      viewModel.cashflow.incomeMinor,
+                      mainAccount.base_currency,
+                      currencySymbol
+                    )}
+                  </Text>
+                </View>
+                <View style={styles.cashflowMetric}>
+                  <Text style={styles.heroMetricLabel}>
+                    {viewModel.copy.expenseLabel}
+                  </Text>
+                  <Text style={[styles.heroMetricValue, styles.amountNegative]}>
+                    -{formatMoneyWithSymbol(
+                      viewModel.cashflow.expenseMinor,
+                      mainAccount.base_currency,
+                      currencySymbol
+                    )}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
 
           {viewModel.permissions.isGuestReadOnly && (
             <View style={styles.readOnlyRow}>
@@ -502,101 +728,6 @@ export default function HomeScreen() {
                   {viewModel.copy.guestCta}
                 </Text>
               </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        {/* Upcoming */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              {t(dictionary, "mobile.home.upcomingObligationsTitle")}
-            </Text>
-            {upcomingItems.length > 0 && (
-              <TouchableOpacity onPress={() => router.push("/(auth)/transactions")}>
-                <Text style={styles.sectionCta} numberOfLines={1}>
-                  {viewModel.copy.upcomingCta}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          {upcomingItems.length === 0 ? (
-            <Text style={styles.emptyText}>{viewModel.emptyStates.upcoming}</Text>
-          ) : (
-            <View style={styles.list}>
-              {upcomingItems.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[
-                    styles.listRow,
-                    !viewModel.permissions.canEdit && styles.listRowDisabled,
-                  ]}
-                  onPress={() => router.push(`/(auth)/obligations/${item.id}`)}
-                  disabled={!viewModel.permissions.canEdit}
-                >
-                  <View style={styles.listRowInfo}>
-                    <Text style={styles.listRowTitle} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    <View style={styles.listRowMetaRow}>
-                      <Text style={styles.listRowMeta}>
-                        {formatDateShort(item.dueDate, locale)}
-                      </Text>
-                      <View
-                        style={[
-                          styles.statusChip,
-                          item.status === "paid"
-                            ? styles.statusChipPaid
-                            : styles.statusChipPending,
-                        ]}
-                      >
-                        <Text style={styles.statusChipText}>
-                          {item.status === "paid"
-                            ? t(dictionary, "obligations.create.statusPaid")
-                            : t(dictionary, "obligations.create.statusPending")}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                  <View style={styles.listRowActions}>
-                    <Text style={styles.listRowAmount}>
-                      {formatMoneyWithSymbol(
-                        item.amountMinor,
-                        mainAccount.base_currency,
-                        currencySymbol
-                      )}
-                    </Text>
-                    <TouchableOpacity
-                      style={[
-                        styles.obligationAction,
-                        item.status === "paid"
-                          ? styles.obligationActionSecondary
-                          : styles.obligationActionPrimary,
-                        (updatingObligationId === item.id ||
-                          !viewModel.permissions.canEdit) &&
-                          styles.obligationActionDisabled,
-                      ]}
-                      onPress={() => handleToggleObligationStatus(item)}
-                      disabled={
-                        updatingObligationId === item.id ||
-                        !viewModel.permissions.canEdit
-                      }
-                    >
-                      <Text
-                        style={[
-                          styles.obligationActionText,
-                          item.status === "paid" &&
-                            styles.obligationActionTextSecondary,
-                        ]}
-                      >
-                        {item.status === "paid"
-                          ? t(dictionary, "mobile.home.markPending")
-                          : t(dictionary, "mobile.home.markPaid")}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              ))}
             </View>
           )}
         </View>
@@ -899,13 +1030,40 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.md,
     backgroundColor: colors.bg.surface,
   },
-  heroHeader: {
+  heroSection: {
+    borderTopWidth: 1,
+    borderTopColor: colors.state.neutral,
+    paddingTop: tokens.spacing.md,
+    gap: tokens.spacing.sm,
+  },
+  heroSectionFirst: {
+    borderTopWidth: 0,
+    paddingTop: 0,
+  },
+  heroSectionLabel: {
+    fontSize: tokens.typography.size.xs,
+    color: colors.text.secondary,
+  },
+  heroBalanceValue: {
+    fontSize: tokens.typography.size.display,
+    fontWeight: "700",
+  },
+  heroBalanceRow: {
+    flexDirection: "row",
+    gap: tokens.spacing.md,
+    flexWrap: "wrap",
+  },
+  heroBalanceMeta: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.secondary,
+  },
+  heroSectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  heroTitle: {
-    fontSize: tokens.typography.size.xl,
+  heroSectionTitle: {
+    fontSize: tokens.typography.size.lg,
     fontWeight: "700",
     color: colors.text.primary,
   },
@@ -926,21 +1084,6 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.lg,
     fontWeight: "700",
     color: colors.text.primary,
-  },
-  nextObligationRow: {
-    borderTopWidth: 1,
-    borderTopColor: colors.state.neutral,
-    paddingTop: tokens.spacing.md,
-    gap: 4,
-  },
-  nextObligationLabel: {
-    fontSize: tokens.typography.size.xs,
-    color: colors.text.secondary,
-  },
-  nextObligationValue: {
-    fontSize: tokens.typography.size.sm,
-    color: colors.text.primary,
-    fontWeight: "600",
   },
   heroEmptyRow: {
     gap: 6,
@@ -989,6 +1132,38 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.sm,
     fontWeight: "600",
     color: colors.text.primary,
+  },
+  daySelector: {
+    flexDirection: "row",
+    gap: tokens.spacing.xs,
+  },
+  dayOption: {
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: 4,
+    borderRadius: tokens.radii.pill,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    backgroundColor: colors.bg.secondary,
+  },
+  dayOptionActive: {
+    backgroundColor: colors.action.secondary,
+    borderColor: colors.action.primary,
+  },
+  dayOptionText: {
+    fontSize: tokens.typography.size.xs,
+    fontWeight: "600",
+    color: colors.text.secondary,
+  },
+  dayOptionTextActive: {
+    color: colors.text.primary,
+  },
+  cashflowMetrics: {
+    flexDirection: "row",
+    gap: tokens.spacing.md,
+  },
+  cashflowMetric: {
+    flex: 1,
+    gap: 4,
   },
   section: {
     gap: tokens.spacing.md,
