@@ -11,7 +11,9 @@ import {
   Pressable,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
 import { Button } from "../../../src/components/Button";
@@ -101,8 +103,10 @@ export default function TransactionsScreen(): React.JSX.Element {
   const currentMonth = toMonthKey(new Date());
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  const [isMonthActionsOpen, setIsMonthActionsOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
   const [pickerMonthIndex, setPickerMonthIndex] = useState(new Date().getMonth());
+  const insets = useSafeAreaInsets();
 
   const monthRange = useMemo(
     () => getMonthRangeFromKey(selectedMonth),
@@ -241,11 +245,20 @@ export default function TransactionsScreen(): React.JSX.Element {
     setSelectedMonth(addMonths(selectedMonth, 1));
   };
 
+  const openMonthActions = () => {
+    setIsMonthActionsOpen(true);
+  };
+
+  const closeMonthActions = () => {
+    setIsMonthActionsOpen(false);
+  };
+
   const openMonthPicker = () => {
     const { year, monthIndex } = parseMonthKey(selectedMonth);
     setPickerYear(year);
     setPickerMonthIndex(monthIndex);
     setIsMonthPickerOpen(true);
+    setIsMonthActionsOpen(false);
   };
 
   const applyMonthPicker = () => {
@@ -413,352 +426,410 @@ export default function TransactionsScreen(): React.JSX.Element {
     }
   };
 
+  const screenTitle = t(dictionary, "transactions.pageTitle");
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(auth)/(tabs)/home");
+  };
+  const screenOptions = {
+    title: screenTitle,
+    headerLeft: () => (
+      <TouchableOpacity
+        onPress={handleBack}
+        accessibilityRole="button"
+        accessibilityLabel={t(dictionary, "common.back")}
+        style={styles.headerBackButton}
+        hitSlop={{
+          top: spacing.sm,
+          bottom: spacing.sm,
+          left: spacing.sm,
+          right: spacing.sm,
+        }}
+      >
+        <MaterialCommunityIcons
+          name="arrow-left"
+          size={22}
+          color={colors.text.primary}
+        />
+      </TouchableOpacity>
+    ),
+  };
+
   if (loading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" />
-      </View>
+      <>
+        <Stack.Screen options={screenOptions} />
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" />
+        </View>
+      </>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.container}>
-        <Card title={t(dictionary, "common.errorTitle")} description={error}>
-          <Button title={t(dictionary, "common.retry")} onPress={loadData} />
-        </Card>
-      </View>
+      <>
+        <Stack.Screen options={screenOptions} />
+        <View style={styles.container}>
+          <Card title={t(dictionary, "common.errorTitle")} description={error}>
+            <Button title={t(dictionary, "common.retry")} onPress={loadData} />
+          </Card>
+        </View>
+      </>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>{t(dictionary, "transactions.pageTitle")}</Text>
-        <Text style={styles.subtitle}>{t(dictionary, "transactions.pageDescription")}</Text>
-      </View>
-
-      {/* Actions */}
-      <View style={styles.actions}>
-        <Button
-          title={t(dictionary, "transactions.newTransaction")}
-          onPress={() => router.push("/(auth)/transactions/create")}
-        />
-        <Button
-          title={t(dictionary, "common.back")}
-          onPress={() => router.back()}
-          variant="secondary"
-        />
-      </View>
-
-      {/* Month Selector */}
-      <Card title={t(dictionary, "transactions.filterByMonth")}>
-        <View style={styles.monthNavigator}>
-          <TouchableOpacity
-            onPress={goToPreviousMonth}
-            style={styles.monthNavButton}
-            accessibilityRole="button"
-            accessibilityLabel={t(dictionary, "transactions.previousMonth")}
-          >
-            <Text style={styles.monthNavText}>
-              {t(dictionary, "transactions.previousMonth")}
-            </Text>
-          </TouchableOpacity>
-          <View style={styles.monthCenter}>
-            <Text style={styles.monthLabel}>
-              {formatMonthLabel(selectedMonth, locale)}
-            </Text>
-            <TouchableOpacity
-              onPress={openMonthPicker}
-              style={styles.monthPickerButton}
-              accessibilityRole="button"
-              accessibilityLabel={t(dictionary, "transactions.openMonthPicker")}
-            >
-              <Text style={styles.monthPickerText}>
-                {t(dictionary, "transactions.openMonthPicker")}
-              </Text>
-            </TouchableOpacity>
+    <>
+      <Stack.Screen options={screenOptions} />
+      <View style={styles.screen}>
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>{t(dictionary, "transactions.pageTitle")}</Text>
+            <Text style={styles.subtitle}>{t(dictionary, "transactions.pageDescription")}</Text>
           </View>
-          <TouchableOpacity
-            onPress={goToNextMonth}
-            style={styles.monthNavButton}
-            accessibilityRole="button"
-            accessibilityLabel={t(dictionary, "transactions.nextMonth")}
-          >
-            <Text style={styles.monthNavText}>
-              {t(dictionary, "transactions.nextMonth")}
+
+          {/* Actions */}
+          <View style={styles.actions}>
+            <Button
+              title={t(dictionary, "transactions.newTransaction")}
+              onPress={() => router.push("/(auth)/(tabs)/transactions/create")}
+            />
+          </View>
+
+          {/* Month Summary */}
+          <View style={styles.monthHeader}>
+            <Text style={styles.monthHeaderText}>
+              {t(dictionary, "transactions.transactionsFor", {
+                month: formatMonthLabel(selectedMonth, locale),
+              })}
             </Text>
-          </TouchableOpacity>
-        </View>
-      </Card>
+          </View>
 
-      {/* Monthly Summary */}
-      <View style={styles.summaryContainer}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>{t(dictionary, "transactions.income")}</Text>
-          <Text style={[styles.summaryValue, styles.incomeText]}>
-            {formatMoneyWithSymbol(
-              monthlySummary.income,
-              baseCurrency,
-              currencySymbol
-            )}
-          </Text>
-        </View>
-
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>{t(dictionary, "transactions.expenses")}</Text>
-          <Text style={[styles.summaryValue, styles.expenseText]}>
-            {formatMoneyWithSymbol(
-              monthlySummary.expense,
-              baseCurrency,
-              currencySymbol
-            )}
-          </Text>
-        </View>
-
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>{t(dictionary, "transactions.balance")}</Text>
-          <Text
-            style={[
-              styles.summaryValue,
-              monthlySummary.balance >= 0n
-                ? styles.incomeText
-                : styles.expenseText,
-            ]}
-          >
-            {monthlySummary.balance >= 0n ? "+" : "-"}
-            {formatMoneyWithSymbol(
-              monthlySummary.balance >= 0n
-                ? monthlySummary.balance
-                : -monthlySummary.balance,
-              baseCurrency,
-              currencySymbol
-            )}
-          </Text>
-        </View>
-      </View>
-
-      {/* Transactions List */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          {t(dictionary, "transactions.listTitle", {
-            count: mergedItems.length,
-          })}
-        </Text>
-
-        {mergedItems.length === 0 ? (
-          <Text style={styles.emptyText}>
-            {t(dictionary, "transactions.emptyList")}
-          </Text>
-        ) : (
-          <View style={styles.list}>
-            {mergedItems.map((entry) => {
-              if (entry.kind === "transaction") {
-                const transaction = entry.transaction;
-                const category = transaction.category;
-                const amount = formatMoneyWithSymbol(
-                  BigInt(transaction.amount_base_minor),
+          {/* Monthly Summary */}
+          <View style={styles.summaryContainer}>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>{t(dictionary, "transactions.income")}</Text>
+              <Text style={[styles.summaryValue, styles.incomeText]}>
+                {formatMoneyWithSymbol(
+                  monthlySummary.income,
                   baseCurrency,
                   currencySymbol
-                );
-                const displayName =
-                  transaction.merchant ||
-                  category?.name ||
-                  t(dictionary, "transactions.uncategorized");
-
-                return (
-                  <TouchableOpacity
-                    key={transaction.id}
-                    style={styles.transactionItem}
-                    onPress={() =>
-                      router.push(`/(auth)/transactions/${transaction.id}`)
-                    }
-                    accessibilityRole="button"
-                    accessibilityLabel={displayName}
-                  >
-                    <View style={styles.transactionLeft}>
-                      <CategoryIcon
-                        iconId={category?.icon_id}
-                        size={24}
-                        tone="muted"
-                        accessibilityLabel={category?.name}
-                      />
-                      <View style={styles.transactionInfo}>
-                        <Text style={styles.transactionName}>{displayName}</Text>
-                        <Text style={styles.transactionDate}>
-                          {new Date(transaction.date).toLocaleDateString()}
-                          {transaction.notes && ` • ${transaction.notes}`}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.transactionRight}>
-                      <Text
-                        style={[
-                          styles.transactionAmount,
-                          transaction.type === "income"
-                            ? styles.incomeText
-                            : styles.expenseText,
-                        ]}
-                      >
-                        {transaction.type === "income" ? "+" : "-"}
-                        {amount}
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() => handleDelete(transaction)}
-                        style={styles.deleteAction}
-                        accessibilityRole="button"
-                        accessibilityLabel={t(dictionary, "transactions.deleteButton")}
-                      >
-                        <Text style={styles.deleteActionText}>
-                          {t(dictionary, "transactions.deleteActionShort")}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </TouchableOpacity>
-                );
-              }
-
-              const pending = entry.recurring;
-              const category = pending.item.category_id
-                ? categoriesById[pending.item.category_id]
-                : undefined;
-              const amount = formatMoneyWithSymbol(
-                BigInt(pending.item.amount_minor),
-                pending.item.currency,
-                CURRENCIES.find((c) => c.code === pending.item.currency)?.symbol ||
-                  pending.item.currency
-              );
-              const displayName =
-                pending.item.merchant ||
-                category?.name ||
-                t(dictionary, "transactions.uncategorized");
-              const confirmKey = getOccurrenceKey(
-                pending.item.id,
-                pending.occurrenceDate
-              );
-
-              return (
-                <View key={confirmKey} style={styles.transactionItem}>
-                  <View style={styles.transactionLeft}>
-                    <CategoryIcon
-                      iconId={category?.icon_id}
-                      size={24}
-                      tone="muted"
-                      accessibilityLabel={category?.name}
-                    />
-                    <View style={styles.transactionInfo}>
-                      <Text style={styles.transactionName}>{displayName}</Text>
-                      <Text style={styles.transactionDate}>
-                        {new Date(pending.occurrenceDate).toLocaleDateString()} •{" "}
-                        {t(dictionary, "transactions.recurring.pendingLabel")}
-                        {pending.item.notes && ` • ${pending.item.notes}`}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.transactionRight}>
-                    <Text
-                      style={[
-                        styles.transactionAmount,
-                        pending.item.type === "income"
-                          ? styles.incomeText
-                          : styles.expenseText,
-                      ]}
-                    >
-                      {pending.item.type === "income" ? "+" : "-"}
-                      {amount}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => handleConfirmRecurring(pending)}
-                      style={styles.secondaryAction}
-                      disabled={confirmingKey === confirmKey}
-                      accessibilityRole="button"
-                      accessibilityLabel={t(
-                        dictionary,
-                        "transactions.recurring.confirmAction"
-                      )}
-                    >
-                      <Text style={styles.secondaryActionText}>
-                        {confirmingKey === confirmKey
-                          ? t(dictionary, "transactions.recurring.confirming")
-                          : t(dictionary, "transactions.recurring.confirmAction")}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
-      </View>
-
-      <Modal
-        transparent
-        visible={isMonthPickerOpen}
-        animationType="slide"
-        onRequestClose={() => setIsMonthPickerOpen(false)}
-      >
-        <View style={styles.sheetOverlay}>
-          <Pressable
-            style={styles.sheetBackdrop}
-            onPress={() => setIsMonthPickerOpen(false)}
-          />
-          <View style={styles.sheetContainer}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>
-                {t(dictionary, "transactions.openMonthPicker")}
+                )}
               </Text>
             </View>
-            <View style={styles.pickerContent}>
-              <View style={styles.pickerColumn}>
-                <Text style={styles.pickerLabel}>
-                  {t(dictionary, "transactions.monthPickerLabel")}
-                </Text>
-                <Picker
-                  selectedValue={pickerMonthIndex}
-                  onValueChange={(value) => setPickerMonthIndex(Number(value))}
-                  style={styles.picker}
-                  accessibilityLabel={t(dictionary, "transactions.monthPickerLabel")}
-                >
-                  {monthOptions.map((label, index) => (
-                    <Picker.Item key={label} label={label} value={index} />
-                  ))}
-                </Picker>
-              </View>
-              <View style={styles.pickerColumn}>
-                <Text style={styles.pickerLabel}>
-                  {t(dictionary, "transactions.yearPickerLabel")}
-                </Text>
-                <Picker
-                  selectedValue={pickerYear}
-                  onValueChange={(value) => setPickerYear(Number(value))}
-                  style={styles.picker}
-                  accessibilityLabel={t(dictionary, "transactions.yearPickerLabel")}
-                >
-                  {yearOptions.map((year) => (
-                    <Picker.Item key={year} label={String(year)} value={year} />
-                  ))}
-                </Picker>
-              </View>
+
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>{t(dictionary, "transactions.expenses")}</Text>
+              <Text style={[styles.summaryValue, styles.expenseText]}>
+                {formatMoneyWithSymbol(
+                  monthlySummary.expense,
+                  baseCurrency,
+                  currencySymbol
+                )}
+              </Text>
             </View>
-            <View style={styles.sheetActions}>
+
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>{t(dictionary, "transactions.balance")}</Text>
+              <Text
+                style={[
+                  styles.summaryValue,
+                  monthlySummary.balance >= 0n
+                    ? styles.incomeText
+                    : styles.expenseText,
+                ]}
+              >
+                {monthlySummary.balance >= 0n ? "+" : "-"}
+                {formatMoneyWithSymbol(
+                  monthlySummary.balance >= 0n
+                    ? monthlySummary.balance
+                    : -monthlySummary.balance,
+                  baseCurrency,
+                  currencySymbol
+                )}
+              </Text>
+            </View>
+          </View>
+
+          {/* Transactions List */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {t(dictionary, "transactions.listTitle", {
+                count: mergedItems.length,
+              })}
+            </Text>
+
+            {mergedItems.length === 0 ? (
+              <Text style={styles.emptyText}>
+                {t(dictionary, "transactions.emptyList")}
+              </Text>
+            ) : (
+              <View style={styles.list}>
+                {mergedItems.map((entry) => {
+                  if (entry.kind === "transaction") {
+                    const transaction = entry.transaction;
+                    const category = transaction.category;
+                    const amount = formatMoneyWithSymbol(
+                      BigInt(transaction.amount_base_minor),
+                      baseCurrency,
+                      currencySymbol
+                    );
+                    const displayName =
+                      transaction.merchant ||
+                      category?.name ||
+                      t(dictionary, "transactions.uncategorized");
+
+                    return (
+                      <TouchableOpacity
+                        key={transaction.id}
+                        style={styles.transactionItem}
+                        onPress={() =>
+                          router.push(`/(auth)/(tabs)/transactions/${transaction.id}`)
+                        }
+                        accessibilityRole="button"
+                        accessibilityLabel={displayName}
+                      >
+                        <View style={styles.transactionLeft}>
+                          <CategoryIcon
+                            iconId={category?.icon_id}
+                            size={24}
+                            tone="muted"
+                            accessibilityLabel={category?.name}
+                          />
+                          <View style={styles.transactionInfo}>
+                            <Text style={styles.transactionName}>{displayName}</Text>
+                            <Text style={styles.transactionDate}>
+                              {new Date(transaction.date).toLocaleDateString()}
+                              {transaction.notes && ` • ${transaction.notes}`}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.transactionRight}>
+                          <Text
+                            style={[
+                              styles.transactionAmount,
+                              transaction.type === "income"
+                                ? styles.incomeText
+                                : styles.expenseText,
+                            ]}
+                          >
+                            {transaction.type === "income" ? "+" : "-"}
+                            {amount}
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => handleDelete(transaction)}
+                            style={styles.deleteAction}
+                            accessibilityRole="button"
+                            accessibilityLabel={t(dictionary, "transactions.deleteButton")}
+                          >
+                            <Text style={styles.deleteActionText}>
+                              {t(dictionary, "transactions.deleteActionShort")}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  }
+
+                  const pending = entry.recurring;
+                  const category = pending.item.category_id
+                    ? categoriesById[pending.item.category_id]
+                    : undefined;
+                  const amount = formatMoneyWithSymbol(
+                    BigInt(pending.item.amount_minor),
+                    pending.item.currency,
+                    CURRENCIES.find((c) => c.code === pending.item.currency)?.symbol ||
+                      pending.item.currency
+                  );
+                  const displayName =
+                    pending.item.merchant ||
+                    category?.name ||
+                    t(dictionary, "transactions.uncategorized");
+                  const confirmKey = getOccurrenceKey(
+                    pending.item.id,
+                    pending.occurrenceDate
+                  );
+
+                  return (
+                    <View key={confirmKey} style={styles.transactionItem}>
+                      <View style={styles.transactionLeft}>
+                        <CategoryIcon
+                          iconId={category?.icon_id}
+                          size={24}
+                          tone="muted"
+                          accessibilityLabel={category?.name}
+                        />
+                        <View style={styles.transactionInfo}>
+                          <Text style={styles.transactionName}>{displayName}</Text>
+                          <Text style={styles.transactionDate}>
+                            {new Date(pending.occurrenceDate).toLocaleDateString()} •{" "}
+                            {t(dictionary, "transactions.recurring.pendingLabel")}
+                            {pending.item.notes && ` • ${pending.item.notes}`}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.transactionRight}>
+                        <Text
+                          style={[
+                            styles.transactionAmount,
+                            pending.item.type === "income"
+                              ? styles.incomeText
+                              : styles.expenseText,
+                          ]}
+                        >
+                          {pending.item.type === "income" ? "+" : "-"}
+                          {amount}
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => handleConfirmRecurring(pending)}
+                          style={styles.secondaryAction}
+                          disabled={confirmingKey === confirmKey}
+                          accessibilityRole="button"
+                          accessibilityLabel={t(
+                            dictionary,
+                            "transactions.recurring.confirmAction"
+                          )}
+                        >
+                          <Text style={styles.secondaryActionText}>
+                            {confirmingKey === confirmKey
+                              ? t(dictionary, "transactions.recurring.confirming")
+                              : t(dictionary, "transactions.recurring.confirmAction")}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        </ScrollView>
+
+        <TouchableOpacity
+          onPress={openMonthActions}
+          style={[
+            styles.filterFab,
+            { bottom: spacing.lg + insets.bottom },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={t(dictionary, "transactions.filterByMonth")}
+        >
+          <MaterialCommunityIcons
+            name="calendar-month"
+            size={20}
+            color={colors.text.primary}
+          />
+          <Text style={styles.filterFabText}>
+            {t(dictionary, "transactions.filterByMonth")}
+          </Text>
+        </TouchableOpacity>
+
+        <Modal
+          transparent
+          visible={isMonthActionsOpen}
+          animationType="fade"
+          onRequestClose={closeMonthActions}
+        >
+          <View style={styles.sheetOverlay}>
+            <Pressable style={styles.sheetBackdrop} onPress={closeMonthActions} />
+            <View style={styles.actionSheet}>
               <Button
-                title={t(dictionary, "common.cancel")}
-                onPress={() => setIsMonthPickerOpen(false)}
+                title={t(dictionary, "transactions.previousMonth")}
+                onPress={() => {
+                  goToPreviousMonth();
+                  closeMonthActions();
+                }}
                 variant="secondary"
               />
               <Button
-                title={t(dictionary, "transactions.applyMonthPicker")}
-                onPress={applyMonthPicker}
+                title={t(dictionary, "transactions.nextMonth")}
+                onPress={() => {
+                  goToNextMonth();
+                  closeMonthActions();
+                }}
+                variant="secondary"
+              />
+              <Button
+                title={t(dictionary, "transactions.openMonthPicker")}
+                onPress={openMonthPicker}
               />
             </View>
           </View>
-        </View>
-      </Modal>
-    </ScrollView>
+        </Modal>
+
+        <Modal
+          transparent
+          visible={isMonthPickerOpen}
+          animationType="slide"
+          onRequestClose={() => setIsMonthPickerOpen(false)}
+        >
+          <View style={styles.sheetOverlay}>
+            <Pressable
+              style={styles.sheetBackdrop}
+              onPress={() => setIsMonthPickerOpen(false)}
+            />
+            <View style={styles.sheetContainer}>
+              <View style={styles.sheetHandle} />
+              <View style={styles.sheetHeader}>
+                <Text style={styles.sheetTitle}>
+                  {t(dictionary, "transactions.openMonthPicker")}
+                </Text>
+              </View>
+              <View style={styles.pickerContent}>
+                <View style={styles.pickerColumn}>
+                  <Text style={styles.pickerLabel}>
+                    {t(dictionary, "transactions.monthPickerLabel")}
+                  </Text>
+                  <Picker
+                    selectedValue={pickerMonthIndex}
+                    onValueChange={(value) => setPickerMonthIndex(Number(value))}
+                    style={styles.picker}
+                    accessibilityLabel={t(dictionary, "transactions.monthPickerLabel")}
+                  >
+                    {monthOptions.map((label, index) => (
+                      <Picker.Item key={label} label={label} value={index} />
+                    ))}
+                  </Picker>
+                </View>
+                <View style={styles.pickerColumn}>
+                  <Text style={styles.pickerLabel}>
+                    {t(dictionary, "transactions.yearPickerLabel")}
+                  </Text>
+                  <Picker
+                    selectedValue={pickerYear}
+                    onValueChange={(value) => setPickerYear(Number(value))}
+                    style={styles.picker}
+                    accessibilityLabel={t(dictionary, "transactions.yearPickerLabel")}
+                  >
+                    {yearOptions.map((year) => (
+                      <Picker.Item key={year} label={String(year)} value={year} />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+              <View style={styles.sheetActions}>
+                <Button
+                  title={t(dictionary, "common.cancel")}
+                  onPress={() => setIsMonthPickerOpen(false)}
+                  variant="secondary"
+                />
+                <Button
+                  title={t(dictionary, "transactions.applyMonthPicker")}
+                  onPress={applyMonthPicker}
+                />
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    </>
   );
 }
 
@@ -768,6 +839,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  screen: {
+    flex: 1,
+    backgroundColor: colors.bg.primary,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.bg.primary,
@@ -775,6 +850,7 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
     gap: spacing.lg,
+    paddingBottom: spacing.xxxl * 2,
   },
   header: {
     marginBottom: spacing.sm,
@@ -793,41 +869,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.sm,
   },
-  monthNavigator: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: spacing.sm,
+  monthHeader: {
+    marginTop: spacing.xs,
   },
-  monthNavButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.sm,
-    backgroundColor: colors.bg.secondary,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-  },
-  monthNavText: {
-    color: colors.text.primary,
+  monthHeaderText: {
     fontSize: typography.size.sm,
     fontWeight: typography.weight.semibold,
-  },
-  monthCenter: {
-    flex: 1,
-    alignItems: "center",
-  },
-  monthLabel: {
-    fontSize: typography.size.md,
-    fontWeight: typography.weight.semibold,
-    color: colors.text.primary,
-  },
-  monthPickerButton: {
-    marginTop: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  monthPickerText: {
-    fontSize: typography.size.xs,
     color: colors.text.secondary,
   },
   summaryContainer: {
@@ -933,6 +980,27 @@ const styles = StyleSheet.create({
     fontSize: typography.size.xs,
     fontWeight: typography.weight.semibold,
   },
+  filterFab: {
+    position: "absolute",
+    right: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    backgroundColor: colors.action.secondary,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+  },
+  filterFabText: {
+    color: colors.text.primary,
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+  },
+  headerBackButton: {
+    padding: spacing.sm,
+  },
   sheetOverlay: {
     flex: 1,
     justifyContent: "flex-end",
@@ -940,6 +1008,13 @@ const styles = StyleSheet.create({
   },
   sheetBackdrop: {
     flex: 1,
+  },
+  actionSheet: {
+    backgroundColor: colors.bg.surface,
+    padding: spacing.lg,
+    borderTopLeftRadius: radii.lg,
+    borderTopRightRadius: radii.lg,
+    gap: spacing.sm,
   },
   sheetContainer: {
     backgroundColor: colors.bg.surface,

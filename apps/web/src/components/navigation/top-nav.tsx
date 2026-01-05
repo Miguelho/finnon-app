@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { AccountSwitcher } from "@/components/home/account-switcher";
+import { FinnonMark } from "@/components/brand/finnon-mark";
 import { cn } from "@/lib/utils";
 import {
   getDictionary,
@@ -74,8 +74,7 @@ export async function TopNav({ containerClassName }: TopNavProps) {
             className="flex items-center gap-2 rounded-md px-2 py-1"
             style={{ color: colors.text.primary }}
           >
-            <span className="h-7 w-7 rounded-sm bg-black" aria-hidden="true" />
-            <span className="text-sm font-semibold">Finnon</span>
+            <FinnonMark mode="iconWordmark" size="md" />
           </Link>
         </div>
 
@@ -87,13 +86,13 @@ export async function TopNav({ containerClassName }: TopNavProps) {
 
         {/* Derecha: Settings */}
         <div className="flex flex-1 items-center justify-end">
-          <Button variant="ghost" size="icon" asChild>
+          <Button variant="ghost" asChild>
             <Link
               href="/settings"
               aria-label={t(dictionary, settingsLabelKey)}
               style={{ color: colors.text.secondary }}
             >
-              <Settings className="h-5 w-5" aria-hidden="true" />
+              {t(dictionary, settingsLabelKey)}
             </Link>
           </Button>
         </div>

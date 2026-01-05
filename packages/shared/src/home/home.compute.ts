@@ -57,6 +57,55 @@ export type CashflowWindow = {
   items: CashflowItem[];
 };
 
+export type CalendarEventType =
+  | "one_off_income"
+  | "one_off_expense"
+  | "recurring_income"
+  | "recurring_expense"
+  | "obligation_paid"
+  | "obligation_pending";
+
+export type CalendarEvent = {
+  id: string;
+  date: Date;
+  dayKey: string;
+  type: CalendarEventType;
+  title: string;
+  amountMinor: bigint;
+  currency: string;
+  source: "transaction" | "obligation";
+};
+
+export type DayObligation = {
+  id: string;
+  title: string;
+  amountMinor: bigint;
+  currency: string;
+  status: "pending" | "paid";
+};
+
+export type DayTransaction = {
+  id: string;
+  title: string;
+  amountMinor: bigint;
+  currency: string;
+  type: "income" | "expense";
+  isRecurring: boolean;
+  notes?: string | null;
+  categoryName?: string | null;
+};
+
+export type DaySummary = {
+  date: Date;
+  incomeMinor: bigint;
+  expenseMinor: bigint;
+  netMinor: bigint;
+  obligations: DayObligation[];
+  recurring: DayTransaction[];
+  transactions: DayTransaction[];
+  hasActivity: boolean;
+};
+
 const toDate = (value: string | Date | null | undefined): Date | null => {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
@@ -79,6 +128,21 @@ const toMinor = (value: bigint | number | string | null | undefined): bigint => 
 
 const isWithinRange = (date: Date, range: DateRange) =>
   date >= range.start && date <= range.end;
+
+const startOfDay = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+const toDayKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const isSameDay = (left: Date, right: Date) =>
+  left.getFullYear() === right.getFullYear() &&
+  left.getMonth() === right.getMonth() &&
+  left.getDate() === right.getDate();
 
 export const getMonthKey = (date: Date): string => {
   const year = date.getFullYear();
@@ -291,5 +355,167 @@ export function getUpcomingCashflowWindow(
     incomeMinor,
     expenseMinor,
     items,
+  };
+}
+
+export function getFlowForRange(
+  obligations: Obligation[],
+  transactions: Transaction[],
+  rangeDays: number,
+  baseCurrency: string | undefined,
+  fallbackTitle: string,
+  now?: Date
+): CashflowWindow {
+  const reference = now ?? new Date();
+  const start = startOfDay(reference);
+  const end = new Date(start);
+  end.setDate(end.getDate() + rangeDays);
+  return getUpcomingCashflowWindow(
+    obligations,
+    transactions,
+    { start, end },
+    baseCurrency,
+    fallbackTitle
+  );
+}
+
+export function getEventsForMonth(
+  month: Date,
+  obligations: Obligation[],
+  transactions: Transaction[],
+  baseCurrency: string | undefined,
+  fallbackTitle: string
+): CalendarEvent[] {
+  const monthRange = getMonthRange(month);
+  const events: CalendarEvent[] = [];
+
+  obligations.forEach((obligation) => {
+    const dueDate = toDate(obligation.due_date);
+    if (!dueDate || !isWithinRange(dueDate, monthRange)) return;
+    const amount = toMinor(obligation.amount_base_minor ?? obligation.amount_minor);
+    const status = obligation.status === "paid" ? "paid" : "pending";
+
+    events.push({
+      id: obligation.id,
+      date: dueDate,
+      dayKey: toDayKey(dueDate),
+      type: status === "paid" ? "obligation_paid" : "obligation_pending",
+      title: obligation.name,
+      amountMinor: amount,
+      currency: baseCurrency || obligation.currency,
+      source: "obligation",
+    });
+  });
+
+  transactions.forEach((transaction) => {
+    const date = toDate(transaction.date);
+    if (!date || !isWithinRange(date, monthRange)) return;
+
+    const amount = toMinor(
+      transaction.amount_base_minor ?? transaction.amount_minor
+    );
+    const categoryName = transaction.category?.name ?? null;
+    const title = transaction.merchant || categoryName || fallbackTitle;
+    const isRecurring =
+      Boolean(transaction.recurring_item_id) ||
+      Boolean(transaction.recurring_occurrence_date);
+    const typeBase = transaction.type === "income" ? "income" : "expense";
+    const type: CalendarEventType = isRecurring
+      ? (`recurring_${typeBase}` as const)
+      : (`one_off_${typeBase}` as const);
+
+    events.push({
+      id: transaction.id,
+      date,
+      dayKey: toDayKey(date),
+      type,
+      title,
+      amountMinor: amount,
+      currency: baseCurrency || transaction.currency,
+      source: "transaction",
+    });
+  });
+
+  events.sort((a, b) => a.date.getTime() - b.date.getTime());
+  return events;
+}
+
+export function getSummaryForDay(
+  date: Date,
+  obligations: Obligation[],
+  transactions: Transaction[],
+  baseCurrency: string | undefined,
+  fallbackTitle: string
+): DaySummary {
+  const dayKey = toDayKey(date);
+  let incomeMinor = 0n;
+  let expenseMinor = 0n;
+  const dayObligations: DayObligation[] = [];
+  const recurring: DayTransaction[] = [];
+  const oneOff: DayTransaction[] = [];
+
+  obligations.forEach((obligation) => {
+    const dueDate = toDate(obligation.due_date);
+    if (!dueDate || toDayKey(dueDate) !== dayKey) return;
+
+    const amount = toMinor(obligation.amount_base_minor ?? obligation.amount_minor);
+    expenseMinor += amount;
+
+    dayObligations.push({
+      id: obligation.id,
+      title: obligation.name,
+      amountMinor: amount,
+      currency: baseCurrency || obligation.currency,
+      status: obligation.status === "paid" ? "paid" : "pending",
+    });
+  });
+
+  transactions.forEach((transaction) => {
+    const txDate = toDate(transaction.date);
+    if (!txDate || !isSameDay(txDate, date)) return;
+
+    const amount = toMinor(
+      transaction.amount_base_minor ?? transaction.amount_minor
+    );
+    const categoryName = transaction.category?.name ?? null;
+    const title = transaction.merchant || categoryName || fallbackTitle;
+    const isRecurring =
+      Boolean(transaction.recurring_item_id) ||
+      Boolean(transaction.recurring_occurrence_date);
+
+    if (transaction.type === "income") {
+      incomeMinor += amount;
+    } else {
+      expenseMinor += amount;
+    }
+
+    const entry: DayTransaction = {
+      id: transaction.id,
+      title,
+      amountMinor: amount,
+      currency: baseCurrency || transaction.currency,
+      type: transaction.type,
+      isRecurring,
+      notes: transaction.notes ?? null,
+      categoryName,
+    };
+
+    if (isRecurring) {
+      recurring.push(entry);
+    } else {
+      oneOff.push(entry);
+    }
+  });
+
+  return {
+    date,
+    incomeMinor,
+    expenseMinor,
+    netMinor: incomeMinor - expenseMinor,
+    obligations: dayObligations,
+    recurring,
+    transactions: oneOff,
+    hasActivity:
+      dayObligations.length > 0 || recurring.length > 0 || oneOff.length > 0,
   };
 }

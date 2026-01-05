@@ -50,6 +50,7 @@ export const themeTokens = {
       state: {
         positive: "#2E7D65",
         negative: "#B23B3B",
+        warning: "#E8B45C",
         neutral: "#DADCE0",
       },
       shadow: {
@@ -108,6 +109,7 @@ export const themeTokens = {
       state: {
         positive: "#4CAF91",
         negative: "#E57373",
+        warning: "#D9A957",
         neutral: "#2A2D34",
       },
       shadow: {

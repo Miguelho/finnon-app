@@ -11,11 +11,13 @@ import {
   getAccountGlobalState,
   computeMonthlySummary,
   getMonthRange,
-  getUpcomingCashflowWindow,
+  getEventsForMonth,
+  getFlowForRange,
   getUpcomingItems,
   getRecentActivity,
   type AccountGlobalState,
   type CashflowItem,
+  type CalendarEvent,
   type DateRange,
   type MonthlySummary,
   type RecentActivityItem,
@@ -44,6 +46,11 @@ export type HomeViewModel = {
     expenseMinor: bigint;
     items: CashflowItem[];
     range: DateRange;
+  };
+  calendar: {
+    monthRange: DateRange;
+    events: CalendarEvent[];
+    highlightRange: DateRange;
   };
   recentActivity: {
     items: RecentActivityItem[];
@@ -80,6 +87,12 @@ export type HomeViewModel = {
     cashflowTitle: string;
     markPaid: string;
     markPending: string;
+    daySummaryTitle: string;
+    dayObligationsTitle: string;
+    dayRecurringTitle: string;
+    dayTransactionsTitle: string;
+    dayEmpty: string;
+    monthEmpty: string;
   };
 };
 
@@ -148,12 +161,13 @@ export function buildHomeViewModel({
 
   const upcomingItems = getUpcomingItems(obligations, upcomingRange);
   const cashflowTransactions = upcomingTransactions ?? [];
-  const cashflowWindow = getUpcomingCashflowWindow(
+  const cashflowWindow = getFlowForRange(
     obligations,
     cashflowTransactions,
-    upcomingRange,
+    nextDays,
     account.base_currency,
-    t(dictionary, "home.recentFallbackTitle")
+    t(dictionary, "home.recentFallbackTitle"),
+    nowDate
   );
   const nextObligation =
     getUpcomingItems(obligations, { start: startOfToday, end: monthRange.end })[0] ??
@@ -200,6 +214,17 @@ export function buildHomeViewModel({
       items: cashflowWindow.items,
       range: upcomingRange,
     },
+    calendar: {
+      monthRange,
+      events: getEventsForMonth(
+        activeMonth,
+        obligations,
+        monthlyTransactions,
+        account.base_currency,
+        t(dictionary, "home.recentFallbackTitle")
+      ),
+      highlightRange: upcomingRange,
+    },
     recentActivity: {
       items: recentItems,
     },
@@ -235,6 +260,12 @@ export function buildHomeViewModel({
       cashflowTitle: t(dictionary, "home.cashflowTitle", { days: nextDays }),
       markPaid: t(dictionary, "home.markPaid"),
       markPending: t(dictionary, "home.markPending"),
+      daySummaryTitle: t(dictionary, "home.daySummaryTitle"),
+      dayObligationsTitle: t(dictionary, "home.dayObligationsTitle"),
+      dayRecurringTitle: t(dictionary, "home.dayRecurringTitle"),
+      dayTransactionsTitle: t(dictionary, "home.dayTransactionsTitle"),
+      dayEmpty: t(dictionary, "home.dayEmpty"),
+      monthEmpty: t(dictionary, "home.monthEmpty"),
     },
   };
 }

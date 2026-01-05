@@ -152,7 +152,7 @@ export const es = {
     summaryDescription: "Próximamente: Estadísticas y reportes",
   },
   transactions: {
-    pageTitle: "Transacciones",
+    pageTitle: "Movimientos",
     pageDescription: "Seguimiento de ingresos y gastos",
     backToDashboard: "Volver al inicio",
     newTransaction: "Nuevo movimiento",
@@ -450,8 +450,9 @@ export const es = {
     },
   },
   account: {
-    title: "Detalle de cuenta",
+    title: "Detalles de la cuenta",
     description: "Participantes y contexto de la cuenta",
+    idLabel: "ID de cuenta",
     labelAccount: "Cuenta",
     baseCurrencyLabel: "Moneda base: {currency}",
     participantsLabel: "Participantes ({count})",
@@ -486,6 +487,12 @@ export const es = {
     pendingLabel: "Pendiente",
     markPaid: "Marcar pagada",
     markPending: "Deshacer pago",
+    daySummaryTitle: "Resumen del día",
+    dayObligationsTitle: "Obligaciones del día",
+    dayRecurringTitle: "Recurrentes del día",
+    dayTransactionsTitle: "Transacciones puntuales",
+    dayEmpty: "Nada programado este día.",
+    monthEmpty: "Aún no hay movimientos este mes.",
     participantsCount: {
       one: "{count} participante",
       other: "{count} participantes",

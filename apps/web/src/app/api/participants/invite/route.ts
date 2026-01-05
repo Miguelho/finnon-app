@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAuthenticatedClient } from "@/lib/supabase/server";
-import { supabaseServer } from "@/lib/supabaseServer";
 import { inviteParticipantSchema } from "@poleursus/shared";
 import {
   buildInviteUrl,
@@ -84,9 +83,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: invitee, error: inviteeError } = await supabaseServer
-      .from("auth.users")
-      .select("id, email")
+    const { data: invitee, error: inviteeError } = await supabase
+      .from("profiles")
+      .select("user_id, email")
       .ilike("email", normalizedEmail)
       .maybeSingle();
 
@@ -109,7 +108,7 @@ export async function POST(request: NextRequest) {
       .from("account_members")
       .select("user_id")
       .eq("account_id", accountId)
-      .eq("user_id", invitee.id)
+      .eq("user_id", invitee.user_id)
       .maybeSingle();
 
     if (existingError) {
@@ -127,7 +126,7 @@ export async function POST(request: NextRequest) {
       .from("invites")
       .select("revoked_at, expires_at, max_uses, uses_count")
       .eq("account_id", accountId)
-      .eq("invitee_user_id", invitee.id)
+      .eq("invitee_user_id", invitee.user_id)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -160,7 +159,7 @@ export async function POST(request: NextRequest) {
         max_uses: maxUsesValue,
         uses_count: 0,
         created_by: user.id,
-        invitee_user_id: invitee.id,
+        invitee_user_id: invitee.user_id,
         invitee_email: invitee.email ?? normalizedEmail,
       })
       .select("id, expires_at, role")

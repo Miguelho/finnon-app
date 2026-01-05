@@ -452,6 +452,7 @@ export const en = {
   account: {
     title: "Account details",
     description: "Participants and account context",
+    idLabel: "Account ID",
     labelAccount: "Account",
     baseCurrencyLabel: "Base currency: {currency}",
     participantsLabel: "Participants ({count})",
@@ -486,6 +487,12 @@ export const en = {
     pendingLabel: "Pending",
     markPaid: "Mark paid",
     markPending: "Mark pending",
+    daySummaryTitle: "Day summary",
+    dayObligationsTitle: "Day obligations",
+    dayRecurringTitle: "Recurring today",
+    dayTransactionsTitle: "One-off transactions",
+    dayEmpty: "Nothing scheduled for this day.",
+    monthEmpty: "No activity yet this month.",
     participantsCount: {
       one: "{count} participant",
       other: "{count} participants",

@@ -17,12 +17,18 @@ import { supabase } from "../../src/lib/supabase";
 import { useAuth } from "../../src/contexts/AuthContext";
 import { Button } from "../../src/components/Button";
 import { CategoryIcon } from "../../src/components/CategoryIcon";
+import { FinnonMark } from "../../src/components/FinnonMark";
+import { CashFlowArrows } from "../../src/components/home/CashFlowArrows";
+import { MonthMap } from "../../src/components/home/MonthMap";
+import { DayDetailPanel } from "../../src/components/home/DayDetailPanel";
 import {
   buildHomeViewModel,
   CURRENCIES,
+  createTypographyStyles,
   formatMoneyWithSymbol,
   getIconById,
   getMonthRange,
+  getSummaryForDay,
   markObligationPaid,
   themeTokens,
   type UserRole,
@@ -67,6 +73,7 @@ type Transaction = {
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
+const typography = createTypographyStyles(tokens);
 const CASHFLOW_DAYS_OPTIONS = [7, 14, 30] as const;
 
 function formatDateShort(value: Date, locale: string) {
@@ -134,6 +141,8 @@ export default function HomeScreen() {
     null
   );
   const [nextDays, setNextDays] = useState<number>(CASHFLOW_DAYS_OPTIONS[0]);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [isDayPanelOpen, setIsDayPanelOpen] = useState(false);
 
   const mainAccount = useMemo(() => {
     if (!accounts || accounts.length === 0) return null;
@@ -292,6 +301,23 @@ export default function HomeScreen() {
     };
   }, [mainAccount?.id, isFocused]);
 
+  const daySummary = useMemo(() => {
+    if (!selectedDay || !mainAccount) return null;
+    return getSummaryForDay(
+      selectedDay,
+      obligations,
+      monthlyTransactions,
+      mainAccount.base_currency,
+      t(dictionary, "home.recentFallbackTitle")
+    );
+  }, [
+    selectedDay,
+    obligations,
+    monthlyTransactions,
+    mainAccount,
+    dictionary,
+  ]);
+
   if (!session || !user) {
     return (
       <View style={styles.loading}>
@@ -348,6 +374,7 @@ export default function HomeScreen() {
     CURRENCIES.find((c) => c.code === mainAccount.base_currency)?.symbol ||
     mainAccount.base_currency;
 
+  const today = new Date();
   const viewModel = buildHomeViewModel({
     account: mainAccount,
     role: activeRole,
@@ -356,13 +383,13 @@ export default function HomeScreen() {
     monthlyTransactions,
     upcomingTransactions,
     recentTransactions,
-    month: new Date(),
+    month: today,
     nextDays,
     recentLimit: 6,
-    now: new Date(),
+    now: today,
   });
-
-  const upcomingItems = viewModel.upcoming.items.slice(0, 5);
+  const cashflowNetMinor =
+    viewModel.cashflow.incomeMinor - viewModel.cashflow.expenseMinor;
 
   const handleToggleObligationStatus = async (item: {
     id: string;
@@ -395,6 +422,11 @@ export default function HomeScreen() {
     }
   };
 
+  const handleSelectDay = (date: Date) => {
+    setSelectedDay(date);
+    setIsDayPanelOpen(true);
+  };
+
   return (
     <View style={styles.root}>
       <ScrollView
@@ -408,8 +440,7 @@ export default function HomeScreen() {
           <View style={styles.header}>
             {/* Izquierda: Logo + Finnon */}
             <View style={styles.headerLeft}>
-              <View style={styles.brandMark} />
-              <Text style={styles.brandText}>{t(dictionary, "common.appName")}</Text>
+              <FinnonMark mode="iconWordmark" size="md" />
             </View>
 
             {/* Centro: Cuenta (clickeable) */}
@@ -427,7 +458,7 @@ export default function HomeScreen() {
             {/* Derecha: Settings */}
             <TouchableOpacity
               style={styles.headerRight}
-              onPress={() => router.push("/(auth)/(tabs)/settings")}
+              onPress={() => router.push("/(auth)/settings")}
             >
               <Text style={styles.profileButtonText}>
                 {t(dictionary, "mobile.home.settingsTitle")}
@@ -450,217 +481,6 @@ export default function HomeScreen() {
         {/* Hero */}
         <View style={styles.heroCard}>
           <View style={[styles.heroSection, styles.heroSectionFirst]}>
-            <Text style={styles.heroSectionLabel}>{viewModel.copy.balanceLabel}</Text>
-            <Text
-              style={[
-                styles.heroBalanceValue,
-                viewModel.accountSummary.balanceMinor < 0n
-                  ? styles.amountNegative
-                  : styles.amountPositive,
-              ]}
-            >
-              {viewModel.accountSummary.balanceMinor < 0n ? "-" : "+"}
-              {formatMoneyWithSymbol(
-                viewModel.accountSummary.balanceMinor < 0n
-                  ? -viewModel.accountSummary.balanceMinor
-                  : viewModel.accountSummary.balanceMinor,
-                mainAccount.base_currency,
-                currencySymbol
-              )}
-            </Text>
-            <View style={styles.heroBalanceRow}>
-              <Text style={styles.heroBalanceMeta}>
-                {viewModel.copy.incomeLabel}{" "}
-                {formatMoneyWithSymbol(
-                  viewModel.accountSummary.incomeMinor,
-                  mainAccount.base_currency,
-                  currencySymbol
-                )}
-              </Text>
-              <Text style={styles.heroBalanceMeta}>
-                {viewModel.copy.expenseLabel}{" "}
-                {formatMoneyWithSymbol(
-                  viewModel.accountSummary.expenseMinor,
-                  mainAccount.base_currency,
-                  currencySymbol
-                )}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.heroSection}>
-            <View style={styles.heroSectionHeader}>
-              <Text style={styles.heroSectionTitle}>
-                {t(dictionary, "mobile.home.monthTitle")}
-              </Text>
-            </View>
-            <View style={styles.heroMetrics}>
-              <View style={styles.heroMetric}>
-                <Text style={styles.heroMetricLabel}>
-                  {viewModel.copy.committedLabel}
-                </Text>
-                <Text style={styles.heroMetricValue}>
-                  {formatMoneyWithSymbol(
-                    viewModel.monthlyHero.committedMinor,
-                    mainAccount.base_currency,
-                    currencySymbol
-                  )}
-                </Text>
-              </View>
-              <View style={styles.heroMetric}>
-                <Text style={styles.heroMetricLabel}>
-                  {viewModel.copy.pendingLabel}
-                </Text>
-                <Text style={styles.heroMetricValue}>
-                  {formatMoneyWithSymbol(
-                    viewModel.monthlyHero.pendingMinor,
-                    mainAccount.base_currency,
-                    currencySymbol
-                  )}
-                </Text>
-              </View>
-              <View style={styles.heroMetric}>
-                <Text style={styles.heroMetricLabel}>
-                  {viewModel.monthlyHero.paidLabel}
-                </Text>
-                <Text style={styles.heroMetricValue}>
-                  {formatMoneyWithSymbol(
-                    viewModel.monthlyHero.paidMinor,
-                    mainAccount.base_currency,
-                    currencySymbol
-                  )}
-                </Text>
-              </View>
-            </View>
-
-            {!viewModel.monthlyHero.hasActivity && (
-              <View style={styles.heroActivityEmpty}>
-                <Text style={styles.heroEmptyText}>
-                  {viewModel.emptyStates.activity.title}
-                </Text>
-                <TouchableOpacity
-                  style={styles.heroEmptyCta}
-                  onPress={() => setIsAddSheetOpen(true)}
-                >
-                  <Text style={styles.heroEmptyCtaText}>
-                    {viewModel.emptyStates.activity.cta}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.heroSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                {viewModel.copy.upcomingObligationsTitle}
-              </Text>
-              {upcomingItems.length > 0 && (
-                <TouchableOpacity onPress={() => router.push("/(auth)/transactions")}>
-                  <Text style={styles.sectionCta} numberOfLines={1}>
-                    {viewModel.copy.upcomingCta}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            {upcomingItems.length === 0 ? (
-              viewModel.monthlyHero.hasObligations ? (
-                <Text style={styles.emptyText}>{viewModel.emptyStates.upcoming}</Text>
-              ) : (
-                <View style={styles.heroEmptyRow}>
-                  <Text style={styles.heroEmptyText}>
-                    {viewModel.emptyStates.obligations.title}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.heroEmptyCta}
-                    onPress={() => setIsAddSheetOpen(true)}
-                  >
-                    <Text style={styles.heroEmptyCtaText}>
-                      {viewModel.emptyStates.obligations.cta}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )
-            ) : (
-              <View style={styles.list}>
-                {upcomingItems.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[
-                      styles.listRow,
-                      !viewModel.permissions.canEdit && styles.listRowDisabled,
-                    ]}
-                    onPress={() => router.push(`/(auth)/obligations/${item.id}`)}
-                    disabled={!viewModel.permissions.canEdit}
-                  >
-                    <View style={styles.listRowInfo}>
-                      <Text style={styles.listRowTitle} numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                      <View style={styles.listRowMetaRow}>
-                        <Text style={styles.listRowMeta}>
-                          {formatDateShort(item.dueDate, locale)}
-                        </Text>
-                        <View
-                          style={[
-                            styles.statusChip,
-                            item.status === "paid"
-                              ? styles.statusChipPaid
-                              : styles.statusChipPending,
-                          ]}
-                        >
-                          <Text style={styles.statusChipText}>
-                            {item.status === "paid"
-                              ? t(dictionary, "obligations.create.statusPaid")
-                              : t(dictionary, "obligations.create.statusPending")}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                    <View style={styles.listRowActions}>
-                      <Text style={styles.listRowAmount}>
-                        {formatMoneyWithSymbol(
-                          item.amountMinor,
-                          mainAccount.base_currency,
-                          currencySymbol
-                        )}
-                      </Text>
-                      <TouchableOpacity
-                        style={[
-                          styles.obligationAction,
-                          item.status === "paid"
-                            ? styles.obligationActionSecondary
-                            : styles.obligationActionPrimary,
-                          (updatingObligationId === item.id ||
-                            !viewModel.permissions.canEdit) &&
-                            styles.obligationActionDisabled,
-                        ]}
-                        onPress={() => handleToggleObligationStatus(item)}
-                        disabled={
-                          updatingObligationId === item.id ||
-                          !viewModel.permissions.canEdit
-                        }
-                      >
-                        <Text
-                          style={[
-                            styles.obligationActionText,
-                            item.status === "paid" &&
-                              styles.obligationActionTextSecondary,
-                          ]}
-                        >
-                          {item.status === "paid"
-                            ? viewModel.copy.markPending
-                            : viewModel.copy.markPaid}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-
-          <View style={styles.heroSection}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{viewModel.copy.cashflowTitle}</Text>
               <View style={styles.daySelector}>
@@ -688,31 +508,99 @@ export default function HomeScreen() {
             {viewModel.cashflow.items.length === 0 ? (
               <Text style={styles.emptyText}>{viewModel.emptyStates.upcoming}</Text>
             ) : (
-              <View style={styles.cashflowMetrics}>
-                <View style={styles.cashflowMetric}>
-                  <Text style={styles.heroMetricLabel}>
-                    {viewModel.copy.incomeLabel}
+              <CashFlowArrows
+                incomeMinor={viewModel.cashflow.incomeMinor}
+                expenseMinor={viewModel.cashflow.expenseMinor}
+                netMinor={cashflowNetMinor}
+                currency={mainAccount.base_currency}
+                currencySymbol={currencySymbol}
+                incomeLabel={viewModel.copy.incomeLabel}
+                expenseLabel={viewModel.copy.expenseLabel}
+                balanceLabel={viewModel.copy.balanceLabel}
+              />
+            )}
+          </View>
+
+          <View style={styles.heroSection}>
+            <View style={styles.monthHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>
+                  {t(dictionary, "mobile.home.monthTitle")}
+                </Text>
+                <Text style={styles.monthMeta}>
+                  {today.toLocaleDateString(locale, {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </Text>
+              </View>
+            </View>
+
+            <MonthMap
+              month={today}
+              locale={locale}
+              events={viewModel.calendar.events}
+              highlightRange={viewModel.calendar.highlightRange}
+              selectedDate={selectedDay}
+              onSelectDate={handleSelectDay}
+            />
+
+            {viewModel.calendar.events.length === 0 && (
+              <Text style={styles.emptyText}>{viewModel.copy.monthEmpty}</Text>
+            )}
+
+            <View style={styles.monthSummaryRow}>
+              <View style={styles.monthSummaryItem}>
+                <Text style={styles.summaryLabel}>
+                  {viewModel.copy.committedLabel}
+                </Text>
+                <Text style={styles.summaryValue}>
+                  {formatMoneyWithSymbol(
+                    viewModel.monthlyHero.committedMinor,
+                    mainAccount.base_currency,
+                    currencySymbol
+                  )}
+                </Text>
+              </View>
+              <View style={styles.monthSummaryItem}>
+                <Text style={styles.summaryLabel}>
+                  {viewModel.copy.pendingLabel}
+                </Text>
+                <Text style={styles.summaryValue}>
+                  {formatMoneyWithSymbol(
+                    viewModel.monthlyHero.pendingMinor,
+                    mainAccount.base_currency,
+                    currencySymbol
+                  )}
+                </Text>
+              </View>
+              <View style={styles.monthSummaryItem}>
+                <Text style={styles.summaryLabel}>
+                  {viewModel.monthlyHero.paidLabel}
+                </Text>
+                <Text style={styles.summaryValue}>
+                  {formatMoneyWithSymbol(
+                    viewModel.monthlyHero.paidMinor,
+                    mainAccount.base_currency,
+                    currencySymbol
+                  )}
+                </Text>
+              </View>
+            </View>
+
+            {!viewModel.monthlyHero.hasActivity && (
+              <View style={styles.heroActivityEmpty}>
+                <Text style={styles.heroEmptyText}>
+                  {viewModel.emptyStates.activity.title}
+                </Text>
+                <TouchableOpacity
+                  style={styles.heroEmptyCta}
+                  onPress={() => setIsAddSheetOpen(true)}
+                >
+                  <Text style={styles.heroEmptyCtaText}>
+                    {viewModel.emptyStates.activity.cta}
                   </Text>
-                  <Text style={[styles.heroMetricValue, styles.amountPositive]}>
-                    +{formatMoneyWithSymbol(
-                      viewModel.cashflow.incomeMinor,
-                      mainAccount.base_currency,
-                      currencySymbol
-                    )}
-                  </Text>
-                </View>
-                <View style={styles.cashflowMetric}>
-                  <Text style={styles.heroMetricLabel}>
-                    {viewModel.copy.expenseLabel}
-                  </Text>
-                  <Text style={[styles.heroMetricValue, styles.amountNegative]}>
-                    -{formatMoneyWithSymbol(
-                      viewModel.cashflow.expenseMinor,
-                      mainAccount.base_currency,
-                      currencySymbol
-                    )}
-                  </Text>
-                </View>
+                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -736,7 +624,7 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Actividad reciente</Text>
-            <TouchableOpacity onPress={() => router.push("/(auth)/transactions")}>
+            <TouchableOpacity onPress={() => router.push("/(auth)/(tabs)/transactions")}>
               <Text style={styles.sectionCta} numberOfLines={1}>
                 {viewModel.copy.recentCta}
               </Text>
@@ -786,6 +674,35 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
+      <DayDetailPanel
+        visible={isDayPanelOpen}
+        summary={daySummary}
+        locale={locale}
+        currency={mainAccount.base_currency}
+        currencySymbol={currencySymbol}
+        canEdit={viewModel.permissions.canEdit && !updatingObligationId}
+        onClose={() => {
+          setIsDayPanelOpen(false);
+          setSelectedDay(null);
+        }}
+        onToggleObligation={handleToggleObligationStatus}
+        copy={{
+          balanceLabel: viewModel.copy.balanceLabel,
+          incomeLabel: viewModel.copy.incomeLabel,
+          expenseLabel: viewModel.copy.expenseLabel,
+          markPaid: viewModel.copy.markPaid,
+          markPending: viewModel.copy.markPending,
+          daySummaryTitle: viewModel.copy.daySummaryTitle,
+          dayObligationsTitle: viewModel.copy.dayObligationsTitle,
+          dayRecurringTitle: viewModel.copy.dayRecurringTitle,
+          dayTransactionsTitle: viewModel.copy.dayTransactionsTitle,
+          dayEmpty: viewModel.copy.dayEmpty,
+          closeLabel: t(dictionary, "common.close"),
+          statusPaidLabel: t(dictionary, "obligations.create.statusPaid"),
+          statusPendingLabel: t(dictionary, "obligations.create.statusPending"),
+        }}
+      />
+
       {/* Add Action */}
       <TouchableOpacity
         style={[
@@ -815,7 +732,7 @@ export default function HomeScreen() {
             disabled={!viewModel.permissions.canEdit}
             onPress={() => {
               setIsAddSheetOpen(false);
-              router.push("/(auth)/transactions/create?type=expense");
+              router.push("/(auth)/(tabs)/transactions/create?type=expense");
             }}
           >
             <View style={styles.sheetActionRow}>
@@ -838,7 +755,7 @@ export default function HomeScreen() {
             disabled={!viewModel.permissions.canEdit}
             onPress={() => {
               setIsAddSheetOpen(false);
-              router.push("/(auth)/transactions/create?type=income");
+              router.push("/(auth)/(tabs)/transactions/create?type=income");
             }}
           >
             <View style={styles.sheetActionRow}>
@@ -914,7 +831,7 @@ export default function HomeScreen() {
             disabled={!viewModel.permissions.canEdit}
             onPress={() => {
               setIsAddSheetOpen(false);
-              router.push("/(auth)/transactions/create?type=expense&kind=recurring");
+              router.push("/(auth)/(tabs)/transactions/create?type=expense&kind=recurring");
             }}
           >
             <View style={styles.sheetActionRow}>
@@ -960,18 +877,6 @@ const styles = StyleSheet.create({
   headerBlock: {
     gap: tokens.spacing.sm,
   },
-  brandMark: {
-    width: tokens.spacing.lg,
-    height: tokens.spacing.lg,
-    borderRadius: tokens.radii.sm,
-    backgroundColor: colors.text.primary,
-  },
-  brandText: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
-    textTransform: "capitalize",
-  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -998,8 +903,7 @@ const styles = StyleSheet.create({
     maxWidth: "50%",
   },
   accountChipText: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: "600",
+    ...typography.body,
     color: colors.text.primary,
   },
   readOnlyBadgeRow: {
@@ -1013,13 +917,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.action.secondary,
   },
   readOnlyBadgeText: {
-    fontSize: tokens.typography.size.xs,
-    fontWeight: "600",
+    ...typography.meta,
     color: colors.text.primary,
   },
   profileButtonText: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: "600",
+    ...typography.body,
     color: colors.text.primary,
   },
   heroCard: {
@@ -1040,53 +942,31 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     paddingTop: 0,
   },
-  heroSectionLabel: {
-    fontSize: tokens.typography.size.xs,
-    color: colors.text.secondary,
-  },
-  heroBalanceValue: {
-    fontSize: tokens.typography.size.display,
-    fontWeight: "700",
-  },
-  heroBalanceRow: {
-    flexDirection: "row",
-    gap: tokens.spacing.md,
-    flexWrap: "wrap",
-  },
-  heroBalanceMeta: {
-    fontSize: tokens.typography.size.sm,
-    color: colors.text.secondary,
-  },
-  heroSectionHeader: {
+  monthHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  heroSectionTitle: {
-    fontSize: tokens.typography.size.lg,
-    fontWeight: "700",
-    color: colors.text.primary,
+  monthMeta: {
+    ...typography.meta,
+    color: colors.text.secondary,
   },
-  heroMetrics: {
+  monthSummaryRow: {
     flexDirection: "row",
     gap: tokens.spacing.md,
     justifyContent: "space-between",
   },
-  heroMetric: {
+  monthSummaryItem: {
     flex: 1,
     gap: 4,
   },
-  heroMetricLabel: {
-    fontSize: tokens.typography.size.xs,
+  summaryLabel: {
+    ...typography.meta,
     color: colors.text.secondary,
   },
-  heroMetricValue: {
-    fontSize: tokens.typography.size.lg,
-    fontWeight: "700",
+  summaryValue: {
+    ...typography.body,
     color: colors.text.primary,
-  },
-  heroEmptyRow: {
-    gap: 6,
   },
   heroActivityEmpty: {
     borderTopWidth: 1,
@@ -1095,7 +975,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   heroEmptyText: {
-    fontSize: tokens.typography.size.sm,
+    ...typography.body,
     color: colors.text.secondary,
   },
   heroEmptyCta: {
@@ -1107,8 +987,7 @@ const styles = StyleSheet.create({
     borderColor: colors.action.primary,
   },
   heroEmptyCtaText: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: "600",
+    ...typography.body,
     color: colors.action.primary,
   },
   readOnlyRow: {
@@ -1118,7 +997,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   readOnlyText: {
-    fontSize: tokens.typography.size.sm,
+    ...typography.body,
     color: colors.text.secondary,
   },
   readOnlyCta: {
@@ -1129,8 +1008,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.action.secondary,
   },
   readOnlyCtaText: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: "600",
+    ...typography.body,
     color: colors.text.primary,
   },
   daySelector: {
@@ -1150,20 +1028,11 @@ const styles = StyleSheet.create({
     borderColor: colors.action.primary,
   },
   dayOptionText: {
-    fontSize: tokens.typography.size.xs,
-    fontWeight: "600",
+    ...typography.meta,
     color: colors.text.secondary,
   },
   dayOptionTextActive: {
     color: colors.text.primary,
-  },
-  cashflowMetrics: {
-    flexDirection: "row",
-    gap: tokens.spacing.md,
-  },
-  cashflowMetric: {
-    flex: 1,
-    gap: 4,
   },
   section: {
     gap: tokens.spacing.md,
@@ -1175,17 +1044,15 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.sm,
   },
   sectionTitle: {
-    fontSize: tokens.typography.size.lg,
-    fontWeight: "700",
+    ...typography.h2,
     color: colors.text.primary,
   },
   sectionCta: {
-    fontSize: tokens.typography.size.sm,
+    ...typography.body,
     color: colors.action.primary,
-    fontWeight: "600",
   },
   emptyText: {
-    fontSize: tokens.typography.size.sm,
+    ...typography.body,
     color: colors.text.secondary,
   },
   list: {
@@ -1202,17 +1069,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg.secondary,
     gap: tokens.spacing.md,
   },
-  listRowDisabled: {
-    opacity: 0.6,
-  },
   listRowInfo: {
     flex: 1,
     gap: 4,
-  },
-  listRowMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: tokens.spacing.xs,
   },
   listRowTitleRow: {
     flexDirection: "row",
@@ -1224,64 +1083,16 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
   listRowTitle: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: "600",
+    ...typography.body,
     color: colors.text.primary,
     flexShrink: 1,
   },
   listRowMeta: {
-    fontSize: tokens.typography.size.xs,
+    ...typography.meta,
     color: colors.text.secondary,
   },
-  statusChip: {
-    paddingHorizontal: tokens.spacing.xs,
-    paddingVertical: 2,
-    borderRadius: tokens.radii.pill,
-  },
-  statusChipPending: {
-    backgroundColor: colors.bg.primary,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-  },
-  statusChipPaid: {
-    backgroundColor: colors.action.secondary,
-  },
-  statusChipText: {
-    fontSize: tokens.typography.size.xs,
-    color: colors.text.primary,
-    fontWeight: "600",
-  },
-  listRowActions: {
-    alignItems: "flex-end",
-    gap: tokens.spacing.xs,
-  },
   listRowAmount: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: "700",
-    color: colors.text.primary,
-  },
-  obligationAction: {
-    paddingHorizontal: tokens.spacing.sm,
-    paddingVertical: 6,
-    borderRadius: tokens.radii.pill,
-  },
-  obligationActionPrimary: {
-    backgroundColor: colors.action.primary,
-  },
-  obligationActionSecondary: {
-    backgroundColor: colors.bg.primary,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-  },
-  obligationActionDisabled: {
-    opacity: 0.6,
-  },
-  obligationActionText: {
-    fontSize: tokens.typography.size.xs,
-    fontWeight: "600",
-    color: colors.bg.primary,
-  },
-  obligationActionTextSecondary: {
+    ...typography.body,
     color: colors.text.primary,
   },
   amountPositive: {
@@ -1308,8 +1119,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.action.disabled,
   },
   addFabText: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: "700",
+    ...typography.body,
     color: colors.bg.primary,
   },
   sheetOverlay: {
@@ -1344,8 +1154,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.state.neutral,
   },
   sheetTitle: {
-    fontSize: tokens.typography.size.lg,
-    fontWeight: "700",
+    ...typography.h2,
     color: colors.text.primary,
   },
   sheetContent: {
@@ -1374,12 +1183,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   sheetRowTitle: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: "700",
+    ...typography.body,
     color: colors.text.primary,
   },
   sheetRowMeta: {
-    fontSize: tokens.typography.size.xs,
+    ...typography.meta,
     color: colors.text.secondary,
   },
   sheetBadge: {
@@ -1395,15 +1203,14 @@ const styles = StyleSheet.create({
     borderColor: colors.action.primary,
   },
   sheetBadgeText: {
-    fontSize: tokens.typography.size.xs,
-    fontWeight: "600",
+    ...typography.meta,
     color: colors.text.secondary,
   },
   sheetBadgeTextActive: {
     color: colors.bg.primary,
   },
   sheetNotice: {
-    fontSize: tokens.typography.size.sm,
+    ...typography.body,
     color: colors.text.secondary,
   },
   sheetActions: {
@@ -1436,12 +1243,11 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   sheetActionTitle: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: "700",
+    ...typography.body,
     color: colors.text.primary,
   },
   sheetActionMeta: {
-    fontSize: tokens.typography.size.xs,
+    ...typography.meta,
     color: colors.text.secondary,
   },
   errorCard: {
@@ -1453,12 +1259,11 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.sm,
   },
   errorTitle: {
-    fontSize: tokens.typography.size.lg,
-    fontWeight: "700",
+    ...typography.h2,
     color: colors.state.negative,
   },
   errorText: {
-    fontSize: tokens.typography.size.sm,
+    ...typography.body,
     color: colors.text.secondary,
   },
 });

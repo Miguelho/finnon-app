@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { themeTokens, navigationItems } from "@poleursus/shared";
+import { themeTokens } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
 import { tabBarBaseOptions } from "../../../src/lib/navigation-presets";
 
@@ -8,9 +8,15 @@ const tokens = themeTokens.light;
 
 const tabIconMap = {
   home: { active: "home", inactive: "home-outline" },
+  transactions: { active: "clipboard-list", inactive: "clipboard-list-outline" },
   account: { active: "account-group", inactive: "account-group-outline" },
-  settings: { active: "cog", inactive: "cog-outline" },
 } as const;
+
+const tabItems = [
+  { key: "home", labelKey: "navigation.home" },
+  { key: "transactions", labelKey: "transactions.pageTitle" },
+  { key: "account", labelKey: "navigation.account" },
+] as const;
 
 export default function TabsLayout() {
   const { dictionary } = useCopy();
@@ -19,7 +25,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={tabBarBaseOptions}
     >
-      {navigationItems.map((item) => (
+      {tabItems.map((item) => (
         <Tabs.Screen
           key={item.key}
           name={item.key}
@@ -37,6 +43,12 @@ export default function TabsLayout() {
           }}
         />
       ))}
+      <Tabs.Screen
+        name="settings"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

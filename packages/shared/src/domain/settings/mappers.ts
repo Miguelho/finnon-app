@@ -78,8 +78,7 @@ export function buildSettingsMenuVM(
   dictionary: CopyDictionary,
   platform: "mobile" | "web"
 ): SettingsMenuVM {
-  const baseRoute =
-    platform === "mobile" ? "/(auth)/(tabs)/settings" : "/settings";
+  const baseRoute = platform === "mobile" ? "/(auth)/settings" : "/settings";
 
   return {
     title: t(dictionary, "settings.title"),

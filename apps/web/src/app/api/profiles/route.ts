@@ -1,30 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAuthenticatedClient } from "@/lib/supabase/server";
-import { supabaseServer } from "@/lib/supabaseServer";
 
 type AccountMember = {
   user_id: string;
   role: "viewer" | "contributor" | "admin";
 };
 
-type AuthUserRow = {
-  id: string;
+type ProfileRow = {
+  user_id: string;
   email: string | null;
-  raw_user_meta_data: Record<string, unknown> | null;
+  display_name: string | null;
 };
-
-function getDisplayName(user: AuthUserRow) {
-  const meta = user.raw_user_meta_data ?? {};
-  const fullName = typeof meta.full_name === "string" ? meta.full_name : "";
-  const displayName =
-    typeof meta.display_name === "string" ? meta.display_name : "";
-  const name = typeof meta.name === "string" ? meta.name : "";
-  const firstName = typeof meta.first_name === "string" ? meta.first_name : "";
-  const lastName = typeof meta.last_name === "string" ? meta.last_name : "";
-  const combined = [firstName, lastName].filter(Boolean).join(" ").trim();
-
-  return fullName || displayName || name || combined || user.email || null;
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -105,22 +91,22 @@ export async function POST(request: NextRequest) {
 
     const userIds = Array.from(new Set(members.map((member) => member.user_id)));
 
-    const { data: users, error: usersError } = await supabaseServer
-      .from("auth.users")
-      .select("id, email, raw_user_meta_data")
-      .in("id", userIds);
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("user_id, email, display_name")
+      .in("user_id", userIds);
 
-    if (usersError) {
-      console.error("Error loading profiles:", usersError);
+    if (profilesError) {
+      console.error("Error loading profiles:", profilesError);
       return NextResponse.json(
         { errorKey: "errors.profilesLoadFailed" },
         { status: 500 }
       );
     }
 
-    const profilesById = (users ?? []).reduce<Record<string, AuthUserRow>>(
+    const profilesById = (profiles ?? []).reduce<Record<string, ProfileRow>>(
       (acc, profile) => {
-        acc[profile.id] = profile as AuthUserRow;
+        acc[profile.user_id] = profile;
         return acc;
       },
       {}
@@ -131,7 +117,7 @@ export async function POST(request: NextRequest) {
       return {
         user_id: member.user_id,
         role: member.role,
-        name: profile ? getDisplayName(profile) : null,
+        name: profile?.display_name ?? profile?.email ?? null,
         email: profile?.email ?? null,
       };
     });
