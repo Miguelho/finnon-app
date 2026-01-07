@@ -12,12 +12,15 @@ type InviteLookup = {
   expires_at: string;
   max_uses: number | null;
   uses_count: number;
+  invitee_user_id?: string | null;
+  invitee_email?: string | null;
 };
 
 function isInviteActive(invite: InviteLookup | null, now: Date = new Date()) {
   if (!invite) return false;
   if (invite.revoked_at) return false;
-  if (new Date(invite.expires_at) < now) return false;
+  const isTargeted = Boolean(invite.invitee_user_id || invite.invitee_email);
+  if (!isTargeted && new Date(invite.expires_at) < now) return false;
   if (invite.max_uses !== null && invite.uses_count >= invite.max_uses) return false;
   return true;
 }
@@ -124,7 +127,7 @@ export async function POST(request: NextRequest) {
 
     const { data: pendingInvite, error: pendingError } = await supabase
       .from("invites")
-      .select("revoked_at, expires_at, max_uses, uses_count")
+      .select("revoked_at, expires_at, max_uses, uses_count, invitee_user_id, invitee_email")
       .eq("account_id", accountId)
       .eq("invitee_user_id", invitee.user_id)
       .order("created_at", { ascending: false })

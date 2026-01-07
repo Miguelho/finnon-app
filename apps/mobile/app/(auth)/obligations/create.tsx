@@ -17,6 +17,7 @@ import {
   parseMoneyToMinor,
   CURRENCY_MINOR_UNITS,
   themeTokens,
+  upsertObligationTransaction,
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
 
@@ -123,7 +124,7 @@ export default function CreateObligationScreen(): React.JSX.Element {
       const paidAt =
         status === "paid" ? new Date().toISOString().slice(0, 10) : null;
 
-      const { error } = await supabase
+      const { data: created, error } = await supabase
         .from("obligations")
         .insert([
           {
@@ -142,6 +143,10 @@ export default function CreateObligationScreen(): React.JSX.Element {
         .single();
 
       if (error) throw error;
+
+      if (status === "paid" && created) {
+        await upsertObligationTransaction(supabase, created as any);
+      }
 
       Alert.alert(
         t(dictionary, "common.successTitle"),

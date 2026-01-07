@@ -156,11 +156,14 @@ export const en = {
     pageDescription: "Track your income and expenses",
     backToDashboard: "Back to dashboard",
     newTransaction: "New transaction",
+    filtersButton: "Filters",
     filterByMonth: "Filter by month",
     income: "Income",
     expenses: "Expenses",
     balance: "Balance",
     transactionsFor: "Transactions for {month}",
+    movimientos: "Transactions",
+    movimientosCount: "Transactions ({count})",
     fxRateLabel: "FX rate",
     fxRatePlaceholder: "e.g. 0.91",
     fxRateHelper: "1 {currency} = X {baseCurrency}",
@@ -373,6 +376,7 @@ export const en = {
       "This action cannot be undone. The invite link will stop working immediately.",
     loadAccountsError: "Error loading accounts",
     loadInvitesError: "Error loading invites",
+    expiresNone: "No expiration",
   },
   join: {
     missingToken: "No invitation token provided",
@@ -387,6 +391,10 @@ export const en = {
     successTitle: "Success!",
     successDescription: "You have successfully joined the account",
     redirecting: "Redirecting to dashboard...",
+  },
+  network: {
+    offlineMessage: "No connection. Check your network and try again.",
+    retry: "Retry",
   },
   settings: {
     title: "Settings",
@@ -418,7 +426,11 @@ export const en = {
           items: {
             activeAccount: {
               title: "Active account",
-              description: "Select the account you're working on",
+              description: "View details and participants for the active account",
+            },
+            switchAccount: {
+              title: "Switch account",
+              description: "Choose a different account to work on",
             },
             invitations: {
               title: "Invitations",
@@ -464,6 +476,13 @@ export const en = {
     loadError: "Could not load account",
     noSessionError: "No active session",
     participantsLoadError: "Error loading participants",
+  },
+  accountSelection: {
+    title: "Select an account",
+    description: "Choose the account you want to continue with",
+    emptyTitle: "No accounts yet",
+    emptyDescription: "Create your first account to get started",
+    createCta: "Create new account",
   },
   home: {
     emptyObligationsTitle: "No obligations yet this month.",
@@ -594,6 +613,9 @@ export const en = {
       errorDescription: "Could not load accounts",
       title: "Select an account",
       description: "Choose the account you want to work with",
+      emptyTitle: "No accounts yet",
+      emptyDescription: "Create your first account to get started",
+      createCta: "Create new account",
     },
     home: {
       retry: "Retry",

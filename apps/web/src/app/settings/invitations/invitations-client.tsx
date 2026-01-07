@@ -41,6 +41,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/lib/supabaseClient";
+import { themeTokens } from "@poleursus/shared";
+import { useNetworkNotice } from "@/components/network/network-notice";
 
 type Invite = {
   id: string;
@@ -52,6 +54,8 @@ type Invite = {
   uses_count: number;
   created_at: string;
   created_by: string;
+  invitee_user_id?: string | null;
+  invitee_email?: string | null;
   account?: {
     name: string;
   };
@@ -61,6 +65,8 @@ type FilterStatus = "all" | "active" | "expired" | "revoked";
 
 export default function InvitesPage() {
   const t = useTranslations();
+  const colors = themeTokens.light.colors;
+  const { reportNetworkIssue } = useNetworkNotice();
   const [invites, setInvites] = useState<Invite[]>([]);
   const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,6 +98,7 @@ export default function InvitesPage() {
       if (error) {
         console.error("Error fetching accounts:", error);
         toast.error(t("invites.loadAccountsError"));
+        reportNetworkIssue();
         return;
       }
 
@@ -134,6 +141,7 @@ export default function InvitesPage() {
     if (error) {
       console.error("Error fetching invites:", error);
       toast.error(t("invites.loadInvitesError"));
+      reportNetworkIssue();
       setLoading(false);
       return;
     }
@@ -183,6 +191,7 @@ export default function InvitesPage() {
     } catch (error) {
       console.error("Error creating invite:", error);
       toast.error(t("invites.createError"));
+      reportNetworkIssue();
     } finally {
       setIsCreating(false);
     }
@@ -197,6 +206,7 @@ export default function InvitesPage() {
 
       if (error) {
         toast.error(t("invites.revokeError"));
+        reportNetworkIssue();
         return;
       }
 
@@ -205,6 +215,7 @@ export default function InvitesPage() {
     } catch (error) {
       console.error("Error revoking invite:", error);
       toast.error(t("invites.revokeError"));
+      reportNetworkIssue();
     }
   }
 
@@ -228,8 +239,9 @@ export default function InvitesPage() {
   }
 
   function getInviteStatus(invite: Invite): "active" | "expired" | "revoked" {
+    const isTargeted = Boolean(invite.invitee_user_id || invite.invitee_email);
     if (invite.revoked_at) return "revoked";
-    if (new Date(invite.expires_at) < new Date()) return "expired";
+    if (!isTargeted && new Date(invite.expires_at) < new Date()) return "expired";
     if (invite.max_uses !== null && invite.uses_count >= invite.max_uses)
       return "expired";
     return "active";
@@ -474,6 +486,26 @@ export default function InvitesPage() {
                 {filteredInvites.map((invite) => {
                   const status = getInviteStatus(invite);
                   const isActive = status === "active";
+                  const isTargeted = Boolean(
+                    invite.invitee_user_id || invite.invitee_email
+                  );
+                  const statusStyle = {
+                    active: {
+                      borderColor: colors.state.positive,
+                      backgroundColor: colors.bg.secondary,
+                      color: colors.state.positive,
+                    },
+                    expired: {
+                      borderColor: colors.state.warning,
+                      backgroundColor: colors.bg.secondary,
+                      color: colors.state.warning,
+                    },
+                    revoked: {
+                      borderColor: colors.state.negative,
+                      backgroundColor: colors.bg.secondary,
+                      color: colors.state.negative,
+                    },
+                  }[status];
 
                   return (
                     <div
@@ -487,13 +519,8 @@ export default function InvitesPage() {
                               t("invites.accountUnknown")}
                           </span>
                           <span
-                            className={`px-2 py-1 text-xs rounded ${
-                              status === "active"
-                                ? "bg-green-100 text-green-700"
-                                : status === "expired"
-                                ? "bg-orange-100 text-orange-700"
-                                : "bg-red-100 text-red-700"
-                            }`}
+                            className="rounded border px-2 py-1 text-xs"
+                            style={statusStyle}
                           >
                             {status === "active"
                               ? t("invites.statusActive")
@@ -507,7 +534,9 @@ export default function InvitesPage() {
                         </div>
                         <div className="text-sm text-muted-foreground mt-1">
                           {t("invites.expiresLabel")}:{" "}
-                          {new Date(invite.expires_at).toLocaleDateString()} •
+                          {isTargeted
+                            ? t("invites.expiresNone")
+                            : new Date(invite.expires_at).toLocaleDateString()} •
                           {t("invites.usesLabel")}: {invite.uses_count}/
                           {invite.max_uses || "∞"}
                         </div>

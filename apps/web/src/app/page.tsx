@@ -36,15 +36,23 @@ export default async function DashboardPage() {
     .eq("account_members.user_id", user.id);
 
   if (!accounts || accounts.length === 0) {
-    redirect("/onboarding");
+    redirect("/select-account");
   }
 
   const cookieStore = await cookies();
   const cookieAccountId = cookieStore.get("finnon:activeAccountId")?.value;
   const locale = cookieStore.get("NEXT_LOCALE")?.value || "es";
   const dictionary = getDictionary(locale);
-  const mainAccount =
-    accounts.find((account) => account.id === cookieAccountId) ?? accounts[0];
+
+  if (!cookieAccountId) {
+    redirect("/select-account");
+  }
+
+  const mainAccount = accounts.find((account) => account.id === cookieAccountId);
+
+  if (!mainAccount) {
+    redirect("/select-account");
+  }
 
   const mainAccountRole =
     (mainAccount?.account_members?.find((member) => member.user_id === user.id)

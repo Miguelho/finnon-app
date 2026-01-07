@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { Card } from "./Card";
+import { useNetworkNotice } from "../contexts/NetworkNoticeContext";
 import { useCopy, t } from "../lib/i18n";
+import { themeTokens } from "@poleursus/shared";
 
 type Account = {
   id: string;
@@ -25,6 +28,8 @@ type AccountDetailsProps = {
 export function AccountDetails({ accountId }: AccountDetailsProps) {
   const { user, setSelectedAccountId } = useAuth();
   const { dictionary } = useCopy();
+  const insets = useSafeAreaInsets();
+  const { reportNetworkIssue } = useNetworkNotice();
 
   const [account, setAccount] = useState<Account | null>(null);
   const [members, setMembers] = useState<MemberProfile[]>([]);
@@ -87,6 +92,7 @@ export function AccountDetails({ accountId }: AccountDetailsProps) {
         if (!cancelled) {
           setError(err?.message ?? t(dictionary, "account.loadError"));
         }
+        reportNetworkIssue({ onRetry: load });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -96,27 +102,32 @@ export function AccountDetails({ accountId }: AccountDetailsProps) {
     return () => {
       cancelled = true;
     };
-  }, [accountId, dictionary]);
+  }, [accountId, dictionary, reportNetworkIssue]);
 
   if (!accountId) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" />
+      <View style={[styles.loading, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={colors.text.muted} />
       </View>
     );
   }
 
   if (loading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" />
+      <View style={[styles.loading, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={colors.text.muted} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.container}>
+      <View
+        style={[
+          styles.container,
+          { paddingTop: tokens.spacing.lg + insets.top, paddingBottom: insets.bottom },
+        ]}
+      >
         <Card title={t(dictionary, "account.errorTitle")} description={error}>
           <Text style={styles.errorText}>{t(dictionary, "account.errorDescription")}</Text>
         </Card>
@@ -125,7 +136,16 @@ export function AccountDetails({ accountId }: AccountDetailsProps) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll}>
+    <ScrollView
+      style={styles.scrollContainer}
+      contentContainerStyle={[
+        styles.scroll,
+        {
+          paddingTop: tokens.spacing.lg + insets.top,
+          paddingBottom: tokens.spacing.lg + insets.bottom,
+        },
+      ]}
+    >
       <Card
         title={t(dictionary, "account.title")}
         description={t(dictionary, "account.description")}
@@ -184,112 +204,98 @@ export function AccountDetails({ accountId }: AccountDetailsProps) {
   );
 }
 
-const colors = {
-  bg: {
-    primary: "#FFFFFF",
-    secondary: "#F7F8FA",
-    surface: "#FFFFFF",
-  },
-  text: {
-    primary: "#1C1E21",
-    secondary: "#5F6368",
-    muted: "#9AA0A6",
-  },
-  action: {
-    primary: "#5B8DFF",
-    secondary: "#E8EEFF",
-    disabled: "#C7D2FE",
-  },
-  state: {
-    positive: "#2E7D65",
-    negative: "#B23B3B",
-    neutral: "#DADCE0",
-  },
-};
+const tokens = themeTokens.light;
+const colors = tokens.colors;
 
 const styles = StyleSheet.create({
   loading: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: colors.bg.secondary,
   },
   container: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: colors.bg.secondary,
-    padding: 20,
+    padding: tokens.spacing.lg,
+  },
+  scrollContainer: {
+    flex: 1,
+    backgroundColor: colors.bg.secondary,
   },
   scroll: {
     flexGrow: 1,
     backgroundColor: colors.bg.secondary,
-    padding: 20,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingBottom: tokens.spacing.lg,
   },
   section: {
-    marginBottom: 20,
+    marginBottom: tokens.spacing.lg,
   },
   label: {
-    fontSize: 12,
+    fontSize: tokens.typography.size.xs,
     color: colors.text.muted,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    marginBottom: 6,
+    marginBottom: tokens.spacing.xs,
   },
   value: {
-    fontSize: 20,
-    fontWeight: "600",
+    fontSize: tokens.typography.size.xl,
+    fontWeight: tokens.typography.weight.semibold,
     color: colors.text.primary,
-    marginBottom: 4,
+    marginBottom: tokens.spacing.xs,
   },
   meta: {
-    fontSize: 14,
+    fontSize: tokens.typography.size.sm,
     color: colors.text.secondary,
   },
   memberList: {
-    gap: 12,
+    gap: tokens.spacing.sm,
   },
   memberRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 12,
+    padding: tokens.spacing.md,
     borderWidth: 1,
     borderColor: colors.state.neutral,
-    borderRadius: 8,
+    borderRadius: tokens.radii.md,
     backgroundColor: colors.bg.surface,
   },
   memberInfo: {
     flex: 1,
   },
   memberName: {
-    fontSize: 16,
-    fontWeight: "500",
+    fontSize: tokens.typography.size.md,
+    fontWeight: tokens.typography.weight.medium,
     color: colors.text.primary,
   },
   memberMeta: {
-    fontSize: 12,
+    fontSize: tokens.typography.size.xs,
     color: colors.text.secondary,
-    marginTop: 2,
+    marginTop: tokens.spacing.xs,
   },
   memberRoleBadge: {
     backgroundColor: colors.action.secondary,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: tokens.spacing.xs,
+    borderRadius: tokens.radii.pill,
   },
   memberRoleText: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: tokens.typography.size.xs,
+    fontWeight: tokens.typography.weight.semibold,
     color: colors.text.primary,
     textTransform: "capitalize",
   },
   empty: {
-    fontSize: 14,
+    fontSize: tokens.typography.size.sm,
     color: colors.text.secondary,
   },
   errorText: {
     color: colors.state.negative,
-    fontSize: 14,
+    fontSize: tokens.typography.size.sm,
     textAlign: "center",
   },
 });

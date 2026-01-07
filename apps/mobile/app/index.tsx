@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { View, StyleSheet, ActivityIndicator } from "react-native";
 import { Redirect } from "expo-router";
 import { supabase } from "../src/lib/supabase";
 import { useAuth } from "../src/contexts/AuthContext";
-import { Button } from "../src/components/Button";
-import { useCopy, t } from "../src/lib/i18n";
+import { themeTokens } from "@poleursus/shared";
+
+const tokens = themeTokens.light;
+const colors = tokens.colors;
 
 export default function IndexGateAndHome() {
-  const { session, user, signOut, loading: authLoading, isInitialized, selectedAccountId } = useAuth();
-  const { dictionary } = useCopy();
+  const { session, loading: authLoading, isInitialized, selectedAccountId } = useAuth();
 
   const [accountCount, setAccountCount] = useState<number | null>(null);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
@@ -55,7 +56,7 @@ export default function IndexGateAndHome() {
   if (!isInitialized || authLoading || loadingAccounts) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.text.muted} />
       </View>
     );
   }
@@ -69,55 +70,21 @@ export default function IndexGateAndHome() {
   if (accountCount === null) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.text.muted} />
       </View>
     );
   }
 
-  // 3) 0 cuentas -> onboarding
+  // 3) 0 cuentas -> select-account
   if (accountCount === 0) {
-    return <Redirect href="/(auth)/onboarding" />;
-  }
-
-  // 4) +1 cuenta y no seleccionada -> select-account
-  if (accountCount > 1 && !selectedAccountId) {
     return <Redirect href="/(auth)/select-account" />;
   }
 
-   // 4) +1 cuenta y no seleccionada -> select-account
-  if (accountCount == 1) {
-    return <Redirect href="/(auth)/(tabs)/home" />;
-  }
-  console.log("accountCount:", accountCount);
-  console.log("selectedAccountId:", selectedAccountId);
-  if (selectedAccountId) {
+  if (!selectedAccountId) {
     return <Redirect href="/(auth)/select-account" />;
   }
-  // 5) OK: render Home (tu pantalla actual)
-  const handleSignOut = async () => {
-    await signOut();
-    // No router.replace aquí: al quedar session=null, este mismo gate redirige a login.
-  };
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{t(dictionary, "mobile.index.title")}</Text>
-      <Text style={styles.text}>
-        {t(dictionary, "mobile.index.emailLabel")} {user?.email}
-      </Text>
-      <Text style={styles.text}>
-        {t(dictionary, "mobile.index.idLabel")} {user?.id}
-      </Text>
-
-      <View style={styles.buttonContainer}>
-        <Button
-          title={t(dictionary, "dashboard.signOut")}
-          onPress={handleSignOut}
-          variant="secondary"
-        />
-      </View>
-    </View>
-  );
+  return <Redirect href="/(auth)/(tabs)/home" />;
 }
 
 const styles = StyleSheet.create({
@@ -125,27 +92,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff",
-  },
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 16,
-  },
-  text: {
-    fontSize: 16,
-    marginVertical: 4,
-    color: "#666",
-  },
-  buttonContainer: {
-    marginTop: 32,
-    width: "100%",
+    backgroundColor: colors.bg.primary,
   },
 });

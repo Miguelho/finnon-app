@@ -13,7 +13,8 @@ export type InviteItemVM = {
   accountName: string;
   role: UserRole;
   status: InviteStatus;
-  expiresAt: Date;
+  expiresAt: Date | null;
+  isTargeted: boolean;
   usesCount: number;
   maxUses: number | null;
   createdAt: Date;

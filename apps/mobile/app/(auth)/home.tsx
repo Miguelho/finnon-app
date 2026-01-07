@@ -354,7 +354,7 @@ export default function HomeScreen() {
   }
 
   if (!accounts || accounts.length === 0) {
-    router.replace("/(auth)/onboarding");
+    router.replace("/(auth)/select-account");
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" />

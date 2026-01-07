@@ -91,7 +91,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (new Date(invite.expires_at) < now) {
+    const isTargeted = Boolean(invite.invitee_user_id || invite.invitee_email);
+
+    if (!isTargeted && new Date(invite.expires_at) < now) {
       return NextResponse.json(
         { errorKey: "errors.inviteExpired" },
         { status: 410 }

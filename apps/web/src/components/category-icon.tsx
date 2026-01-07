@@ -3,13 +3,15 @@ import {
   categoryIconPaths,
   type CategoryIconProps,
   type CategoryIconTone,
+  themeTokens,
 } from "@poleursus/shared";
 
-const toneClasses: Record<CategoryIconTone, string> = {
-  primary: "text-foreground",
-  muted: "text-muted-foreground",
-  positive: "text-emerald-600",
-  negative: "text-destructive",
+const colors = themeTokens.light.colors;
+const toneColors: Record<CategoryIconTone, string> = {
+  primary: colors.text.primary,
+  muted: colors.text.muted,
+  positive: colors.state.positive,
+  negative: colors.state.negative,
 };
 
 export function CategoryIcon({
@@ -19,7 +21,7 @@ export function CategoryIcon({
   accessibilityLabel,
 }: CategoryIconProps) {
   const path = categoryIconPaths[iconId ?? ""] ?? categoryIconPaths.default;
-  const toneClass = toneClasses[tone];
+  const toneColor = toneColors[tone];
   const ariaProps = accessibilityLabel
     ? { role: "img", "aria-label": accessibilityLabel }
     : { "aria-hidden": true };
@@ -29,7 +31,7 @@ export function CategoryIcon({
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      className={toneClass}
+      style={{ color: toneColor }}
       focusable="false"
       {...ariaProps}
     >

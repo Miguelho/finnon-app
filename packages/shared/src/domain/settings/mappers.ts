@@ -31,6 +31,8 @@ type RawInvite = {
   uses_count: number;
   created_at: string;
   accounts?: { name: string } | null;
+  invitee_user_id?: string | null;
+  invitee_email?: string | null;
 };
 
 export function mapUserToUserDetailsVM(user: RawUser): UserDetailsVM {
@@ -42,8 +44,9 @@ export function mapUserToUserDetailsVM(user: RawUser): UserDetailsVM {
 }
 
 function getInviteStatus(invite: RawInvite, now: Date = new Date()): InviteStatus {
+  const isTargeted = Boolean(invite.invitee_user_id || invite.invitee_email);
   if (invite.revoked_at) return "revoked";
-  if (new Date(invite.expires_at) < now) return "expired";
+  if (!isTargeted && new Date(invite.expires_at) < now) return "expired";
   if (invite.max_uses !== null && invite.uses_count >= invite.max_uses)
     return "expired";
   return "active";
@@ -53,13 +56,15 @@ export function mapInviteToInviteItemVM(
   invite: RawInvite,
   now?: Date
 ): InviteItemVM {
+  const isTargeted = Boolean(invite.invitee_user_id || invite.invitee_email);
   const status = getInviteStatus(invite, now);
   return {
     id: invite.id,
     accountName: invite.accounts?.name ?? "Unknown",
     role: invite.role,
     status,
-    expiresAt: new Date(invite.expires_at),
+    expiresAt: isTargeted ? null : new Date(invite.expires_at),
+    isTargeted,
     usesCount: invite.uses_count,
     maxUses: invite.max_uses,
     createdAt: new Date(invite.created_at),
@@ -127,8 +132,23 @@ export function buildSettingsMenuVM(
             ),
             route:
               platform === "mobile"
-                ? "/(auth)/select-account"
+                ? `${baseRoute}/account`
                 : `${baseRoute}/account`,
+          },
+          {
+            id: "switch-account",
+            title: t(
+              dictionary,
+              "settings.menu.sections.account.items.switchAccount.title"
+            ),
+            description: t(
+              dictionary,
+              "settings.menu.sections.account.items.switchAccount.description"
+            ),
+            route:
+              platform === "mobile"
+                ? "/(auth)/select-account"
+                : `${baseRoute}/account-switch`,
           },
           {
             id: "invitations",

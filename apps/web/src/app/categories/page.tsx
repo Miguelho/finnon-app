@@ -22,17 +22,22 @@ export default async function CategoriesPage() {
     .eq("account_members.user_id", user.id);
 
   if (!accounts || accounts.length === 0) {
-    redirect("/onboarding");
+    redirect("/select-account");
   }
 
   const cookieStore = await cookies();
   const cookieAccountId = cookieStore.get("finnon:activeAccountId")?.value;
-  const activeAccount =
-    accounts.find((account) => account.id === cookieAccountId) ?? accounts[0];
+  if (!cookieAccountId) {
+    redirect("/select-account");
+  }
+
+  const activeAccount = accounts.find(
+    (account) => account.id === cookieAccountId
+  );
   const activeRole = activeAccount?.account_members?.[0]?.role ?? "viewer";
 
   if (!activeAccount) {
-    redirect("/onboarding");
+    redirect("/select-account");
   }
 
   // Fetch categories for the active account

@@ -156,11 +156,14 @@ export const es = {
     pageDescription: "Seguimiento de ingresos y gastos",
     backToDashboard: "Volver al inicio",
     newTransaction: "Nuevo movimiento",
+    filtersButton: "Filtros",
     filterByMonth: "Filtrar por mes",
     income: "Ingresos",
     expenses: "Gastos",
     balance: "Balance",
     transactionsFor: "Movimientos de {month}",
+    movimientos: "Movimientos",
+    movimientosCount: "Movimientos ({count})",
     fxRateLabel: "Tipo de cambio",
     fxRatePlaceholder: "ej. 0,91",
     fxRateHelper: "1 {currency} = X {baseCurrency}",
@@ -373,6 +376,7 @@ export const es = {
       "Esta acción no se puede deshacer. El link de invitación dejará de funcionar inmediatamente.",
     loadAccountsError: "Error cargando cuentas",
     loadInvitesError: "Error cargando invitaciones",
+    expiresNone: "Sin expiración",
   },
   join: {
     missingToken: "No se proporcionó token de invitación",
@@ -387,6 +391,10 @@ export const es = {
     successTitle: "¡Éxito!",
     successDescription: "Te has unido a la cuenta exitosamente",
     redirecting: "Redirigiendo al panel de control...",
+  },
+  network: {
+    offlineMessage: "Sin conexión. Revisa tu red y vuelve a intentar.",
+    retry: "Reintentar",
   },
   settings: {
     title: "Configuración",
@@ -418,7 +426,11 @@ export const es = {
           items: {
             activeAccount: {
               title: "Cuenta activa",
-              description: "Selecciona la cuenta con la que trabajas",
+              description: "Ver detalles y participantes de la cuenta activa",
+            },
+            switchAccount: {
+              title: "Cambiar cuenta",
+              description: "Selecciona otra cuenta para trabajar",
             },
             invitations: {
               title: "Invitaciones",
@@ -464,6 +476,13 @@ export const es = {
     loadError: "No se pudo cargar la cuenta",
     noSessionError: "No hay sesión activa",
     participantsLoadError: "Error cargando participantes",
+  },
+  accountSelection: {
+    title: "Selecciona una cuenta",
+    description: "Elige la cuenta con la que deseas continuar",
+    emptyTitle: "Aún no tienes cuentas",
+    emptyDescription: "Crea tu primera cuenta para comenzar",
+    createCta: "Crear cuenta nueva",
   },
   home: {
     emptyObligationsTitle: "Aún no hay obligaciones este mes.",
@@ -594,6 +613,9 @@ export const es = {
       errorDescription: "No se pudieron cargar las cuentas",
       title: "Selecciona una cuenta",
       description: "Elige la cuenta con la que deseas trabajar",
+      emptyTitle: "Aún no tienes cuentas",
+      emptyDescription: "Crea tu primera cuenta para empezar",
+      createCta: "Crear cuenta nueva",
     },
     home: {
       retry: "Reintentar",

@@ -57,6 +57,7 @@ import {
   addMonths,
   formatMonthLabel,
   toMonthKey,
+  themeTokens,
 } from "@poleursus/shared";
 import { CategoryIcon } from "@/components/category-icon";
 import {
@@ -155,10 +156,12 @@ export function TransactionsClient({
     "transaction" | "recurring" | "obligation"
   >("transaction");
   const canEdit = role !== "viewer";
+  const colors = themeTokens.light.colors;
 
   // Month filter state (format: YYYY-MM)
   const currentMonth = toMonthKey(new Date());
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
   const [pickerMonthIndex, setPickerMonthIndex] = useState(new Date().getMonth());
@@ -702,9 +705,19 @@ export function TransactionsClient({
   return (
     <PageContainer className="space-y-6">
       {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">{t("pageTitle")}</h1>
-        <p className="text-muted-foreground">{t("pageDescription")}</p>
+      <div className="space-y-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold tracking-tight">{t("pageTitle")}</h1>
+            <p className="text-muted-foreground">{t("pageDescription")}</p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setIsFiltersOpen(true)}
+          >
+            {t("filtersButton")}
+          </Button>
+        </div>
         {!canEdit && (
           <p className="text-sm text-muted-foreground">
             {t("readOnlyNotice")}
@@ -712,105 +725,107 @@ export function TransactionsClient({
         )}
       </div>
 
-      {/* Month Filter */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("filterByMonth")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Button
-              variant="outline"
-              onClick={goToPreviousMonth}
-              aria-label={t("previousMonth")}
-            >
-              {t("previousMonth")}
-            </Button>
-            <div className="flex flex-col items-center gap-1 text-center">
-              <span className="text-lg font-semibold">
-                {formatMonthLabel(selectedMonth, locale)}
-              </span>
+      <SlidePanel open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+        <SlidePanelContent>
+          <SlidePanelHeader>
+            <SlidePanelTitle>{t("filtersButton")}</SlidePanelTitle>
+            <SlidePanelDescription>{t("filterByMonth")}</SlidePanelDescription>
+          </SlidePanelHeader>
+          <SlidePanelBody className="space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={openMonthPicker}
-                aria-label={t("openMonthPicker")}
+                variant="outline"
+                onClick={goToPreviousMonth}
+                aria-label={t("previousMonth")}
               >
-                {t("openMonthPicker")}
+                {t("previousMonth")}
+              </Button>
+              <div className="flex flex-col items-center gap-1 text-center">
+                <span className="text-lg font-semibold">
+                  {formatMonthLabel(selectedMonth, locale)}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={openMonthPicker}
+                  aria-label={t("openMonthPicker")}
+                >
+                  {t("openMonthPicker")}
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                onClick={goToNextMonth}
+                aria-label={t("nextMonth")}
+              >
+                {t("nextMonth")}
               </Button>
             </div>
-            <Button
-              variant="outline"
-              onClick={goToNextMonth}
-              aria-label={t("nextMonth")}
-            >
-              {t("nextMonth")}
-            </Button>
-          </div>
-          {isMonthPickerOpen && (
-            <div className="space-y-4 rounded-lg border p-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>{t("monthPickerLabel")}</Label>
-                  <Select
-                    value={String(pickerMonthIndex)}
-                    onValueChange={(value) =>
-                      setPickerMonthIndex(Number(value))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {monthOptions.map((label, index) => (
-                        <SelectItem key={label} value={String(index)}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            {isMonthPickerOpen && (
+              <div className="space-y-4 rounded-lg border p-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>{t("monthPickerLabel")}</Label>
+                    <Select
+                      value={String(pickerMonthIndex)}
+                      onValueChange={(value) =>
+                        setPickerMonthIndex(Number(value))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {monthOptions.map((label, index) => (
+                          <SelectItem key={label} value={String(index)}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t("yearPickerLabel")}</Label>
+                    <Select
+                      value={String(pickerYear)}
+                      onValueChange={(value) => setPickerYear(Number(value))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {yearOptions.map((year) => (
+                          <SelectItem key={year} value={String(year)}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>{t("yearPickerLabel")}</Label>
-                  <Select
-                    value={String(pickerYear)}
-                    onValueChange={(value) => setPickerYear(Number(value))}
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsMonthPickerOpen(false)}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {yearOptions.map((year) => (
-                        <SelectItem key={year} value={String(year)}>
-                          {year}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    {tGlobal("common.cancel")}
+                  </Button>
+                  <Button onClick={applyMonthPicker}>
+                    {t("applyMonthPicker")}
+                  </Button>
                 </div>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsMonthPickerOpen(false)}
-                >
-                  {tGlobal("common.cancel")}
-                </Button>
-                <Button onClick={applyMonthPicker}>
-                  {t("applyMonthPicker")}
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </SlidePanelBody>
+        </SlidePanelContent>
+      </SlidePanel>
 
       {/* Monthly Summary */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>{t("income")}</CardDescription>
-            <CardTitle className="text-3xl text-green-600">
+            <CardTitle className="text-3xl" style={{ color: colors.state.positive }}>
               {formatMoneyWithSymbol(
                 monthlySummary.income,
                 baseCurrency,
@@ -822,7 +837,7 @@ export function TransactionsClient({
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>{t("expenses")}</CardDescription>
-            <CardTitle className="text-3xl text-red-600">
+            <CardTitle className="text-3xl" style={{ color: colors.state.negative }}>
               {formatMoneyWithSymbol(
                 monthlySummary.expense,
                 baseCurrency,
@@ -835,11 +850,13 @@ export function TransactionsClient({
           <CardHeader className="pb-2">
             <CardDescription>{t("balance")}</CardDescription>
             <CardTitle
-              className={`text-3xl ${
-                monthlySummary.balance >= 0n
-                  ? "text-green-600"
-                  : "text-red-600"
-              }`}
+              className="text-3xl"
+              style={{
+                color:
+                  monthlySummary.balance >= 0n
+                    ? colors.state.positive
+                    : colors.state.negative,
+              }}
             >
               {formatMoneyWithSymbol(
                 monthlySummary.balance >= 0n
@@ -862,7 +879,7 @@ export function TransactionsClient({
             })}
           </CardTitle>
           <CardDescription>
-            {t("transactionsCount", { count: mergedItems.length })}
+            {t("movimientosCount", { count: mergedItems.length })}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -931,11 +948,13 @@ export function TransactionsClient({
                         </div>
 
                         <div
-                          className={`font-semibold text-lg ${
-                            transaction.type === "income"
-                              ? "text-green-600"
-                              : "text-red-600"
-                          }`}
+                          className="font-semibold text-lg"
+                          style={{
+                            color:
+                              transaction.type === "income"
+                                ? colors.state.positive
+                                : colors.state.negative,
+                          }}
                         >
                           {transaction.type === "income" ? "+" : "-"}
                           {amount}
@@ -1008,11 +1027,13 @@ export function TransactionsClient({
                       </div>
 
                       <div
-                        className={`font-semibold text-lg ${
-                          recurring.item.type === "income"
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
+                        className="font-semibold text-lg"
+                        style={{
+                          color:
+                            recurring.item.type === "income"
+                              ? colors.state.positive
+                              : colors.state.negative,
+                        }}
                       >
                         {recurring.item.type === "income" ? "+" : "-"}
                         {amount}

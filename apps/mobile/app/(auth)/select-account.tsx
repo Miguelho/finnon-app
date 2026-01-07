@@ -9,9 +9,12 @@ import {
 } from "react-native";
 import { supabase } from "../../src/lib/supabase";
 import { Card } from "../../src/components/Card";
+import { Button } from "../../src/components/Button";
 import { useAuth } from "../../src/contexts/AuthContext";
 import { useRouter } from "expo-router";
 import { useCopy, t } from "../../src/lib/i18n";
+import { themeTokens } from "@poleursus/shared";
+import { useNetworkNotice } from "../../src/contexts/NetworkNoticeContext";
 
 interface Account {
   id: string;
@@ -19,13 +22,18 @@ interface Account {
   base_currency: string;
 }
 
+const tokens = themeTokens.light;
+const colors = tokens.colors;
+
 export default function SelectAccountScreen() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSwitching, setIsSwitching] = useState(false);
   const { user, setSelectedAccountId } = useAuth();
   const router = useRouter();
   const { dictionary } = useCopy();
+  const { reportNetworkIssue } = useNetworkNotice();
 
   useEffect(() => {
     loadAccounts();
@@ -56,6 +64,7 @@ export default function SelectAccountScreen() {
     } catch (err) {
       console.error("Error loading accounts:", err);
       setError(err instanceof Error ? err.message : t(dictionary, "mobile.selectAccount.loadError"));
+      reportNetworkIssue({ onRetry: loadAccounts });
     } finally {
       setLoading(false);
     }
@@ -63,14 +72,21 @@ export default function SelectAccountScreen() {
 
   const handleSelectAccount = async (accountId: string) => {
     console.log("[SelectAccount] Selected account:", accountId);
-    await setSelectedAccountId(accountId);
-    router.replace("/(auth)/(tabs)/home");
+    setIsSwitching(true);
+    try {
+      await setSelectedAccountId(accountId);
+      router.replace("/(auth)/(tabs)/home");
+    } catch (err) {
+      console.error("Error switching account:", err);
+      reportNetworkIssue({ onRetry: () => handleSelectAccount(accountId) });
+      setIsSwitching(false);
+    }
   };
 
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.text.muted} />
       </View>
     );
   }
@@ -87,18 +103,41 @@ export default function SelectAccountScreen() {
     );
   }
 
+  if (accounts.length === 0) {
+    return (
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Card
+          title={t(dictionary, "mobile.selectAccount.emptyTitle")}
+          description={t(dictionary, "mobile.selectAccount.emptyDescription")}
+        >
+          <Button
+            title={t(dictionary, "mobile.selectAccount.createCta")}
+            onPress={() => router.push("/(auth)/onboarding")}
+          />
+        </Card>
+      </ScrollView>
+    );
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.scrollContent}>
       <Card
         title={t(dictionary, "mobile.selectAccount.title")}
         description={t(dictionary, "mobile.selectAccount.description")}
       >
+        {isSwitching && (
+          <Text style={styles.switchingText}>{t(dictionary, "common.loading")}</Text>
+        )}
         <View style={styles.accountsList}>
           {accounts.map((account) => (
             <TouchableOpacity
               key={account.id}
-              style={styles.accountItem}
+              style={[
+                styles.accountItem,
+                isSwitching && styles.accountItemDisabled,
+              ]}
               onPress={() => handleSelectAccount(account.id)}
+              disabled={isSwitching}
             >
               <View style={styles.accountInfo}>
                 <Text style={styles.accountName}>{account.name}</Text>
@@ -120,49 +159,57 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
-    padding: 20,
+    backgroundColor: colors.bg.secondary,
+    padding: tokens.spacing.lg,
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: 20,
-    backgroundColor: "#f5f5f5",
+    padding: tokens.spacing.lg,
+    backgroundColor: colors.bg.secondary,
   },
   accountsList: {
-    gap: 12,
+    gap: tokens.spacing.sm,
   },
   accountItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 8,
+    backgroundColor: colors.bg.surface,
+    padding: tokens.spacing.md,
+    borderRadius: tokens.radii.md,
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: colors.state.neutral,
+  },
+  accountItemDisabled: {
+    opacity: 0.6,
   },
   accountInfo: {
     flex: 1,
   },
   accountName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000",
-    marginBottom: 4,
+    fontSize: tokens.typography.size.md,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.text.primary,
+    marginBottom: tokens.spacing.xs,
   },
   accountCurrency: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.secondary,
   },
   arrow: {
     fontSize: 24,
-    color: "#007AFF",
-    marginLeft: 8,
+    color: colors.action.primary,
+    marginLeft: tokens.spacing.sm,
   },
   errorText: {
-    color: "#ff3b30",
-    fontSize: 14,
+    color: colors.state.negative,
+    fontSize: tokens.typography.size.sm,
     textAlign: "center",
+  },
+  switchingText: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.secondary,
+    marginBottom: tokens.spacing.sm,
   },
 });

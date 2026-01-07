@@ -9,6 +9,7 @@ import {
   computeAmountBaseMinor,
   parseFxRate,
   CURRENCY_MINOR_UNITS,
+  upsertObligationTransaction,
 } from "@poleursus/shared";
 
 type ActionResult<T = any> = {
@@ -374,6 +375,10 @@ export async function createObligation(input: {
     if (error) {
       console.error("Error creating obligation:", error);
       return { success: false, error: { key: "errors.internalServer" } };
+    }
+
+    if (status === "paid" && data) {
+      await upsertObligationTransaction(supabase, data as any);
     }
 
     revalidatePath("/transactions");

@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import { AuthProvider } from "../src/contexts/AuthContext";
+import { NetworkNoticeProvider } from "../src/contexts/NetworkNoticeContext";
 import { LocaleProvider, useCopy, t } from "../src/lib/i18n";
 import { useStackScreenOptions } from "../src/lib/navigation-presets";
 
@@ -28,7 +29,9 @@ export default function RootLayout() {
   return (
     <LocaleProvider>
       <AuthProvider>
-        <RootLayoutNav />
+        <NetworkNoticeProvider>
+          <RootLayoutNav />
+        </NetworkNoticeProvider>
       </AuthProvider>
     </LocaleProvider>
   );

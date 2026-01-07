@@ -9,13 +9,11 @@ const tokens = themeTokens.light;
 const tabIconMap = {
   home: { active: "home", inactive: "home-outline" },
   transactions: { active: "clipboard-list", inactive: "clipboard-list-outline" },
-  account: { active: "account-group", inactive: "account-group-outline" },
 } as const;
 
 const tabItems = [
   { key: "home", labelKey: "navigation.home" },
   { key: "transactions", labelKey: "transactions.pageTitle" },
-  { key: "account", labelKey: "navigation.account" },
 ] as const;
 
 export default function TabsLayout() {

@@ -68,16 +68,16 @@ export async function middleware(request: NextRequest) {
   }
 
   // Si hay usuario, verificar si tiene cuentas (como owner O como miembro)
-  if (pathname !== "/onboarding") {
+  if (pathname !== "/select-account" && pathname !== "/onboarding") {
     const { data: memberships } = await supabase
       .from("account_members")
       .select("account_id")
       .eq("user_id", user.id)
       .limit(1);
 
-    // Si no es miembro de ninguna cuenta, redirigir a onboarding
+    // Si no es miembro de ninguna cuenta, redirigir a selección de cuenta
     if (!memberships || memberships.length === 0) {
-      return NextResponse.redirect(new URL("/onboarding", request.url));
+      return NextResponse.redirect(new URL("/select-account", request.url));
     }
   }
 

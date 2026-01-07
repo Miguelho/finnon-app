@@ -31,6 +31,8 @@ type RawInvite = {
   uses_count: number;
   created_at: string;
   created_by: string;
+  invitee_user_id?: string | null;
+  invitee_email?: string | null;
   accounts?: {
     name: string;
   };
@@ -444,7 +446,9 @@ export default function InvitationsScreen() {
                 </View>
                 <Text style={styles.inviteDetails}>
                   {t(dictionary, "invites.expiresLabel")}:{" "}
-                  {invite.expiresAt.toLocaleDateString()} •{" "}
+                  {(invite.expiresAt
+                    ? invite.expiresAt.toLocaleDateString()
+                    : t(dictionary, "invites.expiresNone"))} •{" "}
                   {t(dictionary, "invites.usesLabel")}: {invite.usesCount}/
                   {invite.maxUses || "∞"}
                 </Text>

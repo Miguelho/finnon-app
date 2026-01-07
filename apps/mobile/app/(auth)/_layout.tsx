@@ -49,6 +49,13 @@ export default function AuthLayout() {
         }}
       />
       <Stack.Screen
+        name="settings/account"
+        options={{
+          headerShown: true,
+          title: t(dictionary, "settings.menu.sections.account.items.activeAccount.title"),
+        }}
+      />
+      <Stack.Screen
         name="settings/user-details"
         options={{
           headerShown: true,

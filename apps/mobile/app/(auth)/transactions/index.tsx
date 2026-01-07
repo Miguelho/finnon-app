@@ -19,6 +19,7 @@ import { useAuth } from "../../../src/contexts/AuthContext";
 import { Button } from "../../../src/components/Button";
 import { Card } from "../../../src/components/Card";
 import { CategoryIcon } from "../../../src/components/CategoryIcon";
+import { useNetworkNotice } from "../../../src/contexts/NetworkNoticeContext";
 import {
   addMonths,
   formatMoneyWithSymbol,
@@ -91,6 +92,7 @@ export default function TransactionsScreen(): React.JSX.Element {
   const router = useRouter();
   const { selectedAccountId } = useAuth();
   const { dictionary, locale } = useCopy();
+  const { reportNetworkIssue } = useNetworkNotice();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [recurringItems, setRecurringItems] = useState<RecurringItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -199,6 +201,7 @@ export default function TransactionsScreen(): React.JSX.Element {
     } catch (e: any) {
       console.error("Error loading transactions:", e);
       setError(e?.message || t(dictionary, "transactions.loadError"));
+      reportNetworkIssue({ onRetry: loadData });
     } finally {
       setLoading(false);
     }
@@ -427,6 +430,9 @@ export default function TransactionsScreen(): React.JSX.Element {
   };
 
   const screenTitle = t(dictionary, "transactions.pageTitle");
+  const handleAddTransaction = () => {
+    router.push("/(auth)/(tabs)/transactions/create");
+  };
   const handleBack = () => {
     if (router.canGoBack()) {
       router.back();
@@ -493,12 +499,30 @@ export default function TransactionsScreen(): React.JSX.Element {
             <Text style={styles.subtitle}>{t(dictionary, "transactions.pageDescription")}</Text>
           </View>
 
-          {/* Actions */}
-          <View style={styles.actions}>
-            <Button
-              title={t(dictionary, "transactions.newTransaction")}
-              onPress={() => router.push("/(auth)/(tabs)/transactions/create")}
-            />
+          {/* Toolbar */}
+          <View style={styles.toolbar}>
+            <TouchableOpacity
+              onPress={openMonthActions}
+              style={styles.filterButton}
+              accessibilityRole="button"
+              accessibilityLabel={t(dictionary, "transactions.filtersButton")}
+            >
+              <View style={styles.filterIcon}>
+                <MaterialCommunityIcons
+                  name="calendar-month"
+                  size={18}
+                  color={colors.text.primary}
+                />
+              </View>
+              <View style={styles.filterText}>
+                <Text style={styles.filterLabel}>
+                  {t(dictionary, "transactions.filtersButton")}
+                </Text>
+                <Text style={styles.filterValue}>
+                  {formatMonthLabel(selectedMonth, locale)}
+                </Text>
+              </View>
+            </TouchableOpacity>
           </View>
 
           {/* Month Summary */}
@@ -713,22 +737,16 @@ export default function TransactionsScreen(): React.JSX.Element {
         </ScrollView>
 
         <TouchableOpacity
-          onPress={openMonthActions}
-          style={[
-            styles.filterFab,
-            { bottom: spacing.lg + insets.bottom },
-          ]}
+          onPress={handleAddTransaction}
+          style={[styles.addFab, { bottom: spacing.lg + insets.bottom }]}
           accessibilityRole="button"
-          accessibilityLabel={t(dictionary, "transactions.filterByMonth")}
+          accessibilityLabel={t(dictionary, "transactions.newTransaction")}
         >
           <MaterialCommunityIcons
-            name="calendar-month"
-            size={20}
-            color={colors.text.primary}
+            name="plus"
+            size={24}
+            color={colors.bg.primary}
           />
-          <Text style={styles.filterFabText}>
-            {t(dictionary, "transactions.filterByMonth")}
-          </Text>
         </TouchableOpacity>
 
         <Modal
@@ -865,9 +883,52 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: spacing.xs,
   },
-  actions: {
+  toolbar: {
     flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: spacing.sm,
+  },
+  filterButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    backgroundColor: colors.bg.surface,
+  },
+  filterIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.bg.secondary,
+  },
+  filterText: {
+    flex: 1,
+  },
+  filterLabel: {
+    fontSize: typography.size.xs,
+    color: colors.text.secondary,
+  },
+  filterValue: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
+  },
+  inlineAddButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.md,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    backgroundColor: colors.action.secondary,
   },
   monthHeader: {
     marginTop: spacing.xs,
@@ -980,23 +1041,20 @@ const styles = StyleSheet.create({
     fontSize: typography.size.xs,
     fontWeight: typography.weight.semibold,
   },
-  filterFab: {
+  addFab: {
     position: "absolute",
     right: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    width: 56,
+    height: 56,
     borderRadius: radii.pill,
-    backgroundColor: colors.action.secondary,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-  },
-  filterFabText: {
-    color: colors.text.primary,
-    fontSize: typography.size.sm,
-    fontWeight: typography.weight.semibold,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.action.primary,
+    shadowColor: colors.shadow.soft,
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
   headerBackButton: {
     padding: spacing.sm,

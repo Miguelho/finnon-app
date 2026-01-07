@@ -20,6 +20,7 @@ import {
   CURRENCY_MINOR_UNITS,
   themeTokens,
   type Obligation,
+  upsertObligationTransaction,
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
 
@@ -157,7 +158,7 @@ export default function EditObligationScreen(): React.JSX.Element {
       const paidAt =
         status === "paid" ? new Date().toISOString().slice(0, 10) : null;
 
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from("obligations")
         .update({
           name: name.trim(),
@@ -168,9 +169,15 @@ export default function EditObligationScreen(): React.JSX.Element {
           status,
           paid_at: paidAt,
         })
-        .eq("id", obligation.id);
+        .eq("id", obligation.id)
+        .select()
+        .single();
 
       if (error) throw error;
+
+      if (status === "paid" && updated) {
+        await upsertObligationTransaction(supabase, updated as any);
+      }
 
       Alert.alert(
         t(dictionary, "common.successTitle"),

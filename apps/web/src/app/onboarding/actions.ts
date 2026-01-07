@@ -60,6 +60,6 @@ export async function createAccountAction(formData: FormData) {
 
   console.log("Account created successfully:", account.id);
 
-  // Redirigir al dashboard
-  redirect("/");
+  // Redirigir a selección de cuenta
+  redirect("/select-account");
 }
