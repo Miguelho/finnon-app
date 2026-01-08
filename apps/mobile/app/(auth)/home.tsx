@@ -443,18 +443,6 @@ export default function HomeScreen() {
               <FinnonMark mode="iconWordmark" size="md" />
             </View>
 
-            {/* Centro: Cuenta (clickeable) */}
-            <TouchableOpacity
-              style={styles.accountChip}
-              onPress={() => router.push("/(auth)/select-account")}
-              accessibilityRole="button"
-              accessibilityLabel={`${mainAccount.name} · ${mainAccount.base_currency}`}
-            >
-              <Text style={styles.accountChipText} numberOfLines={1}>
-                {mainAccount.name} · {mainAccount.base_currency}
-              </Text>
-            </TouchableOpacity>
-
             {/* Derecha: Settings */}
             <TouchableOpacity
               style={styles.headerRight}
@@ -900,21 +888,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerRight: {
-    flex: 1,
     alignItems: "flex-end",
-  },
-  accountChip: {
-    paddingHorizontal: tokens.spacing.md,
-    paddingVertical: tokens.spacing.sm,
-    borderRadius: tokens.radii.pill,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    backgroundColor: colors.bg.secondary,
-    maxWidth: "50%",
-  },
-  accountChipText: {
-    ...typography.body,
-    color: colors.text.primary,
   },
   readOnlyBadgeRow: {
     flexDirection: "row",
