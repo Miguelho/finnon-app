@@ -40,6 +40,7 @@ type RawInvite = {
 
 type FilterStatus = "all" | "active" | "expired" | "revoked";
 type InviteMode = "link" | "registered";
+type ExpirationMode = "unlimited" | "custom";
 
 export default function InvitationsScreen() {
   const [invites, setInvites] = useState<InviteItemVM[]>([]);
@@ -52,6 +53,7 @@ export default function InvitationsScreen() {
   const [createdInviteUrl, setCreatedInviteUrl] = useState<string | null>(null);
   const [inviteMode, setInviteMode] = useState<InviteMode>("link");
   const [inviteEmail, setInviteEmail] = useState("");
+  const [expirationMode, setExpirationMode] = useState<ExpirationMode>("unlimited");
   const { dictionary } = useCopy();
 
   // Form state
@@ -224,19 +226,25 @@ export default function InvitationsScreen() {
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
       const maxUsesValue = maxUses ? parseInt(maxUses) : 1;
 
+      const body: Record<string, unknown> = {
+        accountId: selectedAccountId,
+        role: selectedRole,
+        email: trimmedEmail,
+        maxUses: Number.isNaN(maxUsesValue) ? 1 : maxUsesValue,
+      };
+
+      // Only include expiresInHours if mode is custom
+      if (expirationMode === "custom" && expiresInHours) {
+        body.expiresInHours = parseInt(expiresInHours);
+      }
+
       const response = await fetch(`${apiUrl}/api/participants/invite`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          accountId: selectedAccountId,
-          role: selectedRole,
-          email: trimmedEmail,
-          expiresInHours: parseInt(expiresInHours),
-          maxUses: Number.isNaN(maxUsesValue) ? 1 : maxUsesValue,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -328,6 +336,7 @@ export default function InvitationsScreen() {
     setMaxUses("");
     setInviteMode("link");
     setInviteEmail("");
+    setExpirationMode("unlimited");
   }
 
   const filteredInvites = invites.filter((invite) => {
@@ -518,6 +527,12 @@ export default function InvitationsScreen() {
                   variant="secondary"
                 />
               </View>
+            ) : accounts.length === 0 ? (
+              <View style={styles.noAdminAccountsContainer}>
+                <Text style={styles.noAdminAccountsText}>
+                  {t(dictionary, "invites.noAdminAccounts")}
+                </Text>
+              </View>
             ) : (
               <>
                 <View style={styles.formField}>
@@ -600,16 +615,58 @@ export default function InvitationsScreen() {
                   </Picker>
                 </View>
 
-                <View style={styles.formField}>
-                  <Text style={styles.label}>{t(dictionary, "invites.expiresInLabel")}</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={expiresInHours}
-                    onChangeText={setExpiresInHours}
-                    keyboardType="number-pad"
-                    placeholder={expiresInHours || "24"}
-                  />
-                </View>
+                {isRegisteredMode && (
+                  <View style={styles.formField}>
+                    <Text style={styles.label}>{t(dictionary, "invites.expirationModeLabel")}</Text>
+                    <View style={styles.inviteTypeButtons}>
+                      <TouchableOpacity
+                        style={[
+                          styles.inviteTypeButton,
+                          expirationMode === "unlimited" && styles.inviteTypeButtonActive,
+                        ]}
+                        onPress={() => setExpirationMode("unlimited")}
+                      >
+                        <Text
+                          style={[
+                            styles.inviteTypeButtonText,
+                            expirationMode === "unlimited" && styles.inviteTypeButtonTextActive,
+                          ]}
+                        >
+                          {t(dictionary, "invites.expirationUnlimited")}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.inviteTypeButton,
+                          expirationMode === "custom" && styles.inviteTypeButtonActive,
+                        ]}
+                        onPress={() => setExpirationMode("custom")}
+                      >
+                        <Text
+                          style={[
+                            styles.inviteTypeButtonText,
+                            expirationMode === "custom" && styles.inviteTypeButtonTextActive,
+                          ]}
+                        >
+                          {t(dictionary, "invites.expirationCustom")}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {(!isRegisteredMode || expirationMode === "custom") && (
+                  <View style={styles.formField}>
+                    <Text style={styles.label}>{t(dictionary, "invites.expiresInLabel")}</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={expiresInHours}
+                      onChangeText={setExpiresInHours}
+                      keyboardType="number-pad"
+                      placeholder={expiresInHours || "24"}
+                    />
+                  </View>
+                )}
 
                 <View style={styles.formField}>
                   <Text style={styles.label}>{t(dictionary, "invites.maxUsesLabel")}</Text>
@@ -884,5 +941,14 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.md,
     color: tokens.colors.bg.primary,
     fontWeight: tokens.typography.weight.medium,
+  },
+  noAdminAccountsContainer: {
+    padding: tokens.spacing.lg,
+    alignItems: "center",
+  },
+  noAdminAccountsText: {
+    fontSize: tokens.typography.size.md,
+    color: tokens.colors.text.secondary,
+    textAlign: "center",
   },
 });

@@ -62,6 +62,8 @@ type Invite = {
 };
 
 type FilterStatus = "all" | "active" | "expired" | "revoked";
+type InviteMode = "link" | "registered";
+type ExpirationMode = "unlimited" | "custom";
 
 export default function InvitesPage() {
   const t = useTranslations();
@@ -80,6 +82,12 @@ export default function InvitesPage() {
   const [maxUses, setMaxUses] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [createdInviteUrl, setCreatedInviteUrl] = useState<string | null>(null);
+
+  // New states for registered invite
+  const [inviteMode, setInviteMode] = useState<InviteMode>("link");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [isInvitingRegistered, setIsInvitingRegistered] = useState(false);
+  const [expirationMode, setExpirationMode] = useState<ExpirationMode>("unlimited");
 
   // Fetch user's accounts
   useEffect(() => {
@@ -197,6 +205,78 @@ export default function InvitesPage() {
     }
   }
 
+  async function createRegisteredInvite() {
+    if (!selectedAccountId) {
+      toast.error(t("invites.selectAccountError"));
+      return;
+    }
+
+    const trimmedEmail = inviteEmail.trim();
+    if (!trimmedEmail) {
+      toast.error(t("errors.invalidRequest"));
+      return;
+    }
+
+    setIsInvitingRegistered(true);
+
+    try {
+      const body: Record<string, unknown> = {
+        accountId: selectedAccountId,
+        email: trimmedEmail,
+        role: selectedRole,
+        maxUses: maxUses ? parseInt(maxUses) : 1,
+      };
+
+      // Only include expiresInHours if mode is custom
+      if (expirationMode === "custom" && expiresInHours) {
+        body.expiresInHours = parseInt(expiresInHours);
+      }
+
+      const response = await fetch("/api/participants/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        toast.error(
+          error.errorKey
+            ? t(error.errorKey, error.errorParams)
+            : t("invites.registeredInviteError")
+        );
+        setIsInvitingRegistered(false);
+        return;
+      }
+
+      const data = await response.json();
+
+      if (data.status === "already_member") {
+        toast.info(t("invites.registeredAlreadyMember"));
+        closeCreateDialog();
+        return;
+      }
+
+      if (data.status === "pending") {
+        toast.info(t("invites.registeredPending"));
+        closeCreateDialog();
+        return;
+      }
+
+      // status === "created"
+      if (data.inviteUrl) {
+        setCreatedInviteUrl(data.inviteUrl);
+      }
+      fetchInvites();
+    } catch (error) {
+      console.error("Error inviting registered user:", error);
+      toast.error(t("invites.registeredInviteError"));
+      reportNetworkIssue();
+    } finally {
+      setIsInvitingRegistered(false);
+    }
+  }
+
   async function revokeInvite(inviteId: string) {
     try {
       const { error } = await supabase
@@ -236,6 +316,9 @@ export default function InvitesPage() {
     setSelectedRole("viewer");
     setExpiresInHours("24");
     setMaxUses("");
+    setInviteMode("link");
+    setInviteEmail("");
+    setExpirationMode("unlimited");
   }
 
   function getInviteStatus(invite: Invite): "active" | "expired" | "revoked" {
@@ -285,11 +368,15 @@ export default function InvitesPage() {
               <SlidePanelTitle>
                 {createdInviteUrl
                   ? t("invites.createdTitle")
+                  : inviteMode === "registered"
+                  ? t("invites.registeredTitle")
                   : t("invites.createTitle")}
               </SlidePanelTitle>
               <SlidePanelDescription>
                 {createdInviteUrl
                   ? t("invites.createdDescription")
+                  : inviteMode === "registered"
+                  ? t("invites.registeredDescription")
                   : t("invites.createDescription")}
               </SlidePanelDescription>
             </SlidePanelHeader>
@@ -324,6 +411,30 @@ export default function InvitesPage() {
                   </div>
                 ) : (
                   <>
+                {/* Invite type selector */}
+                <div className="grid gap-2">
+                  <Label>{t("invites.inviteTypeLabel")}</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={inviteMode === "link" ? "default" : "outline"}
+                      className="flex-1"
+                      onClick={() => setInviteMode("link")}
+                    >
+                      {t("invites.inviteTypeLink")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={inviteMode === "registered" ? "default" : "outline"}
+                      className="flex-1"
+                      onClick={() => setInviteMode("registered")}
+                    >
+                      {t("invites.inviteTypeRegistered")}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Account selector */}
                 <div className="grid gap-2">
                   <Label htmlFor="account">{t("invites.accountLabel")}</Label>
                   <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
@@ -340,6 +451,21 @@ export default function InvitesPage() {
                   </Select>
                 </div>
 
+                {/* Email field - only for registered mode */}
+                {inviteMode === "registered" && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="email">{t("invites.registeredEmailLabel")}</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      placeholder={t("login.emailPlaceholder")}
+                    />
+                  </div>
+                )}
+
+                {/* Role selector */}
                 <div className="grid gap-2">
                   <Label htmlFor="role">{t("invites.roleLabel")}</Label>
                   <Select
@@ -363,17 +489,45 @@ export default function InvitesPage() {
                   </Select>
                 </div>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="expires">{t("invites.expiresInLabel")}</Label>
-                  <Input
-                    id="expires"
-                    type="number"
-                    value={expiresInHours}
-                    onChange={(e) => setExpiresInHours(e.target.value)}
-                    min="1"
-                    max="8760"
-                  />
-                </div>
+                {/* Expiration mode selector - only for registered mode */}
+                {inviteMode === "registered" && (
+                  <div className="grid gap-2">
+                    <Label>{t("invites.expirationModeLabel")}</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={expirationMode === "unlimited" ? "default" : "outline"}
+                        className="flex-1"
+                        onClick={() => setExpirationMode("unlimited")}
+                      >
+                        {t("invites.expirationUnlimited")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={expirationMode === "custom" ? "default" : "outline"}
+                        className="flex-1"
+                        onClick={() => setExpirationMode("custom")}
+                      >
+                        {t("invites.expirationCustom")}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Expires in hours - show for link mode OR custom expiration */}
+                {(inviteMode === "link" || expirationMode === "custom") && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="expires">{t("invites.expiresInLabel")}</Label>
+                    <Input
+                      id="expires"
+                      type="number"
+                      value={expiresInHours}
+                      onChange={(e) => setExpiresInHours(e.target.value)}
+                      min="1"
+                      max="8760"
+                    />
+                  </div>
+                )}
 
                 <div className="grid gap-2">
                   <Label htmlFor="maxUses">
@@ -404,16 +558,23 @@ export default function InvitesPage() {
               ) : (
                 <Button
                   onClick={() => {
-                    console.log("[CreateInvite] Button clicked!", {
-                      isCreating,
-                      selectedAccountId,
-                      accounts: accounts.length,
-                    });
-                    createInvite();
+                    if (inviteMode === "registered") {
+                      createRegisteredInvite();
+                    } else {
+                      createInvite();
+                    }
                   }}
-                  disabled={isCreating || !selectedAccountId || accounts.length === 0}
+                  disabled={
+                    (inviteMode === "link" && isCreating) ||
+                    (inviteMode === "registered" && isInvitingRegistered) ||
+                    !selectedAccountId ||
+                    accounts.length === 0 ||
+                    (inviteMode === "registered" && inviteEmail.trim().length === 0)
+                  }
                 >
-                  {isCreating ? t("common.creating") : t("invites.createButton")}
+                  {(inviteMode === "link" ? isCreating : isInvitingRegistered)
+                    ? t("common.creating")
+                    : t("invites.createButton")}
                 </Button>
               )}
             </SlidePanelFooter>

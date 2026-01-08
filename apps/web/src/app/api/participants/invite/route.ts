@@ -147,8 +147,15 @@ export async function POST(request: NextRequest) {
 
     const plainToken = generateInviteToken();
     const tokenHash = hashInviteToken(plainToken);
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + expiresInHours);
+    let expiresAt: Date;
+    if (expiresInHours !== undefined) {
+      expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + expiresInHours);
+    } else {
+      // "Unlimited" = fecha muy lejana (100 años)
+      expiresAt = new Date();
+      expiresAt.setFullYear(expiresAt.getFullYear() + 100);
+    }
 
     const maxUsesValue = maxUses ?? 1;
 

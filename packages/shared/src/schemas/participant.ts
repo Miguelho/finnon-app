@@ -4,7 +4,7 @@ export const inviteParticipantSchema = z.object({
   accountId: z.string().uuid(),
   email: z.string().email(),
   role: z.enum(["viewer", "contributor", "admin"]),
-  expiresInHours: z.number().int().positive().max(8760),
+  expiresInHours: z.number().int().positive().max(8760).optional(),
   maxUses: z.number().int().positive().optional(),
 });
 

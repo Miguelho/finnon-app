@@ -377,6 +377,9 @@ export const en = {
     loadAccountsError: "Error loading accounts",
     loadInvitesError: "Error loading invites",
     expiresNone: "No expiration",
+    expirationModeLabel: "Expiration",
+    expirationUnlimited: "Unlimited",
+    expirationCustom: "Set expiration",
   },
   join: {
     missingToken: "No invitation token provided",

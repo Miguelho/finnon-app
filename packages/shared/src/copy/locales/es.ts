@@ -377,6 +377,9 @@ export const es = {
     loadAccountsError: "Error cargando cuentas",
     loadInvitesError: "Error cargando invitaciones",
     expiresNone: "Sin expiración",
+    expirationModeLabel: "Expiración",
+    expirationUnlimited: "Ilimitada",
+    expirationCustom: "Establecer fecha",
   },
   join: {
     missingToken: "No se proporcionó token de invitación",
