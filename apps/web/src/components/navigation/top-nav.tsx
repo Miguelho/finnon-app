@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { AccountSwitcher } from "@/components/home/account-switcher";
 import { FinnonMark } from "@/components/brand/finnon-mark";
 import { TopNavLinks } from "@/components/navigation/top-nav-links";
 import { cn } from "@/lib/utils";
@@ -26,26 +25,16 @@ export async function TopNav({ containerClassName }: TopNavProps) {
 
   const { data: accounts } = await supabase
     .from("accounts")
-    .select("id, name, base_currency, account_members!inner(role, user_id)")
-    .eq("account_members.user_id", user.id);
+    .select("id, account_members!inner(user_id)")
+    .eq("account_members.user_id", user.id)
+    .limit(1);
 
   if (!accounts || accounts.length === 0) return null;
 
   const cookieStore = await cookies();
-  const activeAccountId = cookieStore.get("finnon:activeAccountId")?.value;
   const locale = cookieStore.get("NEXT_LOCALE")?.value || "es";
   const dictionary = getDictionary(locale);
   const homeAriaLabel = locale === "es" ? "Ir a inicio" : "Go to home";
-
-  const activeAccount =
-    accounts.find((account) => account.id === activeAccountId) ?? accounts[0];
-
-  const accountsForSwitcher = accounts.map((account) => ({
-    id: account.id,
-    name: account.name,
-    base_currency: account.base_currency,
-    memberCount: account.account_members?.length ?? 1,
-  }));
 
   const settingsLabelKey =
     navigationItems.find((item) => item.key === "settings")?.labelKey ??
@@ -59,7 +48,7 @@ export async function TopNav({ containerClassName }: TopNavProps) {
     { href: "/settings", label: t(dictionary, settingsLabelKey) },
   ];
   const containerClasses = cn(
-    "mx-auto flex w-full items-center justify-center gap-4 px-4 py-3",
+    "mx-auto flex w-full items-center justify-between gap-4 px-4 py-3",
     containerClassName ?? "max-w-6xl"
   );
 
@@ -72,7 +61,7 @@ export async function TopNav({ containerClassName }: TopNavProps) {
       }}
     >
       <div className={containerClasses}>
-        {/* Izquierda: Logo + Finnon */}
+        {/* Logo */}
         <div className="flex shrink-0 items-center">
           <Link
             href="/"
@@ -84,20 +73,8 @@ export async function TopNav({ containerClassName }: TopNavProps) {
           </Link>
         </div>
 
-        <TopNavLinks
-          items={navItems}
-          className="min-w-0 flex-1 justify-center"
-        />
-
-        {/* Derecha: Account Switcher */}
-        <div className="flex shrink-0 items-center">
-          <AccountSwitcher
-            accounts={accountsForSwitcher}
-            initialActiveAccountId={
-              activeAccount?.id ?? accountsForSwitcher[0]?.id
-            }
-          />
-        </div>
+        {/* Navigation */}
+        <TopNavLinks items={navItems} />
       </div>
     </div>
   );
