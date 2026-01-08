@@ -10,6 +10,9 @@ type ProfileRow = {
   user_id: string;
   email: string | null;
   display_name: string | null;
+  avatar_path: string | null;
+  avatar_fallback_text: string | null;
+  avatar_fallback_bg_token: string | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -93,7 +96,9 @@ export async function POST(request: NextRequest) {
 
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
-      .select("user_id, email, display_name")
+      .select(
+        "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token"
+      )
       .in("user_id", userIds);
 
     if (profilesError) {
@@ -119,6 +124,9 @@ export async function POST(request: NextRequest) {
         role: member.role,
         name: profile?.display_name ?? profile?.email ?? null,
         email: profile?.email ?? null,
+        avatar_path: profile?.avatar_path ?? null,
+        avatar_fallback_text: profile?.avatar_fallback_text ?? null,
+        avatar_fallback_bg_token: profile?.avatar_fallback_bg_token ?? null,
       };
     });
 

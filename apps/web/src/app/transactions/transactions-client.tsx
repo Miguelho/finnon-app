@@ -58,8 +58,10 @@ import {
   formatMonthLabel,
   toMonthKey,
   themeTokens,
+  type AvatarColorToken,
 } from "@poleursus/shared";
 import { CategoryIcon } from "@/components/category-icon";
+import { UserAvatar } from "@/components/user-avatar";
 import {
   createTransaction,
   createRecurringItem,
@@ -101,12 +103,22 @@ type RecurringOccurrenceItem = {
   item: RecurringItem;
 };
 
+type Profile = {
+  user_id: string;
+  email: string | null;
+  display_name: string | null;
+  avatar_path: string | null;
+  avatar_fallback_text: string | null;
+  avatar_fallback_bg_token: AvatarColorToken | null;
+};
+
 type TransactionsClientProps = {
   accountId: string;
   baseCurrency: string;
   initialTransactions: Transaction[];
   initialRecurringItems: RecurringItem[];
   categories: Category[];
+  profiles: Profile[];
   role: "viewer" | "contributor" | "admin";
 };
 
@@ -135,6 +147,7 @@ export function TransactionsClient({
   initialTransactions,
   initialRecurringItems,
   categories,
+  profiles,
   role,
 }: TransactionsClientProps) {
   const router = useRouter();
@@ -179,6 +192,14 @@ export function TransactionsClient({
     const startYear = currentYear - 5;
     return Array.from({ length: 11 }, (_, index) => startYear + index);
   }, []);
+  const profilesById = useMemo(
+    () =>
+      profiles.reduce<Record<string, Profile>>((acc, profile) => {
+        acc[profile.user_id] = profile;
+        return acc;
+      }, {}),
+    [profiles]
+  );
 
   // Form state
   const [formData, setFormData] = useState<{
@@ -899,10 +920,17 @@ export function TransactionsClient({
                     currencySymbol
                   );
 
+                  const profile = profilesById[transaction.created_by];
+                  const creatorName =
+                    profile?.display_name ??
+                    profile?.email ??
+                    transaction.created_by.slice(0, 6);
+                  const creatorLabel = t("createdBy", { name: creatorName });
+
                   return (
                     <div
                       key={transaction.id}
-                      className={`flex items-center justify-between rounded-lg border p-4 transition-colors ${
+                      className={`rounded-lg border p-4 transition-colors ${
                         canEdit ? "cursor-pointer hover:bg-muted/50" : ""
                       }`}
                       role={canEdit ? "button" : undefined}
@@ -918,50 +946,65 @@ export function TransactionsClient({
                         }
                       }}
                     >
-                      <div className="flex items-start gap-4 flex-1">
-                        <CategoryIcon
-                          iconId={category?.icon_id}
-                          size={20}
-                          tone="muted"
-                          accessibilityLabel={category?.name || undefined}
-                        />
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-start gap-4 flex-1 min-w-0">
+                          <CategoryIcon
+                            iconId={category?.icon_id}
+                            size={20}
+                            tone="muted"
+                            accessibilityLabel={category?.name || undefined}
+                          />
 
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-baseline gap-2">
-                            <span className="font-medium">
-                              {transaction.merchant ||
-                                category?.name ||
-                                t("create.categoryNone")}
-                            </span>
-                            {transaction.merchant && category && (
-                              <span className="text-sm text-muted-foreground">
-                                • {category.name}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline gap-2">
+                              <span className="font-medium">
+                                {transaction.merchant ||
+                                  category?.name ||
+                                  t("create.categoryNone")}
                               </span>
-                            )}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {new Date(transaction.date).toLocaleDateString()}
-                            {transaction.notes && (
-                              <span className="ml-2">• {transaction.notes}</span>
-                            )}
+                              {transaction.merchant && category && (
+                                <span className="text-sm text-muted-foreground">
+                                  • {category.name}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {new Date(transaction.date).toLocaleDateString()}
+                              {transaction.notes && (
+                                <span className="ml-2">
+                                  • {transaction.notes}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
 
-                        <div
-                          className="font-semibold text-lg"
-                          style={{
-                            color:
-                              transaction.type === "income"
-                                ? colors.state.positive
-                                : colors.state.negative,
-                          }}
-                        >
-                          {transaction.type === "income" ? "+" : "-"}
-                          {amount}
-                        </div>
-
-                        {canEdit && (
-                          <div className="flex gap-2">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="font-semibold text-lg"
+                            style={{
+                              color:
+                                transaction.type === "income"
+                                  ? colors.state.positive
+                                  : colors.state.negative,
+                            }}
+                          >
+                            {transaction.type === "income" ? "+" : "-"}
+                            {amount}
+                          </div>
+                          <UserAvatar
+                            email={profile?.email}
+                            userId={transaction.created_by}
+                            avatarPath={profile?.avatar_path}
+                            fallbackText={profile?.avatar_fallback_text ?? null}
+                            fallbackBgToken={
+                              (profile?.avatar_fallback_bg_token as AvatarColorToken | null) ??
+                              null
+                            }
+                            size={24}
+                            label={creatorLabel}
+                          />
+                          {canEdit && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -972,8 +1015,8 @@ export function TransactionsClient({
                             >
                               {t("deleteButton")}
                             </Button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   );

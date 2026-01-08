@@ -20,6 +20,7 @@ import { useAuth } from "../../../src/contexts/AuthContext";
 import { Button } from "../../../src/components/Button";
 import { Card } from "../../../src/components/Card";
 import { CategoryIcon } from "../../../src/components/CategoryIcon";
+import { UserAvatar } from "../../../src/components/UserAvatar";
 import { useNetworkNotice } from "../../../src/contexts/NetworkNoticeContext";
 import {
   addMonths,
@@ -31,6 +32,7 @@ import {
   type RecurringItem,
   getOccurrencesBetween,
   getOccurrenceKey,
+  type AvatarColorToken,
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
 
@@ -64,6 +66,15 @@ type RecurringOccurrenceItem = {
   item: RecurringItem;
 };
 
+type Profile = {
+  user_id: string;
+  email: string | null;
+  display_name: string | null;
+  avatar_path: string | null;
+  avatar_fallback_text: string | null;
+  avatar_fallback_bg_token: AvatarColorToken | null;
+};
+
 const tokens = themeTokens.light;
 const colors = tokens.colors;
 const spacing = tokens.spacing;
@@ -91,12 +102,13 @@ const getMonthRangeFromKey = (monthKey: string) => {
 
 export default function TransactionsScreen(): React.JSX.Element {
   const router = useRouter();
-  const { selectedAccountId } = useAuth();
+  const { selectedAccountId, user } = useAuth();
   const { dictionary, locale } = useCopy();
   const { reportNetworkIssue } = useNetworkNotice();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [recurringItems, setRecurringItems] = useState<RecurringItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [profilesById, setProfilesById] = useState<Record<string, Profile>>({});
   const [baseCurrency, setBaseCurrency] = useState("EUR");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -186,6 +198,31 @@ export default function TransactionsScreen(): React.JSX.Element {
       if (fetchError) throw fetchError;
 
       setTransactions(data || []);
+
+      const createdByIds = Array.from(
+        new Set([
+          ...(data || []).map((transaction) => transaction.created_by),
+          ...(user?.id ? [user.id] : []),
+        ])
+      );
+      if (createdByIds.length > 0) {
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select(
+            "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token"
+          )
+          .in("user_id", createdByIds);
+        if (profileError) throw profileError;
+        if (profileData) {
+          setProfilesById((prev) => {
+            const next = { ...prev };
+            profileData.forEach((profile) => {
+              next[profile.user_id] = profile as Profile;
+            });
+            return next;
+          });
+        }
+      }
 
       const { data: categoryData, error: categoryError } = await supabase
         .from("categories")
@@ -621,6 +658,14 @@ export default function TransactionsScreen(): React.JSX.Element {
                       transaction.merchant ||
                       category?.name ||
                       t(dictionary, "transactions.uncategorized");
+                    const profile = profilesById[transaction.created_by];
+                    const creatorName =
+                      profile?.display_name ||
+                      profile?.email ||
+                      transaction.created_by.slice(0, 6);
+                    const creatorLabel = t(dictionary, "transactions.createdBy", {
+                      name: creatorName,
+                    });
 
                     return (
                       <TouchableOpacity
@@ -660,6 +705,18 @@ export default function TransactionsScreen(): React.JSX.Element {
                             {transaction.type === "income" ? "+" : "-"}
                             {amount}
                           </Text>
+                          <UserAvatar
+                            email={profile?.email}
+                            userId={transaction.created_by}
+                            avatarPath={profile?.avatar_path}
+                            fallbackText={profile?.avatar_fallback_text ?? null}
+                            fallbackBgToken={
+                              (profile?.avatar_fallback_bg_token as AvatarColorToken | null) ??
+                              null
+                            }
+                            size={24}
+                            label={creatorLabel}
+                          />
                           <TouchableOpacity
                             onPress={() => handleDelete(transaction)}
                             style={styles.deleteAction}

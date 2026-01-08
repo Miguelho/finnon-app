@@ -20,6 +20,7 @@
     "dotenv": "^17.2.3",
     "expo": "~54.0.0",
     "expo-constants": "~18.0.0",
+    "expo-image-picker": "~16.0.0",
     "expo-linking": "~8.0.11",
     "expo-router": "~6.0.21",
     "expo-status-bar": "~3.0.9",

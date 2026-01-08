@@ -172,6 +172,7 @@ export const es = {
     fxRateInvalid: "El formato del tipo de cambio es inválido",
     transactionsCount:
       "{count, plural, =0 {Sin movimientos} =1 {1 movimiento} other {# movimientos}}",
+    createdBy: "Creado por {name}",
     noTransactions: "No hay movimientos este mes. Crea uno para empezar.",
     noTransactionsReadOnly: "No hay movimientos este mes.",
     readOnlyNotice:
@@ -455,6 +456,29 @@ export const es = {
     userDetails: {
       title: "Detalles del usuario",
       subtitle: "Información de tu cuenta",
+      avatar: {
+        title: "Avatar",
+        description: "Personaliza tu foto de perfil",
+        edit: "Editar avatar",
+        editorTitle: "Personalizar avatar",
+        editorDescription: "Ajusta tu fallback cuando no tienes foto.",
+        changePhoto: "Cambiar foto",
+        removePhoto: "Eliminar foto",
+        fallbackHint: "Solo se muestra si no tienes foto.",
+        letterLabel: "Letra",
+        letterReset: "Restablecer",
+        backgroundLabel: "Fondo",
+        backgroundReset: "Automático",
+        backgroundRandom: "Aleatorio",
+        save: "Guardar",
+        cancel: "Cancelar",
+        sizeError: "El tamaño máximo es 5MB.",
+        typeError: "Solo se permiten JPG, PNG o WebP.",
+        permissionError: "Necesitamos acceso a tus fotos para subir un avatar.",
+        uploadError: "No se pudo actualizar el avatar.",
+        removeError: "No se pudo eliminar el avatar.",
+        fallbackError: "No se pudo actualizar el fallback.",
+      },
       fields: {
         email: "Correo electrónico",
         id: "ID de usuario",

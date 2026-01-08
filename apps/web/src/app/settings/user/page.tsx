@@ -7,6 +7,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { TopNav } from "@/components/navigation/top-nav";
+import { UserAvatarSettings } from "@/components/settings/user-avatar-settings";
 
 export default async function UserDetailsPage() {
   const supabase = await createClient();
@@ -36,6 +37,8 @@ export default async function UserDetailsPage() {
               {t(dictionary, "settings.userDetails.subtitle")}
             </p>
           </div>
+
+          <UserAvatarSettings userId={viewModel.userId} email={viewModel.email} />
 
           <Card>
             <CardContent className="p-0">

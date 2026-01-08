@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAuthenticatedClient } from "@/lib/supabase/server";
+import { supabaseServer } from "@/lib/supabaseServer";
 import { inviteParticipantSchema } from "@poleursus/shared";
 import {
   buildInviteUrl,
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: invitee, error: inviteeError } = await supabase
+    const { data: invitee, error: inviteeError } = await supabaseServer
       .from("profiles")
       .select("user_id, email")
       .ilike("email", normalizedEmail)

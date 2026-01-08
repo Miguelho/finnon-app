@@ -172,6 +172,7 @@ export const en = {
     fxRateInvalid: "FX rate format is invalid",
     transactionsCount:
       "{count, plural, =0 {No transactions} =1 {1 transaction} other {# transactions}}",
+    createdBy: "Created by {name}",
     noTransactions: "No transactions this month. Create one to get started.",
     noTransactionsReadOnly: "No transactions this month.",
     readOnlyNotice:
@@ -455,6 +456,29 @@ export const en = {
     userDetails: {
       title: "User details",
       subtitle: "Your account information",
+      avatar: {
+        title: "Avatar",
+        description: "Personalize your profile photo",
+        edit: "Edit avatar",
+        editorTitle: "Customize avatar",
+        editorDescription: "Adjust your fallback when you don't have a photo.",
+        changePhoto: "Change photo",
+        removePhoto: "Remove photo",
+        fallbackHint: "Only shown when you don't have a photo.",
+        letterLabel: "Letter",
+        letterReset: "Reset",
+        backgroundLabel: "Background",
+        backgroundReset: "Default",
+        backgroundRandom: "Random",
+        save: "Save",
+        cancel: "Cancel",
+        sizeError: "Max size is 5MB.",
+        typeError: "Only JPG, PNG, or WebP files are allowed.",
+        permissionError: "We need access to your photos to upload an avatar.",
+        uploadError: "Failed to update avatar.",
+        removeError: "Failed to remove avatar.",
+        fallbackError: "Failed to update fallback.",
+      },
       fields: {
         email: "Email",
         id: "User ID",

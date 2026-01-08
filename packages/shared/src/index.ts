@@ -10,6 +10,7 @@ export * from "./constants/icons";
 export * from "./icons/categories";
 export * from "./icons/category-icon";
 export * from "./utils/money";
+export * from "./utils/avatar";
 export * from "./domain/types";
 export * from "./domain/settings";
 export * from "./date/month";

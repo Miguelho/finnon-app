@@ -55,6 +55,19 @@ export default async function TransactionsPage() {
     .order("date", { ascending: false })
     .order("created_at", { ascending: false });
 
+  const createdByIds = Array.from(
+    new Set([user.id, ...(transactions ?? []).map((item) => item.created_by)])
+  );
+  const { data: profiles } =
+    createdByIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select(
+            "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token"
+          )
+          .in("user_id", createdByIds)
+      : { data: [] };
+
   const { data: recurringItems } = await supabase
     .from("recurring_items")
     .select(
@@ -79,6 +92,7 @@ export default async function TransactionsPage() {
         initialTransactions={transactions || []}
         initialRecurringItems={recurringItems || []}
         categories={categories || []}
+        profiles={profiles || []}
         role={activeRole}
       />
     </div>

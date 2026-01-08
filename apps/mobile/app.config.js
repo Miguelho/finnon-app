@@ -29,7 +29,16 @@ module.exports = {
       favicon: "./assets/favicon.png",
     },
     scheme: "finnon",
-    plugins: ["expo-router"],
+    plugins: [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          photosPermission:
+            "Allow Finnon to access your photos to set your avatar.",
+        },
+      ],
+    ],
     extra: {
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
