@@ -167,15 +167,21 @@ export default function InvitesPage() {
     setIsCreating(true);
 
     try {
+      const body: Record<string, unknown> = {
+        accountId: selectedAccountId,
+        role: selectedRole,
+        maxUses: maxUses ? parseInt(maxUses) : undefined,
+      };
+
+      // Only include expiresInHours if mode is custom
+      if (expirationMode === "custom" && expiresInHours) {
+        body.expiresInHours = parseInt(expiresInHours);
+      }
+
       const response = await fetch("/api/invites/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accountId: selectedAccountId,
-          role: selectedRole,
-          expiresInHours: parseInt(expiresInHours),
-          maxUses: maxUses ? parseInt(maxUses) : undefined,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -489,33 +495,31 @@ export default function InvitesPage() {
                   </Select>
                 </div>
 
-                {/* Expiration mode selector - only for registered mode */}
-                {inviteMode === "registered" && (
-                  <div className="grid gap-2">
-                    <Label>{t("invites.expirationModeLabel")}</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant={expirationMode === "unlimited" ? "default" : "outline"}
-                        className="flex-1"
-                        onClick={() => setExpirationMode("unlimited")}
-                      >
-                        {t("invites.expirationUnlimited")}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={expirationMode === "custom" ? "default" : "outline"}
-                        className="flex-1"
-                        onClick={() => setExpirationMode("custom")}
-                      >
-                        {t("invites.expirationCustom")}
-                      </Button>
-                    </div>
+                {/* Expiration mode selector */}
+                <div className="grid gap-2">
+                  <Label>{t("invites.expirationModeLabel")}</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={expirationMode === "unlimited" ? "default" : "outline"}
+                      className="flex-1"
+                      onClick={() => setExpirationMode("unlimited")}
+                    >
+                      {t("invites.expirationUnlimited")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={expirationMode === "custom" ? "default" : "outline"}
+                      className="flex-1"
+                      onClick={() => setExpirationMode("custom")}
+                    >
+                      {t("invites.expirationCustom")}
+                    </Button>
                   </div>
-                )}
+                </div>
 
-                {/* Expires in hours - show for link mode OR custom expiration */}
-                {(inviteMode === "link" || expirationMode === "custom") && (
+                {/* Expires in hours - only show when custom expiration is selected */}
+                {expirationMode === "custom" && (
                   <div className="grid gap-2">
                     <Label htmlFor="expires">{t("invites.expiresInLabel")}</Label>
                     <Input

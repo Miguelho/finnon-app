@@ -152,18 +152,24 @@ export default function InvitationsScreen() {
 
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 
+      const body: Record<string, unknown> = {
+        accountId: selectedAccountId,
+        role: selectedRole,
+        maxUses: maxUses ? parseInt(maxUses) : undefined,
+      };
+
+      // Only include expiresInHours if mode is custom
+      if (expirationMode === "custom" && expiresInHours) {
+        body.expiresInHours = parseInt(expiresInHours);
+      }
+
       const response = await fetch(`${apiUrl}/api/invites/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          accountId: selectedAccountId,
-          role: selectedRole,
-          expiresInHours: parseInt(expiresInHours),
-          maxUses: maxUses ? parseInt(maxUses) : undefined,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -615,47 +621,45 @@ export default function InvitationsScreen() {
                   </Picker>
                 </View>
 
-                {isRegisteredMode && (
-                  <View style={styles.formField}>
-                    <Text style={styles.label}>{t(dictionary, "invites.expirationModeLabel")}</Text>
-                    <View style={styles.inviteTypeButtons}>
-                      <TouchableOpacity
+                <View style={styles.formField}>
+                  <Text style={styles.label}>{t(dictionary, "invites.expirationModeLabel")}</Text>
+                  <View style={styles.inviteTypeButtons}>
+                    <TouchableOpacity
+                      style={[
+                        styles.inviteTypeButton,
+                        expirationMode === "unlimited" && styles.inviteTypeButtonActive,
+                      ]}
+                      onPress={() => setExpirationMode("unlimited")}
+                    >
+                      <Text
                         style={[
-                          styles.inviteTypeButton,
-                          expirationMode === "unlimited" && styles.inviteTypeButtonActive,
+                          styles.inviteTypeButtonText,
+                          expirationMode === "unlimited" && styles.inviteTypeButtonTextActive,
                         ]}
-                        onPress={() => setExpirationMode("unlimited")}
                       >
-                        <Text
-                          style={[
-                            styles.inviteTypeButtonText,
-                            expirationMode === "unlimited" && styles.inviteTypeButtonTextActive,
-                          ]}
-                        >
-                          {t(dictionary, "invites.expirationUnlimited")}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
+                        {t(dictionary, "invites.expirationUnlimited")}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.inviteTypeButton,
+                        expirationMode === "custom" && styles.inviteTypeButtonActive,
+                      ]}
+                      onPress={() => setExpirationMode("custom")}
+                    >
+                      <Text
                         style={[
-                          styles.inviteTypeButton,
-                          expirationMode === "custom" && styles.inviteTypeButtonActive,
+                          styles.inviteTypeButtonText,
+                          expirationMode === "custom" && styles.inviteTypeButtonTextActive,
                         ]}
-                        onPress={() => setExpirationMode("custom")}
                       >
-                        <Text
-                          style={[
-                            styles.inviteTypeButtonText,
-                            expirationMode === "custom" && styles.inviteTypeButtonTextActive,
-                          ]}
-                        >
-                          {t(dictionary, "invites.expirationCustom")}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
+                        {t(dictionary, "invites.expirationCustom")}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-                )}
+                </View>
 
-                {(!isRegisteredMode || expirationMode === "custom") && (
+                {expirationMode === "custom" && (
                   <View style={styles.formField}>
                     <Text style={styles.label}>{t(dictionary, "invites.expiresInLabel")}</Text>
                     <TextInput

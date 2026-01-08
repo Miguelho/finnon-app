@@ -429,9 +429,9 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.root}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.scroll,
+      <View
+        style={[
+          styles.headerContainer,
           { paddingTop: tokens.spacing.lg + insets.top },
         ]}
       >
@@ -477,7 +477,9 @@ export default function HomeScreen() {
             </View>
           )}
         </View>
-        
+      </View>
+
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Hero */}
         <View style={styles.heroCard}>
           <View style={[styles.heroSection, styles.heroSectionFirst]}>
@@ -857,6 +859,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg.primary,
   },
+  headerContainer: {
+    paddingHorizontal: tokens.spacing.lg,
+    paddingBottom: tokens.spacing.lg,
+    backgroundColor: colors.bg.primary,
+  },
   loading: {
     flex: 1,
     justifyContent: "center",
@@ -869,8 +876,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg.primary,
     justifyContent: "center",
   },
-  scroll: {
-    padding: tokens.spacing.lg,
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: tokens.spacing.lg,
     paddingBottom: 120,
     gap: tokens.spacing.lg,
   },

@@ -78,8 +78,15 @@ export async function POST(request: NextRequest) {
     const tokenHash = hashInviteToken(plainToken);
 
     // 5. Calculate expiration
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + expiresInHours);
+    let expiresAt: Date;
+    if (expiresInHours !== undefined) {
+      expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + expiresInHours);
+    } else {
+      // "Unlimited" = fecha muy lejana (100 años)
+      expiresAt = new Date();
+      expiresAt.setFullYear(expiresAt.getFullYear() + 100);
+    }
 
     // 6. Insert invite into database
     const { data: invite, error: insertError } = await supabase

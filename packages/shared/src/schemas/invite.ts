@@ -18,7 +18,7 @@ export const inviteSchema = z.object({
 export const createInviteSchema = z.object({
   accountId: z.string().uuid(),
   role: z.enum(["viewer", "contributor", "admin"]),
-  expiresInHours: z.number().int().positive().max(8760), // Max 1 year (365 days * 24 hours)
+  expiresInHours: z.number().int().positive().max(8760).optional(), // Max 1 year, optional = unlimited
   maxUses: z.number().int().positive().optional(),
 });
 
