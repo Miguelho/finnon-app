@@ -274,9 +274,11 @@ export const es = {
     subtitle: "Gestiona tus categorías de ingresos y gastos",
     readOnlyNotice: "Acceso de solo lectura. Pide permisos para editar.",
     backToDashboard: "Volver al inicio",
+    newTitle: "Nueva categoría",
     expenseTitle: "Categorías de gasto",
     incomeTitle: "Categorías de ingreso",
     countLabel: "{count} categorías",
+    emptyAll: "Aún no hay categorías.",
     createTitle: "Crear categoría",
     createDescription: "Agrega una nueva categoría para organizar tus transacciones",
     editTitle: "Editar categoría",
@@ -287,6 +289,9 @@ export const es = {
     iconLabel: "Icono",
     expenseLabel: "Gasto",
     incomeLabel: "Ingreso",
+    saveLabel: "Guardar categoría",
+    currentMonthLabel: "Mes actual",
+    transactionsEmptyRange: "No hay movimientos en este rango.",
     deleteConfirmTitle: "Eliminar categoría",
     deleteConfirmDescription: "¿Seguro que quieres eliminar \"{name}\"?",
     deleteError: "No se pudo eliminar la categoría",
@@ -434,6 +439,10 @@ export const es = {
             switchAccount: {
               title: "Cambiar cuenta",
               description: "Selecciona otra cuenta para trabajar",
+            },
+            categories: {
+              title: "Categorías",
+              description: "Consulta y organiza las categorías de la cuenta",
             },
             invitations: {
               title: "Invitaciones",

@@ -141,7 +141,10 @@ export default async function DashboardPage() {
       style={{ backgroundColor: colors.bg.primary, color: colors.text.primary }}
     >
       <TopNav />
-      <AddAction canEdit={viewModel.permissions.canEdit} />
+      <AddAction
+        canEdit={viewModel.permissions.canEdit}
+        accountId={mainAccount.id}
+      />
       <PageContainer className="flex flex-col gap-6">
         {viewModel.permissions.isGuestReadOnly && (
           <div className="flex justify-end">

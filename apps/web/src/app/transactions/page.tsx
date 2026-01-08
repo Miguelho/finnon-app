@@ -72,7 +72,7 @@ export default async function TransactionsPage() {
   return (
     <div className="min-h-screen bg-background">
       <TopNav />
-      <AddAction canEdit={canEdit} />
+      <AddAction canEdit={canEdit} accountId={activeAccount.id} />
       <TransactionsClient
         accountId={activeAccount.id}
         baseCurrency={activeAccount.base_currency}

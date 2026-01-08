@@ -113,6 +113,7 @@ export default function CategoriesScreen() {
 
   const incomeCategories = categories.filter((cat) => cat.type === "income");
   const expenseCategories = categories.filter((cat) => cat.type === "expense");
+  const hasCategories = categories.length > 0;
 
   if (loading) {
     return (
@@ -157,8 +158,21 @@ export default function CategoriesScreen() {
         />
       </View>
 
+      {!hasCategories && (
+        <Card>
+          <Text style={styles.emptyText}>{t(dictionary, "categories.emptyAll")}</Text>
+          <View style={styles.emptyCta}>
+            <Button
+              title={t(dictionary, "categories.createTitle")}
+              onPress={() => router.push("/(auth)/categories/create")}
+            />
+          </View>
+        </Card>
+      )}
+
       {/* Expense Categories */}
-      <View style={styles.section}>
+      {hasCategories && (
+        <View style={styles.section}>
         <Text style={styles.sectionTitle}>
           {t(dictionary, "categories.listExpenseTitle", {
             count: expenseCategories.length,
@@ -174,14 +188,17 @@ export default function CategoriesScreen() {
               const icon = getIconById(category.icon_id);
               return (
                 <View key={category.id} style={styles.categoryItem}>
-                  <View style={styles.categoryInfo}>
+                  <TouchableOpacity
+                    style={styles.categoryInfo}
+                    onPress={() => router.push(`/(auth)/categories/${category.id}`)}
+                  >
                     <Text style={styles.emoji}>{icon?.emoji || "📦"}</Text>
                     <Text style={styles.categoryName}>{category.name}</Text>
-                  </View>
+                  </TouchableOpacity>
                   <View style={styles.categoryActions}>
                     <TouchableOpacity
                       onPress={() =>
-                        router.push(`/(auth)/categories/${category.id}`)
+                        router.push(`/(auth)/categories/${category.id}/edit`)
                       }
                       style={styles.actionButton}
                     >
@@ -203,10 +220,12 @@ export default function CategoriesScreen() {
             })}
           </View>
         )}
-      </View>
+        </View>
+      )}
 
       {/* Income Categories */}
-      <View style={styles.section}>
+      {hasCategories && (
+        <View style={styles.section}>
         <Text style={styles.sectionTitle}>
           {t(dictionary, "categories.listIncomeTitle", {
             count: incomeCategories.length,
@@ -222,14 +241,17 @@ export default function CategoriesScreen() {
               const icon = getIconById(category.icon_id);
               return (
                 <View key={category.id} style={styles.categoryItem}>
-                  <View style={styles.categoryInfo}>
+                  <TouchableOpacity
+                    style={styles.categoryInfo}
+                    onPress={() => router.push(`/(auth)/categories/${category.id}`)}
+                  >
                     <Text style={styles.emoji}>{icon?.emoji || "📦"}</Text>
                     <Text style={styles.categoryName}>{category.name}</Text>
-                  </View>
+                  </TouchableOpacity>
                   <View style={styles.categoryActions}>
                     <TouchableOpacity
                       onPress={() =>
-                        router.push(`/(auth)/categories/${category.id}`)
+                        router.push(`/(auth)/categories/${category.id}/edit`)
                       }
                       style={styles.actionButton}
                     >
@@ -251,7 +273,8 @@ export default function CategoriesScreen() {
             })}
           </View>
         )}
-      </View>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -304,6 +327,9 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: 8,
+  },
+  emptyCta: {
+    marginTop: 12,
   },
   categoryItem: {
     flexDirection: "row",

@@ -1,4 +1,4 @@
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { themeTokens } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
@@ -18,6 +18,7 @@ const tabItems = [
 
 export default function TabsLayout() {
   const { dictionary } = useCopy();
+  const router = useRouter();
 
   return (
     <Tabs
@@ -39,6 +40,16 @@ export default function TabsLayout() {
               />
             ),
           }}
+          listeners={
+            item.key === "transactions"
+              ? {
+                  tabPress: (event) => {
+                    event.preventDefault();
+                    router.replace("/(auth)/(tabs)/transactions");
+                  },
+                }
+              : undefined
+          }
         />
       ))}
       <Tabs.Screen

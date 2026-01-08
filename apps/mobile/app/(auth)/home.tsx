@@ -780,7 +780,7 @@ export default function HomeScreen() {
             disabled={!viewModel.permissions.canEdit}
             onPress={() => {
               setIsAddSheetOpen(false);
-              router.push("/(auth)/categories");
+              router.push("/(auth)/categories/create");
             }}
           >
             <View style={styles.sheetActionRow}>

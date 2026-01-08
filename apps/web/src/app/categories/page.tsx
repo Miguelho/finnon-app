@@ -4,7 +4,17 @@ import { CategoriesClient } from "./categories-client";
 import { cookies } from "next/headers";
 import { TopNav } from "@/components/navigation/top-nav";
 
-export default async function CategoriesPage() {
+type CategoriesPageProps = {
+  searchParams?: Record<string, string | string[] | undefined>;
+};
+
+const getQueryValue = (
+  value: string | string[] | undefined
+): string | undefined => (Array.isArray(value) ? value[0] : value);
+
+export default async function CategoriesPage({
+  searchParams,
+}: CategoriesPageProps) {
   const supabase = await createClient();
 
   const {
@@ -35,6 +45,9 @@ export default async function CategoriesPage() {
     (account) => account.id === cookieAccountId
   );
   const activeRole = activeAccount?.account_members?.[0]?.role ?? "viewer";
+  const createParam = getQueryValue(searchParams?.create);
+  const openCreate =
+    createParam === "1" || createParam === "true" || createParam === "yes";
 
   if (!activeAccount) {
     redirect("/select-account");
@@ -54,6 +67,7 @@ export default async function CategoriesPage() {
         accountId={activeAccount.id}
         initialCategories={categories || []}
         role={activeRole}
+        initialCreateOpen={openCreate}
       />
     </div>
   );

@@ -274,9 +274,11 @@ export const en = {
     subtitle: "Manage your income and expense categories",
     readOnlyNotice: "Read-only access. Ask the account owner to grant edit permissions.",
     backToDashboard: "Back to dashboard",
+    newTitle: "New category",
     expenseTitle: "Expense categories",
     incomeTitle: "Income categories",
     countLabel: "{count} categories",
+    emptyAll: "No categories yet.",
     createTitle: "Create category",
     createDescription: "Add a new category to organize your transactions",
     editTitle: "Edit category",
@@ -287,6 +289,9 @@ export const en = {
     iconLabel: "Icon",
     expenseLabel: "Expense",
     incomeLabel: "Income",
+    saveLabel: "Save category",
+    currentMonthLabel: "This month",
+    transactionsEmptyRange: "No transactions in this range.",
     deleteConfirmTitle: "Delete category",
     deleteConfirmDescription: "Are you sure you want to delete \"{name}\"?",
     deleteError: "Failed to delete category",
@@ -434,6 +439,10 @@ export const en = {
             switchAccount: {
               title: "Switch account",
               description: "Choose a different account to work on",
+            },
+            categories: {
+              title: "Categories",
+              description: "Review and organize account categories",
             },
             invitations: {
               title: "Invitations",

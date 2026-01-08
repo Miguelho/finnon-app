@@ -33,6 +33,8 @@ export default function CreateCategoryScreen() {
   const [type, setType] = useState<CategoryType>("expense");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { dictionary } = useCopy();
+  const normalizedNameValue = normalizeCategoryName(name);
+  const canSubmit = Boolean(normalizedNameValue) && !isSubmitting;
 
   const handleCreate = async () => {
     const normalizedName = normalizeCategoryName(name);
@@ -131,7 +133,7 @@ export default function CreateCategoryScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Card
-        title={t(dictionary, "categories.createTitle")}
+        title={t(dictionary, "categories.newTitle")}
         description={t(dictionary, "categories.createDescription")}
       >
         <View style={styles.form}>
@@ -179,11 +181,11 @@ export default function CreateCategoryScreen() {
               <Button
                 title={
                   isSubmitting
-                    ? t(dictionary, "common.creating")
-                    : t(dictionary, "common.create")
+                    ? t(dictionary, "common.saving")
+                    : t(dictionary, "categories.saveLabel")
                 }
                 onPress={handleCreate}
-                disabled={isSubmitting}
+                disabled={!canSubmit}
               />
             </View>
           </View>

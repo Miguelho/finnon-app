@@ -151,6 +151,18 @@ export function buildSettingsMenuVM(
                 : `${baseRoute}/account-switch`,
           },
           {
+            id: "categories",
+            title: t(
+              dictionary,
+              "settings.menu.sections.account.items.categories.title"
+            ),
+            description: t(
+              dictionary,
+              "settings.menu.sections.account.items.categories.description"
+            ),
+            route: platform === "mobile" ? "/(auth)/categories" : "/categories",
+          },
+          {
             id: "invitations",
             title: t(
               dictionary,

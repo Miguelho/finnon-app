@@ -60,18 +60,20 @@ type CategoriesClientProps = {
   accountId: string;
   initialCategories: Category[];
   role: "viewer" | "contributor" | "admin";
+  initialCreateOpen?: boolean;
 };
 
 export function CategoriesClient({
   accountId,
   initialCategories,
   role,
+  initialCreateOpen = false,
 }: CategoriesClientProps) {
   const router = useRouter();
   const t = useTranslations();
   const locale = useLocale();
   const [categories, setCategories] = useState(initialCategories);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(initialCreateOpen);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
@@ -220,12 +222,15 @@ export function CategoriesClient({
   const sortedCategories = [...categories].sort((a, b) =>
     a.name.localeCompare(b.name, locale, { sensitivity: "base" })
   );
+  const hasCategories = categories.length > 0;
   const incomeCategories = sortedCategories.filter(
     (cat) => cat.type === "income"
   );
   const expenseCategories = sortedCategories.filter(
     (cat) => cat.type === "expense"
   );
+  const normalizedNameValue = normalizeCategoryName(formData.name);
+  const canSubmit = Boolean(normalizedNameValue) && !isSubmitting;
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -253,8 +258,25 @@ export function CategoriesClient({
           </div>
         </div>
 
+        {!hasCategories && (
+          <Card>
+            <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
+              <p className="text-sm text-muted-foreground">
+                {t("categories.emptyAll")}
+              </p>
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                disabled={!canEdit}
+              >
+                {t("categories.createTitle")}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Categories Grid */}
-        <div className="grid gap-6 md:grid-cols-2">
+        {hasCategories && (
+          <div className="grid gap-6 md:grid-cols-2">
           {/* Expense Categories */}
           <Card>
             <CardHeader>
@@ -277,7 +299,16 @@ export function CategoriesClient({
                     return (
                       <div
                         key={category.id}
-                        className="flex items-center justify-between rounded-lg border p-3"
+                        className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/40 cursor-pointer"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => router.push(`/categories/${category.id}`)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            router.push(`/categories/${category.id}`);
+                          }
+                        }}
                       >
                         <div className="flex items-center gap-3">
                           <span className="text-2xl">{icon?.emoji || "📦"}</span>
@@ -288,14 +319,20 @@ export function CategoriesClient({
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => openEditDialog(category)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openEditDialog(category);
+                              }}
                             >
                               {t("common.edit")}
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => openDeleteDialog(category)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openDeleteDialog(category);
+                              }}
                             >
                               {t("common.delete")}
                             </Button>
@@ -331,7 +368,16 @@ export function CategoriesClient({
                     return (
                       <div
                         key={category.id}
-                        className="flex items-center justify-between rounded-lg border p-3"
+                        className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/40 cursor-pointer"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => router.push(`/categories/${category.id}`)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            router.push(`/categories/${category.id}`);
+                          }
+                        }}
                       >
                         <div className="flex items-center gap-3">
                           <span className="text-2xl">{icon?.emoji || "📦"}</span>
@@ -342,14 +388,20 @@ export function CategoriesClient({
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => openEditDialog(category)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openEditDialog(category);
+                              }}
                             >
                               {t("common.edit")}
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => openDeleteDialog(category)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openDeleteDialog(category);
+                              }}
                             >
                               {t("common.delete")}
                             </Button>
@@ -362,14 +414,15 @@ export function CategoriesClient({
               )}
             </CardContent>
           </Card>
-        </div>
+          </div>
+        )}
 
         {/* Create Dialog */}
         {canEdit && (
           <SlidePanel open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <SlidePanelContent>
             <SlidePanelHeader>
-              <SlidePanelTitle>{t("categories.createTitle")}</SlidePanelTitle>
+              <SlidePanelTitle>{t("categories.newTitle")}</SlidePanelTitle>
               <SlidePanelDescription>
                 {t("categories.createDescription")}
               </SlidePanelDescription>
@@ -429,8 +482,8 @@ export function CategoriesClient({
               >
                 {t("common.cancel")}
               </Button>
-              <Button onClick={handleCreate} disabled={isSubmitting}>
-                {isSubmitting ? t("common.creating") : t("common.create")}
+              <Button onClick={handleCreate} disabled={!canSubmit}>
+                {isSubmitting ? t("common.saving") : t("categories.saveLabel")}
               </Button>
             </SlidePanelFooter>
             </SlidePanelContent>
