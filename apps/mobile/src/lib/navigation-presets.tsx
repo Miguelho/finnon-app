@@ -36,7 +36,7 @@ export function useStackScreenOptions() {
     headerTitleAlign: "center" as const,
     headerTitleStyle: {
       fontSize: tokens.typography.size.md,
-      fontWeight: tokens.typography.weight.semibold,
+      fontWeight: tokens.typography.weight.bold,
       color: colors.text.primary,
     },
     headerTintColor: colors.text.primary,
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   },
   headerTitleText: {
     fontSize: tokens.typography.size.md,
-    fontWeight: tokens.typography.weight.semibold,
+    fontWeight: tokens.typography.weight.bold,
     color: colors.text.primary,
   },
 });

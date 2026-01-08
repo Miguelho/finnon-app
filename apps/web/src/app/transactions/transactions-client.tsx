@@ -819,6 +819,12 @@ export function TransactionsClient({
           </SlidePanelBody>
         </SlidePanelContent>
       </SlidePanel>
+      
+      <p className="text-sm font-semibold text-muted-foreground">
+        {t("transactionsFor", {
+          month: formatMonthLabel(selectedMonth, locale),
+        })}
+      </p>
 
       {/* Monthly Summary */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -870,18 +876,12 @@ export function TransactionsClient({
         </Card>
       </div>
 
+      <h2 className="text-lg font-bold">
+        {t("movimientosCount", { count: mergedItems.length })}
+      </h2>
+
       {/* Transactions List */}
       <Card>
-        <CardHeader>
-          <CardTitle>
-            {t("transactionsFor", {
-              month: formatMonthLabel(selectedMonth, locale),
-            })}
-          </CardTitle>
-          <CardDescription>
-            {t("movimientosCount", { count: mergedItems.length })}
-          </CardDescription>
-        </CardHeader>
         <CardContent>
           {mergedItems.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">

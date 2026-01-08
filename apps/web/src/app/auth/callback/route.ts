@@ -26,6 +26,8 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const cookieStore = await cookies();
+    // Create redirect response first so we can set cookies on it
+    const redirectResponse = NextResponse.redirect(`${origin}/`);
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,9 +38,11 @@ export async function GET(request: NextRequest) {
             return cookieStore.getAll();
           },
           setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
+            // Set cookies on the redirect response so they're included
+            console.log("Setting cookies:", cookiesToSet.map(c => c.name));
+            cookiesToSet.forEach(({ name, value, options }) => {
+              redirectResponse.cookies.set(name, value, options);
+            });
           },
         },
       }
@@ -55,8 +59,9 @@ export async function GET(request: NextRequest) {
 
     if (data.session) {
       console.log("Session created successfully");
-      // Redirigir a la home (el middleware se encargará de redirigir a onboarding si es necesario)
-      return NextResponse.redirect(`${origin}/`);
+      console.log("Response cookies:", [...redirectResponse.cookies.getAll()].map(c => c.name));
+      // Return redirect with cookies already set
+      return redirectResponse;
     }
   }
 

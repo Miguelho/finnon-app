@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  RefreshControl,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { Stack, useRouter } from "expo-router";
@@ -98,6 +99,7 @@ export default function TransactionsScreen(): React.JSX.Element {
   const [categories, setCategories] = useState<Category[]>([]);
   const [baseCurrency, setBaseCurrency] = useState("EUR");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
 
@@ -132,6 +134,12 @@ export default function TransactionsScreen(): React.JSX.Element {
   useEffect(() => {
     loadData();
   }, [selectedAccountId, selectedMonth]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [selectedAccountId, selectedMonth, monthRange]);
 
   const loadData = async () => {
     if (!selectedAccountId) {
@@ -492,10 +500,15 @@ export default function TransactionsScreen(): React.JSX.Element {
     <>
       <Stack.Screen options={screenOptions} />
       <View style={styles.screen}>
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.content}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>{t(dictionary, "transactions.pageTitle")}</Text>
             <Text style={styles.subtitle}>{t(dictionary, "transactions.pageDescription")}</Text>
           </View>
 
@@ -588,6 +601,7 @@ export default function TransactionsScreen(): React.JSX.Element {
               })}
             </Text>
 
+            <Card>
             {mergedItems.length === 0 ? (
               <Text style={styles.emptyText}>
                 {t(dictionary, "transactions.emptyList")}
@@ -733,6 +747,7 @@ export default function TransactionsScreen(): React.JSX.Element {
                 })}
               </View>
             )}
+          </Card>
           </View>
         </ScrollView>
 
@@ -873,15 +888,9 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: spacing.sm,
   },
-  title: {
-    fontSize: typography.size.display,
-    fontWeight: typography.weight.bold,
-    color: colors.text.primary,
-  },
   subtitle: {
     fontSize: typography.size.sm,
     color: colors.text.secondary,
-    marginTop: spacing.xs,
   },
   toolbar: {
     flexDirection: "row",
@@ -988,8 +997,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.state.neutral,
-    borderRadius: radii.md,
-    backgroundColor: colors.bg.surface,
+    borderRadius: radii.sm,
   },
   transactionLeft: {
     flexDirection: "row",
