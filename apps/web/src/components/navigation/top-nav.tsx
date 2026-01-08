@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
 import { AccountSwitcher } from "@/components/home/account-switcher";
 import { FinnonMark } from "@/components/brand/finnon-mark";
+import { TopNavLinks } from "@/components/navigation/top-nav-links";
 import { cn } from "@/lib/utils";
 import {
   getDictionary,
@@ -52,14 +52,20 @@ export async function TopNav({ containerClassName }: TopNavProps) {
     ("navigation.settings" as const);
 
   const colors = themeTokens.light.colors;
+  const navItems = [
+    { href: "/", label: t(dictionary, "navigation.home") },
+    { href: "/transactions", label: t(dictionary, "transactions.pageTitle") },
+    { href: "/account", label: t(dictionary, "navigation.account") },
+    { href: "/settings", label: t(dictionary, settingsLabelKey) },
+  ];
   const containerClasses = cn(
-    "mx-auto flex w-full items-center justify-between gap-4 px-4 py-3",
+    "mx-auto flex w-full items-center justify-center gap-4 px-4 py-3",
     containerClassName ?? "max-w-6xl"
   );
 
   return (
     <div
-      className="w-full border-b"
+      className="sticky top-0 z-10 w-full border-b"
       style={{
         backgroundColor: colors.bg.primary,
         borderColor: colors.state.neutral,
@@ -67,7 +73,7 @@ export async function TopNav({ containerClassName }: TopNavProps) {
     >
       <div className={containerClasses}>
         {/* Izquierda: Logo + Finnon */}
-        <div className="flex flex-1 items-center">
+        <div className="flex shrink-0 items-center">
           <Link
             href="/"
             aria-label={homeAriaLabel}
@@ -78,23 +84,19 @@ export async function TopNav({ containerClassName }: TopNavProps) {
           </Link>
         </div>
 
-        {/* Centro: Account Switcher */}
-        <AccountSwitcher
-          accounts={accountsForSwitcher}
-          initialActiveAccountId={activeAccount?.id ?? accountsForSwitcher[0]?.id}
+        <TopNavLinks
+          items={navItems}
+          className="min-w-0 flex-1 justify-center"
         />
 
-        {/* Derecha: Settings */}
-        <div className="flex flex-1 items-center justify-end">
-          <Button variant="ghost" asChild>
-            <Link
-              href="/settings"
-              aria-label={t(dictionary, settingsLabelKey)}
-              style={{ color: colors.text.secondary }}
-            >
-              {t(dictionary, settingsLabelKey)}
-            </Link>
-          </Button>
+        {/* Derecha: Account Switcher */}
+        <div className="flex shrink-0 items-center">
+          <AccountSwitcher
+            accounts={accountsForSwitcher}
+            initialActiveAccountId={
+              activeAccount?.id ?? accountsForSwitcher[0]?.id
+            }
+          />
         </div>
       </div>
     </div>
