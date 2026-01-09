@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/layout/page-container";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -61,7 +60,7 @@ import {
   type AvatarColorToken,
 } from "@poleursus/shared";
 import { CategoryIcon } from "@/components/category-icon";
-import { UserAvatar } from "@/components/user-avatar";
+import { TransactionTile } from "@/components/transactions/transaction-tile";
 import {
   createTransaction,
   createRecurringItem,
@@ -902,208 +901,198 @@ export function TransactionsClient({
       </h2>
 
       {/* Transactions List */}
-      <Card>
-        <CardContent>
-          {mergedItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              {canEdit ? t("noTransactions") : t("noTransactionsReadOnly")}
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {mergedItems.map((item) => {
-                if (item.kind === "transaction") {
-                  const transaction = item.transaction;
-                  const category = transaction.category;
-                  const amount = formatMoneyWithSymbol(
-                    BigInt(transaction.amount_base_minor),
-                    baseCurrency,
-                    currencySymbol
-                  );
-
-                  const profile = profilesById[transaction.created_by];
-                  const creatorName =
-                    profile?.display_name ??
-                    profile?.email ??
-                    transaction.created_by.slice(0, 6);
-                  const creatorLabel = t("createdBy", { name: creatorName });
-
-                  return (
-                    <div
-                      key={transaction.id}
-                      className={`rounded-lg border p-4 transition-colors ${
-                        canEdit ? "cursor-pointer hover:bg-muted/50" : ""
-                      }`}
-                      role={canEdit ? "button" : undefined}
-                      tabIndex={canEdit ? 0 : undefined}
-                      onClick={() => {
-                        if (canEdit) openEditDialog(transaction);
-                      }}
-                      onKeyDown={(event) => {
-                        if (!canEdit) return;
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          openEditDialog(transaction);
-                        }
-                      }}
-                    >
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-start gap-4 flex-1 min-w-0">
-                          <CategoryIcon
-                            iconId={category?.icon_id}
-                            size={20}
-                            tone="muted"
-                            accessibilityLabel={category?.name || undefined}
-                          />
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-baseline gap-2">
-                              <span className="font-medium">
-                                {transaction.merchant ||
-                                  category?.name ||
-                                  t("create.categoryNone")}
-                              </span>
-                              {transaction.merchant && category && (
-                                <span className="text-sm text-muted-foreground">
-                                  • {category.name}
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {new Date(transaction.date).toLocaleDateString()}
-                              {transaction.notes && (
-                                <span className="ml-2">
-                                  • {transaction.notes}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="font-semibold text-lg"
-                            style={{
-                              color:
-                                transaction.type === "income"
-                                  ? colors.state.positive
-                                  : colors.state.negative,
-                            }}
-                          >
-                            {transaction.type === "income" ? "+" : "-"}
-                            {amount}
-                          </div>
-                          <UserAvatar
-                            email={profile?.email}
-                            userId={transaction.created_by}
-                            avatarPath={profile?.avatar_path}
-                            fallbackText={profile?.avatar_fallback_text ?? null}
-                            fallbackBgToken={
-                              (profile?.avatar_fallback_bg_token as AvatarColorToken | null) ??
-                              null
-                            }
-                            size={24}
-                            label={creatorLabel}
-                          />
-                          {canEdit && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openDeleteDialog(transaction);
-                              }}
-                            >
-                              {t("deleteButton")}
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                const recurring = item.recurring;
-                const category = categories.find(
-                  (cat) => cat.id === recurring.item.category_id
-                );
-                const amount = formatMoneyWithSymbol(
-                  BigInt(recurring.item.amount_minor),
-                  recurring.item.currency,
-                  CURRENCIES.find((c) => c.code === recurring.item.currency)?.symbol ||
-                    recurring.item.currency
-                );
-                const confirmKey = getOccurrenceKey(
-                  recurring.item.id,
-                  recurring.occurrenceDate
-                );
+      <div
+        className="overflow-hidden rounded-lg border"
+        style={{
+          backgroundColor: colors.bg.primary,
+          borderColor: colors.state.neutral,
+        }}
+      >
+        {mergedItems.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            {canEdit ? t("noTransactions") : t("noTransactionsReadOnly")}
+          </p>
+        ) : (
+          <div>
+            {mergedItems.map((item, index) => {
+              if (item.kind === "transaction") {
+                const transaction = item.transaction;
+                const category = transaction.category;
+                const profile = profilesById[transaction.created_by];
+                const creatorName =
+                  profile?.display_name ??
+                  profile?.email ??
+                  transaction.created_by.slice(0, 6);
+                const creatorLabel = t("createdBy", { name: creatorName });
+                const displayMerchant =
+                  transaction.merchant ||
+                  category?.name ||
+                  t("create.categoryNone");
 
                 return (
                   <div
-                    key={confirmKey}
-                    className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors"
+                    key={transaction.id}
+                    className="border-b last:border-b-0"
+                    style={{ borderBottomColor: colors.state.neutral }}
                   >
-                    <div className="flex items-start gap-4 flex-1">
-                      <CategoryIcon
-                        iconId={category?.icon_id}
-                        size={20}
-                        tone="muted"
-                        accessibilityLabel={category?.name || undefined}
-                      />
+                    <TransactionTile
+                      transaction={{
+                        id: transaction.id,
+                        merchant: displayMerchant,
+                        category: category
+                          ? {
+                              id: category.id,
+                              name: category.name,
+                              icon: category.icon_id,
+                            }
+                          : undefined,
+                        notes: transaction.notes,
+                        date: transaction.date,
+                        amount: BigInt(transaction.amount_base_minor),
+                        currency: baseCurrency,
+                        createdBy: {
+                          initial: creatorName.slice(0, 2),
+                          userId: transaction.created_by,
+                          email: profile?.email ?? null,
+                          avatarPath: profile?.avatar_path ?? null,
+                          fallbackText: profile?.avatar_fallback_text ?? null,
+                          fallbackBgToken:
+                            (profile?.avatar_fallback_bg_token as AvatarColorToken | null) ??
+                            null,
+                          label: creatorLabel,
+                        },
+                        type: transaction.type,
+                      }}
+                      onPress={
+                        canEdit
+                          ? (_id) => openEditDialog(transaction)
+                          : undefined
+                      }
+                      onEdit={
+                        canEdit
+                          ? (_id) => openEditDialog(transaction)
+                          : undefined
+                      }
+                      onDelete={
+                        canEdit
+                          ? (_id) => openDeleteDialog(transaction)
+                          : undefined
+                      }
+                    />
+                  </div>
+                );
+              }
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-2">
-                          <span className="font-medium">
-                            {recurring.item.merchant ||
-                              category?.name ||
-                              t("create.categoryNone")}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            • {t("recurring.pendingLabel")}
-                          </span>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {new Date(recurring.occurrenceDate).toLocaleDateString()}
-                          {recurring.item.notes && (
-                            <span className="ml-2">• {recurring.item.notes}</span>
-                          )}
-                        </div>
-                      </div>
+              const recurring = item.recurring;
+              const category = categories.find(
+                (cat) => cat.id === recurring.item.category_id
+              );
+              const confirmKey = getOccurrenceKey(
+                recurring.item.id,
+                recurring.occurrenceDate
+              );
+              const displayMerchant =
+                recurring.item.merchant ||
+                category?.name ||
+                t("create.categoryNone");
+              const recurringCurrencySymbol =
+                CURRENCIES.find((c) => c.code === recurring.item.currency)
+                  ?.symbol || recurring.item.currency;
+              const recurringAmount = formatMinorToMoney(
+                BigInt(recurring.item.amount_minor),
+                recurring.item.currency
+              );
+              const recurringMeta = [
+                new Date(recurring.occurrenceDate).toLocaleDateString(),
+                t("recurring.pendingLabel"),
+              ];
 
+              if (recurring.item.notes?.trim()) {
+                recurringMeta.push(recurring.item.notes.trim());
+              }
+
+              return (
+                <div
+                  key={confirmKey}
+                  className="border-b last:border-b-0"
+                  style={{ borderBottomColor: colors.state.neutral }}
+                >
+                  <div className="flex items-center justify-between gap-4 px-4 py-3.5">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
                       <div
-                        className="font-semibold text-lg"
+                        className="flex items-center justify-center shrink-0"
                         style={{
-                          color:
-                            recurring.item.type === "income"
-                              ? colors.state.positive
-                              : colors.state.negative,
+                          width: 36,
+                          height: 36,
+                          borderRadius: 12,
+                          backgroundColor: colors.bg.secondary,
                         }}
                       >
-                        {recurring.item.type === "income" ? "+" : "-"}
-                        {amount}
+                        <CategoryIcon
+                          iconId={category?.icon_id}
+                          size={18}
+                          tone="muted"
+                          accessibilityLabel={category?.name || undefined}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className="text-base font-semibold truncate"
+                          style={{ color: colors.text.primary }}
+                        >
+                          {displayMerchant}
+                        </div>
+                        <div
+                          className="text-sm truncate"
+                          style={{ color: colors.text.secondary }}
+                        >
+                          {recurringMeta.join(" • ")}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex items-baseline gap-1">
+                        <span
+                          className="text-sm font-medium"
+                          style={{ color: colors.text.muted }}
+                        >
+                          {recurring.item.type === "expense" ? "-" : ""}
+                          {recurringCurrencySymbol}
+                        </span>
+                        <span
+                          className="text-base font-semibold"
+                          style={{
+                            color:
+                              recurring.item.type === "income"
+                                ? colors.state.positive
+                                : colors.state.negative,
+                          }}
+                        >
+                          {recurringAmount}
+                        </span>
                       </div>
 
                       {canEdit && (
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleConfirmRecurring(recurring)}
-                            disabled={confirmingKey === confirmKey}
-                          >
-                            {confirmingKey === confirmKey
-                              ? t("recurring.confirming")
-                              : t("recurring.confirmAction")}
-                          </Button>
-                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleConfirmRecurring(recurring)}
+                          disabled={confirmingKey === confirmKey}
+                        >
+                          {confirmingKey === confirmKey
+                            ? t("recurring.confirming")
+                            : t("recurring.confirmAction")}
+                        </Button>
                       )}
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Create Panel */}
       {canEdit && (

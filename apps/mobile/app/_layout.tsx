@@ -1,4 +1,5 @@
 import { Stack } from "expo-router";
+import { ActionSheetProvider } from "@expo/react-native-action-sheet";
 import { AuthProvider } from "../src/contexts/AuthContext";
 import { NetworkNoticeProvider } from "../src/contexts/NetworkNoticeContext";
 import { LocaleProvider, useCopy, t } from "../src/lib/i18n";
@@ -29,9 +30,11 @@ export default function RootLayout() {
   return (
     <LocaleProvider>
       <AuthProvider>
-        <NetworkNoticeProvider>
-          <RootLayoutNav />
-        </NetworkNoticeProvider>
+        <ActionSheetProvider>
+          <NetworkNoticeProvider>
+            <RootLayoutNav />
+          </NetworkNoticeProvider>
+        </ActionSheetProvider>
       </AuthProvider>
     </LocaleProvider>
   );

@@ -20,11 +20,12 @@ import { useAuth } from "../../../src/contexts/AuthContext";
 import { Button } from "../../../src/components/Button";
 import { Card } from "../../../src/components/Card";
 import { CategoryIcon } from "../../../src/components/CategoryIcon";
-import { UserAvatar } from "../../../src/components/UserAvatar";
+import { TransactionTile } from "../../../src/components/TransactionTile";
 import { useNetworkNotice } from "../../../src/contexts/NetworkNoticeContext";
 import {
   addMonths,
   formatMoneyWithSymbol,
+  formatMinorToMoney,
   CURRENCIES,
   formatMonthLabel,
   themeTokens,
@@ -638,173 +639,185 @@ export default function TransactionsScreen(): React.JSX.Element {
               })}
             </Text>
 
-            <Card>
-            {mergedItems.length === 0 ? (
-              <Text style={styles.emptyText}>
-                {t(dictionary, "transactions.emptyList")}
-              </Text>
-            ) : (
-              <View style={styles.list}>
-                {mergedItems.map((entry) => {
-                  if (entry.kind === "transaction") {
-                    const transaction = entry.transaction;
-                    const category = transaction.category;
-                    const amount = formatMoneyWithSymbol(
-                      BigInt(transaction.amount_base_minor),
-                      baseCurrency,
-                      currencySymbol
-                    );
-                    const displayName =
-                      transaction.merchant ||
-                      category?.name ||
-                      t(dictionary, "transactions.uncategorized");
-                    const profile = profilesById[transaction.created_by];
-                    const creatorName =
-                      profile?.display_name ||
-                      profile?.email ||
-                      transaction.created_by.slice(0, 6);
-                    const creatorLabel = t(dictionary, "transactions.createdBy", {
-                      name: creatorName,
-                    });
+            <View style={styles.listContainer}>
+              {mergedItems.length === 0 ? (
+                <Text style={styles.emptyText}>
+                  {t(dictionary, "transactions.emptyList")}
+                </Text>
+              ) : (
+                <View>
+                  {mergedItems.map((entry, index) => {
+                    const isLast = index === mergedItems.length - 1;
 
-                    return (
-                      <TouchableOpacity
-                        key={transaction.id}
-                        style={styles.transactionItem}
-                        onPress={() =>
-                          router.push(`/(auth)/(tabs)/transactions/${transaction.id}`)
-                        }
-                        accessibilityRole="button"
-                        accessibilityLabel={displayName}
-                      >
-                        <View style={styles.transactionLeft}>
-                          <CategoryIcon
-                            iconId={category?.icon_id}
-                            size={24}
-                            tone="muted"
-                            accessibilityLabel={category?.name}
-                          />
-                          <View style={styles.transactionInfo}>
-                            <Text style={styles.transactionName}>{displayName}</Text>
-                            <Text style={styles.transactionDate}>
-                              {new Date(transaction.date).toLocaleDateString()}
-                              {transaction.notes && ` • ${transaction.notes}`}
-                            </Text>
-                          </View>
-                        </View>
+                    if (entry.kind === "transaction") {
+                      const transaction = entry.transaction;
+                      const category = transaction.category;
+                      const displayName =
+                        transaction.merchant ||
+                        category?.name ||
+                        t(dictionary, "transactions.uncategorized");
+                      const profile = profilesById[transaction.created_by];
+                      const creatorName =
+                        profile?.display_name ||
+                        profile?.email ||
+                        transaction.created_by.slice(0, 6);
+                      const creatorLabel = t(dictionary, "transactions.createdBy", {
+                        name: creatorName,
+                      });
 
-                        <View style={styles.transactionRight}>
-                          <Text
-                            style={[
-                              styles.transactionAmount,
-                              transaction.type === "income"
-                                ? styles.incomeText
-                                : styles.expenseText,
-                            ]}
-                          >
-                            {transaction.type === "income" ? "+" : "-"}
-                            {amount}
-                          </Text>
-                          <UserAvatar
-                            email={profile?.email}
-                            userId={transaction.created_by}
-                            avatarPath={profile?.avatar_path}
-                            fallbackText={profile?.avatar_fallback_text ?? null}
-                            fallbackBgToken={
-                              (profile?.avatar_fallback_bg_token as AvatarColorToken | null) ??
-                              null
-                            }
-                            size={24}
-                            label={creatorLabel}
-                          />
-                          <TouchableOpacity
-                            onPress={() => handleDelete(transaction)}
-                            style={styles.deleteAction}
-                            accessibilityRole="button"
-                            accessibilityLabel={t(dictionary, "transactions.deleteButton")}
-                          >
-                            <Text style={styles.deleteActionText}>
-                              {t(dictionary, "transactions.deleteActionShort")}
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  }
-
-                  const pending = entry.recurring;
-                  const category = pending.item.category_id
-                    ? categoriesById[pending.item.category_id]
-                    : undefined;
-                  const amount = formatMoneyWithSymbol(
-                    BigInt(pending.item.amount_minor),
-                    pending.item.currency,
-                    CURRENCIES.find((c) => c.code === pending.item.currency)?.symbol ||
-                      pending.item.currency
-                  );
-                  const displayName =
-                    pending.item.merchant ||
-                    category?.name ||
-                    t(dictionary, "transactions.uncategorized");
-                  const confirmKey = getOccurrenceKey(
-                    pending.item.id,
-                    pending.occurrenceDate
-                  );
-
-                  return (
-                    <View key={confirmKey} style={styles.transactionItem}>
-                      <View style={styles.transactionLeft}>
-                        <CategoryIcon
-                          iconId={category?.icon_id}
-                          size={24}
-                          tone="muted"
-                          accessibilityLabel={category?.name}
-                        />
-                        <View style={styles.transactionInfo}>
-                          <Text style={styles.transactionName}>{displayName}</Text>
-                          <Text style={styles.transactionDate}>
-                            {new Date(pending.occurrenceDate).toLocaleDateString()} •{" "}
-                            {t(dictionary, "transactions.recurring.pendingLabel")}
-                            {pending.item.notes && ` • ${pending.item.notes}`}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.transactionRight}>
-                        <Text
+                      return (
+                        <View
+                          key={transaction.id}
                           style={[
-                            styles.transactionAmount,
-                            pending.item.type === "income"
-                              ? styles.incomeText
-                              : styles.expenseText,
+                            styles.listRow,
+                            isLast && styles.listRowLast,
                           ]}
                         >
-                          {pending.item.type === "income" ? "+" : "-"}
-                          {amount}
-                        </Text>
-                        <TouchableOpacity
-                          onPress={() => handleConfirmRecurring(pending)}
-                          style={styles.secondaryAction}
-                          disabled={confirmingKey === confirmKey}
-                          accessibilityRole="button"
-                          accessibilityLabel={t(
-                            dictionary,
-                            "transactions.recurring.confirmAction"
-                          )}
-                        >
-                          <Text style={styles.secondaryActionText}>
-                            {confirmingKey === confirmKey
-                              ? t(dictionary, "transactions.recurring.confirming")
-                              : t(dictionary, "transactions.recurring.confirmAction")}
-                          </Text>
-                        </TouchableOpacity>
+                          <TransactionTile
+                            transaction={{
+                              id: transaction.id,
+                              merchant: displayName,
+                              category: category
+                                ? {
+                                    id: category.id,
+                                    name: category.name,
+                                    icon: category.icon_id,
+                                  }
+                                : undefined,
+                              notes: transaction.notes,
+                              date: transaction.date,
+                              amount: BigInt(transaction.amount_base_minor),
+                              currency: baseCurrency,
+                              createdBy: {
+                                initial: creatorName.slice(0, 2),
+                                userId: transaction.created_by,
+                                email: profile?.email ?? null,
+                                avatarPath: profile?.avatar_path ?? null,
+                                fallbackText: profile?.avatar_fallback_text ?? null,
+                                fallbackBgToken:
+                                  (profile?.avatar_fallback_bg_token as AvatarColorToken | null) ??
+                                  null,
+                                label: creatorLabel,
+                              },
+                              type: transaction.type,
+                            }}
+                            onPress={(id) =>
+                              router.push(`/(auth)/(tabs)/transactions/${id}`)
+                            }
+                            onEdit={(id) =>
+                              router.push(`/(auth)/(tabs)/transactions/${id}`)
+                            }
+                            onDelete={(_id) => handleDelete(transaction)}
+                          />
+                        </View>
+                      );
+                    }
+
+                    const pending = entry.recurring;
+                    const category = pending.item.category_id
+                      ? categoriesById[pending.item.category_id]
+                      : undefined;
+                    const displayName =
+                      pending.item.merchant ||
+                      category?.name ||
+                      t(dictionary, "transactions.uncategorized");
+                    const confirmKey = getOccurrenceKey(
+                      pending.item.id,
+                      pending.occurrenceDate
+                    );
+                    const pendingCurrencySymbol =
+                      CURRENCIES.find((c) => c.code === pending.item.currency)?.symbol ||
+                      pending.item.currency;
+                    const pendingAmount = formatMinorToMoney(
+                      BigInt(pending.item.amount_minor),
+                      pending.item.currency
+                    );
+                    const pendingMeta = [
+                      new Date(pending.occurrenceDate).toLocaleDateString(locale),
+                      t(dictionary, "transactions.recurring.pendingLabel"),
+                    ];
+
+                    if (pending.item.notes?.trim()) {
+                      pendingMeta.push(pending.item.notes.trim());
+                    }
+
+                    return (
+                      <View
+                        key={confirmKey}
+                        style={[
+                          styles.listRow,
+                          isLast && styles.listRowLast,
+                        ]}
+                      >
+                        <View style={styles.pendingItem}>
+                          <View style={styles.pendingLeading}>
+                            <View style={styles.pendingBadge}>
+                              <CategoryIcon
+                                iconId={category?.icon_id}
+                                size={18}
+                                tone="muted"
+                                accessibilityLabel={category?.name}
+                              />
+                            </View>
+                            <View style={styles.pendingContent}>
+                              <Text
+                                style={styles.pendingMerchant}
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                              >
+                                {displayName}
+                              </Text>
+                              <Text
+                                style={styles.pendingMeta}
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                              >
+                                {pendingMeta.join(" • ")}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View style={styles.pendingTrailing}>
+                            <View style={styles.pendingAmountRow}>
+                              <Text style={styles.pendingAmountMuted}>
+                                {pending.item.type === "expense" ? "-" : ""}
+                                {pendingCurrencySymbol}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.pendingAmountValue,
+                                  pending.item.type === "income"
+                                    ? styles.incomeText
+                                    : styles.expenseText,
+                                ]}
+                              >
+                                {pendingAmount}
+                              </Text>
+                            </View>
+                            <Pressable
+                              onPress={() => handleConfirmRecurring(pending)}
+                              style={styles.pendingAction}
+                              disabled={confirmingKey === confirmKey}
+                              accessibilityRole="button"
+                              accessibilityLabel={t(
+                                dictionary,
+                                "transactions.recurring.confirmAction"
+                              )}
+                            >
+                              <Text style={styles.pendingActionText}>
+                                {confirmingKey === confirmKey
+                                  ? t(dictionary, "transactions.recurring.confirming")
+                                  : t(dictionary, "transactions.recurring.confirmAction")}
+                              </Text>
+                            </Pressable>
+                          </View>
+                        </View>
                       </View>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </Card>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
           </View>
         </ScrollView>
 
@@ -1045,55 +1058,78 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: spacing.xxl,
   },
-  list: {
-    gap: spacing.sm,
-  },
-  transactionItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: spacing.md,
+  listContainer: {
+    backgroundColor: colors.bg.primary,
+    borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.state.neutral,
-    borderRadius: radii.sm,
+    overflow: "hidden",
   },
-  transactionLeft: {
+  listRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.state.neutral,
+  },
+  listRowLast: {
+    borderBottomWidth: 0,
+  },
+  pendingItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 12,
+    backgroundColor: colors.bg.primary,
+  },
+  pendingLeading: {
     flexDirection: "row",
     alignItems: "flex-start",
+    flex: 1,
+    minWidth: 0,
     gap: spacing.md,
-    flex: 1,
   },
-  transactionInfo: {
-    flex: 1,
+  pendingBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.bg.secondary,
   },
-  transactionName: {
+  pendingContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  pendingMerchant: {
     fontSize: typography.size.md,
     fontWeight: typography.weight.semibold,
-    marginBottom: spacing.xs,
     color: colors.text.primary,
   },
-  transactionDate: {
-    fontSize: typography.size.xs,
+  pendingMeta: {
+    marginTop: spacing.xs,
+    fontSize: typography.size.sm,
     color: colors.text.secondary,
   },
-  transactionRight: {
+  pendingTrailing: {
     alignItems: "flex-end",
     gap: spacing.sm,
+    marginLeft: spacing.sm,
   },
-  transactionAmount: {
+  pendingAmountRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 4,
+  },
+  pendingAmountMuted: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.medium,
+    color: colors.text.muted,
+  },
+  pendingAmountValue: {
     fontSize: typography.size.md,
-    fontWeight: typography.weight.bold,
-  },
-  deleteAction: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radii.sm,
-  },
-  deleteActionText: {
-    color: colors.state.negative,
-    fontSize: typography.size.xs,
     fontWeight: typography.weight.semibold,
   },
-  secondaryAction: {
+  pendingAction: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: radii.sm,
@@ -1101,7 +1137,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.state.neutral,
   },
-  secondaryActionText: {
+  pendingActionText: {
     color: colors.text.primary,
     fontSize: typography.size.xs,
     fontWeight: typography.weight.semibold,
