@@ -78,6 +78,7 @@ export type HomeViewModel = {
     addCta: string;
     upcomingCta: string;
     recentCta: string;
+    recentActivityTitle: string;
     balanceLabel: string;
     incomeLabel: string;
     expenseLabel: string;
@@ -251,6 +252,7 @@ export function buildHomeViewModel({
       addCta: t(dictionary, "home.addCta"),
       upcomingCta: t(dictionary, "home.upcomingCta"),
       recentCta: t(dictionary, "home.recentCta"),
+      recentActivityTitle: t(dictionary, "home.recentActivityTitle"),
       balanceLabel: t(dictionary, "common.balanceLabel"),
       incomeLabel: t(dictionary, "common.incomeLabel"),
       expenseLabel: t(dictionary, "common.expenseLabel"),

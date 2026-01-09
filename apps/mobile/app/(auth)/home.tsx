@@ -613,7 +613,7 @@ export default function HomeScreen() {
         {/* Recent Activity */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Actividad reciente</Text>
+            <Text style={styles.sectionTitle}>{viewModel.copy.recentActivityTitle}</Text>
             <TouchableOpacity onPress={() => router.push("/(auth)/(tabs)/transactions")}>
               <Text style={styles.sectionCta} numberOfLines={1}>
                 {viewModel.copy.recentCta}

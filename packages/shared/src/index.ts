@@ -17,6 +17,7 @@ export * from "./date/month";
 export * from "./home/home.compute";
 export * from "./home/home.actions";
 export * from "./home/home.viewmodel";
+export * from "./account/account.viewmodel";
 export * from "./recurring";
 export * from "./theme/tokens";
 export * from "./theme/typography";
