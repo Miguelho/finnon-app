@@ -31,7 +31,7 @@ export default function LoginPage() {
     setSuccess(false);
 
     try {
-      const redirectTo = `${window.location.origin}/auth/callback`;
+      const redirectTo = `${window.location.origin}/auth/confirm`;
       console.log("Sending OTP with redirect to:", redirectTo);
 
       const { error } = await supabase.auth.signInWithOtp({

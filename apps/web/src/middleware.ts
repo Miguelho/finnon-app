@@ -11,7 +11,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Rutas públicas que no requieren autenticación
-  const publicRoutes = ["/login", "/login-otp", "/auth/callback", "/join"];
+  const publicRoutes = ["/login", "/login-otp", "/auth/callback", "/auth/confirm", "/join"];
   const isPublicRoute = publicRoutes.some((route) =>
     pathname.startsWith(route)
   );
