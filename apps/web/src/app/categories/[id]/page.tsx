@@ -6,8 +6,8 @@ import { CategoryDetailClient } from "./category-detail-client";
 import { getMonthRangeFromKey, toMonthKey } from "@poleursus/shared";
 
 type CategoryDetailPageProps = {
-  params: { id: string };
-  searchParams?: Record<string, string | string[] | undefined>;
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 const getQueryValue = (
@@ -19,6 +19,8 @@ export default async function CategoryDetailPage({
   searchParams,
 }: CategoryDetailPageProps) {
   const supabase = await createClient();
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
 
   const {
     data: { user },
@@ -51,7 +53,7 @@ export default async function CategoryDetailPage({
     redirect("/select-account");
   }
 
-  const monthParam = getQueryValue(searchParams?.month);
+  const monthParam = getQueryValue(resolvedSearchParams?.month);
   const { start, end, monthKey } = getMonthRangeFromKey(
     monthParam ?? toMonthKey(new Date())
   );
@@ -59,7 +61,7 @@ export default async function CategoryDetailPage({
   const { data: category } = await supabase
     .from("categories")
     .select("id, name, icon_id, type, account_id")
-    .eq("id", params.id)
+    .eq("id", resolvedParams.id)
     .eq("account_id", activeAccount.id)
     .maybeSingle();
 

@@ -414,6 +414,15 @@ export function CategoriesClient({
           </div>
         )}
 
+        {canEdit && (
+          <Button
+            onClick={() => setIsCreateOpen(true)}
+            className="fixed bottom-6 right-6 z-40 rounded-full px-5 py-4 shadow-lg"
+          >
+            + {t("categories.createTitle")}
+          </Button>
+        )}
+
         {/* Create Dialog */}
         {canEdit && (
           <SlidePanel open={isCreateOpen} onOpenChange={setIsCreateOpen}>

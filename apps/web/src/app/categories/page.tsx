@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { TopNav } from "@/components/navigation/top-nav";
 
 type CategoriesPageProps = {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 const getQueryValue = (
@@ -16,6 +16,7 @@ export default async function CategoriesPage({
   searchParams,
 }: CategoriesPageProps) {
   const supabase = await createClient();
+  const resolvedSearchParams = await searchParams;
 
   const {
     data: { user },
@@ -45,7 +46,7 @@ export default async function CategoriesPage({
     (account) => account.id === cookieAccountId
   );
   const activeRole = activeAccount?.account_members?.[0]?.role ?? "viewer";
-  const createParam = getQueryValue(searchParams?.create);
+  const createParam = getQueryValue(resolvedSearchParams?.create);
   const openCreate =
     createParam === "1" || createParam === "true" || createParam === "yes";
 

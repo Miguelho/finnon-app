@@ -8,9 +8,11 @@ import {
   CURRENCIES,
   formatMoneyWithSymbol,
   getIconById,
+  themeTokens,
   type AccountSummaryData,
   type UserRole,
 } from "@poleursus/shared";
+import { AccountSwitcher } from "@/components/home/account-switcher";
 import {
   Card,
   CardContent,
@@ -20,16 +22,27 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
+const tokens = themeTokens.light;
+
 type AccountSummaryClientProps = {
   summaryData: AccountSummaryData;
   currentUserId: string;
   role: UserRole;
+  accounts: {
+    id: string;
+    name: string;
+    base_currency: string;
+    memberCount?: number;
+  }[];
+  activeAccountId: string;
 };
 
 export function AccountSummaryClient({
   summaryData,
   currentUserId,
   role,
+  accounts,
+  activeAccountId,
 }: AccountSummaryClientProps) {
   const t = useTranslations();
   const locale = useLocale();
@@ -162,7 +175,7 @@ export function AccountSummaryClient({
                 return (
                   <div
                     key={participant.userId}
-                    className="flex items-center justify-between rounded-md border px-3 py-2"
+                    className="flex items-center rounded-md border px-3 py-2"
                   >
                     <div className="flex items-center gap-3">
                       <ParticipantAvatar
@@ -178,9 +191,6 @@ export function AccountSummaryClient({
                         )}
                       </div>
                     </div>
-                    <span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold uppercase">
-                      {participant.role}
-                    </span>
                   </div>
                 );
               })}
@@ -244,6 +254,13 @@ export function AccountSummaryClient({
           )}
         </CardContent>
       </Card>
+
+      <div className="fixed bottom-6 right-6 z-20">
+        <AccountSwitcher
+          accounts={accounts}
+          initialActiveAccountId={activeAccountId}
+        />
+      </div>
     </div>
   );
 }
@@ -256,9 +273,13 @@ function ParticipantAvatar({
   fallbackText: string | null;
 }) {
   const initial = fallbackText || (email ? email[0].toUpperCase() : "?");
+  const avatarShadow = `0 6px 16px ${tokens.colors.action.primary}33`;
 
   return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-semibold">
+    <div
+      className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-semibold"
+      style={{ boxShadow: avatarShadow }}
+    >
       {initial}
     </div>
   );

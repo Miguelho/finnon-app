@@ -195,16 +195,21 @@ export default function AccountTabScreen() {
     <>
       <Stack.Screen options={{ title: screenTitle }} />
       <View style={styles.root}>
+        <View style={[styles.topNav, { paddingTop: insets.top + tokens.spacing.sm }]}>
+          <Text style={styles.topNavTitle} numberOfLines={1}>
+            {viewModel.account.name}
+          </Text>
+        </View>
         <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: tokens.spacing.lg, paddingBottom: 100 + insets.bottom },
-        ]}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-      >
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingTop: tokens.spacing.lg, paddingBottom: 100 + insets.bottom },
+          ]}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+        >
         {/* Account Header */}
         <View style={styles.accountHeader}>
           <Text style={styles.accountName}>{viewModel.account.name}</Text>
@@ -472,6 +477,18 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.bg.secondary,
+  },
+  topNav: {
+    paddingHorizontal: tokens.spacing.lg,
+    paddingBottom: tokens.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.state.neutral,
+    backgroundColor: colors.bg.secondary,
+  },
+  topNavTitle: {
+    ...typography.h3,
+    color: colors.text.primary,
+    textAlign: "center",
   },
   loading: {
     flex: 1,

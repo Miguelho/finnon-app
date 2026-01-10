@@ -8,8 +8,10 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
 import { Button } from "../../../src/components/Button";
@@ -28,12 +30,15 @@ type Category = {
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
+const spacing = tokens.spacing;
+const radii = tokens.radii;
 
 export default function CategoriesScreen() {
   const router = useRouter();
   const { selectedAccountId } = useAuth();
   const { dictionary } = useCopy();
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,165 +122,175 @@ export default function CategoriesScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" />
-      </View>
+      <>
+        <Stack.Screen options={{ title: t(dictionary, "categories.title") }} />
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" />
+        </View>
+      </>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.container}>
-        <Card title={t(dictionary, "common.errorTitle")} description={error}>
-          <Button title={t(dictionary, "common.retry")} onPress={loadCategories} />
-        </Card>
-      </View>
+      <>
+        <Stack.Screen options={{ title: t(dictionary, "categories.title") }} />
+        <View style={styles.container}>
+          <Card title={t(dictionary, "common.errorTitle")} description={error}>
+            <Button title={t(dictionary, "common.retry")} onPress={loadCategories} />
+          </Card>
+        </View>
+      </>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>{t(dictionary, "categories.title")}</Text>
-          <Text style={styles.subtitle}>
-            {t(dictionary, "categories.subtitle")}
-          </Text>
-        </View>
-      </View>
+    <>
+      <Stack.Screen options={{ title: t(dictionary, "categories.title") }} />
+      <View style={styles.container}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: spacing.xxxl + insets.bottom + 72 },
+          ]}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.subtitle}>
+              {t(dictionary, "categories.subtitle")}
+            </Text>
+          </View>
 
-      {/* Actions */}
-      <View style={styles.actions}>
-        <Button
-          title={t(dictionary, "categories.createTitle")}
+        {!hasCategories && (
+          <Card>
+            <Text style={styles.emptyText}>{t(dictionary, "categories.emptyAll")}</Text>
+            <View style={styles.emptyCta}>
+              <Button
+                title={t(dictionary, "categories.createTitle")}
+                onPress={() => router.push("/(auth)/categories/create")}
+              />
+            </View>
+          </Card>
+        )}
+
+        {/* Expense Categories */}
+        {hasCategories && (
+          <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            {t(dictionary, "categories.listExpenseTitle", {
+              count: expenseCategories.length,
+            })}
+          </Text>
+          {expenseCategories.length === 0 ? (
+            <Text style={styles.emptyText}>
+              {t(dictionary, "categories.emptyExpense")}
+            </Text>
+          ) : (
+            <View style={styles.list}>
+              {expenseCategories.map((category) => {
+                const icon = getIconById(category.icon_id);
+                return (
+                  <View key={category.id} style={styles.categoryItem}>
+                    <TouchableOpacity
+                      style={styles.categoryInfo}
+                      onPress={() => router.push(`/(auth)/categories/${category.id}`)}
+                    >
+                      <Text style={styles.emoji}>{icon?.emoji || "📦"}</Text>
+                      <Text style={styles.categoryName}>{category.name}</Text>
+                    </TouchableOpacity>
+                    <View style={styles.categoryActions}>
+                      <TouchableOpacity
+                        onPress={() =>
+                          router.push(`/(auth)/categories/${category.id}/edit`)
+                        }
+                        style={styles.actionButton}
+                      >
+                        <Text style={styles.actionButtonText}>
+                          {t(dictionary, "common.edit")}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleDelete(category)}
+                        style={[styles.actionButton, styles.deleteButton]}
+                      >
+                        <Text style={styles.deleteButtonText}>
+                          {t(dictionary, "common.delete")}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+          </View>
+        )}
+
+        {/* Income Categories */}
+        {hasCategories && (
+          <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            {t(dictionary, "categories.listIncomeTitle", {
+              count: incomeCategories.length,
+            })}
+          </Text>
+          {incomeCategories.length === 0 ? (
+            <Text style={styles.emptyText}>
+              {t(dictionary, "categories.emptyIncome")}
+            </Text>
+          ) : (
+            <View style={styles.list}>
+              {incomeCategories.map((category) => {
+                const icon = getIconById(category.icon_id);
+                return (
+                  <View key={category.id} style={styles.categoryItem}>
+                    <TouchableOpacity
+                      style={styles.categoryInfo}
+                      onPress={() => router.push(`/(auth)/categories/${category.id}`)}
+                    >
+                      <Text style={styles.emoji}>{icon?.emoji || "📦"}</Text>
+                      <Text style={styles.categoryName}>{category.name}</Text>
+                    </TouchableOpacity>
+                    <View style={styles.categoryActions}>
+                      <TouchableOpacity
+                        onPress={() =>
+                          router.push(`/(auth)/categories/${category.id}/edit`)
+                        }
+                        style={styles.actionButton}
+                      >
+                        <Text style={styles.actionButtonText}>
+                          {t(dictionary, "common.edit")}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleDelete(category)}
+                        style={[styles.actionButton, styles.deleteButton]}
+                      >
+                        <Text style={styles.deleteButtonText}>
+                          {t(dictionary, "common.delete")}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+          </View>
+        )}
+        </ScrollView>
+
+        <TouchableOpacity
           onPress={() => router.push("/(auth)/categories/create")}
-        />
-        <Button
-          title={t(dictionary, "common.back")}
-          onPress={() => router.back()}
-          variant="secondary"
-        />
+          style={[styles.addFab, { bottom: spacing.lg + insets.bottom }]}
+          accessibilityRole="button"
+          accessibilityLabel={t(dictionary, "categories.createTitle")}
+        >
+          <MaterialCommunityIcons name="plus" size={24} color={colors.bg.primary} />
+        </TouchableOpacity>
       </View>
-
-      {!hasCategories && (
-        <Card>
-          <Text style={styles.emptyText}>{t(dictionary, "categories.emptyAll")}</Text>
-          <View style={styles.emptyCta}>
-            <Button
-              title={t(dictionary, "categories.createTitle")}
-              onPress={() => router.push("/(auth)/categories/create")}
-            />
-          </View>
-        </Card>
-      )}
-
-      {/* Expense Categories */}
-      {hasCategories && (
-        <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          {t(dictionary, "categories.listExpenseTitle", {
-            count: expenseCategories.length,
-          })}
-        </Text>
-        {expenseCategories.length === 0 ? (
-          <Text style={styles.emptyText}>
-            {t(dictionary, "categories.emptyExpense")}
-          </Text>
-        ) : (
-          <View style={styles.list}>
-            {expenseCategories.map((category) => {
-              const icon = getIconById(category.icon_id);
-              return (
-                <View key={category.id} style={styles.categoryItem}>
-                  <TouchableOpacity
-                    style={styles.categoryInfo}
-                    onPress={() => router.push(`/(auth)/categories/${category.id}`)}
-                  >
-                    <Text style={styles.emoji}>{icon?.emoji || "📦"}</Text>
-                    <Text style={styles.categoryName}>{category.name}</Text>
-                  </TouchableOpacity>
-                  <View style={styles.categoryActions}>
-                    <TouchableOpacity
-                      onPress={() =>
-                        router.push(`/(auth)/categories/${category.id}/edit`)
-                      }
-                      style={styles.actionButton}
-                    >
-                      <Text style={styles.actionButtonText}>
-                        {t(dictionary, "common.edit")}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleDelete(category)}
-                      style={[styles.actionButton, styles.deleteButton]}
-                    >
-                      <Text style={styles.deleteButtonText}>
-                        {t(dictionary, "common.delete")}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
-        </View>
-      )}
-
-      {/* Income Categories */}
-      {hasCategories && (
-        <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          {t(dictionary, "categories.listIncomeTitle", {
-            count: incomeCategories.length,
-          })}
-        </Text>
-        {incomeCategories.length === 0 ? (
-          <Text style={styles.emptyText}>
-            {t(dictionary, "categories.emptyIncome")}
-          </Text>
-        ) : (
-          <View style={styles.list}>
-            {incomeCategories.map((category) => {
-              const icon = getIconById(category.icon_id);
-              return (
-                <View key={category.id} style={styles.categoryItem}>
-                  <TouchableOpacity
-                    style={styles.categoryInfo}
-                    onPress={() => router.push(`/(auth)/categories/${category.id}`)}
-                  >
-                    <Text style={styles.emoji}>{icon?.emoji || "📦"}</Text>
-                    <Text style={styles.categoryName}>{category.name}</Text>
-                  </TouchableOpacity>
-                  <View style={styles.categoryActions}>
-                    <TouchableOpacity
-                      onPress={() =>
-                        router.push(`/(auth)/categories/${category.id}/edit`)
-                      }
-                      style={styles.actionButton}
-                    >
-                      <Text style={styles.actionButtonText}>
-                        {t(dictionary, "common.edit")}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleDelete(category)}
-                      style={[styles.actionButton, styles.deleteButton]}
-                    >
-                      <Text style={styles.deleteButtonText}>
-                        {t(dictionary, "common.delete")}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
-        </View>
-      )}
-    </ScrollView>
+    </>
   );
 }
 
@@ -290,17 +305,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg.primary,
   },
+  scroll: {
+    flex: 1,
+  },
   content: {
     padding: 16,
     gap: 16,
   },
   header: {
     marginBottom: 8,
-  },
-  title: {
-    fontSize: tokens.typography.size.display,
-    fontWeight: tokens.typography.weight.bold,
-    color: colors.text.primary,
   },
   subtitle: {
     fontSize: tokens.typography.size.sm,
@@ -310,6 +323,21 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: "row",
     gap: 8,
+  },
+  addFab: {
+    position: "absolute",
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: radii.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.action.primary,
+    shadowColor: colors.shadow.soft,
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
   section: {
     marginTop: 8,

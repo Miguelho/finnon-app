@@ -19,7 +19,7 @@ type Account = {
   id: string;
   name: string;
   base_currency: string;
-  memberCount: number;
+  memberCount?: number;
 };
 
 type AccountSwitcherProps = {
@@ -120,7 +120,9 @@ export function AccountSwitcher({
         aria-busy={isSwitching}
       >
         <span className="truncate">
-          {activeAccount?.name ?? t("account.labelAccount")} · {activeAccount?.base_currency ?? ""}
+          {activeAccount
+            ? `${activeAccount.name} · ${activeAccount.base_currency}`
+            : ""}
         </span>
         {isSwitching ? (
           <Loader2 className="h-4 w-4 shrink-0 animate-spin opacity-60" />
@@ -137,6 +139,10 @@ export function AccountSwitcher({
           <SlidePanelBody className="space-y-3">
             {accounts.map((account) => {
               const isActive = account.id === activeAccount?.id;
+              const participantCount =
+                typeof account.memberCount === "number"
+                  ? formatParticipantCount(locale, account.memberCount)
+                  : null;
               return (
                 <button
                   key={account.id}
@@ -169,7 +175,8 @@ export function AccountSwitcher({
                       {account.name}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {account.base_currency} · {formatParticipantCount(locale, account.memberCount)}
+                      {account.base_currency}
+                      {participantCount ? ` · ${participantCount}` : ""}
                     </p>
                   </div>
                   <span
