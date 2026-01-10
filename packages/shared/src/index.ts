@@ -24,6 +24,7 @@ export * from "./theme/tokens";
 export * from "./theme/typography";
 export * from "./copy";
 export * from "./navigation";
+export * from "./ui/addMenu";
 
 // Note: utils/invite.ts contains Node.js crypto APIs
 // Import directly only in server-side code:

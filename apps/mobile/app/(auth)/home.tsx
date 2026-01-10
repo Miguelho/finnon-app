@@ -16,12 +16,13 @@ import { useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { useAuth } from "../../src/contexts/AuthContext";
 import { Button } from "../../src/components/Button";
-import { CategoryIcon } from "../../src/components/CategoryIcon";
+import { AddMenuItem } from "../../src/components/AddMenuItem";
 import { FinnonMark } from "../../src/components/FinnonMark";
 import { CashFlowArrows } from "../../src/components/home/CashFlowArrows";
 import { MonthMap } from "../../src/components/home/MonthMap";
 import { DayDetailPanel } from "../../src/components/home/DayDetailPanel";
 import {
+  ADD_ACTIONS,
   buildHomeViewModel,
   CURRENCIES,
   createTypographyStyles,
@@ -31,6 +32,7 @@ import {
   getSummaryForDay,
   markObligationPaid,
   themeTokens,
+  type AddActionKey,
   type UserRole,
   type Obligation,
 } from "@poleursus/shared";
@@ -427,6 +429,31 @@ export default function HomeScreen() {
     setIsDayPanelOpen(true);
   };
 
+  const handleAddAction = (key: AddActionKey) => {
+    if (!viewModel.permissions.canEdit) return;
+    setIsAddSheetOpen(false);
+
+    switch (key) {
+      case "expense":
+        router.push("/(auth)/(tabs)/transactions/create?type=expense");
+        return;
+      case "income":
+        router.push("/(auth)/(tabs)/transactions/create?type=income");
+        return;
+      case "category":
+        router.push("/(auth)/categories/create");
+        return;
+      case "one_off_obligation":
+        router.push("/(auth)/obligations/create");
+        return;
+      case "recurring":
+        router.push(
+          "/(auth)/(tabs)/transactions/create?type=expense&kind=recurring"
+        );
+        return;
+    }
+  };
+
   return (
     <View style={styles.root}>
       <View
@@ -714,128 +741,14 @@ export default function HomeScreen() {
           <Text style={styles.sheetNotice}>{viewModel.copy.guestBlurb}</Text>
         )}
         <View style={styles.sheetActions}>
-          <TouchableOpacity
-            style={[
-              styles.sheetAction,
-              !viewModel.permissions.canEdit && styles.sheetActionDisabled,
-            ]}
-            disabled={!viewModel.permissions.canEdit}
-            onPress={() => {
-              setIsAddSheetOpen(false);
-              router.push("/(auth)/(tabs)/transactions/create?type=expense");
-            }}
-          >
-            <View style={styles.sheetActionRow}>
-              <View style={styles.sheetActionIcon} />
-              <View style={styles.sheetActionContent}>
-                <Text style={styles.sheetActionTitle}>
-                  {t(dictionary, "mobile.home.addExpenseTitle")}
-                </Text>
-                <Text style={styles.sheetActionMeta}>
-                  {t(dictionary, "mobile.home.addExpenseDescription")}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.sheetAction,
-              !viewModel.permissions.canEdit && styles.sheetActionDisabled,
-            ]}
-            disabled={!viewModel.permissions.canEdit}
-            onPress={() => {
-              setIsAddSheetOpen(false);
-              router.push("/(auth)/(tabs)/transactions/create?type=income");
-            }}
-          >
-            <View style={styles.sheetActionRow}>
-              <View style={styles.sheetActionIcon} />
-              <View style={styles.sheetActionContent}>
-                <Text style={styles.sheetActionTitle}>
-                  {t(dictionary, "mobile.home.addIncomeTitle")}
-                </Text>
-                <Text style={styles.sheetActionMeta}>
-                  {t(dictionary, "mobile.home.addIncomeDescription")}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.sheetAction,
-              !viewModel.permissions.canEdit && styles.sheetActionDisabled,
-            ]}
-            disabled={!viewModel.permissions.canEdit}
-            onPress={() => {
-              setIsAddSheetOpen(false);
-              router.push("/(auth)/categories/create");
-            }}
-          >
-            <View style={styles.sheetActionRow}>
-              <View style={styles.sheetActionIcon}>
-                <CategoryIcon
-                  iconId="default"
-                  size={20}
-                  tone="muted"
-                  accessibilityLabel={t(dictionary, "categories.title")}
-                />
-              </View>
-              <View style={styles.sheetActionContent}>
-                <Text style={styles.sheetActionTitle}>
-                  {t(dictionary, "mobile.home.addCategoryTitle")}
-                </Text>
-                <Text style={styles.sheetActionMeta}>
-                  {t(dictionary, "mobile.home.addCategoryDescription")}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.sheetAction,
-              !viewModel.permissions.canEdit && styles.sheetActionDisabled,
-            ]}
-            disabled={!viewModel.permissions.canEdit}
-            onPress={() => {
-              setIsAddSheetOpen(false);
-              router.push("/(auth)/obligations/create");
-            }}
-          >
-            <View style={styles.sheetActionRow}>
-              <View style={styles.sheetActionIcon} />
-              <View style={styles.sheetActionContent}>
-                <Text style={styles.sheetActionTitle}>
-                  {t(dictionary, "mobile.home.addObligationTitle")}
-                </Text>
-                <Text style={styles.sheetActionMeta}>
-                  {t(dictionary, "mobile.home.addObligationDescription")}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.sheetAction,
-              !viewModel.permissions.canEdit && styles.sheetActionDisabled,
-            ]}
-            disabled={!viewModel.permissions.canEdit}
-            onPress={() => {
-              setIsAddSheetOpen(false);
-              router.push("/(auth)/(tabs)/transactions/create?type=expense&kind=recurring");
-            }}
-          >
-            <View style={styles.sheetActionRow}>
-              <View style={styles.sheetActionIcon} />
-              <View style={styles.sheetActionContent}>
-                <Text style={styles.sheetActionTitle}>
-                  {t(dictionary, "mobile.home.addRecurringTitle")}
-                </Text>
-                <Text style={styles.sheetActionMeta}>
-                  {t(dictionary, "mobile.home.addRecurringDescription")}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
+          {ADD_ACTIONS.map((action) => (
+            <AddMenuItem
+              key={action.key}
+              meta={action}
+              onPress={() => handleAddAction(action.key)}
+              disabled={!viewModel.permissions.canEdit}
+            />
+          ))}
         </View>
       </HomeSheet>
     </View>
@@ -1199,40 +1112,6 @@ const styles = StyleSheet.create({
   },
   sheetActions: {
     gap: tokens.spacing.sm,
-  },
-  sheetAction: {
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    borderRadius: tokens.radii.md,
-    padding: tokens.spacing.md,
-    backgroundColor: colors.bg.secondary,
-  },
-  sheetActionRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: tokens.spacing.md,
-  },
-  sheetActionIcon: {
-    width: 24,
-    height: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
-  },
-  sheetActionContent: {
-    flex: 1,
-    gap: 4,
-  },
-  sheetActionDisabled: {
-    opacity: 0.6,
-  },
-  sheetActionTitle: {
-    ...typography.body,
-    color: colors.text.primary,
-  },
-  sheetActionMeta: {
-    ...typography.meta,
-    color: colors.text.secondary,
   },
   errorCard: {
     borderWidth: 1,

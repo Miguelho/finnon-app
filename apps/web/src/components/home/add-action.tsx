@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -14,8 +14,7 @@ import {
   SlidePanelDescription,
   SlidePanelTitle,
 } from "@/components/ui/slide-panel";
-import { cn } from "@/lib/utils";
-import { CategoryIcon } from "@/components/category-icon";
+import { AddMenuItem } from "@/components/home/AddMenuItem";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,7 +26,9 @@ import {
 } from "@/components/ui/select";
 import { IconPicker } from "@/components/icon-picker";
 import {
+  ADD_ACTIONS,
   normalizeCategoryName,
+  type AddActionKey,
   type CategoryType,
 } from "@poleursus/shared";
 import { createCategory } from "@/app/categories/actions";
@@ -35,15 +36,6 @@ import { createCategory } from "@/app/categories/actions";
 type AddActionProps = {
   canEdit: boolean;
   accountId: string;
-};
-
-type AddActionItem = {
-  key: string;
-  label: string;
-  description: string;
-  href: string;
-  icon?: ReactNode;
-  onSelect?: () => void;
 };
 
 export function AddAction({ canEdit, accountId }: AddActionProps) {
@@ -59,6 +51,28 @@ export function AddAction({ canEdit, accountId }: AddActionProps) {
   });
   const normalizedNameValue = normalizeCategoryName(formData.name);
   const canSubmit = Boolean(normalizedNameValue) && !isSubmitting;
+  const handleAction = (key: AddActionKey) => {
+    if (!canEdit) return;
+    setIsOpen(false);
+
+    switch (key) {
+      case "expense":
+        router.push("/transactions?new=1&type=expense");
+        return;
+      case "income":
+        router.push("/transactions?new=1&type=income");
+        return;
+      case "category":
+        setIsCreateOpen(true);
+        return;
+      case "one_off_obligation":
+        router.push("/transactions?new=1&kind=obligation");
+        return;
+      case "recurring":
+        router.push("/transactions?new=1&kind=recurring");
+        return;
+    }
+  };
 
   const handleCreateCategory = async () => {
     if (!canEdit) return;
@@ -99,48 +113,6 @@ export function AddAction({ canEdit, accountId }: AddActionProps) {
       setIsSubmitting(false);
     }
   };
-  const actions: AddActionItem[] = [
-    {
-      key: "expense",
-      label: t("home.addExpenseTitle"),
-      description: t("home.addExpenseDescription"),
-      href: "/transactions?new=1&type=expense",
-    },
-    {
-      key: "income",
-      label: t("home.addIncomeTitle"),
-      description: t("home.addIncomeDescription"),
-      href: "/transactions?new=1&type=income",
-    },
-    {
-      key: "category",
-      label: t("home.addCategoryTitle"),
-      description: t("home.addCategoryDescription"),
-      href: "#",
-      icon: (
-        <CategoryIcon
-          iconId="default"
-          size={20}
-          tone="muted"
-          accessibilityLabel={t("categories.title")}
-        />
-      ),
-      onSelect: () => setIsCreateOpen(true),
-    },
-    {
-      key: "obligation",
-      label: t("home.addObligationTitle"),
-      description: t("home.addObligationDescription"),
-      href: "/transactions?new=1&kind=obligation",
-    },
-    {
-      key: "recurring",
-      label: t("home.addRecurringTitle"),
-      description: t("home.addRecurringDescription"),
-      href: "/transactions?new=1&kind=recurring",
-    },
-  ];
-
   return (
     <>
       <Button
@@ -162,41 +134,13 @@ export function AddAction({ canEdit, accountId }: AddActionProps) {
               </p>
             )}
             <div className="space-y-3">
-              {actions.map((action) => (
-                <button
+              {ADD_ACTIONS.map((action) => (
+                <AddMenuItem
                   key={action.key}
-                  type="button"
+                  meta={action}
+                  onClick={() => handleAction(action.key)}
                   disabled={!canEdit}
-                  onClick={() => {
-                    setIsOpen(false);
-                    if (action.onSelect) {
-                      action.onSelect();
-                      return;
-                    }
-                    router.push(action.href);
-                  }}
-                  className={cn(
-                    "w-full rounded-lg border px-4 py-3 text-left",
-                    !canEdit && "cursor-not-allowed opacity-60",
-                    canEdit
-                      ? "border-border hover:bg-muted/40"
-                      : "border-border"
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 flex h-5 w-5 items-center justify-center text-muted-foreground">
-                      {action.icon}
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">
-                        {action.label}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {action.description}
-                      </p>
-                    </div>
-                  </div>
-                </button>
+                />
               ))}
             </div>
           </SlidePanelBody>
