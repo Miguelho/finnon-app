@@ -14,6 +14,7 @@ import { useAuth } from "../../../src/contexts/AuthContext";
 import { Button } from "../../../src/components/Button";
 import { Input } from "../../../src/components/Input";
 import { Card } from "../../../src/components/Card";
+import { DatePickerField } from "../../../src/components/DatePickerField";
 import {
   parseMoneyToMinor,
   formatMinorToMoney,
@@ -241,7 +242,7 @@ export default function EditObligationScreen(): React.JSX.Element {
             })}
           />
 
-          <Input
+          <DatePickerField
             label={t(dictionary, "obligations.create.dueDateLabel")}
             value={dueDate}
             onChangeText={setDueDate}

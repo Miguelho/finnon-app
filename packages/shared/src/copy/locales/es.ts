@@ -33,6 +33,7 @@ export const es = {
     loading: "Cargando...",
     copy: "Copiar",
     moreActions: "Más acciones",
+    clear: "Limpiar",
   },
   navigation: {
     home: "Inicio",

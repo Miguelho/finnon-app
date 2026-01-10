@@ -11,7 +11,7 @@ type MonthMapProps = {
   month: Date;
   locale: string;
   events: CalendarEvent[];
-  highlightRange: DateRange;
+  highlightRange?: DateRange;
   selectedDate?: Date | null;
   onSelectDate: (date: Date) => void;
 };
@@ -135,6 +135,7 @@ export function MonthMap({
               const overflowCount = dayEvents.length - markers.length;
               const isHighlighted =
                 isCurrentMonth &&
+                highlightRange &&
                 date >= highlightRange.start &&
                 date <= highlightRange.end;
               const isSelected = selectedDate

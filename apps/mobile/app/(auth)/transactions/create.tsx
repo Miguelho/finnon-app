@@ -16,6 +16,7 @@ import { useAuth } from "../../../src/contexts/AuthContext";
 import { Button } from "../../../src/components/Button";
 import { Input } from "../../../src/components/Input";
 import { Card } from "../../../src/components/Card";
+import { DatePickerField } from "../../../src/components/DatePickerField";
 import {
   type TransactionType,
   type RecurringFrequency,
@@ -471,7 +472,7 @@ export default function CreateTransactionScreen(): React.JSX.Element {
           )}
 
           {/* Date */}
-          <Input
+          <DatePickerField
             label={t(dictionary, "transactions.create.dateLabel")}
             value={date}
             onChangeText={setDate}
@@ -553,18 +554,19 @@ export default function CreateTransactionScreen(): React.JSX.Element {
                 keyboardType="numeric"
               />
 
-              <Input
+              <DatePickerField
                 label={t(dictionary, "transactions.repeat.startDateLabel")}
                 value={repeatStartDate}
                 onChangeText={setRepeatStartDate}
                 placeholder={t(dictionary, "transactions.datePlaceholder")}
               />
 
-              <Input
+              <DatePickerField
                 label={t(dictionary, "transactions.repeat.endDateLabel")}
                 value={repeatEndDate}
                 onChangeText={setRepeatEndDate}
                 placeholder={t(dictionary, "transactions.datePlaceholder")}
+                allowClear
               />
             </>
           )}

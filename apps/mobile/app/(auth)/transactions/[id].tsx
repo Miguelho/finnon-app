@@ -17,6 +17,7 @@ import { useAuth } from "../../../src/contexts/AuthContext";
 import { Button } from "../../../src/components/Button";
 import { Input } from "../../../src/components/Input";
 import { Card } from "../../../src/components/Card";
+import { DatePickerField } from "../../../src/components/DatePickerField";
 import {
   type TransactionType,
   CURRENCIES,
@@ -442,7 +443,7 @@ export default function EditTransactionScreen(): React.JSX.Element {
           )}
 
           {/* Date */}
-          <Input
+          <DatePickerField
             label={t(dictionary, "transactions.create.dateLabel")}
             value={date}
             onChangeText={setDate}
