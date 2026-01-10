@@ -9,6 +9,7 @@ export * from "./constants/currencies";
 export * from "./constants/icons";
 export * from "./icons/categories";
 export * from "./icons/category-icon";
+export * from "./icons/cash-flow-arrow";
 export * from "./utils/money";
 export * from "./utils/avatar";
 export * from "./domain/types";

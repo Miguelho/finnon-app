@@ -4,7 +4,9 @@ import {
   createTypographyStyles,
   formatMoneyWithSymbol,
   themeTokens,
+  type ArrowStyle,
 } from "@poleursus/shared";
+import { CashFlowArrow } from "../CashFlowArrow";
 
 type CashFlowArrowsProps = {
   incomeMinor: bigint;
@@ -15,14 +17,15 @@ type CashFlowArrowsProps = {
   incomeLabel: string;
   expenseLabel: string;
   balanceLabel: string;
+  /** Arrow style variant (default: "chevron") */
+  arrowStyle?: ArrowStyle;
+  /** Show directional accent on arrow tips (default: true) */
+  showDirectionalAccent?: boolean;
 };
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
 const typography = createTypographyStyles(tokens);
-
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(Math.max(value, min), max);
 
 export function CashFlowArrows({
   incomeMinor,
@@ -33,71 +36,112 @@ export function CashFlowArrows({
   incomeLabel,
   expenseLabel,
   balanceLabel,
+  arrowStyle = "chevron",
+  showDirectionalAccent = true,
 }: CashFlowArrowsProps) {
-  const [containerWidth, setContainerWidth] = useState(0);
-  const [netWidth, setNetWidth] = useState(0);
+  const [arrowContainerWidth, setArrowContainerWidth] = useState(0);
+
   const incomeValue = Number(incomeMinor);
   const expenseValue = Number(expenseMinor);
+
+  // Visibility logic
+  const showIncome = incomeMinor !== 0n;
+  const showExpense = expenseMinor !== 0n;
+  const showLeftColumn = showIncome || showExpense;
+
+  // Proportional arrow widths
   const maxValue = Math.max(Math.abs(incomeValue), Math.abs(expenseValue), 1);
-  const fallbackMaxWidth = 120;
-  const availableColumns =
-    containerWidth > 0 && netWidth > 0
-      ? (containerWidth - netWidth - tokens.spacing.md * 2) / 2
-      : fallbackMaxWidth;
-  const maxWidth = Math.max(
-    0,
-    Math.min(fallbackMaxWidth, availableColumns - 10)
-  );
-  const minWidth = Math.min(16, maxWidth);
-  const incomeWidth = clamp(
-    (Math.abs(incomeValue) / maxValue) * maxWidth,
-    minWidth,
-    maxWidth
-  );
-  const expenseWidth = clamp(
-    (Math.abs(expenseValue) / maxValue) * maxWidth,
-    minWidth,
-    maxWidth
-  );
+  const incomeWidthPercent = Math.max(15, (Math.abs(incomeValue) / maxValue) * 100);
+  const expenseWidthPercent = Math.max(15, (Math.abs(expenseValue) / maxValue) * 100);
+
+  // Convert percentage to pixels based on container width
+  const maxArrowWidth = arrowContainerWidth > 0 ? arrowContainerWidth : 80;
+  const incomeWidth = (incomeWidthPercent / 100) * maxArrowWidth;
+  const expenseWidth = (expenseWidthPercent / 100) * maxArrowWidth;
+
+  // Balance color
   const netColor =
     netMinor < 0n ? colors.state.negative : colors.text.primary;
 
   return (
-    <View
-      style={styles.container}
-      onLayout={(event) => {
-        const width = event.nativeEvent.layout.width;
-        setContainerWidth((current) => (current === width ? current : width));
-      }}
-    >
-      <View style={styles.arrowColumn}>
-        <Text style={styles.meta}>{incomeLabel}</Text>
-        <View style={styles.arrowRow}>
-          <View
-            style={[
-              styles.arrowLine,
-              { width: incomeWidth, backgroundColor: colors.text.secondary },
-            ]}
-          />
-          <View
-            style={[
-              styles.arrowHeadRight,
-              { borderLeftColor: colors.text.secondary },
-            ]}
-          />
-        </View>
-        <Text style={styles.amount}>
-          +{formatMoneyWithSymbol(incomeMinor, currency, currencySymbol)}
-        </Text>
-      </View>
+    <View style={styles.container}>
+      {/* Left Column: Stacked Arrows (40%) */}
+      {showLeftColumn && (
+        <View style={styles.leftColumn}>
+          {/* Income Row */}
+          {showIncome && (
+            <View
+              style={styles.arrowSection}
+              accessible
+              accessibilityLabel={`${incomeLabel}: +${formatMoneyWithSymbol(incomeMinor, currency, currencySymbol)}`}
+            >
+              <Text style={styles.meta}>{incomeLabel}</Text>
+              <View style={styles.arrowWithBadge}>
+                <View
+                  style={styles.arrowWrapper}
+                  onLayout={(event) => {
+                    const width = event.nativeEvent.layout.width;
+                    setArrowContainerWidth((current) =>
+                      current === width ? current : width
+                    );
+                  }}
+                >
+                  <View style={{ width: incomeWidth, minWidth: 20 }}>
+                    <CashFlowArrow
+                      direction="right"
+                      widthPx={incomeWidth}
+                      style={arrowStyle}
+                      accentColor={
+                        showDirectionalAccent ? colors.state.positive : undefined
+                      }
+                      showAccent={showDirectionalAccent}
+                    />
+                  </View>
+                </View>
+                <View style={[styles.badge, { backgroundColor: colors.bg.secondary }]}>
+                  <Text style={[styles.badgeText, { color: colors.state.positive }]}>
+                    +{formatMoneyWithSymbol(incomeMinor, currency, currencySymbol)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
 
-      <View
-        style={styles.netColumn}
-        onLayout={(event) => {
-          const width = event.nativeEvent.layout.width;
-          setNetWidth((current) => (current === width ? current : width));
-        }}
-      >
+          {/* Expense Row */}
+          {showExpense && (
+            <View
+              style={styles.arrowSection}
+              accessible
+              accessibilityLabel={`${expenseLabel}: -${formatMoneyWithSymbol(expenseMinor, currency, currencySymbol)}`}
+            >
+              <Text style={styles.meta}>{expenseLabel}</Text>
+              <View style={styles.arrowWithBadge}>
+                <View style={styles.arrowWrapper}>
+                  <View style={{ width: expenseWidth, minWidth: 20 }}>
+                    <CashFlowArrow
+                      direction="left"
+                      widthPx={expenseWidth}
+                      style={arrowStyle}
+                      accentColor={
+                        showDirectionalAccent ? colors.state.negative : undefined
+                      }
+                      showAccent={showDirectionalAccent}
+                    />
+                  </View>
+                </View>
+                <View style={[styles.badge, { backgroundColor: colors.bg.secondary }]}>
+                  <Text style={[styles.badgeText, { color: colors.state.negative }]}>
+                    -{formatMoneyWithSymbol(expenseMinor, currency, currencySymbol)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Right Column: Balance (60%) */}
+      <View style={[styles.balanceColumn, !showLeftColumn && styles.balanceColumnFull]}>
         <Text style={styles.meta}>{balanceLabel}</Text>
         <Text style={[styles.netValue, { color: netColor }]}>
           {netMinor < 0n ? "-" : "+"}
@@ -108,27 +152,6 @@ export function CashFlowArrows({
           )}
         </Text>
       </View>
-
-      <View style={styles.arrowColumn}>
-        <Text style={styles.meta}>{expenseLabel}</Text>
-        <View style={[styles.arrowRow, styles.arrowRowReverse]}>
-          <View
-            style={[
-              styles.arrowLine,
-              { width: expenseWidth, backgroundColor: colors.text.secondary },
-            ]}
-          />
-          <View
-            style={[
-              styles.arrowHeadLeft,
-              { borderRightColor: colors.text.secondary },
-            ]}
-          />
-        </View>
-        <Text style={styles.amount}>
-          -{formatMoneyWithSymbol(expenseMinor, currency, currencySymbol)}
-        </Text>
-      </View>
     </View>
   );
 }
@@ -136,60 +159,47 @@ export function CashFlowArrows({
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    gap: tokens.spacing.md,
-  },
-  arrowColumn: {
-    flex: 1,
-    minWidth: 0,
-    flexShrink: 1,
-    gap: tokens.spacing.xs,
-  },
-  netColumn: {
     alignItems: "center",
+    gap: tokens.spacing.lg,
+  },
+  leftColumn: {
+    flex: 0.4,
+    gap: tokens.spacing.lg,
+  },
+  arrowSection: {
     gap: tokens.spacing.xs,
+  },
+  arrowWithBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+  },
+  arrowWrapper: {
+    flex: 1,
+  },
+  badge: {
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  badgeText: {
+    fontSize: typography.meta.fontSize,
+    fontWeight: "600",
   },
   meta: {
     ...typography.meta,
     color: colors.text.secondary,
   },
+  balanceColumn: {
+    flex: 0.6,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: tokens.spacing.xs,
+  },
+  balanceColumnFull: {
+    flex: 1,
+  },
   netValue: {
     ...typography.display,
-  },
-  arrowRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    width: "100%",
-  },
-  arrowRowReverse: {
-    flexDirection: "row-reverse",
-  },
-  arrowLine: {
-    height: 2,
-    borderRadius: 999,
-  },
-  arrowHeadRight: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 4,
-    borderBottomWidth: 4,
-    borderLeftWidth: 6,
-    borderTopColor: "transparent",
-    borderBottomColor: "transparent",
-  },
-  arrowHeadLeft: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 4,
-    borderBottomWidth: 4,
-    borderRightWidth: 6,
-    borderTopColor: "transparent",
-    borderBottomColor: "transparent",
-  },
-  amount: {
-    ...typography.body,
-    color: colors.text.primary,
   },
 });

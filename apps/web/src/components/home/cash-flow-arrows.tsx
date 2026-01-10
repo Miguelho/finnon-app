@@ -1,8 +1,11 @@
+"use client";
 import {
   createTypographyStyles,
   formatMoneyWithSymbol,
   themeTokens,
+  type ArrowStyle,
 } from "@poleursus/shared";
+import { CashFlowArrow } from "@/components/cash-flow-arrow";
 
 type CashFlowArrowsProps = {
   incomeMinor: bigint;
@@ -13,14 +16,15 @@ type CashFlowArrowsProps = {
   incomeLabel: string;
   expenseLabel: string;
   balanceLabel: string;
+  /** Arrow style variant (default: "chevron") */
+  arrowStyle?: ArrowStyle;
+  /** Show directional accent on arrow tips (default: true) */
+  showDirectionalAccent?: boolean;
 };
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
 const typography = createTypographyStyles(tokens);
-
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(Math.max(value, min), max);
 
 export function CashFlowArrows({
   incomeMinor,
@@ -31,69 +35,127 @@ export function CashFlowArrows({
   incomeLabel,
   expenseLabel,
   balanceLabel,
+  arrowStyle = "chevron",
+  showDirectionalAccent = true,
 }: CashFlowArrowsProps) {
   const incomeValue = Number(incomeMinor);
   const expenseValue = Number(expenseMinor);
+
+  // Visibility logic
+  const showIncome = incomeMinor !== 0n;
+  const showExpense = expenseMinor !== 0n;
+  const showLeftColumn = showIncome || showExpense;
+
+  // Proportional arrow widths (percentage-based)
   const maxValue = Math.max(Math.abs(incomeValue), Math.abs(expenseValue), 1);
-  const minWidth = 60;
-  const maxWidth = 160;
-  const incomeWidth = clamp(
-    (Math.abs(incomeValue) / maxValue) * maxWidth,
-    minWidth,
-    maxWidth
-  );
-  const expenseWidth = clamp(
-    (Math.abs(expenseValue) / maxValue) * maxWidth,
-    minWidth,
-    maxWidth
-  );
+  const incomeWidthPercent = Math.max(15, (Math.abs(incomeValue) / maxValue) * 100);
+  const expenseWidthPercent = Math.max(15, (Math.abs(expenseValue) / maxValue) * 100);
+
   const netColor =
     netMinor < 0n ? colors.state.negative : colors.text.primary;
 
   return (
-    <div className="flex flex-wrap items-end justify-between gap-6">
-      <div className="min-w-[140px] space-y-2">
-        <p
-          style={{
-            fontSize: typography.meta.fontSize,
-            fontWeight: typography.meta.fontWeight,
-            color: colors.text.secondary,
-          }}
-        >
-          {incomeLabel}
-        </p>
-        <div className="flex items-center gap-1">
-          <span
-            style={{
-              width: incomeWidth,
-              height: 2,
-              borderRadius: 999,
-              backgroundColor: colors.text.secondary,
-              display: "inline-block",
-            }}
-          />
-          <span
-            style={{
-              width: 0,
-              height: 0,
-              borderTop: "4px solid transparent",
-              borderBottom: "4px solid transparent",
-              borderLeft: `6px solid ${colors.text.secondary}`,
-            }}
-          />
-        </div>
-        <p
-          style={{
-            fontSize: typography.body.fontSize,
-            fontWeight: typography.body.fontWeight,
-            color: colors.text.primary,
-          }}
-        >
-          +{formatMoneyWithSymbol(incomeMinor, currency, currencySymbol)}
-        </p>
-      </div>
+    <div className="flex items-center gap-6">
+      {/* Left Column: Stacked Arrows (40%) */}
+      {showLeftColumn && (
+        <div className="flex w-[40%] flex-col gap-4">
+          {/* Income Row */}
+          {showIncome && (
+            <div
+              className="flex flex-col gap-1.5"
+              role="group"
+              aria-label={`${incomeLabel}: +${formatMoneyWithSymbol(incomeMinor, currency, currencySymbol)}`}
+            >
+              <p
+                style={{
+                  fontSize: typography.meta.fontSize,
+                  fontWeight: typography.meta.fontWeight,
+                  color: colors.text.secondary,
+                }}
+              >
+                {incomeLabel}
+              </p>
+              <div className="flex items-center gap-2">
+                <div style={{ width: `${incomeWidthPercent}%`, minWidth: 20 }}>
+                  <CashFlowArrow
+                    direction="right"
+                    widthPx={9999}
+                    style={arrowStyle}
+                    accentColor={
+                      showDirectionalAccent ? colors.state.positive : undefined
+                    }
+                    showAccent={showDirectionalAccent}
+                  />
+                </div>
+                <span
+                  style={{
+                    backgroundColor: colors.bg.secondary,
+                    borderRadius: 8,
+                    padding: "4px 8px",
+                    fontSize: typography.meta.fontSize,
+                    fontWeight: 600,
+                    color: colors.state.positive,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  +{formatMoneyWithSymbol(incomeMinor, currency, currencySymbol)}
+                </span>
+              </div>
+            </div>
+          )}
 
-      <div className="flex flex-col items-center gap-2">
+          {/* Expense Row */}
+          {showExpense && (
+            <div
+              className="flex flex-col gap-1.5"
+              role="group"
+              aria-label={`${expenseLabel}: -${formatMoneyWithSymbol(expenseMinor, currency, currencySymbol)}`}
+            >
+              <p
+                style={{
+                  fontSize: typography.meta.fontSize,
+                  fontWeight: typography.meta.fontWeight,
+                  color: colors.text.secondary,
+                }}
+              >
+                {expenseLabel}
+              </p>
+              <div className="flex items-center gap-2">
+                <div style={{ width: `${expenseWidthPercent}%`, minWidth: 20 }}>
+                  <CashFlowArrow
+                    direction="left"
+                    widthPx={9999}
+                    style={arrowStyle}
+                    accentColor={
+                      showDirectionalAccent ? colors.state.negative : undefined
+                    }
+                    showAccent={showDirectionalAccent}
+                  />
+                </div>
+                <span
+                  style={{
+                    backgroundColor: colors.bg.secondary,
+                    borderRadius: 8,
+                    padding: "4px 8px",
+                    fontSize: typography.meta.fontSize,
+                    fontWeight: 600,
+                    color: colors.state.negative,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  -{formatMoneyWithSymbol(expenseMinor, currency, currencySymbol)}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Right Column: Balance (60%) */}
+      <div
+        className="flex flex-1 flex-col items-center justify-center gap-1"
+        style={{ minWidth: showLeftColumn ? "60%" : "100%" }}
+      >
         <p
           style={{
             fontSize: typography.meta.fontSize,
@@ -116,47 +178,6 @@ export function CashFlowArrows({
             currency,
             currencySymbol
           )}
-        </p>
-      </div>
-
-      <div className="min-w-[140px] space-y-2 text-right">
-        <p
-          style={{
-            fontSize: typography.meta.fontSize,
-            fontWeight: typography.meta.fontWeight,
-            color: colors.text.secondary,
-          }}
-        >
-          {expenseLabel}
-        </p>
-        <div className="flex items-center justify-end gap-1">
-          <span
-            style={{
-              width: 0,
-              height: 0,
-              borderTop: "4px solid transparent",
-              borderBottom: "4px solid transparent",
-              borderRight: `6px solid ${colors.text.secondary}`,
-            }}
-          />
-          <span
-            style={{
-              width: expenseWidth,
-              height: 2,
-              borderRadius: 999,
-              backgroundColor: colors.text.secondary,
-              display: "inline-block",
-            }}
-          />
-        </div>
-        <p
-          style={{
-            fontSize: typography.body.fontSize,
-            fontWeight: typography.body.fontWeight,
-            color: colors.text.primary,
-          }}
-        >
-          -{formatMoneyWithSymbol(expenseMinor, currency, currencySymbol)}
         </p>
       </div>
     </div>
