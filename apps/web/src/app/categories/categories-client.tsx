@@ -40,11 +40,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IconPicker } from "@/components/icon-picker";
-import {
-  getIconById,
-  normalizeCategoryName,
-  type CategoryType,
-} from "@poleursus/shared";
+import { CategoryTile } from "@/components/categories/category-tile";
+import { normalizeCategoryName, type CategoryType } from "@poleursus/shared";
 import { createCategory, updateCategory, deleteCategory } from "./actions";
 
 type Category = {
@@ -291,53 +288,15 @@ export function CategoriesClient({
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {expenseCategories.map((category) => {
-                    const icon = getIconById(category.icon_id);
-                    return (
-                      <div
-                        key={category.id}
-                        className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/40 cursor-pointer"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => router.push(`/categories/${category.id}`)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            router.push(`/categories/${category.id}`);
-                          }
-                        }}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">{icon?.emoji || "📦"}</span>
-                          <span className="font-medium">{category.name}</span>
-                        </div>
-                        {canEdit && (
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openEditDialog(category);
-                              }}
-                            >
-                              {t("common.edit")}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openDeleteDialog(category);
-                              }}
-                            >
-                              {t("common.delete")}
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {expenseCategories.map((category) => (
+                    <CategoryTile
+                      key={category.id}
+                      category={category}
+                      onPress={() => router.push(`/categories/${category.id}`)}
+                      onEdit={canEdit ? () => openEditDialog(category) : undefined}
+                      onDelete={canEdit ? () => openDeleteDialog(category) : undefined}
+                    />
+                  ))}
                 </div>
               )}
             </CardContent>
@@ -360,53 +319,15 @@ export function CategoriesClient({
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {incomeCategories.map((category) => {
-                    const icon = getIconById(category.icon_id);
-                    return (
-                      <div
-                        key={category.id}
-                        className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/40 cursor-pointer"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => router.push(`/categories/${category.id}`)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            router.push(`/categories/${category.id}`);
-                          }
-                        }}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">{icon?.emoji || "📦"}</span>
-                          <span className="font-medium">{category.name}</span>
-                        </div>
-                        {canEdit && (
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openEditDialog(category);
-                              }}
-                            >
-                              {t("common.edit")}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openDeleteDialog(category);
-                              }}
-                            >
-                              {t("common.delete")}
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {incomeCategories.map((category) => (
+                    <CategoryTile
+                      key={category.id}
+                      category={category}
+                      onPress={() => router.push(`/categories/${category.id}`)}
+                      onEdit={canEdit ? () => openEditDialog(category) : undefined}
+                      onDelete={canEdit ? () => openDeleteDialog(category) : undefined}
+                    />
+                  ))}
                 </div>
               )}
             </CardContent>

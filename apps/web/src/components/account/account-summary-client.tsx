@@ -86,6 +86,9 @@ export function AccountSummaryClient({
     });
   }, [summaryData, dictionary, currentUserId, role]);
 
+  const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
+  const accountIdShort = summaryData.account.id.slice(0, 6);
+
   return (
     <div className="space-y-6">
       {/* Account Header */}
@@ -94,7 +97,7 @@ export function AccountSummaryClient({
           {viewModel.account.name}
         </h2>
         <p className="text-muted-foreground">
-          {viewModel.account.baseCurrency} · {viewModel.copy.baseCurrencySubtitle}
+          {viewModel.account.baseCurrency} · {viewModel.copy.baseCurrencySubtitle} · {roleLabel} · <span className="font-mono">{accountIdShort}</span>
         </p>
       </div>
 

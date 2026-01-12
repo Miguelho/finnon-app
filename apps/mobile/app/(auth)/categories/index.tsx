@@ -16,7 +16,8 @@ import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
 import { Button } from "../../../src/components/Button";
 import { Card } from "../../../src/components/Card";
-import { getIconById, themeTokens } from "@poleursus/shared";
+import { CategoryTile } from "../../../src/components/CategoryTile";
+import { themeTokens } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
 
 type Category = {
@@ -188,40 +189,15 @@ export default function CategoriesScreen() {
             </Text>
           ) : (
             <View style={styles.list}>
-              {expenseCategories.map((category) => {
-                const icon = getIconById(category.icon_id);
-                return (
-                  <View key={category.id} style={styles.categoryItem}>
-                    <TouchableOpacity
-                      style={styles.categoryInfo}
-                      onPress={() => router.push(`/(auth)/categories/${category.id}`)}
-                    >
-                      <Text style={styles.emoji}>{icon?.emoji || "📦"}</Text>
-                      <Text style={styles.categoryName}>{category.name}</Text>
-                    </TouchableOpacity>
-                    <View style={styles.categoryActions}>
-                      <TouchableOpacity
-                        onPress={() =>
-                          router.push(`/(auth)/categories/${category.id}/edit`)
-                        }
-                        style={styles.actionButton}
-                      >
-                        <Text style={styles.actionButtonText}>
-                          {t(dictionary, "common.edit")}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => handleDelete(category)}
-                        style={[styles.actionButton, styles.deleteButton]}
-                      >
-                        <Text style={styles.deleteButtonText}>
-                          {t(dictionary, "common.delete")}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                );
-              })}
+              {expenseCategories.map((category) => (
+                <CategoryTile
+                  key={category.id}
+                  category={category}
+                  onPress={() => router.push(`/(auth)/categories/${category.id}`)}
+                  onEdit={() => router.push(`/(auth)/categories/${category.id}/edit`)}
+                  onDelete={() => handleDelete(category)}
+                />
+              ))}
             </View>
           )}
           </View>
@@ -241,40 +217,15 @@ export default function CategoriesScreen() {
             </Text>
           ) : (
             <View style={styles.list}>
-              {incomeCategories.map((category) => {
-                const icon = getIconById(category.icon_id);
-                return (
-                  <View key={category.id} style={styles.categoryItem}>
-                    <TouchableOpacity
-                      style={styles.categoryInfo}
-                      onPress={() => router.push(`/(auth)/categories/${category.id}`)}
-                    >
-                      <Text style={styles.emoji}>{icon?.emoji || "📦"}</Text>
-                      <Text style={styles.categoryName}>{category.name}</Text>
-                    </TouchableOpacity>
-                    <View style={styles.categoryActions}>
-                      <TouchableOpacity
-                        onPress={() =>
-                          router.push(`/(auth)/categories/${category.id}/edit`)
-                        }
-                        style={styles.actionButton}
-                      >
-                        <Text style={styles.actionButtonText}>
-                          {t(dictionary, "common.edit")}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => handleDelete(category)}
-                        style={[styles.actionButton, styles.deleteButton]}
-                      >
-                        <Text style={styles.deleteButtonText}>
-                          {t(dictionary, "common.delete")}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                );
-              })}
+              {incomeCategories.map((category) => (
+                <CategoryTile
+                  key={category.id}
+                  category={category}
+                  onPress={() => router.push(`/(auth)/categories/${category.id}`)}
+                  onEdit={() => router.push(`/(auth)/categories/${category.id}/edit`)}
+                  onDelete={() => handleDelete(category)}
+                />
+              ))}
             </View>
           )}
           </View>
@@ -358,53 +309,5 @@ const styles = StyleSheet.create({
   },
   emptyCta: {
     marginTop: 12,
-  },
-  categoryItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    borderRadius: 8,
-    backgroundColor: colors.bg.surface,
-  },
-  categoryInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    flex: 1,
-  },
-  emoji: {
-    fontSize: 24,
-  },
-  categoryName: {
-    fontSize: tokens.typography.size.md,
-    fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
-  },
-  categoryActions: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  actionButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.action.primary,
-  },
-  actionButtonText: {
-    color: colors.action.primary,
-    fontSize: tokens.typography.size.sm,
-    fontWeight: tokens.typography.weight.semibold,
-  },
-  deleteButton: {
-    borderColor: colors.state.negative,
-  },
-  deleteButtonText: {
-    color: colors.state.negative,
-    fontSize: tokens.typography.size.sm,
-    fontWeight: tokens.typography.weight.semibold,
   },
 });

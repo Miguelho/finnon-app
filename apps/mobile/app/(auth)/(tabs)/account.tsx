@@ -214,7 +214,7 @@ export default function AccountTabScreen() {
         <View style={styles.accountHeader}>
           <Text style={styles.accountName}>{viewModel.account.name}</Text>
           <Text style={styles.accountCurrency}>
-            {viewModel.account.baseCurrency} · {viewModel.copy.baseCurrencySubtitle}
+            {viewModel.account.baseCurrency} · {viewModel.copy.baseCurrencySubtitle} · {userRole.charAt(0).toUpperCase() + userRole.slice(1)} · <Text style={styles.accountIdMono}>{summaryData.account.id.slice(0, 6)}</Text>
           </Text>
         </View>
 
@@ -543,6 +543,9 @@ const styles = StyleSheet.create({
   accountCurrency: {
     ...typography.body,
     color: colors.text.secondary,
+  },
+  accountIdMono: {
+    fontFamily: "monospace",
   },
   summarySection: {
     gap: tokens.spacing.sm,
