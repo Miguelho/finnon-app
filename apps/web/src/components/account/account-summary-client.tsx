@@ -124,7 +124,7 @@ export function AccountSummaryClient({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+            <p className="text-2xl font-bold text-state-positive">
               {formatMoneyWithSymbol(
                 viewModel.totals.incomeMinor,
                 viewModel.account.baseCurrency,
@@ -141,7 +141,7 @@ export function AccountSummaryClient({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+            <p className="text-2xl font-bold text-state-negative">
               {formatMoneyWithSymbol(
                 viewModel.totals.expenseMinor,
                 viewModel.account.baseCurrency,
@@ -237,8 +237,8 @@ export function AccountSummaryClient({
                       className={cn(
                         "text-sm font-medium",
                         category.type === "income"
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-red-600 dark:text-red-400"
+                          ? "text-state-positive"
+                          : "text-state-negative"
                       )}
                     >
                       {formatMoneyWithSymbol(
