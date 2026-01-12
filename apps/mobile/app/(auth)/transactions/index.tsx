@@ -489,24 +489,25 @@ export default function TransactionsScreen(): React.JSX.Element {
   const screenOptions = {
     title: screenTitle,
     headerLeft: () => (
-      <TouchableOpacity
-        onPress={handleBack}
-        accessibilityRole="button"
-        accessibilityLabel={t(dictionary, "common.back")}
-        style={styles.headerBackButton}
-        hitSlop={{
-          top: spacing.sm,
-          bottom: spacing.sm,
-          left: spacing.sm,
-          right: spacing.sm,
-        }}
-      >
-        <MaterialCommunityIcons
-          name="arrow-left"
-          size={22}
-          color={colors.text.primary}
-        />
-      </TouchableOpacity>
+      <></>
+      // <TouchableOpacity
+      //   onPress={handleBack}
+      //   accessibilityRole="button"
+      //   accessibilityLabel={t(dictionary, "common.back")}
+      //   style={styles.headerBackButton}
+      //   hitSlop={{
+      //     top: spacing.sm,
+      //     bottom: spacing.sm,
+      //     left: spacing.sm,
+      //     right: spacing.sm,
+      //   }}
+      // >
+      //   <MaterialCommunityIcons
+      //     name="arrow-left"
+      //     size={22}
+      //     color={colors.text.primary}
+      //   />
+      // </TouchableOpacity>
     ),
   };
 

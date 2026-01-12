@@ -51,8 +51,8 @@ export function useStackScreenOptions() {
 export const tabBarBaseOptions = {
   headerShown: false,
   tabBarShowIcon: true,
-  tabBarActiveBackgroundColor: colors.bg.secondary,
-  tabBarActiveTintColor: colors.text.primary,
+  tabBarActiveBackgroundColor: "transparent",
+  tabBarActiveTintColor: colors.action.primary,
   tabBarInactiveTintColor: colors.text.secondary,
   tabBarLabelStyle: {
     fontSize: tokens.typography.size.xs,
@@ -61,7 +61,7 @@ export const tabBarBaseOptions = {
   tabBarItemStyle: {
     flex: 1,
     borderRadius: tokens.radii.md,
-    paddingVertical: tokens.spacing.sm,
+    paddingVertical: 0,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -70,7 +70,7 @@ export const tabBarBaseOptions = {
     borderTopColor: colors.state.neutral,
     borderTopWidth: 1,
     paddingHorizontal: tokens.spacing.md,
-    paddingTop: tokens.spacing.sm,
+    paddingTop: tokens.spacing.xs,
     paddingBottom: tokens.spacing.md,
     shadowColor: "transparent",
     shadowOpacity: 0,
