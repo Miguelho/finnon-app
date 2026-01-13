@@ -44,6 +44,7 @@ export async function TopNav({ containerClassName }: TopNavProps) {
   const navItems = [
     { href: "/", label: t(dictionary, "navigation.home") },
     { href: "/transactions", label: t(dictionary, "transactions.pageTitle") },
+    { href: "/goal", label: t(dictionary, "goal.pageTitle") },
     { href: "/account", label: t(dictionary, "navigation.account") },
     { href: "/settings", label: t(dictionary, settingsLabelKey) },
   ];
