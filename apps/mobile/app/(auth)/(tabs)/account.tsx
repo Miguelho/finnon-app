@@ -28,6 +28,7 @@ import {
   type AccountParticipantVM,
   type AccountCategoryVM,
   type UserRole,
+  type CategoryIconKey,
 } from "@poleursus/shared";
 
 const tokens = themeTokens.light;
@@ -378,7 +379,7 @@ function CategoryRow({
     <View style={styles.categoryRow}>
       <View style={styles.categoryIcon}>
         <CategoryIcon
-          iconId={category.iconId ?? "default"}
+          iconKey={(category.iconId ?? "Tag") as CategoryIconKey}
           size={20}
           tone={category.type === "income" ? "positive" : "negative"}
         />

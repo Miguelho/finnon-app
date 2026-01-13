@@ -1,37 +1,101 @@
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
-import { ICONS, themeTokens, type IconDefinition } from "@poleursus/shared";
+import {
+  type CategoryIconKey,
+  CATEGORY_ICON_KEYS,
+  getIconsByType,
+  resolveCategoryIconKey,
+  suggestCategoryIcon,
+  themeTokens,
+} from "@poleursus/shared";
+import { CategoryIcon } from "./CategoryIcon";
 
 type IconPickerProps = {
-  value?: string;
-  onChange: (iconId: string) => void;
-  filterType?: "income" | "expense" | "both";
+  value?: CategoryIconKey;
+  onChange: (iconKey: CategoryIconKey) => void;
+  filterType?: "income" | "expense";
+  categoryName?: string;
 };
 
-export function IconPicker({ value, onChange, filterType }: IconPickerProps) {
-  const icons = filterType
-    ? ICONS.filter(
-        (icon) =>
-          icon.suggested_for === filterType || icon.suggested_for === "both"
-      )
-    : ICONS;
+export function IconPicker({
+  value,
+  onChange,
+  filterType,
+  categoryName,
+}: IconPickerProps) {
+  const suggestion = categoryName ? suggestCategoryIcon(categoryName) : null;
+  const selectedValue = value ? resolveCategoryIconKey(value) : undefined;
+
+  // Filter icons by type if provided
+  const availableIcons = filterType
+    ? getIconsByType(filterType)
+    : CATEGORY_ICON_KEYS;
+
+  // Show suggestions row if confidence is not high and we have a suggestion
+  const showSuggestions =
+    suggestion && suggestion.confidence !== "high" && categoryName;
 
   return (
     <ScrollView style={styles.container}>
+      {/* Suggestions row */}
+      {showSuggestions && (
+        <View style={styles.suggestionsSection}>
+          <Text style={styles.suggestionsLabel}>Sugeridos</Text>
+          <View style={styles.suggestionsRow}>
+            {suggestion.suggestions.slice(0, 6).map((iconKey) => (
+              <IconButton
+                key={iconKey}
+                iconKey={iconKey}
+                isSelected={selectedValue === iconKey}
+                isSuggested={iconKey === suggestion.primary}
+                onPress={() => onChange(iconKey)}
+              />
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Main grid */}
       <View style={styles.grid}>
-        {icons.map((icon) => (
-          <TouchableOpacity
-            key={icon.id}
-            onPress={() => onChange(icon.id)}
-            style={[
-              styles.iconButton,
-              value === icon.id && styles.iconButtonSelected,
-            ]}
-          >
-            <Text style={styles.emoji}>{icon.emoji}</Text>
-          </TouchableOpacity>
+        {availableIcons.map((iconKey) => (
+          <IconButton
+            key={iconKey}
+            iconKey={iconKey}
+            isSelected={selectedValue === iconKey}
+            onPress={() => onChange(iconKey)}
+          />
         ))}
       </View>
     </ScrollView>
+  );
+}
+
+function IconButton({
+  iconKey,
+  isSelected,
+  isSuggested,
+  onPress,
+}: {
+  iconKey: CategoryIconKey;
+  isSelected: boolean;
+  isSuggested?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[
+        styles.iconButton,
+        isSelected && styles.iconButtonSelected,
+        isSuggested && !isSelected && styles.iconButtonSuggested,
+      ]}
+    >
+      <CategoryIcon
+        iconKey={iconKey}
+        size={24}
+        weight={isSelected ? "fill" : "regular"}
+        tone={isSelected ? "primary" : "muted"}
+      />
+    </TouchableOpacity>
   );
 }
 
@@ -41,6 +105,18 @@ const colors = tokens.colors;
 const styles = StyleSheet.create({
   container: {
     maxHeight: 300,
+  },
+  suggestionsSection: {
+    marginBottom: 12,
+  },
+  suggestionsLabel: {
+    fontSize: 12,
+    color: colors.text.muted,
+    marginBottom: 8,
+  },
+  suggestionsRow: {
+    flexDirection: "row",
+    gap: 8,
   },
   grid: {
     flexDirection: "row",
@@ -61,7 +137,8 @@ const styles = StyleSheet.create({
     borderColor: colors.action.primary,
     backgroundColor: colors.action.secondary,
   },
-  emoji: {
-    fontSize: 24,
+  iconButtonSuggested: {
+    borderColor: `${colors.action.primary}80`,
+    backgroundColor: `${colors.action.primary}10`,
   },
 });

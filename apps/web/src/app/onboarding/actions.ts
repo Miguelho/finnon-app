@@ -2,6 +2,7 @@
 
 import { createAuthenticatedClient, createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { seedDefaultCategories } from "@poleursus/shared";
 
 export async function createAccountAction(formData: FormData) {
   const accountName = formData.get("accountName") as string;
@@ -59,6 +60,12 @@ export async function createAccountAction(formData: FormData) {
   }
 
   console.log("Account created successfully:", account.id);
+
+  try {
+    await seedDefaultCategories(authClient!, account.id);
+  } catch (error) {
+    console.error("Error seeding default categories:", error);
+  }
 
   // Redirigir a selección de cuenta
   redirect("/select-account");

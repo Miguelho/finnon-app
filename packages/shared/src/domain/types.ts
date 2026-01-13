@@ -1,3 +1,5 @@
+import type { CategoryIconKey } from "../icons/category-icons";
+
 export type UserRole = "viewer" | "contributor" | "admin";
 
 export type Participant = {
@@ -16,7 +18,7 @@ export type Account = {
 export type TransactionCategory = {
   id: string;
   name: string;
-  icon_id?: string | null;
+  icon_id?: CategoryIconKey | null;
 };
 
 export type Transaction = {

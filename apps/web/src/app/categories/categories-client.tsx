@@ -41,7 +41,13 @@ import {
 } from "@/components/ui/select";
 import { IconPicker } from "@/components/icon-picker";
 import { CategoryTile } from "@/components/categories/category-tile";
-import { normalizeCategoryName, type CategoryType } from "@poleursus/shared";
+import {
+  normalizeCategoryName,
+  resolveCategoryIconKey,
+  suggestCategoryIcon,
+  type CategoryType,
+  type CategoryIconKey,
+} from "@poleursus/shared";
 import { createCategory, updateCategory, deleteCategory } from "./actions";
 
 type Category = {
@@ -82,9 +88,10 @@ export function CategoriesClient({
   // Form state
   const [formData, setFormData] = useState({
     name: "",
-    icon_id: "general",
+    icon_id: "Tag" as CategoryIconKey,
     type: "expense" as CategoryType,
   });
+  const [userSelectedIcon, setUserSelectedIcon] = useState(false);
 
   const handleCreate = async () => {
     if (!canEdit) return;
@@ -109,7 +116,8 @@ export function CategoriesClient({
       if (result.success && result.data) {
         setCategories((prev) => [...prev, result.data]);
         setIsCreateOpen(false);
-        setFormData({ name: "", icon_id: "general", type: "expense" });
+        setFormData({ name: "", icon_id: "Tag", type: "expense" });
+        setUserSelectedIcon(false);
         router.refresh();
       } else {
         alert(
@@ -154,7 +162,8 @@ export function CategoriesClient({
         );
         setIsEditOpen(false);
         setSelectedCategory(null);
-        setFormData({ name: "", icon_id: "general", type: "expense" });
+        setFormData({ name: "", icon_id: "Tag", type: "expense" });
+        setUserSelectedIcon(false);
         router.refresh();
       } else {
         alert(
@@ -204,9 +213,10 @@ export function CategoriesClient({
     setSelectedCategory(category);
     setFormData({
       name: category.name,
-      icon_id: category.icon_id,
+      icon_id: resolveCategoryIconKey(category.icon_id),
       type: category.type,
     });
+    setUserSelectedIcon(true); // User already has an icon selected
     setIsEditOpen(true);
   };
 
@@ -361,9 +371,17 @@ export function CategoriesClient({
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const newName = e.target.value;
+                    setFormData((prev) => {
+                      // Auto-suggest icon only if user hasn't manually selected one
+                      if (!userSelectedIcon && newName.trim()) {
+                        const suggestion = suggestCategoryIcon(newName);
+                        return { ...prev, name: newName, icon_id: suggestion.primary };
+                      }
+                      return { ...prev, name: newName };
+                    });
+                  }}
                   placeholder={t("categories.namePlaceholder")}
                   maxLength={40}
                 />
@@ -393,10 +411,12 @@ export function CategoriesClient({
                 <Label>{t("categories.iconLabel")}</Label>
                 <IconPicker
                   value={formData.icon_id}
-                  onChange={(iconId) =>
-                    setFormData({ ...formData, icon_id: iconId })
-                  }
+                  onChange={(iconKey) => {
+                    setUserSelectedIcon(true);
+                    setFormData({ ...formData, icon_id: iconKey });
+                  }}
                   filterType={formData.type}
+                  categoryName={formData.name}
                 />
               </div>
               </div>
@@ -404,7 +424,11 @@ export function CategoriesClient({
             <SlidePanelFooter>
               <Button
                 variant="outline"
-                onClick={() => setIsCreateOpen(false)}
+                onClick={() => {
+                  setIsCreateOpen(false);
+                  setUserSelectedIcon(false);
+                  setFormData({ name: "", icon_id: "Tag", type: "expense" });
+                }}
                 disabled={isSubmitting}
               >
                 {t("common.cancel")}
@@ -465,10 +489,12 @@ export function CategoriesClient({
                 <Label>{t("categories.iconLabel")}</Label>
                 <IconPicker
                   value={formData.icon_id}
-                  onChange={(iconId) =>
-                    setFormData({ ...formData, icon_id: iconId })
-                  }
+                  onChange={(iconKey) => {
+                    setUserSelectedIcon(true);
+                    setFormData({ ...formData, icon_id: iconKey });
+                  }}
                   filterType={formData.type}
+                  categoryName={formData.name}
                 />
               </div>
               </div>
@@ -476,7 +502,12 @@ export function CategoriesClient({
             <SlidePanelFooter>
               <Button
                 variant="outline"
-                onClick={() => setIsEditOpen(false)}
+                onClick={() => {
+                  setIsEditOpen(false);
+                  setSelectedCategory(null);
+                  setUserSelectedIcon(false);
+                  setFormData({ name: "", icon_id: "Tag", type: "expense" });
+                }}
                 disabled={isSubmitting}
               >
                 {t("common.cancel")}

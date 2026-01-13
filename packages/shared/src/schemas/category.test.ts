@@ -8,7 +8,7 @@ import {
 
 const baseInput = {
   account_id: "11111111-1111-1111-1111-111111111111",
-  icon_id: "general",
+  icon_id: "Tag",
   type: "expense" as const,
 };
 
@@ -40,7 +40,7 @@ test("categoryUpdateInputSchema enforces name length", () => {
   assert.throws(() =>
     categoryUpdateInputSchema.parse({
       name: "A",
-      icon_id: "general",
+      icon_id: "Tag",
       type: "income",
     })
   );

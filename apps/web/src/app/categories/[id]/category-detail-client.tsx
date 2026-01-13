@@ -11,6 +11,7 @@ import {
   formatMonthLabel,
   formatMoneyWithSymbol,
   themeTokens,
+  type CategoryIconKey,
 } from "@poleursus/shared";
 
 type Category = {
@@ -74,7 +75,7 @@ export function CategoryDetailClient({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <CategoryIcon
-            iconId={category.icon_id}
+            iconKey={category.icon_id as CategoryIconKey}
             size={28}
             tone="muted"
             accessibilityLabel={category.name}
@@ -150,7 +151,7 @@ export function CategoryDetailClient({
                 >
                   <div className="flex items-start gap-3">
                     <CategoryIcon
-                      iconId={category.icon_id}
+                      iconKey={category.icon_id as CategoryIconKey}
                       size={20}
                       tone="muted"
                       accessibilityLabel={category.name}

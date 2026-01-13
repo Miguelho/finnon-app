@@ -1,40 +1,106 @@
 "use client";
 
-import { ICONS, type IconDefinition } from "@poleursus/shared";
+import {
+  type CategoryIconKey,
+  CATEGORY_ICON_KEYS,
+  getIconsByType,
+  resolveCategoryIconKey,
+  suggestCategoryIcon,
+} from "@poleursus/shared";
+import { CategoryIcon } from "@/components/category-icon";
 import { cn } from "@/lib/utils";
 
 type IconPickerProps = {
-  value?: string;
-  onChange: (iconId: string) => void;
-  filterType?: "income" | "expense" | "both";
+  value?: CategoryIconKey;
+  onChange: (iconKey: CategoryIconKey) => void;
+  filterType?: "income" | "expense";
+  categoryName?: string;
 };
 
-export function IconPicker({ value, onChange, filterType }: IconPickerProps) {
-  const icons = filterType
-    ? ICONS.filter(
-        (icon) =>
-          icon.suggested_for === filterType || icon.suggested_for === "both"
-      )
-    : ICONS;
+export function IconPicker({
+  value,
+  onChange,
+  filterType,
+  categoryName,
+}: IconPickerProps) {
+  const suggestion = categoryName ? suggestCategoryIcon(categoryName) : null;
+  const selectedValue = value ? resolveCategoryIconKey(value) : undefined;
+
+  // Filter icons by type if provided
+  const availableIcons = filterType
+    ? getIconsByType(filterType)
+    : CATEGORY_ICON_KEYS;
+
+  // Show suggestions row if confidence is not high and we have a suggestion
+  const showSuggestions =
+    suggestion && suggestion.confidence !== "high" && categoryName;
 
   return (
-    <div className="grid grid-cols-6 gap-2 sm:grid-cols-8 md:grid-cols-10">
-      {icons.map((icon) => (
-        <button
-          key={icon.id}
-          type="button"
-          onClick={() => onChange(icon.id)}
-          className={cn(
-            "flex h-12 w-12 items-center justify-center rounded-md border-2 text-2xl transition-all hover:scale-110 hover:border-primary",
-            value === icon.id
-              ? "border-primary bg-primary/10"
-              : "border-border bg-background"
-          )}
-          title={icon.label}
-        >
-          {icon.emoji}
-        </button>
-      ))}
+    <div className="space-y-3">
+      {/* Suggestions row */}
+      {showSuggestions && (
+        <div className="space-y-1">
+          <span className="text-xs text-muted-foreground">Sugeridos</span>
+          <div className="flex gap-2">
+            {suggestion.suggestions.slice(0, 6).map((iconKey) => (
+              <IconButton
+                key={iconKey}
+                iconKey={iconKey}
+                isSelected={selectedValue === iconKey}
+                isSuggested={iconKey === suggestion.primary}
+                onClick={() => onChange(iconKey)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Main grid */}
+      <div className="grid grid-cols-6 gap-2 sm:grid-cols-8 md:grid-cols-10">
+        {availableIcons.map((iconKey) => (
+          <IconButton
+            key={iconKey}
+            iconKey={iconKey}
+            isSelected={selectedValue === iconKey}
+            onClick={() => onChange(iconKey)}
+          />
+        ))}
+      </div>
     </div>
+  );
+}
+
+function IconButton({
+  iconKey,
+  isSelected,
+  isSuggested,
+  onClick,
+}: {
+  iconKey: CategoryIconKey;
+  isSelected: boolean;
+  isSuggested?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex h-12 w-12 items-center justify-center rounded-md border-2 transition-all hover:scale-110 hover:border-primary",
+        isSelected
+          ? "border-primary bg-primary/10"
+          : isSuggested
+            ? "border-primary/50 bg-primary/5"
+            : "border-border bg-background"
+      )}
+      title={iconKey}
+    >
+      <CategoryIcon
+        iconKey={iconKey}
+        size={24}
+        weight={isSelected ? "fill" : "regular"}
+        tone={isSelected ? "primary" : "muted"}
+      />
+    </button>
   );
 }

@@ -9,7 +9,7 @@ import {
   type NativeSyntheticEvent,
 } from "react-native";
 import { Path, Svg } from "react-native-svg";
-import { themeTokens, type InsightViewModel } from "@poleursus/shared";
+import { themeTokens, type InsightViewModel, type CategoryIconKey } from "@poleursus/shared";
 import { CategoryIcon } from "../CategoryIcon";
 
 const tokens = themeTokens.light;
@@ -99,7 +99,7 @@ const CategoryIconChip = ({
 }) => (
   <View style={styles.categoryChip}>
     {iconName ? (
-      <CategoryIcon iconId={iconName} size={18} tone="muted" />
+      <CategoryIcon iconKey={iconName as CategoryIconKey} size={18} tone="muted" />
     ) : (
       <Text style={styles.categoryFallback}>{fallbackLetter ?? "?"}</Text>
     )}

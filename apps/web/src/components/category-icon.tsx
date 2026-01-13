@@ -1,12 +1,69 @@
 "use client";
+
 import {
-  categoryIconPaths,
+  House,
+  ShoppingCart,
+  ForkKnife,
+  Car,
+  Bus,
+  Train,
+  Airplane,
+  Ticket,
+  GasPump,
+  CreditCard,
+  Wallet,
+  Receipt,
+  PiggyBank,
+  Bank,
+  Heart,
+  FirstAidKit,
+  Pill,
+  Stethoscope,
+  GraduationCap,
+  BookOpen,
+  GameController,
+  FilmSlate,
+  MusicNotes,
+  Basketball,
+  Barbell,
+  TShirt,
+  Handbag,
+  Tag,
+  Gift,
+  PawPrint,
+  Leaf,
+  Tree,
+  Lightbulb,
+  Plug,
+  WifiHigh,
+  Phone,
+  Laptop,
+  Monitor,
+  Camera,
+  Wrench,
+  Gear,
+  Hammer,
+  Scissors,
+  Broom,
+  Bed,
+  Couch,
+  Storefront,
+  Buildings,
+  Briefcase,
+  UsersThree,
+  type IconWeight,
+} from "@phosphor-icons/react";
+import type { ComponentType } from "react";
+import {
+  type CategoryIconKey,
   type CategoryIconProps,
   type CategoryIconTone,
+  resolveCategoryIconKey,
   themeTokens,
 } from "@poleursus/shared";
 
 const colors = themeTokens.light.colors;
+
 const toneColors: Record<CategoryIconTone, string> = {
   primary: colors.text.primary,
   muted: colors.text.muted,
@@ -14,28 +71,86 @@ const toneColors: Record<CategoryIconTone, string> = {
   negative: colors.state.negative,
 };
 
+type PhosphorIconProps = {
+  size?: number;
+  weight?: IconWeight;
+  color?: string;
+  "aria-label"?: string;
+  "aria-hidden"?: boolean;
+};
+
+const iconComponents: Record<CategoryIconKey, ComponentType<PhosphorIconProps>> = {
+  House,
+  ShoppingCart,
+  ForkKnife,
+  Car,
+  Bus,
+  Train,
+  Airplane,
+  Ticket,
+  GasPump,
+  CreditCard,
+  Wallet,
+  Receipt,
+  PiggyBank,
+  Bank,
+  Heart,
+  FirstAidKit,
+  Pill,
+  Stethoscope,
+  GraduationCap,
+  BookOpen,
+  GameController,
+  FilmSlate,
+  MusicNotes,
+  Basketball,
+  Barbell,
+  TShirt,
+  Handbag,
+  Tag,
+  Gift,
+  PawPrint,
+  Leaf,
+  Tree,
+  Lightbulb,
+  Plug,
+  WifiHigh,
+  Phone,
+  Laptop,
+  Monitor,
+  Camera,
+  Wrench,
+  Gear,
+  Hammer,
+  Scissors,
+  Broom,
+  Bed,
+  Couch,
+  Storefront,
+  Buildings,
+  Briefcase,
+  UsersThree,
+};
+
 export function CategoryIcon({
-  iconId,
+  iconKey,
   size = 20,
   tone = "primary",
+  weight = "regular",
   accessibilityLabel,
 }: CategoryIconProps) {
-  const path = categoryIconPaths[iconId ?? ""] ?? categoryIconPaths.default;
-  const toneColor = toneColors[tone];
-  const ariaProps = accessibilityLabel
-    ? { role: "img", "aria-label": accessibilityLabel }
-    : { "aria-hidden": true };
+  const resolvedKey = resolveCategoryIconKey(iconKey);
+  const IconComponent = iconComponents[resolvedKey] ?? Tag;
+
+  const color = toneColors[tone];
 
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      style={{ color: toneColor }}
-      focusable="false"
-      {...ariaProps}
-    >
-      <path d={path} fill="currentColor" />
-    </svg>
+    <IconComponent
+      size={size}
+      weight={weight}
+      color={color}
+      aria-label={accessibilityLabel}
+      aria-hidden={!accessibilityLabel}
+    />
   );
 }

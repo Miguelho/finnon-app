@@ -16,8 +16,10 @@ import { Card } from "../../../../src/components/Card";
 import { IconPicker } from "../../../../src/components/IconPicker";
 import {
   normalizeCategoryName,
+  resolveCategoryIconKey,
   themeTokens,
   type CategoryType,
+  type CategoryIconKey,
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../../src/lib/i18n";
 
@@ -38,7 +40,7 @@ export default function EditCategoryScreen() {
   const { id } = useLocalSearchParams();
   const [category, setCategory] = useState<Category | null>(null);
   const [name, setName] = useState("");
-  const [iconId, setIconId] = useState("general");
+  const [iconKey, setIconKey] = useState<CategoryIconKey>("Tag");
   const [type, setType] = useState<CategoryType>("expense");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,7 +67,7 @@ export default function EditCategoryScreen() {
       if (data) {
         setCategory(data);
         setName(data.name);
-        setIconId(data.icon_id);
+        setIconKey(resolveCategoryIconKey(data.icon_id));
         setType(data.type);
       }
     } catch (e: any) {
@@ -135,7 +137,7 @@ export default function EditCategoryScreen() {
         .from("categories")
         .update({
           name: normalizedName,
-          icon_id: iconId,
+          icon_id: iconKey,
           type,
         })
         .eq("id", category.id);
@@ -225,9 +227,10 @@ export default function EditCategoryScreen() {
           <View style={styles.field}>
             <Text style={styles.label}>{t(dictionary, "categories.iconLabel")}</Text>
             <IconPicker
-              value={iconId}
-              onChange={setIconId}
+              value={iconKey}
+              onChange={setIconKey}
               filterType={type}
+              categoryName={name}
             />
           </View>
 

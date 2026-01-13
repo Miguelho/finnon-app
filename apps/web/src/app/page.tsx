@@ -12,12 +12,13 @@ import {
   CURRENCIES,
   formatMoneyWithSymbol,
   getDictionary,
-  getIconById,
   getMonthRange,
   t,
   themeTokens,
   type UserRole,
+  type CategoryIconKey,
 } from "@poleursus/shared";
+import { CategoryIcon } from "@/components/category-icon";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -187,7 +188,6 @@ export default async function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {viewModel.recentActivity.items.map((item) => {
-                const icon = item.iconId ? getIconById(item.iconId) : null;
                 return (
                   <div
                     key={item.id}
@@ -198,9 +198,11 @@ export default async function DashboardPage() {
                     }}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-lg">
-                        {icon?.emoji || (item.type === "income" ? "↑" : "↓")}
-                      </span>
+                      <CategoryIcon
+                        iconKey={item.iconId as CategoryIconKey}
+                        size={20}
+                        tone="muted"
+                      />
                       <div>
                         <p className="text-sm font-semibold">{item.title}</p>
                         <p className="text-xs" style={{ color: colors.text.secondary }}>

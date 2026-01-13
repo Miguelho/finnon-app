@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
-  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
@@ -17,8 +16,10 @@ import { Card } from "../../../src/components/Card";
 import { IconPicker } from "../../../src/components/IconPicker";
 import {
   normalizeCategoryName,
+  suggestCategoryIcon,
   themeTokens,
   type CategoryType,
+  type CategoryIconKey,
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
 
@@ -29,12 +30,27 @@ export default function CreateCategoryScreen() {
   const router = useRouter();
   const { selectedAccountId } = useAuth();
   const [name, setName] = useState("");
-  const [iconId, setIconId] = useState("general");
+  const [iconKey, setIconKey] = useState<CategoryIconKey>("Tag");
   const [type, setType] = useState<CategoryType>("expense");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userSelectedIcon, setUserSelectedIcon] = useState(false);
   const { dictionary } = useCopy();
   const normalizedNameValue = normalizeCategoryName(name);
   const canSubmit = Boolean(normalizedNameValue) && !isSubmitting;
+
+  const handleNameChange = (newName: string) => {
+    setName(newName);
+    // Auto-suggest icon only if user hasn't manually selected one
+    if (!userSelectedIcon && newName.trim()) {
+      const suggestion = suggestCategoryIcon(newName);
+      setIconKey(suggestion.primary);
+    }
+  };
+
+  const handleIconChange = (newIconKey: CategoryIconKey) => {
+    setUserSelectedIcon(true);
+    setIconKey(newIconKey);
+  };
 
   const handleCreate = async () => {
     const normalizedName = normalizeCategoryName(name);
@@ -92,7 +108,7 @@ export default function CreateCategoryScreen() {
           {
             account_id: selectedAccountId,
             name: normalizedName,
-            icon_id: iconId,
+            icon_id: iconKey,
             type,
           },
         ])
@@ -140,7 +156,7 @@ export default function CreateCategoryScreen() {
           <Input
             label={t(dictionary, "categories.nameLabel")}
             value={name}
-            onChangeText={setName}
+            onChangeText={handleNameChange}
             placeholder={t(dictionary, "categories.namePlaceholder")}
             maxLength={40}
           />
@@ -162,9 +178,10 @@ export default function CreateCategoryScreen() {
           <View style={styles.field}>
             <Text style={styles.label}>{t(dictionary, "categories.iconLabel")}</Text>
             <IconPicker
-              value={iconId}
-              onChange={setIconId}
+              value={iconKey}
+              onChange={handleIconChange}
               filterType={type}
+              categoryName={name}
             />
           </View>
 

@@ -8,6 +8,7 @@ import {
   formatMinorToMoney,
   themeTokens,
   type AvatarColorToken,
+  type CategoryIconKey,
 } from "@poleursus/shared";
 import { CategoryIcon } from "@/components/category-icon";
 import { UserAvatar } from "@/components/user-avatar";
@@ -151,7 +152,7 @@ export function TransactionTile({
           }}
         >
           <CategoryIcon
-            iconId={transaction.category?.icon}
+            iconKey={transaction.category?.icon as CategoryIconKey}
             size={styles.iconSize}
             tone="muted"
             accessibilityLabel={transaction.category?.name}

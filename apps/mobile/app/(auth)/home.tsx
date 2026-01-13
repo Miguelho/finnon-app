@@ -21,13 +21,13 @@ import { FinnonMark } from "../../src/components/FinnonMark";
 import { CashFlowArrows } from "../../src/components/home/CashFlowArrows";
 import { MonthMap } from "../../src/components/home/MonthMap";
 import { DayDetailPanel } from "../../src/components/home/DayDetailPanel";
+import { CategoryIcon } from "../../src/components/CategoryIcon";
 import {
   ADD_ACTIONS,
   buildHomeViewModel,
   CURRENCIES,
   createTypographyStyles,
   formatMoneyWithSymbol,
-  getIconById,
   getMonthRange,
   getSummaryForDay,
   markObligationPaid,
@@ -35,6 +35,7 @@ import {
   type AddActionKey,
   type UserRole,
   type Obligation,
+  type CategoryIconKey,
 } from "@poleursus/shared";
 import { useCopy, t } from "../../src/lib/i18n";
 
@@ -652,14 +653,17 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.list}>
               {viewModel.recentActivity.items.map((item) => {
-                const icon = item.iconId ? getIconById(item.iconId) : null;
                 return (
                   <View key={item.id} style={styles.listRow}>
                     <View style={styles.listRowInfo}>
                       <View style={styles.listRowTitleRow}>
-                        <Text style={styles.listRowIcon}>
-                          {icon?.emoji || (item.type === "income" ? "↑" : "↓")}
-                        </Text>
+                        <View style={styles.listRowIconContainer}>
+                          <CategoryIcon
+                            iconKey={item.iconId as CategoryIconKey}
+                            size={16}
+                            tone={item.type === "income" ? "positive" : "negative"}
+                          />
+                        </View>
                         <Text style={styles.listRowTitle} numberOfLines={1}>
                           {item.title}
                         </Text>
@@ -975,9 +979,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: tokens.spacing.sm,
   },
-  listRowIcon: {
-    fontSize: tokens.typography.size.md,
-    color: colors.text.secondary,
+  listRowIconContainer: {
+    width: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
   listRowTitle: {
     ...typography.body,

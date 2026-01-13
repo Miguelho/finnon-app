@@ -24,6 +24,7 @@ import {
   getMonthRangeFromKey,
   themeTokens,
   toMonthKey,
+  type CategoryIconKey,
 } from "@poleursus/shared";
 
 type Category = {
@@ -252,7 +253,7 @@ export default function CategoryDetailScreen() {
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <CategoryIcon
-              iconId={category.icon_id}
+              iconKey={category.icon_id as CategoryIconKey}
               size={28}
               tone="muted"
               accessibilityLabel={category.name}
@@ -353,7 +354,7 @@ export default function CategoryDetailScreen() {
                     >
                       <View style={styles.transactionLeft}>
                         <CategoryIcon
-                          iconId={category.icon_id}
+                          iconKey={category.icon_id as CategoryIconKey}
                           size={22}
                           tone="muted"
                           accessibilityLabel={category.name}

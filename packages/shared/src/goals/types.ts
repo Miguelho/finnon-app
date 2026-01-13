@@ -1,3 +1,5 @@
+import type { CategoryIconKey } from "../icons/category-icons";
+
 export type GoalType = "save";
 export type MonthKey = string;
 
@@ -38,7 +40,7 @@ export type GoalTransaction = {
   category?: {
     id?: string | null;
     name?: string | null;
-    icon_id?: string | null;
+    icon_id?: CategoryIconKey | null;
   } | null;
 };
 

@@ -160,7 +160,7 @@ BEGIN
   PERFORM set_test_user('33333333-3333-3333-3333-333333333333');
   BEGIN
     INSERT INTO categories (account_id, name, icon_id, type)
-    VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Test Category', 'test', 'expense');
+    VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Test Category', 'Tag', 'expense');
     fail_count := fail_count + 1;
     RAISE NOTICE '[FAIL] 3.2: Charlie (viewer) CAN create category (should be denied!)';
     ROLLBACK;
@@ -174,7 +174,7 @@ BEGIN
   PERFORM set_test_user('22222222-2222-2222-2222-222222222222');
   BEGIN
     INSERT INTO categories (account_id, name, icon_id, type)
-    VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Test Category', 'test', 'expense');
+    VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Test Category', 'Tag', 'expense');
     pass_count := pass_count + 1;
     RAISE NOTICE '[PASS] 3.3: Bob (contributor) can create category';
     ROLLBACK;

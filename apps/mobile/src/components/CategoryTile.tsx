@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useActionSheet } from "@expo/react-native-action-sheet";
-import { themeTokens } from "@poleursus/shared";
+import { themeTokens, type CategoryIconKey } from "@poleursus/shared";
 import { useCopy, t } from "../lib/i18n";
 import { CategoryIcon } from "./CategoryIcon";
 
@@ -106,7 +106,7 @@ export function CategoryTile({
           ]}
         >
           <CategoryIcon
-            iconId={category.icon_id}
+            iconKey={category.icon_id as CategoryIconKey}
             size={styles.iconSize}
             tone="muted"
             accessibilityLabel={category.name}

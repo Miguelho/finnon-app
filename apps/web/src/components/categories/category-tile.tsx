@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useTranslations } from "next-intl";
 import { MoreHorizontal } from "lucide-react";
-import { themeTokens } from "@poleursus/shared";
+import { themeTokens, type CategoryIconKey } from "@poleursus/shared";
 import { CategoryIcon } from "@/components/category-icon";
 import {
   DropdownMenu,
@@ -98,7 +98,7 @@ export function CategoryTile({
           }}
         >
           <CategoryIcon
-            iconId={category.icon_id}
+            iconKey={category.icon_id as CategoryIconKey}
             size={styles.iconSize}
             tone="muted"
             accessibilityLabel={category.name}

@@ -7,11 +7,11 @@ import {
   buildAccountViewModel,
   CURRENCIES,
   formatMoneyWithSymbol,
-  getIconById,
   themeTokens,
   type AccountSummaryData,
   type UserRole,
 } from "@poleursus/shared";
+import { CategoryIcon } from "@/components/category-icon";
 import { AccountSwitcher } from "@/components/home/account-switcher";
 import {
   Card,
@@ -224,16 +224,18 @@ export function AccountSummaryClient({
           ) : (
             <div className="space-y-2">
               {viewModel.categories.breakdown.map((category) => {
-                const icon = category.iconId ? getIconById(category.iconId) : null;
                 return (
                   <div
                     key={category.id}
                     className="flex items-center justify-between rounded-md border px-3 py-2"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-lg">
-                        {icon?.emoji || (category.type === "income" ? "+" : "-")}
-                      </span>
+                      <CategoryIcon
+                        iconKey={category.iconId}
+                        size={20}
+                        tone={category.type === "income" ? "positive" : "negative"}
+                        accessibilityLabel={category.name}
+                      />
                       <span className="text-sm font-medium">{category.name}</span>
                     </div>
                     <span

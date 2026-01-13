@@ -194,15 +194,15 @@ VALUES (
 -- Account A categories
 INSERT INTO categories (id, account_id, name, icon_id, type, created_at)
 VALUES
-  ('a1111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Groceries', 'cart', 'expense', now()),
-  ('a2222222-2222-2222-2222-222222222222', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Salary', 'money', 'income', now()),
-  ('a3333333-3333-3333-3333-333333333333', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Transport', 'car', 'expense', now());
+  ('a1111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Groceries', 'ShoppingCart', 'expense', now()),
+  ('a2222222-2222-2222-2222-222222222222', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Salary', 'Briefcase', 'income', now()),
+  ('a3333333-3333-3333-3333-333333333333', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Transport', 'Car', 'expense', now());
 
 -- Account B categories
 INSERT INTO categories (id, account_id, name, icon_id, type, created_at)
 VALUES
-  ('a4444444-4444-4444-4444-444444444444', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Freelance', 'laptop', 'income', now()),
-  ('a5555555-5555-5555-5555-555555555555', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Rent', 'home', 'expense', now());
+  ('a4444444-4444-4444-4444-444444444444', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Freelance', 'Laptop', 'income', now()),
+  ('a5555555-5555-5555-5555-555555555555', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Rent', 'House', 'expense', now());
 
 -- =========================================================
 -- 5. CREATE TRANSACTIONS

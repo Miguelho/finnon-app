@@ -53,17 +53,17 @@ test("computeGoalInsights returns forecast, delta, and top categories", () => {
     {
       type: "expense",
       amount_base_minor: "5000",
-      category: { id: "cat-1", name: "Rent", icon_id: "home" },
+      category: { id: "cat-1", name: "Rent", icon_id: "House" },
     },
     {
       type: "expense",
       amount_base_minor: "2000",
-      category: { id: "cat-2", name: "Food", icon_id: "food" },
+      category: { id: "cat-2", name: "Food", icon_id: "ForkKnife" },
     },
     {
       type: "expense",
       amount_base_minor: "1000",
-      category: { id: "cat-3", name: "Travel", icon_id: "travel" },
+      category: { id: "cat-3", name: "Travel", icon_id: "Airplane" },
     },
   ];
 

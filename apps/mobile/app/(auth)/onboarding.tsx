@@ -13,7 +13,7 @@ import { supabase } from "../../src/lib/supabase";
 import { Card } from "../../src/components/Card";
 import { Input } from "../../src/components/Input";
 import { Button } from "../../src/components/Button";
-import { CURRENCIES } from "@poleursus/shared";
+import { CURRENCIES, seedDefaultCategories } from "@poleursus/shared";
 import { useAuth } from "../../src/contexts/AuthContext";
 import { useCopy, t } from "../../src/lib/i18n";
 
@@ -56,6 +56,12 @@ export default function OnboardingScreen() {
       if (accountError) throw accountError;
 
       console.log("Account created successfully:", account.id);
+
+      try {
+        await seedDefaultCategories(supabase, account.id);
+      } catch (seedError) {
+        console.error("Error seeding default categories:", seedError);
+      }
 
       // Set the newly created account as the selected account
       await setSelectedAccountId(account.id);

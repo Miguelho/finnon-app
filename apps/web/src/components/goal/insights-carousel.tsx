@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
-import { themeTokens, type InsightViewModel } from "@poleursus/shared";
+import { themeTokens, type InsightViewModel, type CategoryIconKey } from "@poleursus/shared";
 import { CategoryIcon } from "@/components/category-icon";
 
 const tokens = themeTokens.light;
@@ -115,7 +115,7 @@ const CategoryIconChip = ({
     }}
   >
     {iconName ? (
-      <CategoryIcon iconId={iconName} size={18} tone="muted" />
+      <CategoryIcon iconKey={iconName as CategoryIconKey} size={18} tone="muted" />
     ) : (
       (fallbackLetter ?? "?")
     )}

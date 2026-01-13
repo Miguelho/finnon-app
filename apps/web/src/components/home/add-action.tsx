@@ -28,7 +28,9 @@ import { IconPicker } from "@/components/icon-picker";
 import {
   ADD_ACTIONS,
   normalizeCategoryName,
+  suggestCategoryIcon,
   type AddActionKey,
+  type CategoryIconKey,
   type CategoryType,
 } from "@poleursus/shared";
 import { createCategory } from "@/app/categories/actions";
@@ -46,9 +48,10 @@ export function AddAction({ canEdit, accountId }: AddActionProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    icon_id: "general",
+    icon_id: "Tag" as CategoryIconKey,
     type: "expense" as CategoryType,
   });
+  const [userSelectedIcon, setUserSelectedIcon] = useState(false);
   const normalizedNameValue = normalizeCategoryName(formData.name);
   const canSubmit = Boolean(normalizedNameValue) && !isSubmitting;
   const handleAction = (key: AddActionKey) => {
@@ -98,7 +101,8 @@ export function AddAction({ canEdit, accountId }: AddActionProps) {
       if (result.success) {
         toast.success(t("categories.createSuccess"));
         setIsCreateOpen(false);
-        setFormData({ name: "", icon_id: "general", type: "expense" });
+        setUserSelectedIcon(false);
+        setFormData({ name: "", icon_id: "Tag", type: "expense" });
         router.refresh();
       } else {
         toast.error(
@@ -165,9 +169,20 @@ export function AddAction({ canEdit, accountId }: AddActionProps) {
                   <Input
                     id="category-name"
                     value={formData.name}
-                    onChange={(event) =>
-                      setFormData({ ...formData, name: event.target.value })
-                    }
+                    onChange={(event) => {
+                      const newName = event.target.value;
+                      setFormData((prev) => {
+                        if (!userSelectedIcon && newName.trim()) {
+                          const suggestion = suggestCategoryIcon(newName);
+                          return {
+                            ...prev,
+                            name: newName,
+                            icon_id: suggestion.primary,
+                          };
+                        }
+                        return { ...prev, name: newName };
+                      });
+                    }}
                     placeholder={t("categories.namePlaceholder")}
                     maxLength={40}
                   />
@@ -199,10 +214,12 @@ export function AddAction({ canEdit, accountId }: AddActionProps) {
                   <Label>{t("categories.iconLabel")}</Label>
                   <IconPicker
                     value={formData.icon_id}
-                    onChange={(iconId) =>
-                      setFormData({ ...formData, icon_id: iconId })
-                    }
+                    onChange={(iconId) => {
+                      setUserSelectedIcon(true);
+                      setFormData({ ...formData, icon_id: iconId });
+                    }}
                     filterType={formData.type}
+                    categoryName={formData.name}
                   />
                 </div>
               </div>
@@ -210,7 +227,11 @@ export function AddAction({ canEdit, accountId }: AddActionProps) {
             <SlidePanelFooter>
               <Button
                 variant="outline"
-                onClick={() => setIsCreateOpen(false)}
+                onClick={() => {
+                  setIsCreateOpen(false);
+                  setUserSelectedIcon(false);
+                  setFormData({ name: "", icon_id: "Tag", type: "expense" });
+                }}
                 disabled={isSubmitting}
               >
                 {t("common.cancel")}

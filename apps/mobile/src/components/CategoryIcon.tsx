@@ -1,10 +1,64 @@
 import * as React from "react";
-import { Path, Svg } from "react-native-svg";
 import {
-  categoryIconPaths,
-  themeTokens,
+  House,
+  ShoppingCart,
+  ForkKnife,
+  Car,
+  Bus,
+  Train,
+  Airplane,
+  Ticket,
+  GasPump,
+  CreditCard,
+  Wallet,
+  Receipt,
+  PiggyBank,
+  Bank,
+  Heart,
+  FirstAidKit,
+  Pill,
+  Stethoscope,
+  GraduationCap,
+  BookOpen,
+  GameController,
+  FilmSlate,
+  MusicNotes,
+  Basketball,
+  Barbell,
+  TShirt,
+  Handbag,
+  Tag,
+  Gift,
+  PawPrint,
+  Leaf,
+  Tree,
+  Lightbulb,
+  Plug,
+  WifiHigh,
+  Phone,
+  Laptop,
+  Monitor,
+  Camera,
+  Wrench,
+  Gear,
+  Hammer,
+  Scissors,
+  Broom,
+  Bed,
+  Couch,
+  Storefront,
+  Buildings,
+  Briefcase,
+  UsersThree,
+  type IconWeight,
+} from "phosphor-react-native";
+import type { ComponentType } from "react";
+import {
+  type CategoryIconKey,
   type CategoryIconProps,
   type CategoryIconTone,
+  resolveCategoryIconKey,
+  themeTokens,
 } from "@poleursus/shared";
 
 const tokens = themeTokens.light;
@@ -16,24 +70,83 @@ const toneColors: Record<CategoryIconTone, string> = {
   negative: tokens.colors.state.negative,
 };
 
+type PhosphorIconProps = {
+  size?: number;
+  weight?: IconWeight;
+  color?: string;
+};
+
+const iconComponents: Record<CategoryIconKey, ComponentType<PhosphorIconProps>> = {
+  House,
+  ShoppingCart,
+  ForkKnife,
+  Car,
+  Bus,
+  Train,
+  Airplane,
+  Ticket,
+  GasPump,
+  CreditCard,
+  Wallet,
+  Receipt,
+  PiggyBank,
+  Bank,
+  Heart,
+  FirstAidKit,
+  Pill,
+  Stethoscope,
+  GraduationCap,
+  BookOpen,
+  GameController,
+  FilmSlate,
+  MusicNotes,
+  Basketball,
+  Barbell,
+  TShirt,
+  Handbag,
+  Tag,
+  Gift,
+  PawPrint,
+  Leaf,
+  Tree,
+  Lightbulb,
+  Plug,
+  WifiHigh,
+  Phone,
+  Laptop,
+  Monitor,
+  Camera,
+  Wrench,
+  Gear,
+  Hammer,
+  Scissors,
+  Broom,
+  Bed,
+  Couch,
+  Storefront,
+  Buildings,
+  Briefcase,
+  UsersThree,
+};
+
 export function CategoryIcon({
-  iconId,
+  iconKey,
   size = 20,
   tone = "primary",
+  weight = "regular",
   accessibilityLabel,
 }: CategoryIconProps) {
-  const path = categoryIconPaths[iconId ?? ""] ?? categoryIconPaths.default;
+  const resolvedKey = resolveCategoryIconKey(iconKey);
+  const IconComponent = iconComponents[resolvedKey] ?? Tag;
+
   const color = toneColors[tone];
 
   return (
-    <Svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
+    <IconComponent
+      size={size}
+      weight={weight}
+      color={color}
       accessibilityLabel={accessibilityLabel}
-      accessible={Boolean(accessibilityLabel)}
-    >
-      <Path d={path} fill={color} />
-    </Svg>
+    />
   );
 }

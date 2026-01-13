@@ -6,8 +6,10 @@ export type { TransactionType, CreateTransaction } from "./schemas/transaction";
 export * from "./schemas/invite";
 export * from "./schemas/participant";
 export * from "./constants/currencies";
-export * from "./constants/icons";
-export * from "./icons/categories";
+export * from "./icons/category-icons";
+export * from "./icons/category-icons/legacy";
+export * from "./icons/category-icons/metadata";
+export * from "./icons/suggest-icon";
 export * from "./icons/category-icon";
 export * from "./icons/cash-flow-arrow";
 export * from "./utils/money";
@@ -26,6 +28,7 @@ export * from "./theme/typography";
 export * from "./copy";
 export * from "./navigation";
 export * from "./ui/addMenu";
+export * from "./categories/defaults";
 
 // Note: utils/invite.ts contains Node.js crypto APIs
 // Import directly only in server-side code:
