@@ -72,7 +72,7 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('avatars', 'avatars', false)
 ON CONFLICT (id) DO NOTHING;
 
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+-- RLS is already enabled on storage.objects by default in Supabase
 
 DROP POLICY IF EXISTS avatars_read_members ON storage.objects;
 DROP POLICY IF EXISTS avatars_insert_own ON storage.objects;

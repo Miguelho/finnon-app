@@ -29,6 +29,7 @@ export * from "./copy";
 export * from "./navigation";
 export * from "./ui/addMenu";
 export * from "./categories/defaults";
+export * from "./categories/top-categories";
 export * from "./auth/signOut";
 
 // Note: utils/invite.ts contains Node.js crypto APIs

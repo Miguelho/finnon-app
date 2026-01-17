@@ -200,6 +200,7 @@ export const en = {
       categoryPlaceholder: "Uncategorized",
       categoryNone: "Uncategorized",
       categoryEmpty: "No {type} categories yet",
+      categorySeeOthers: "See others",
       merchantLabel: "Who with?",
       merchantPlaceholder: "E.g. Starbucks, Netflix...",
       notesLabel: "Notes",

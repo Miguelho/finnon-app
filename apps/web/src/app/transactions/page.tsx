@@ -82,6 +82,25 @@ export default async function TransactionsPage() {
     .eq("account_id", activeAccount.id)
     .order("name", { ascending: true });
 
+  // Fetch top categories for both expense and income types
+  const [topExpenseResult, topIncomeResult] = await Promise.all([
+    supabase.rpc("get_top_categories", {
+      p_account_id: activeAccount.id,
+      p_tx_type: "expense",
+      p_limit: 3,
+    }),
+    supabase.rpc("get_top_categories", {
+      p_account_id: activeAccount.id,
+      p_tx_type: "income",
+      p_limit: 3,
+    }),
+  ]);
+
+  const initialTopCategories = {
+    expense: topExpenseResult.data || [],
+    income: topIncomeResult.data || [],
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <TopNav />
@@ -94,6 +113,7 @@ export default async function TransactionsPage() {
         categories={categories || []}
         profiles={profiles || []}
         role={activeRole}
+        initialTopCategories={initialTopCategories}
       />
     </div>
   );

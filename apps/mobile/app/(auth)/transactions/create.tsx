@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import { DatePickerField } from "../../../src/components/DatePickerField";
 import {
   type TransactionType,
   type RecurringFrequency,
+  type TopCategory,
   CURRENCIES,
   parseMoneyToMinor,
   computeAmountBaseMinor,
@@ -28,6 +29,7 @@ import {
   CURRENCY_MINOR_UNITS,
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
+import { TopCategorySelector } from "../../../src/components/TopCategorySelector";
 
 type Category = {
   id: string;
@@ -65,6 +67,11 @@ export default function CreateTransactionScreen(): React.JSX.Element {
   const [categories, setCategories] = useState<Category[]>([]);
   const [baseCurrency, setBaseCurrency] = useState("EUR");
   const [fxRateError, setFxRateError] = useState<string | null>(null);
+
+  // Top categories state
+  const [topCategories, setTopCategories] = useState<TopCategory[]>([]);
+  const [showFullCategorySelector, setShowFullCategorySelector] = useState(false);
+  const topCategoriesCache = useRef<Record<string, TopCategory[]>>({});
 
   const sanitizeNumericInput = (value: string) =>
     value.replace(/[^0-9.,]/g, "");
@@ -135,6 +142,38 @@ export default function CreateTransactionScreen(): React.JSX.Element {
       console.error("Error loading account:", e);
     }
   };
+
+  const fetchTopCategories = useCallback(
+    async (txType: TransactionType) => {
+      if (!selectedAccountId) return;
+
+      const cacheKey = `${selectedAccountId}:${txType}`;
+      if (topCategoriesCache.current[cacheKey]) {
+        setTopCategories(topCategoriesCache.current[cacheKey]);
+        return;
+      }
+
+      const { data, error } = await supabase.rpc("get_top_categories", {
+        p_account_id: selectedAccountId,
+        p_tx_type: txType,
+        p_limit: 3,
+      });
+
+      if (!error && data) {
+        const categories = data as TopCategory[];
+        topCategoriesCache.current[cacheKey] = categories;
+        setTopCategories(categories);
+      }
+    },
+    [selectedAccountId]
+  );
+
+  useEffect(() => {
+    if (isFocused && selectedAccountId) {
+      fetchTopCategories(type);
+      setShowFullCategorySelector(false);
+    }
+  }, [isFocused, type, selectedAccountId, fetchTopCategories]);
 
   const handleCreate = async () => {
     if (!amount.trim()) {
@@ -242,6 +281,9 @@ export default function CreateTransactionScreen(): React.JSX.Element {
 
         if (error) throw error;
 
+        // Invalidate top categories cache for next form opening
+        delete topCategoriesCache.current[`${selectedAccountId}:${type}`];
+
         Alert.alert(
           t(dictionary, "common.successTitle"),
           t(dictionary, "transactions.repeat.createSuccess"),
@@ -298,6 +340,9 @@ export default function CreateTransactionScreen(): React.JSX.Element {
           .single();
 
         if (error) throw error;
+
+        // Invalidate top categories cache for next form opening
+        delete topCategoriesCache.current[`${selectedAccountId}:${type}`];
 
         Alert.alert(
           t(dictionary, "common.successTitle"),
@@ -574,35 +619,47 @@ export default function CreateTransactionScreen(): React.JSX.Element {
           {/* Category */}
           <View style={styles.field}>
             <Text style={styles.label}>{t(dictionary, "transactions.categoryOptionalLabel")}</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={categoryId}
-                onValueChange={(value) => setCategoryId(value)}
-                style={styles.picker}
-              >
-                <Picker.Item label={t(dictionary, "common.noneOption")} value="" />
-                {availableCategories.length === 0 ? (
-                  <Picker.Item
-                    label={t(dictionary, "transactions.create.categoryEmpty", {
-                      type:
-                        type === "income"
-                          ? t(dictionary, "categories.incomeLabel")
-                          : t(dictionary, "categories.expenseLabel"),
-                    })}
-                    value=""
-                    enabled={false}
-                  />
-                ) : (
-                  availableCategories.map((cat) => (
+            {topCategories.length > 0 && (
+              <TopCategorySelector
+                topCategories={topCategories}
+                selectedCategoryId={categoryId || undefined}
+                onSelect={(id) => setCategoryId(id)}
+                onOpenAll={() => setShowFullCategorySelector(true)}
+                seeOthersLabel={t(dictionary, "transactions.create.categorySeeOthers")}
+                style={styles.topCategorySelector}
+              />
+            )}
+            {(showFullCategorySelector || topCategories.length === 0) && (
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={categoryId}
+                  onValueChange={(value) => setCategoryId(value)}
+                  style={styles.picker}
+                >
+                  <Picker.Item label={t(dictionary, "common.noneOption")} value="" />
+                  {availableCategories.length === 0 ? (
                     <Picker.Item
-                      key={cat.id}
-                      label={cat.name}
-                      value={cat.id}
+                      label={t(dictionary, "transactions.create.categoryEmpty", {
+                        type:
+                          type === "income"
+                            ? t(dictionary, "categories.incomeLabel")
+                            : t(dictionary, "categories.expenseLabel"),
+                      })}
+                      value=""
+                      enabled={false}
                     />
-                  ))
-                )}
-              </Picker>
-            </View>
+                  ) : (
+                    availableCategories.map((cat) => (
+                      <Picker.Item
+                        key={cat.id}
+                        label={cat.name}
+                        value={cat.id}
+                      />
+                    ))
+                  )}
+                </Picker>
+              </View>
+            )}
           </View>
 
           {/* Merchant */}
@@ -687,6 +744,9 @@ const styles = StyleSheet.create({
   },
   field: {
     gap: 8,
+  },
+  topCategorySelector: {
+    marginBottom: 8,
   },
   label: {
     fontSize: 14,

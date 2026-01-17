@@ -132,14 +132,20 @@ const iconComponents: Record<CategoryIconKey, ComponentType<PhosphorIconProps>> 
   UsersThree,
 };
 
+type ExtendedCategoryIconProps = CategoryIconProps & {
+  /** Alias for iconKey (for backwards compatibility) */
+  iconId?: string | null;
+};
+
 export function CategoryIcon({
   iconKey,
+  iconId,
   size = 20,
   tone = "primary",
   weight = "regular",
   accessibilityLabel,
-}: CategoryIconProps) {
-  const resolvedKey = resolveCategoryIconKey(iconKey);
+}: ExtendedCategoryIconProps) {
+  const resolvedKey = resolveCategoryIconKey(iconKey ?? iconId);
   const IconComponent = iconComponents[resolvedKey] ?? Tag;
 
   const color = toneColors[tone];

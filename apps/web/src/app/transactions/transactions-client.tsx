@@ -58,8 +58,10 @@ import {
   toMonthKey,
   themeTokens,
   type AvatarColorToken,
+  type TopCategory,
 } from "@poleursus/shared";
 import { CategoryIcon } from "@/components/category-icon";
+import { TopCategorySelector } from "@/components/categories/top-category-selector";
 import { TransactionTile } from "@/components/transactions/transaction-tile";
 import {
   createTransaction,
@@ -119,6 +121,10 @@ type TransactionsClientProps = {
   categories: Category[];
   profiles: Profile[];
   role: "viewer" | "contributor" | "admin";
+  initialTopCategories: {
+    expense: TopCategory[];
+    income: TopCategory[];
+  };
 };
 
 const parseMonthKey = (monthKey: string) => {
@@ -148,6 +154,7 @@ export function TransactionsClient({
   categories,
   profiles,
   role,
+  initialTopCategories,
 }: TransactionsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -169,6 +176,12 @@ export function TransactionsClient({
   >("transaction");
   const canEdit = role !== "viewer";
   const colors = themeTokens.light.colors;
+
+  // Top categories state - initialized from server-fetched data
+  const [topCategories, setTopCategories] = useState<TopCategory[]>(
+    initialTopCategories.expense
+  );
+  const [showFullCategorySelector, setShowFullCategorySelector] = useState(false);
 
   // Month filter state (format: YYYY-MM)
   const currentMonth = toMonthKey(new Date());
@@ -327,6 +340,18 @@ export function TransactionsClient({
       setRepeatConfig((prev) => ({ ...prev, enabled: false }));
     }
   }, [searchParams]);
+
+  // Update top categories when transaction type changes
+  useEffect(() => {
+    setTopCategories(initialTopCategories[formData.type]);
+  }, [formData.type, initialTopCategories]);
+
+  // Reset full category selector visibility when form opens
+  useEffect(() => {
+    if (isCreateOpen && createKind !== "obligation") {
+      setShowFullCategorySelector(false);
+    }
+  }, [isCreateOpen, createKind]);
 
   const goToPreviousMonth = () => {
     setSelectedMonth(addMonths(selectedMonth, -1));
@@ -1449,50 +1474,67 @@ export function TransactionsClient({
                       <Label htmlFor="category">
                         {t("create.categoryLabel")}
                       </Label>
-                      <Select
-                        value={formData.category_id || "none"}
-                        onValueChange={(value) =>
-                          setFormData({
-                            ...formData,
-                            category_id: value === "none" ? undefined : value,
-                          })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={t("create.categoryPlaceholder")}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">
-                            {t("create.categoryNone")}
-                          </SelectItem>
-                          {availableCategories.length === 0 ? (
-                            <SelectItem value="empty" disabled>
-                              {t("create.categoryEmpty", {
-                                type:
-                                  formData.type === "income"
-                                    ? t("income")
-                                    : t("expenses"),
-                              })}
+                      {topCategories.length > 0 && (
+                        <TopCategorySelector
+                          topCategories={topCategories}
+                          selectedCategoryId={formData.category_id}
+                          onSelect={(categoryId) =>
+                            setFormData({
+                              ...formData,
+                              category_id: categoryId,
+                            })
+                          }
+                          onOpenAll={() => setShowFullCategorySelector(true)}
+                          seeOthersLabel={t("create.categorySeeOthers")}
+                        />
+                      )}
+                      {(showFullCategorySelector ||
+                        topCategories.length === 0) && (
+                        <Select
+                          value={formData.category_id || "none"}
+                          onValueChange={(value) =>
+                            setFormData({
+                              ...formData,
+                              category_id: value === "none" ? undefined : value,
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue
+                              placeholder={t("create.categoryPlaceholder")}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">
+                              {t("create.categoryNone")}
                             </SelectItem>
-                          ) : (
-                            availableCategories.map((cat) => (
-                              <SelectItem key={cat.id} value={cat.id}>
-                                <span className="flex items-center gap-2">
-                                  <CategoryIcon
-                                    iconId={cat.icon_id}
-                                    size={16}
-                                    tone="muted"
-                                    accessibilityLabel={cat.name}
-                                  />
-                                  <span>{cat.name}</span>
-                                </span>
+                            {availableCategories.length === 0 ? (
+                              <SelectItem value="empty" disabled>
+                                {t("create.categoryEmpty", {
+                                  type:
+                                    formData.type === "income"
+                                      ? t("income")
+                                      : t("expenses"),
+                                })}
                               </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
+                            ) : (
+                              availableCategories.map((cat) => (
+                                <SelectItem key={cat.id} value={cat.id}>
+                                  <span className="flex items-center gap-2">
+                                    <CategoryIcon
+                                      iconId={cat.icon_id}
+                                      size={16}
+                                      tone="muted"
+                                      accessibilityLabel={cat.name}
+                                    />
+                                    <span>{cat.name}</span>
+                                  </span>
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
 
                     <div className="space-y-2">
