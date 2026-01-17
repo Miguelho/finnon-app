@@ -43,6 +43,7 @@ export function ActiveAccountDetails({
     async function loadMembers() {
       setIsLoading(true);
       setHasError(false);
+
       try {
         const response = await fetch("/api/profiles", {
           method: "POST",
@@ -63,7 +64,7 @@ export function ActiveAccountDetails({
           setHasError(true);
           setMembers([]);
         }
-        reportNetworkIssue();
+        reportNetworkIssue({ onRetry: loadMembers });
       } finally {
         if (!cancelled) {
           setIsLoading(false);

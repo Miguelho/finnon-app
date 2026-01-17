@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { TopNav } from "@/components/navigation/top-nav";
 import { UserAvatarSettings } from "@/components/settings/user-avatar-settings";
+import { UserSignOutRow } from "@/components/settings/user-signout";
 
 export default async function UserDetailsPage() {
   const supabase = await createClient();
@@ -58,6 +59,7 @@ export default async function UserDetailsPage() {
               </div>
             </CardContent>
           </Card>
+          <UserSignOutRow />
         </div>
       </div>
     </div>

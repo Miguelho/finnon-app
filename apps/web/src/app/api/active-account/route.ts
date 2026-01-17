@@ -55,3 +55,15 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE() {
+  const response = NextResponse.json({ ok: true });
+  response.cookies.set(COOKIE_NAME, "", {
+    path: "/",
+    sameSite: "lax",
+    httpOnly: true,
+    maxAge: 0,
+  });
+
+  return response;
+}

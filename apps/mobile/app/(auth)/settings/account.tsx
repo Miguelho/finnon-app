@@ -22,7 +22,7 @@ export default function AccountDetailsSettingsScreen() {
     return <Redirect href="/(auth)/select-account" />;
   }
 
-  return <AccountDetails accountId={selectedAccountId} />;
+  return <AccountDetails accountId={selectedAccountId} showSignOut />;
 }
 
 const styles = StyleSheet.create({

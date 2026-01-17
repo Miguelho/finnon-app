@@ -13,7 +13,7 @@ type NetworkNotice = {
 };
 
 type NetworkNoticeContextValue = {
-  reportNetworkIssue: (options?: { onRetry?: () => void }) => void;
+  reportNetworkIssue: (options?: { message?: string; onRetry?: () => void }) => void;
 };
 
 const NetworkNoticeContext = createContext<NetworkNoticeContextValue>({
@@ -63,9 +63,9 @@ export function NetworkNoticeProvider({
   }, [dictionary, isOffline, notice?.persistent]);
 
   const reportNetworkIssue = useMemo(
-    () => (options?: { onRetry?: () => void }) => {
+    () => (options?: { message?: string; onRetry?: () => void }) => {
       setNotice({
-        message: t(dictionary, "network.offlineMessage"),
+        message: options?.message ?? t(dictionary, "network.offlineMessage"),
         onRetry: options?.onRetry,
       });
 

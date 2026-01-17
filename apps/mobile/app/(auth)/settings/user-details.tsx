@@ -16,24 +16,29 @@ import {
   normalizeAvatarFallbackText,
   resolveAvatarColor,
   resolveAvatarFallback,
+  signOutAndReset,
   themeTokens,
   type AvatarColorToken,
 } from "@poleursus/shared";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../../src/contexts/AuthContext";
+import { useNetworkNotice } from "../../../src/contexts/NetworkNoticeContext";
 import { useCopy, t } from "../../../src/lib/i18n";
 import { Button } from "../../../src/components/Button";
 import { Input } from "../../../src/components/Input";
 import { UserAvatar } from "../../../src/components/UserAvatar";
 import { supabase } from "../../../src/lib/supabase";
+import { useRouter } from "expo-router";
 
 const tokens = themeTokens.light;
+const colors = tokens.colors;
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export default function UserDetailsScreen() {
-  const { user, loading } = useAuth();
+  const { user, loading, clearSelectedAccount } = useAuth();
   const { dictionary } = useCopy();
+  const { reportNetworkIssue } = useNetworkNotice();
   const [avatarPath, setAvatarPath] = useState<string | null>(null);
   const [profileEmail, setProfileEmail] = useState<string | null>(null);
   const [fallbackText, setFallbackText] = useState<string | null>(null);
@@ -47,6 +52,9 @@ export default function UserDetailsScreen() {
   const [draftText, setDraftText] = useState("");
   const [draftBgToken, setDraftBgToken] =
     useState<AvatarColorToken | null>(null);
+  const router = useRouter();
+  const [isSignOutOpen, setIsSignOutOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -290,6 +298,31 @@ export default function UserDetailsScreen() {
     setIsFallbackEditorOpen(false);
   };
 
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+
+    try {
+      await signOutAndReset({
+        signOut: () => supabase.auth.signOut(),
+        clearLocalSessionArtifacts: clearSelectedAccount,
+        onReset: () => {
+          setIsSignOutOpen(false);
+        },
+        onNavigate: () => {
+          router.replace("/(auth)/login");
+        },
+      });
+    } catch (err) {
+      console.error("[UserDetails] Sign out failed:", err);
+      reportNetworkIssue({
+        message: t(dictionary, "settings.signOut.error"),
+        onRetry: handleSignOut,
+      });
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -346,6 +379,78 @@ export default function UserDetailsScreen() {
           <Text style={styles.valueSmall}>{viewModel.userId}</Text>
         </View>
       </View>
+
+      <View style={styles.signOutSection}>
+        <View style={styles.signOutDivider} />
+        <TouchableOpacity
+          onPress={() => setIsSignOutOpen(true)}
+          disabled={isSigningOut}
+          style={styles.signOutRow}
+        >
+          <View>
+            <Text style={styles.signOutTitle}>
+              {t(dictionary, "settings.signOut.label")}
+            </Text>
+            <Text style={styles.signOutDescription}>
+              {t(dictionary, "settings.signOut.description")}
+            </Text>
+          </View>
+          <Text style={styles.signOutChevron}>›</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Modal
+        transparent
+        visible={isSignOutOpen}
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isSigningOut) setIsSignOutOpen(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => {
+              if (!isSigningOut) setIsSignOutOpen(false);
+            }}
+          />
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              {t(dictionary, "settings.signOut.confirmTitle")}
+            </Text>
+            <Text style={styles.modalDescription}>
+              {t(dictionary, "settings.signOut.confirmDescription")}
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => setIsSignOutOpen(false)}
+                disabled={isSigningOut}
+              >
+                <Text style={styles.modalCancelText}>
+                  {t(dictionary, "settings.signOut.confirmCancel")}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalConfirm,
+                  isSigningOut && styles.modalConfirmDisabled,
+                ]}
+                onPress={handleSignOut}
+                disabled={isSigningOut}
+              >
+                {isSigningOut ? (
+                  <ActivityIndicator color={colors.state.negative} />
+                ) : (
+                  <Text style={styles.modalConfirmText}>
+                    {t(dictionary, "settings.signOut.confirmAction")}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         transparent
@@ -693,5 +798,92 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: tokens.colors.state.neutral,
     marginHorizontal: tokens.spacing.lg,
+  },
+  signOutSection: {
+    marginTop: tokens.spacing.md,
+  },
+  signOutDivider: {
+    height: 1,
+    backgroundColor: tokens.colors.state.neutral,
+    marginBottom: tokens.spacing.md,
+    marginHorizontal: tokens.spacing.lg,
+  },
+  signOutRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.lg,
+  },
+  signOutTitle: {
+    fontSize: tokens.typography.size.md,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.state.negative,
+  },
+  signOutDescription: {
+    fontSize: tokens.typography.size.sm,
+    color: tokens.colors.text.secondary,
+    marginTop: tokens.spacing.xs,
+  },
+  signOutChevron: {
+    fontSize: tokens.typography.size.xl,
+    color: tokens.colors.text.muted,
+    marginLeft: tokens.spacing.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    padding: tokens.spacing.lg,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalCard: {
+    backgroundColor: tokens.colors.bg.surface,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.lg,
+    borderWidth: 1,
+    borderColor: tokens.colors.state.neutral,
+  },
+  modalTitle: {
+    fontSize: tokens.typography.size.lg,
+    fontWeight: tokens.typography.weight.bold,
+    color: tokens.colors.text.primary,
+    marginBottom: tokens.spacing.sm,
+  },
+  modalDescription: {
+    fontSize: tokens.typography.size.sm,
+    color: tokens.colors.text.secondary,
+    marginBottom: tokens.spacing.lg,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: tokens.spacing.sm,
+  },
+  modalCancel: {
+    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.md,
+  },
+  modalCancelText: {
+    fontSize: tokens.typography.size.sm,
+    color: tokens.colors.text.secondary,
+    fontWeight: tokens.typography.weight.medium,
+  },
+  modalConfirm: {
+    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.md,
+    borderRadius: tokens.radii.md,
+    borderWidth: 1,
+    borderColor: colors.state.negative,
+  },
+  modalConfirmDisabled: {
+    opacity: 0.6,
+  },
+  modalConfirmText: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.state.negative,
+    fontWeight: tokens.typography.weight.semibold,
   },
 });

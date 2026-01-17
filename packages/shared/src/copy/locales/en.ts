@@ -443,6 +443,16 @@ export const en = {
     subtitle: "Manage your account and preferences",
     accountTitle: "Account settings",
     accountDescription: "Invites and other features coming soon",
+    signOut: {
+      label: "Sign out",
+      description: "Sign out from this device",
+      confirmTitle: "Sign out?",
+      confirmDescription:
+        "You will need to sign in again to access your accounts.",
+      confirmAction: "Sign out",
+      confirmCancel: "Cancel",
+      error: "We couldn't sign you out. Please try again.",
+    },
     featuresIntro: "This page will include:",
     featureInviteCreate: "Create and manage invite links",
     featureInviteList: "View active invites",

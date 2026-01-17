@@ -443,6 +443,16 @@ export const es = {
     subtitle: "Gestiona tu cuenta y preferencias",
     accountTitle: "Configuración de cuenta",
     accountDescription: "Gestión de invitaciones y otras funciones próximamente",
+    signOut: {
+      label: "Cerrar sesión",
+      description: "Salir de tu cuenta en este dispositivo",
+      confirmTitle: "¿Cerrar sesión?",
+      confirmDescription:
+        "Tendrás que volver a iniciar sesión para acceder a tus cuentas.",
+      confirmAction: "Cerrar sesión",
+      confirmCancel: "Cancelar",
+      error: "No se pudo cerrar sesión. Inténtalo de nuevo.",
+    },
     featuresIntro: "Esta página incluirá:",
     featureInviteCreate: "Crear y gestionar links de invitación",
     featureInviteList: "Ver invitaciones activas",

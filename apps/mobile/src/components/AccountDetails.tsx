@@ -1,12 +1,22 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { Card } from "./Card";
 import { useNetworkNotice } from "../contexts/NetworkNoticeContext";
 import { useCopy, t } from "../lib/i18n";
-import { themeTokens } from "@poleursus/shared";
+import { signOutAndReset, themeTokens } from "@poleursus/shared";
 
 type Account = {
   id: string;
@@ -23,11 +33,13 @@ type MemberProfile = {
 
 type AccountDetailsProps = {
   accountId: string;
+  showSignOut?: boolean;
 };
 
-export function AccountDetails({ accountId }: AccountDetailsProps) {
-  const { user, setSelectedAccountId } = useAuth();
+export function AccountDetails({ accountId, showSignOut = false }: AccountDetailsProps) {
+  const { user, clearSelectedAccount, setSelectedAccountId } = useAuth();
   const { dictionary } = useCopy();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { reportNetworkIssue } = useNetworkNotice();
 
@@ -35,6 +47,8 @@ export function AccountDetails({ accountId }: AccountDetailsProps) {
   const [members, setMembers] = useState<MemberProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSignOutOpen, setIsSignOutOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     if (!accountId) return;
@@ -57,7 +71,21 @@ export function AccountDetails({ accountId }: AccountDetailsProps) {
           .eq("id", accountId)
           .single();
 
-        if (accountError) throw accountError;
+        if (accountError) {
+          if (accountError.code === "PGRST116") {
+            if (showSignOut) {
+              await clearSelectedAccount();
+              router.replace("/(auth)/select-account");
+              return;
+            }
+            if (!cancelled) {
+              setError(t(dictionary, "errors.accountNotFoundOrDenied"));
+            }
+            return;
+          }
+
+          throw accountError;
+        }
 
         if (!cancelled) {
           setAccount(accountData as Account);
@@ -102,7 +130,39 @@ export function AccountDetails({ accountId }: AccountDetailsProps) {
     return () => {
       cancelled = true;
     };
-  }, [accountId, dictionary, reportNetworkIssue]);
+  }, [
+    accountId,
+    clearSelectedAccount,
+    dictionary,
+    reportNetworkIssue,
+    router,
+    showSignOut,
+  ]);
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+
+    try {
+      await signOutAndReset({
+        signOut: () => supabase.auth.signOut(),
+        clearLocalSessionArtifacts: clearSelectedAccount,
+        onReset: async () => {
+          setIsSignOutOpen(false);
+        },
+        onNavigate: () => {
+          router.replace("/(auth)/login");
+        },
+      });
+    } catch (err) {
+      console.error("[AccountDetail] Sign out failed:", err);
+      reportNetworkIssue({
+        message: t(dictionary, "settings.signOut.error"),
+        onRetry: handleSignOut,
+      });
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
 
   if (!accountId) {
     return (
@@ -199,7 +259,83 @@ export function AccountDetails({ accountId }: AccountDetailsProps) {
             </View>
           )}
         </View>
+
+        {showSignOut && (
+          <View style={styles.signOutSection}>
+            <View style={styles.signOutDivider} />
+            <TouchableOpacity
+              onPress={() => setIsSignOutOpen(true)}
+              disabled={isSigningOut}
+              style={styles.signOutRow}
+            >
+              <View>
+                <Text style={styles.signOutTitle}>
+                  {t(dictionary, "settings.signOut.label")}
+                </Text>
+                <Text style={styles.signOutDescription}>
+                  {t(dictionary, "settings.signOut.description")}
+                </Text>
+              </View>
+              <Text style={styles.signOutChevron}>›</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </Card>
+
+      {showSignOut && (
+        <Modal
+          transparent
+          visible={isSignOutOpen}
+          animationType="fade"
+          onRequestClose={() => {
+            if (!isSigningOut) setIsSignOutOpen(false);
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <Pressable
+              style={styles.modalBackdrop}
+              onPress={() => {
+                if (!isSigningOut) setIsSignOutOpen(false);
+              }}
+            />
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>
+                {t(dictionary, "settings.signOut.confirmTitle")}
+              </Text>
+              <Text style={styles.modalDescription}>
+                {t(dictionary, "settings.signOut.confirmDescription")}
+              </Text>
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.modalCancel}
+                  onPress={() => setIsSignOutOpen(false)}
+                  disabled={isSigningOut}
+                >
+                  <Text style={styles.modalCancelText}>
+                    {t(dictionary, "settings.signOut.confirmCancel")}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalConfirm,
+                    isSigningOut && styles.modalConfirmDisabled,
+                  ]}
+                  onPress={handleSignOut}
+                  disabled={isSigningOut}
+                >
+                  {isSigningOut ? (
+                    <ActivityIndicator color={colors.state.negative} />
+                  ) : (
+                    <Text style={styles.modalConfirmText}>
+                      {t(dictionary, "settings.signOut.confirmAction")}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </ScrollView>
   );
 }
@@ -297,5 +433,90 @@ const styles = StyleSheet.create({
     color: colors.state.negative,
     fontSize: tokens.typography.size.sm,
     textAlign: "center",
+  },
+  signOutSection: {
+    marginTop: tokens.spacing.md,
+  },
+  signOutDivider: {
+    height: 1,
+    backgroundColor: colors.state.neutral,
+    marginBottom: tokens.spacing.md,
+  },
+  signOutRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: tokens.spacing.sm,
+  },
+  signOutTitle: {
+    fontSize: tokens.typography.size.md,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.state.negative,
+  },
+  signOutDescription: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.secondary,
+    marginTop: tokens.spacing.xs,
+  },
+  signOutChevron: {
+    fontSize: tokens.typography.size.xl,
+    color: colors.text.muted,
+    marginLeft: tokens.spacing.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    padding: tokens.spacing.lg,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalCard: {
+    backgroundColor: colors.bg.surface,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+  },
+  modalTitle: {
+    fontSize: tokens.typography.size.lg,
+    fontWeight: tokens.typography.weight.bold,
+    color: colors.text.primary,
+    marginBottom: tokens.spacing.sm,
+  },
+  modalDescription: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.secondary,
+    marginBottom: tokens.spacing.lg,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: tokens.spacing.sm,
+  },
+  modalCancel: {
+    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.md,
+  },
+  modalCancelText: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.secondary,
+    fontWeight: tokens.typography.weight.medium,
+  },
+  modalConfirm: {
+    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.md,
+    borderRadius: tokens.radii.md,
+    borderWidth: 1,
+    borderColor: colors.state.negative,
+  },
+  modalConfirmDisabled: {
+    opacity: 0.6,
+  },
+  modalConfirmText: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.state.negative,
+    fontWeight: tokens.typography.weight.semibold,
   },
 });

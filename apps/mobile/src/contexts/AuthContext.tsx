@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { signOutAndReset } from "@poleursus/shared";
 import { supabase } from "../lib/supabase";
 
 const SELECTED_ACCOUNT_KEY = "@finnon/selectedAccountId";
@@ -93,8 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await clearSelectedAccount();
-    await supabase.auth.signOut();
+    await signOutAndReset({
+      signOut: () => supabase.auth.signOut(),
+      clearLocalSessionArtifacts: clearSelectedAccount,
+    });
   };
 
   return (
