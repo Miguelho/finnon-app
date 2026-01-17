@@ -182,6 +182,7 @@ export function TransactionsClient({
     initialTopCategories.expense
   );
   const [showFullCategorySelector, setShowFullCategorySelector] = useState(false);
+  const [showFullCategorySelectorEdit, setShowFullCategorySelectorEdit] = useState(false);
 
   // Month filter state (format: YYYY-MM)
   const currentMonth = toMonthKey(new Date());
@@ -352,6 +353,13 @@ export function TransactionsClient({
       setShowFullCategorySelector(false);
     }
   }, [isCreateOpen, createKind]);
+
+  // Reset full category selector visibility when edit form opens
+  useEffect(() => {
+    if (isEditOpen) {
+      setShowFullCategorySelectorEdit(false);
+    }
+  }, [isEditOpen]);
 
   const goToPreviousMonth = () => {
     setSelectedMonth(addMonths(selectedMonth, -1));
@@ -1744,50 +1752,67 @@ export function TransactionsClient({
                     <Label htmlFor="edit-category">
                       {t("create.categoryLabel")}
                     </Label>
-                    <Select
-                      value={formData.category_id || "none"}
-                      onValueChange={(value) =>
-                        setFormData({
-                          ...formData,
-                          category_id: value === "none" ? undefined : value,
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue
-                          placeholder={t("create.categoryPlaceholder")}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">
-                          {t("create.categoryNone")}
-                        </SelectItem>
-                        {availableCategories.length === 0 ? (
-                          <SelectItem value="empty" disabled>
-                            {t("create.categoryEmpty", {
-                              type:
-                                formData.type === "income"
-                                  ? t("income")
-                                  : t("expenses"),
-                            })}
+                    {topCategories.length > 0 && (
+                      <TopCategorySelector
+                        topCategories={topCategories}
+                        selectedCategoryId={formData.category_id}
+                        onSelect={(categoryId) =>
+                          setFormData({
+                            ...formData,
+                            category_id: categoryId,
+                          })
+                        }
+                        onOpenAll={() => setShowFullCategorySelectorEdit(true)}
+                        seeOthersLabel={t("create.categorySeeOthers")}
+                      />
+                    )}
+                    {(showFullCategorySelectorEdit ||
+                      topCategories.length === 0) && (
+                      <Select
+                        value={formData.category_id || "none"}
+                        onValueChange={(value) =>
+                          setFormData({
+                            ...formData,
+                            category_id: value === "none" ? undefined : value,
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={t("create.categoryPlaceholder")}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">
+                            {t("create.categoryNone")}
                           </SelectItem>
-                        ) : (
-                          availableCategories.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id}>
-                              <span className="flex items-center gap-2">
-                                <CategoryIcon
-                                  iconId={cat.icon_id}
-                                  size={16}
-                                  tone="muted"
-                                  accessibilityLabel={cat.name}
-                                />
-                                <span>{cat.name}</span>
-                              </span>
+                          {availableCategories.length === 0 ? (
+                            <SelectItem value="empty" disabled>
+                              {t("create.categoryEmpty", {
+                                type:
+                                  formData.type === "income"
+                                    ? t("income")
+                                    : t("expenses"),
+                              })}
                             </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                          ) : (
+                            availableCategories.map((cat) => (
+                              <SelectItem key={cat.id} value={cat.id}>
+                                <span className="flex items-center gap-2">
+                                  <CategoryIcon
+                                    iconId={cat.icon_id}
+                                    size={16}
+                                    tone="muted"
+                                    accessibilityLabel={cat.name}
+                                  />
+                                  <span>{cat.name}</span>
+                                </span>
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
 
                   <div className="space-y-2">
