@@ -65,7 +65,7 @@ type FilterStatus = "all" | "active" | "expired" | "revoked";
 type InviteMode = "link" | "registered";
 type ExpirationMode = "unlimited" | "custom";
 
-export default function InvitesPage() {
+export default function InvitesPage({ userId }: { userId: string }) {
   const t = useTranslations();
   const colors = themeTokens.light.colors;
   const { reportNetworkIssue } = useNetworkNotice();
@@ -91,18 +91,35 @@ export default function InvitesPage() {
 
   // Fetch user's accounts
   useEffect(() => {
+    let authSubscription: { unsubscribe: () => void } | null = null;
+
     async function fetchAccounts() {
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        if (!authSubscription) {
+          const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+            if (nextSession?.user) {
+              authSubscription?.unsubscribe();
+              authSubscription = null;
+              fetchAccounts();
+            }
+          });
+
+          authSubscription = data.subscription;
+        }
+
+        return;
+      }
 
       const { data, error } = await supabase
         .from("account_members")
         .select("account_id, role, accounts(id, name)")
-        .eq("user_id", user.id)
+        .eq("user_id", session.user?.id ?? userId)
         .eq("role", "admin");
-
+      console.log("Fetching accounts for userId:", data);
       if (error) {
         console.error("Error fetching accounts:", error);
         toast.error(t("invites.loadAccountsError"));
@@ -124,7 +141,12 @@ export default function InvitesPage() {
     }
 
     fetchAccounts();
-  }, []);
+
+    return () => {
+      authSubscription?.unsubscribe();
+      authSubscription = null;
+    };
+  }, [userId]);
 
   // Fetch invites
   useEffect(() => {
@@ -133,13 +155,6 @@ export default function InvitesPage() {
 
   async function fetchInvites() {
     setLoading(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setLoading(false);
-      return;
-    }
 
     const { data, error } = await supabase
       .from("invites")
