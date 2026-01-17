@@ -7,7 +7,7 @@ import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AccountSelection } from "@/components/account-selection";
-import { getDictionary, t, themeTokens } from "@poleursus/shared";
+import { getDictionary, isExpired, t, themeTokens } from "@poleursus/shared";
 
 export default async function SelectAccountPage() {
   const supabase = await createClient();
@@ -30,6 +30,21 @@ export default async function SelectAccountPage() {
   const colors = themeTokens.light.colors;
   const activeAccountId =
     cookieStore.get("finnon:activeAccountId")?.value ?? "";
+
+  const inviteEmail = user.email?.trim().toLowerCase();
+  const { data: inviteRows } = inviteEmail
+    ? await supabase
+        .from("invites")
+        .select("id, expires_at, status, invited_email, invitee_email")
+        .or(
+          `invited_email.ilike.${inviteEmail},invitee_email.ilike.${inviteEmail}`
+        )
+        .eq("status", "pending")
+    : { data: [] as { expires_at: string; status: string | null }[] };
+
+  const pendingInviteCount = (inviteRows ?? []).filter(
+    (invite) => !isExpired(invite.expires_at)
+  ).length;
 
   if (!accounts || accounts.length === 0) {
     return (
@@ -64,6 +79,23 @@ export default async function SelectAccountPage() {
               </Button>
             </CardContent>
           </Card>
+          {pendingInviteCount > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{t(dictionary, "invitations.title")}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-muted-foreground">
+                  {t(dictionary, "invitations.pendingBadge")}
+                </p>
+                <Button asChild variant="outline">
+                  <Link href="/invitations">
+                    {t(dictionary, "invitations.viewCta")} ({pendingInviteCount})
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </PageContainer>
       </div>
     );

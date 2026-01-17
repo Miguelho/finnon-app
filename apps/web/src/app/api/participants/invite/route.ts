@@ -172,6 +172,7 @@ export async function POST(request: NextRequest) {
         created_by: user.id,
         invitee_user_id: invitee.user_id,
         invitee_email: invitee.email ?? normalizedEmail,
+        invited_email: invitee.email ?? normalizedEmail,
       })
       .select("id, expires_at, role")
       .single();

@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Redirect, Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useIsFocused } from "@react-navigation/native";
 import { useAuth } from "../../../src/contexts/AuthContext";
 import { useNetworkNotice } from "../../../src/contexts/NetworkNoticeContext";
 import { supabase } from "../../../src/lib/supabase";
@@ -24,6 +25,7 @@ import {
   formatMoneyWithSymbol,
   themeTokens,
   createTypographyStyles,
+  isExpired,
   type AccountSummaryData,
   type AccountParticipantVM,
   type AccountCategoryVM,
@@ -47,6 +49,7 @@ export default function AccountTabScreen() {
   const { dictionary, locale } = useCopy();
   const { reportNetworkIssue } = useNetworkNotice();
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
 
   const [summaryData, setSummaryData] = useState<AccountSummaryData | null>(null);
   const [userRole, setUserRole] = useState<UserRole>("viewer");
@@ -55,6 +58,7 @@ export default function AccountTabScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
+  const [inviteCount, setInviteCount] = useState(0);
 
   const currencySymbol = useMemo(() => {
     const currency = summaryData?.account?.base_currency;
@@ -124,14 +128,43 @@ export default function AccountTabScreen() {
       if (!cancelled) setLoading(false);
     }
 
-    if (isInitialized && selectedAccountId) {
+    if (isInitialized && selectedAccountId && isFocused) {
       init();
     }
 
     return () => {
       cancelled = true;
     };
-  }, [isInitialized, selectedAccountId, loadData]);
+  }, [isInitialized, selectedAccountId, isFocused, loadData]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadInviteCount() {
+      if (!user?.email || !isFocused) return;
+
+      const { data, error } = await supabase
+        .from("invites")
+        .select("id, expires_at, status, invited_email, invitee_email")
+        .or(`invited_email.eq.${user.email},invitee_email.eq.${user.email}`)
+        .eq("status", "pending");
+
+      if (error) {
+        if (!cancelled) setInviteCount(0);
+        return;
+      }
+
+      const count = (data ?? []).filter((invite) => !isExpired(invite.expires_at))
+        .length;
+      if (!cancelled) setInviteCount(count);
+    }
+
+    void loadInviteCount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isFocused, user?.email]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -316,11 +349,18 @@ export default function AccountTabScreen() {
         activeAccountId={selectedAccountId}
         onClose={() => setIsSwitcherOpen(false)}
         onSelect={handleSelectAccount}
+        inviteCount={inviteCount}
+        onOpenInvites={() => {
+          setIsSwitcherOpen(false);
+          router.push("/(auth)/invitations");
+        }}
         copy={{
           title: viewModel.copy.switchAccount,
           activeBadge: t(dictionary, "dashboard.accountsActiveBadge"),
           createCta: viewModel.copy.createAccount,
           closeLabel: t(dictionary, "common.close"),
+          invitesLabel: t(dictionary, "invitations.title"),
+          invitesDescription: t(dictionary, "invitations.subtitle"),
         }}
       />
       </View>
@@ -405,6 +445,8 @@ function AccountSwitcherSheet({
   activeAccountId,
   onClose,
   onSelect,
+  inviteCount,
+  onOpenInvites,
   copy,
 }: {
   visible: boolean;
@@ -412,11 +454,15 @@ function AccountSwitcherSheet({
   activeAccountId: string;
   onClose: () => void;
   onSelect: (id: string) => void;
+  inviteCount: number;
+  onOpenInvites: () => void;
   copy: {
     title: string;
     activeBadge: string;
     createCta: string;
     closeLabel: string;
+    invitesLabel: string;
+    invitesDescription: string;
   };
 }) {
   const router = useRouter();
@@ -436,6 +482,20 @@ function AccountSwitcherSheet({
             <Text style={styles.sheetTitle}>{copy.title}</Text>
           </View>
           <ScrollView contentContainerStyle={styles.sheetContent}>
+            <TouchableOpacity
+              style={styles.inviteRow}
+              onPress={onOpenInvites}
+            >
+              <View style={styles.inviteRowInfo}>
+                <Text style={styles.inviteRowTitle}>{copy.invitesLabel}</Text>
+                <Text style={styles.inviteRowDescription}>
+                  {copy.invitesDescription}
+                </Text>
+              </View>
+              <View style={styles.inviteBadge}>
+                <Text style={styles.inviteBadgeText}>{inviteCount}</Text>
+              </View>
+            </TouchableOpacity>
             {accounts.map((account) => {
               const isActive = account.id === activeAccountId;
               return (
@@ -737,6 +797,39 @@ const styles = StyleSheet.create({
   sheetContent: {
     padding: tokens.spacing.lg,
     gap: tokens.spacing.sm,
+  },
+  inviteRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: tokens.spacing.md,
+    borderRadius: tokens.radii.md,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    backgroundColor: colors.bg.secondary,
+  },
+  inviteRowInfo: {
+    flex: 1,
+  },
+  inviteRowTitle: {
+    ...typography.body,
+    fontWeight: tokens.typography.weight.medium,
+    color: colors.text.primary,
+  },
+  inviteRowDescription: {
+    ...typography.meta,
+    color: colors.text.secondary,
+  },
+  inviteBadge: {
+    backgroundColor: colors.action.primary,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: tokens.spacing.xs,
+    borderRadius: tokens.radii.pill,
+  },
+  inviteBadgeText: {
+    ...typography.meta,
+    color: colors.bg.primary,
+    fontWeight: tokens.typography.weight.semibold,
   },
   accountItem: {
     flexDirection: "row",

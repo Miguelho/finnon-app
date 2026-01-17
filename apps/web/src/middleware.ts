@@ -70,7 +70,12 @@ export async function middleware(request: NextRequest) {
   }
 
   // Si hay usuario, verificar si tiene cuentas (como owner O como miembro)
-  if (pathname !== "/select-account" && pathname !== "/onboarding") {
+  const accountGateExemptRoutes = ["/select-account", "/onboarding", "/invitations"];
+  const isAccountGateExempt = accountGateExemptRoutes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
+
+  if (!isAccountGateExempt) {
     const { data: memberships } = await supabase
       .from("account_members")
       .select("account_id")

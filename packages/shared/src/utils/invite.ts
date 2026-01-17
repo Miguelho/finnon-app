@@ -11,6 +11,25 @@ export function generateInviteToken(): string {
   return buffer.toString("base64url"); // URL-safe base64
 }
 
+const INVITE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+/**
+ * Generates a short, human-friendly invite code.
+ *
+ * @param length - Length of the code (default 8)
+ */
+export function generateInviteCode(length: number = 8): string {
+  const safeLength = Math.max(4, Math.min(length, 12));
+  const buffer = crypto.randomBytes(safeLength);
+  let code = "";
+
+  for (let i = 0; i < safeLength; i += 1) {
+    code += INVITE_CODE_ALPHABET[buffer[i] % INVITE_CODE_ALPHABET.length];
+  }
+
+  return code;
+}
+
 /**
  * Hashes an invite token using SHA-256.
  * This hash is stored in the database for lookup.

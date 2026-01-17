@@ -6,18 +6,22 @@ export type UserDetailsVM = {
   displayName?: string | null;
 };
 
-export type InviteStatus = "active" | "expired" | "revoked";
+export type SettingsInviteStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "revoked"
+  | "expired";
 
 export type InviteItemVM = {
   id: string;
   accountName: string;
+  invitedEmail: string | null;
   role: UserRole;
-  status: InviteStatus;
+  status: SettingsInviteStatus;
   expiresAt: Date | null;
-  isTargeted: boolean;
-  usesCount: number;
-  maxUses: number | null;
   createdAt: Date;
+  respondedAt: Date | null;
   isActive: boolean;
 };
 

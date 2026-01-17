@@ -3,7 +3,7 @@ import { t } from "../../copy";
 import type {
   UserDetailsVM,
   InviteItemVM,
-  InviteStatus,
+  SettingsInviteStatus,
   SettingsMenuVM,
 } from "./types";
 
@@ -25,11 +25,12 @@ type RawInvite = {
   id: string;
   account_id: string;
   role: "viewer" | "contributor" | "admin";
+  status?: "pending" | "accepted" | "rejected" | "revoked" | "expired" | null;
   expires_at: string;
   revoked_at: string | null;
-  max_uses: number | null;
-  uses_count: number;
   created_at: string;
+  responded_at?: string | null;
+  invited_email?: string | null;
   accounts?: { name: string } | null;
   invitee_user_id?: string | null;
   invitee_email?: string | null;
@@ -43,32 +44,37 @@ export function mapUserToUserDetailsVM(user: RawUser): UserDetailsVM {
   };
 }
 
-function getInviteStatus(invite: RawInvite, now: Date = new Date()): InviteStatus {
-  const isTargeted = Boolean(invite.invitee_user_id || invite.invitee_email);
+function getInviteStatus(
+  invite: RawInvite,
+  now: Date = new Date()
+): SettingsInviteStatus {
+  if (invite.status === "revoked") return "revoked";
+  if (invite.status === "rejected") return "rejected";
+  if (invite.status === "accepted") return "accepted";
+
   if (invite.revoked_at) return "revoked";
-  if (!isTargeted && new Date(invite.expires_at) < now) return "expired";
-  if (invite.max_uses !== null && invite.uses_count >= invite.max_uses)
-    return "expired";
-  return "active";
+
+  const isExpired = Boolean(invite.expires_at && new Date(invite.expires_at) < now);
+  if (invite.status === "expired" || isExpired) return "expired";
+
+  return "pending";
 }
 
 export function mapInviteToInviteItemVM(
   invite: RawInvite,
   now?: Date
 ): InviteItemVM {
-  const isTargeted = Boolean(invite.invitee_user_id || invite.invitee_email);
   const status = getInviteStatus(invite, now);
   return {
     id: invite.id,
     accountName: invite.accounts?.name ?? "Unknown",
+    invitedEmail: invite.invited_email ?? invite.invitee_email ?? null,
     role: invite.role,
     status,
-    expiresAt: isTargeted ? null : new Date(invite.expires_at),
-    isTargeted,
-    usesCount: invite.uses_count,
-    maxUses: invite.max_uses,
+    expiresAt: invite.expires_at ? new Date(invite.expires_at) : null,
     createdAt: new Date(invite.created_at),
-    isActive: status === "active",
+    respondedAt: invite.responded_at ? new Date(invite.responded_at) : null,
+    isActive: status === "pending",
   };
 }
 

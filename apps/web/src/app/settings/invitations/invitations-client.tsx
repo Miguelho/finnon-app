@@ -1,25 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useEffect, useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  SlidePanel,
-  SlidePanelContent,
-  SlidePanelDescription,
-  SlidePanelFooter,
-  SlidePanelHeader,
-  SlidePanelTitle,
-  SlidePanelBody,
-} from "@/components/ui/slide-panel";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -27,206 +13,110 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { supabase } from "@/lib/supabaseClient";
-import { themeTokens } from "@poleursus/shared";
-import { useNetworkNotice } from "@/components/network/network-notice";
+import { humanizeRole, isExpired, themeTokens } from "@poleursus/shared";
 
-type Invite = {
+const colors = themeTokens.light.colors;
+
+type InviteRow = {
   id: string;
   account_id: string;
   role: "viewer" | "contributor" | "admin";
+  status: "pending" | "accepted" | "rejected" | "revoked" | "expired" | null;
   expires_at: string;
-  revoked_at: string | null;
-  max_uses: number | null;
-  uses_count: number;
   created_at: string;
-  created_by: string;
-  invitee_user_id?: string | null;
+  invited_email: string | null;
   invitee_email?: string | null;
-  account?: {
-    name: string;
-  };
+  code: string | null;
 };
 
-type FilterStatus = "all" | "active" | "expired" | "revoked";
-type InviteMode = "link" | "registered";
-type ExpirationMode = "unlimited" | "custom";
+type AccountOption = {
+  id: string;
+  name: string;
+};
 
-export default function InvitesPage({ userId }: { userId: string }) {
+export default function InvitationsClient({ userId }: { userId: string }) {
   const t = useTranslations();
-  const colors = themeTokens.light.colors;
-  const { reportNetworkIssue } = useNetworkNotice();
-  const [invites, setInvites] = useState<Invite[]>([]);
-  const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<FilterStatus>("active");
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-
-  // Form state for create invite
+  const locale = useLocale();
+  const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState("");
-  const [selectedRole, setSelectedRole] = useState<"viewer" | "contributor" | "admin">("viewer");
-  const [expiresInHours, setExpiresInHours] = useState("24");
-  const [maxUses, setMaxUses] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
-  const [createdInviteUrl, setCreatedInviteUrl] = useState<string | null>(null);
-
-  // New states for registered invite
-  const [inviteMode, setInviteMode] = useState<InviteMode>("link");
+  const [invites, setInvites] = useState<InviteRow[]>([]);
+  const [loadingInvites, setLoadingInvites] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [isInvitingRegistered, setIsInvitingRegistered] = useState(false);
-  const [expirationMode, setExpirationMode] = useState<ExpirationMode>("unlimited");
+  const [selectedRole, setSelectedRole] = useState<
+    "viewer" | "contributor" | "admin"
+  >("viewer");
+  const [generateCode, setGenerateCode] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
 
-  // Fetch user's accounts
   useEffect(() => {
-    let authSubscription: { unsubscribe: () => void } | null = null;
+    let cancelled = false;
 
-    async function fetchAccounts() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        if (!authSubscription) {
-          const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-            if (nextSession?.user) {
-              authSubscription?.unsubscribe();
-              authSubscription = null;
-              fetchAccounts();
-            }
-          });
-
-          authSubscription = data.subscription;
-        }
-
-        return;
-      }
-
+    async function loadAccounts() {
       const { data, error } = await supabase
         .from("account_members")
         .select("account_id, role, accounts(id, name)")
-        .eq("user_id", session.user?.id ?? userId)
+        .eq("user_id", userId)
         .eq("role", "admin");
-      console.log("Fetching accounts for userId:", data);
+
       if (error) {
         console.error("Error fetching accounts:", error);
         toast.error(t("invites.loadAccountsError"));
-        reportNetworkIssue();
         return;
       }
 
-      const accountsList = data
-        .filter((m) => m.accounts)
-        .map((m) => ({
-          id: m.account_id,
-          name: (m.accounts as any).name,
+      const options = (data || [])
+        .filter((member) => member.accounts)
+        .map((member) => ({
+          id: member.account_id,
+          name: (member.accounts as any).name,
         }));
 
-      setAccounts(accountsList);
-      if (accountsList.length > 0 && accountsList[0]) {
-        setSelectedAccountId(accountsList[0].id);
+      if (!cancelled) {
+        setAccounts(options);
+        if (options.length > 0 && !selectedAccountId) {
+          setSelectedAccountId(options[0].id);
+        }
       }
     }
 
-    fetchAccounts();
+    void loadAccounts();
 
     return () => {
-      authSubscription?.unsubscribe();
-      authSubscription = null;
+      cancelled = true;
     };
-  }, [userId]);
+  }, [selectedAccountId, t, userId]);
 
-  // Fetch invites
   useEffect(() => {
-    fetchInvites();
-  }, []);
+    if (!selectedAccountId) return;
+    void loadInvites(selectedAccountId);
+  }, [selectedAccountId]);
 
-  async function fetchInvites() {
-    setLoading(true);
-
-    const { data, error } = await supabase
-      .from("invites")
-      .select("*, accounts(name)")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching invites:", error);
-      toast.error(t("invites.loadInvitesError"));
-      reportNetworkIssue();
-      setLoading(false);
-      return;
-    }
-
-    setInvites(data || []);
-    setLoading(false);
-  }
-
-  async function createInvite() {
-    if (!selectedAccountId) {
-      toast.error(t("invites.selectAccountError"));
-      return;
-    }
-
-    setIsCreating(true);
-
+  async function loadInvites(accountId: string) {
+    setLoadingInvites(true);
     try {
-      const body: Record<string, unknown> = {
-        accountId: selectedAccountId,
-        role: selectedRole,
-        maxUses: maxUses ? parseInt(maxUses) : undefined,
-      };
+      const { data, error } = await supabase
+        .from("invites")
+        .select("id, account_id, role, status, expires_at, created_at, invited_email, invitee_email, code")
+        .eq("account_id", accountId)
+        .order("created_at", { ascending: false });
 
-      // Only include expiresInHours if mode is custom
-      if (expirationMode === "custom" && expiresInHours) {
-        body.expiresInHours = parseInt(expiresInHours);
-      }
-
-      const response = await fetch("/api/invites/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(
-          error.errorKey
-            ? t(error.errorKey, error.errorParams)
-            : t("invites.createError")
-        );
-        setIsCreating(false);
+      if (error) {
+        console.error("Error loading invites:", error);
+        toast.error(t("invites.loadInvitesError"));
         return;
       }
 
-      const data = await response.json();
-
-      // Show the invite URL
-      setCreatedInviteUrl(data.inviteUrl);
-      fetchInvites();
-
-      // Don't close dialog yet - show the URL first
-    } catch (error) {
-      console.error("Error creating invite:", error);
-      toast.error(t("invites.createError"));
-      reportNetworkIssue();
+      setInvites((data || []) as InviteRow[]);
     } finally {
-      setIsCreating(false);
+      setLoadingInvites(false);
     }
   }
 
-  async function createRegisteredInvite() {
+  async function sendInvite() {
     if (!selectedAccountId) {
       toast.error(t("invites.selectAccountError"));
       return;
@@ -238,25 +128,17 @@ export default function InvitesPage({ userId }: { userId: string }) {
       return;
     }
 
-    setIsInvitingRegistered(true);
-
+    setIsSending(true);
     try {
-      const body: Record<string, unknown> = {
-        accountId: selectedAccountId,
-        email: trimmedEmail,
-        role: selectedRole,
-        maxUses: maxUses ? parseInt(maxUses) : 1,
-      };
-
-      // Only include expiresInHours if mode is custom
-      if (expirationMode === "custom" && expiresInHours) {
-        body.expiresInHours = parseInt(expiresInHours);
-      }
-
-      const response = await fetch("/api/participants/invite", {
+      const response = await fetch("/api/invites/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          accountId: selectedAccountId,
+          email: trimmedEmail,
+          role: selectedRole,
+          generateCode,
+        }),
       });
 
       if (!response.ok) {
@@ -264,9 +146,8 @@ export default function InvitesPage({ userId }: { userId: string }) {
         toast.error(
           error.errorKey
             ? t(error.errorKey, error.errorParams)
-            : t("invites.registeredInviteError")
+            : t("invites.sendError")
         );
-        setIsInvitingRegistered(false);
         return;
       }
 
@@ -274,493 +155,268 @@ export default function InvitesPage({ userId }: { userId: string }) {
 
       if (data.status === "already_member") {
         toast.info(t("invites.registeredAlreadyMember"));
-        closeCreateDialog();
         return;
       }
 
       if (data.status === "pending") {
         toast.info(t("invites.registeredPending"));
-        closeCreateDialog();
         return;
       }
 
-      // status === "created"
-      if (data.inviteUrl) {
-        setCreatedInviteUrl(data.inviteUrl);
-      }
-      fetchInvites();
+      toast.success(t("invites.sendSuccess"));
+      setInviteEmail("");
+      setGenerateCode(false);
+      setInviteCode(data.code ?? null);
+      await loadInvites(selectedAccountId);
     } catch (error) {
-      console.error("Error inviting registered user:", error);
-      toast.error(t("invites.registeredInviteError"));
-      reportNetworkIssue();
+      console.error("Error sending invite:", error);
+      toast.error(t("invites.sendError"));
     } finally {
-      setIsInvitingRegistered(false);
+      setIsSending(false);
     }
   }
 
   async function revokeInvite(inviteId: string) {
-    try {
-      const { error } = await supabase
-        .from("invites")
-        .update({ revoked_at: new Date().toISOString() })
-        .eq("id", inviteId);
+    const { error } = await supabase
+      .from("invites")
+      .update({ status: "revoked", responded_at: new Date().toISOString() })
+      .eq("id", inviteId);
 
-      if (error) {
-        toast.error(t("invites.revokeError"));
-        reportNetworkIssue();
-        return;
-      }
-
-      toast.success(t("invites.revokeSuccess"));
-      fetchInvites();
-    } catch (error) {
+    if (error) {
       console.error("Error revoking invite:", error);
       toast.error(t("invites.revokeError"));
-      reportNetworkIssue();
+      return;
     }
+
+    toast.success(t("invites.revokeSuccess"));
+    setConfirmRevokeId(null);
+    await loadInvites(selectedAccountId);
   }
 
-  function copyInviteUrl(url: string) {
-    navigator.clipboard.writeText(url).then(
-      () => {
-        toast.success(t("invites.copySuccess"));
-      },
-      () => {
-        toast.error(t("invites.copyError"));
-      }
+  function copyCode(code: string) {
+    navigator.clipboard.writeText(code).then(
+      () => toast.success(t("invites.codeCopied")),
+      () => toast.error(t("invites.codeCopyError"))
     );
   }
 
-  function closeCreateDialog() {
-    setIsCreateDialogOpen(false);
-    setCreatedInviteUrl(null);
-    setSelectedRole("viewer");
-    setExpiresInHours("24");
-    setMaxUses("");
-    setInviteMode("link");
-    setInviteEmail("");
-    setExpirationMode("unlimited");
-  }
-
-  function getInviteStatus(invite: Invite): "active" | "expired" | "revoked" {
-    const isTargeted = Boolean(invite.invitee_user_id || invite.invitee_email);
-    if (invite.revoked_at) return "revoked";
-    if (!isTargeted && new Date(invite.expires_at) < new Date()) return "expired";
-    if (invite.max_uses !== null && invite.uses_count >= invite.max_uses)
-      return "expired";
-    return "active";
-  }
-
-  const filteredInvites = invites.filter((invite) => {
-    if (filter === "all") return true;
-    return getInviteStatus(invite) === filter;
-  });
+  const inviteList = useMemo(() => {
+    return invites.map((invite) => {
+      const expired = isExpired(invite.expires_at);
+      const status = invite.status ?? "pending";
+      const normalizedStatus = status === "pending" && expired ? "expired" : status;
+      return { ...invite, status: normalizedStatus, expired };
+    });
+  }, [invites]);
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              {t("invites.title")}
-            </h1>
-            <p className="text-muted-foreground">
-              {t("invites.subtitle")}
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("invites.title")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {accounts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t("invites.noAdminAccounts")}
             </p>
-          </div>
-
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            {t("invites.createButton")}
-          </Button>
-        </div>
-
-        <SlidePanel
-          open={isCreateDialogOpen}
-          onOpenChange={(open) => {
-            if (open) {
-              setIsCreateDialogOpen(true);
-            } else {
-              closeCreateDialog();
-            }
-          }}
-        >
-          <SlidePanelContent>
-            <SlidePanelHeader>
-              <SlidePanelTitle>
-                {createdInviteUrl
-                  ? t("invites.createdTitle")
-                  : inviteMode === "registered"
-                  ? t("invites.registeredTitle")
-                  : t("invites.createTitle")}
-              </SlidePanelTitle>
-              <SlidePanelDescription>
-                {createdInviteUrl
-                  ? t("invites.createdDescription")
-                  : inviteMode === "registered"
-                  ? t("invites.registeredDescription")
-                  : t("invites.createDescription")}
-              </SlidePanelDescription>
-            </SlidePanelHeader>
-            <SlidePanelBody>
-              {createdInviteUrl ? (
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label>{t("invites.linkLabel")}</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={createdInviteUrl}
-                        readOnly
-                        className="font-mono text-sm"
-                      />
-                      <Button
-                        onClick={() => copyInviteUrl(createdInviteUrl)}
-                        variant="outline"
-                      >
-                        {t("common.copy")}
-                      </Button>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {t("invites.warning")}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid gap-4 py-4">
-                {accounts.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    {t("invites.noAdminAccounts")}
-                  </div>
-                ) : (
-                  <>
-                {/* Invite type selector */}
-                <div className="grid gap-2">
-                  <Label>{t("invites.inviteTypeLabel")}</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={inviteMode === "link" ? "default" : "outline"}
-                      className="flex-1"
-                      onClick={() => setInviteMode("link")}
-                    >
-                      {t("invites.inviteTypeLink")}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={inviteMode === "registered" ? "default" : "outline"}
-                      className="flex-1"
-                      onClick={() => setInviteMode("registered")}
-                    >
-                      {t("invites.inviteTypeRegistered")}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Account selector */}
-                <div className="grid gap-2">
-                  <Label htmlFor="account">{t("invites.accountLabel")}</Label>
-                  <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={t("invites.selectAccountPlaceholder")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Email field - only for registered mode */}
-                {inviteMode === "registered" && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="email">{t("invites.registeredEmailLabel")}</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                      placeholder={t("login.emailPlaceholder")}
-                    />
-                  </div>
-                )}
-
-                {/* Role selector */}
-                <div className="grid gap-2">
-                  <Label htmlFor="role">{t("invites.roleLabel")}</Label>
-                  <Select
-                    value={selectedRole}
-                    onValueChange={(v: any) => setSelectedRole(v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="viewer">
-                        {t("invites.roleViewer")}
+          ) : (
+            <>
+              <div className="grid gap-2">
+                <Label htmlFor="account">{t("invites.accountLabel")}</Label>
+                <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("invites.selectAccountPlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name}
                       </SelectItem>
-                      <SelectItem value="contributor">
-                        {t("invites.roleContributor")}
-                      </SelectItem>
-                      <SelectItem value="admin">
-                        {t("invites.roleAdmin")}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Expiration mode selector */}
-                <div className="grid gap-2">
-                  <Label>{t("invites.expirationModeLabel")}</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={expirationMode === "unlimited" ? "default" : "outline"}
-                      className="flex-1"
-                      onClick={() => setExpirationMode("unlimited")}
-                    >
-                      {t("invites.expirationUnlimited")}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={expirationMode === "custom" ? "default" : "outline"}
-                      className="flex-1"
-                      onClick={() => setExpirationMode("custom")}
-                    >
-                      {t("invites.expirationCustom")}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Expires in hours - only show when custom expiration is selected */}
-                {expirationMode === "custom" && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="expires">{t("invites.expiresInLabel")}</Label>
-                    <Input
-                      id="expires"
-                      type="number"
-                      value={expiresInHours}
-                      onChange={(e) => setExpiresInHours(e.target.value)}
-                      min="1"
-                      max="8760"
-                    />
-                  </div>
-                )}
-
-                <div className="grid gap-2">
-                  <Label htmlFor="maxUses">
-                    {t("invites.maxUsesLabel")}
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    {t("invites.maxUsesHelper")}
-                  </p>
-                  <Input
-                    id="maxUses"
-                    type="number"
-                    value={maxUses}
-                    onChange={(e) => setMaxUses(e.target.value)}
-                    min="1"
-                    placeholder={t("invites.maxUsesPlaceholder")}
-                  />
-                </div>
-                </>
-                )}
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              )}
-            </SlidePanelBody>
-            <SlidePanelFooter>
-              {createdInviteUrl ? (
-                <Button onClick={closeCreateDialog}>
-                  {t("invites.closeButton")}
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => {
-                    if (inviteMode === "registered") {
-                      createRegisteredInvite();
-                    } else {
-                      createInvite();
-                    }
-                  }}
-                  disabled={
-                    (inviteMode === "link" && isCreating) ||
-                    (inviteMode === "registered" && isInvitingRegistered) ||
-                    !selectedAccountId ||
-                    accounts.length === 0 ||
-                    (inviteMode === "registered" && inviteEmail.trim().length === 0)
-                  }
+
+              <div className="grid gap-2">
+                <Label htmlFor="email">{t("invites.emailLabel")}</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(event) => setInviteEmail(event.target.value)}
+                  placeholder={t("login.emailPlaceholder")}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="role">{t("invites.roleLabel")}</Label>
+                <Select
+                  value={selectedRole}
+                  onValueChange={(value) => setSelectedRole(value as InviteRow["role"])}
                 >
-                  {(inviteMode === "link" ? isCreating : isInvitingRegistered)
-                    ? t("common.creating")
-                    : t("invites.createButton")}
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="viewer">{t("invites.roleViewer")}</SelectItem>
+                    <SelectItem value="contributor">
+                      {t("invites.roleContributor")}
+                    </SelectItem>
+                    <SelectItem value="admin">{t("invites.roleAdmin")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  variant={generateCode ? "default" : "outline"}
+                  onClick={() => setGenerateCode((prev) => !prev)}
+                >
+                  {t("invites.generateCodeLabel")}
                 </Button>
+                <Button
+                  type="button"
+                  onClick={sendInvite}
+                  disabled={isSending || inviteEmail.trim().length === 0}
+                >
+                  {isSending ? t("common.creating") : t("invites.createButton")}
+                </Button>
+              </div>
+              {inviteCode && (
+                <div
+                  className="rounded-lg border p-4"
+                  style={{ borderColor: colors.state.neutral }}
+                >
+                  <p className="text-sm font-semibold">{t("invites.codeLabel")}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="rounded-md bg-muted px-3 py-2 font-mono text-sm">
+                      {inviteCode}
+                    </span>
+                    <Button variant="outline" onClick={() => copyCode(inviteCode)}>
+                      {t("invites.codeCopy")}
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-xs" style={{ color: colors.text.secondary }}>
+                    {t("invites.codeHint")}
+                  </p>
+                </div>
               )}
-            </SlidePanelFooter>
-          </SlidePanelContent>
-        </SlidePanel>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* Filter buttons */}
-        <div className="flex gap-2">
-          <Button
-            variant={filter === "all" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilter("all")}
-          >
-            {t("invites.filterAll", { count: invites.length })}
-          </Button>
-          <Button
-            variant={filter === "active" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilter("active")}
-          >
-            {t("invites.filterActive", {
-              count: invites.filter((i) => getInviteStatus(i) === "active").length,
-            })}
-          </Button>
-          <Button
-            variant={filter === "expired" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilter("expired")}
-          >
-            {t("invites.filterExpired", {
-              count: invites.filter((i) => getInviteStatus(i) === "expired").length,
-            })}
-          </Button>
-          <Button
-            variant={filter === "revoked" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilter("revoked")}
-          >
-            {t("invites.filterRevoked", {
-              count: invites.filter((i) => getInviteStatus(i) === "revoked").length,
-            })}
-          </Button>
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("invites.listTitle")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingInvites ? (
+            <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+          ) : inviteList.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("invites.listEmpty")}</p>
+          ) : (
+            <div className="space-y-3">
+              {inviteList.map((invite) => {
+                const invitedEmail = invite.invited_email || invite.invitee_email || "";
+                const statusLabel =
+                  invite.status === "accepted"
+                    ? t("invites.statusAccepted")
+                    : invite.status === "rejected"
+                    ? t("invites.statusRejected")
+                    : invite.status === "revoked"
+                    ? t("invites.statusRevoked")
+                    : invite.status === "expired"
+                    ? t("invites.statusExpired")
+                    : t("invites.statusPending");
 
-        {/* Invites list */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("invites.cardTitle")}</CardTitle>
-            <CardDescription>
-              {t("invites.cardDescription", { count: filteredInvites.length })}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {t("common.loading")}
-              </div>
-            ) : filteredInvites.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {filter === "all"
-                  ? t("invites.emptyAll")
-                  : filter === "active"
-                  ? t("invites.emptyActive")
-                  : filter === "expired"
-                  ? t("invites.emptyExpired")
-                  : t("invites.emptyRevoked")}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredInvites.map((invite) => {
-                  const status = getInviteStatus(invite);
-                  const isActive = status === "active";
-                  const isTargeted = Boolean(
-                    invite.invitee_user_id || invite.invitee_email
-                  );
-                  const statusStyle = {
-                    active: {
-                      borderColor: colors.state.positive,
-                      backgroundColor: colors.bg.secondary,
-                      color: colors.state.positive,
-                    },
-                    expired: {
-                      borderColor: colors.state.warning,
-                      backgroundColor: colors.bg.secondary,
-                      color: colors.state.warning,
-                    },
-                    revoked: {
-                      borderColor: colors.state.negative,
-                      backgroundColor: colors.bg.secondary,
-                      color: colors.state.negative,
-                    },
-                  }[status];
-
-                  return (
-                    <div
-                      key={invite.id}
-                      className="flex items-center justify-between p-4 border rounded-lg"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">
-                            {(invite.account as any)?.name ||
-                              t("invites.accountUnknown")}
-                          </span>
-                          <span
-                            className="rounded border px-2 py-1 text-xs"
-                            style={statusStyle}
-                          >
-                            {status === "active"
-                              ? t("invites.statusActive")
-                              : status === "expired"
-                              ? t("invites.statusExpired")
-                              : t("invites.statusRevoked")}
-                          </span>
-                          <span className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-700">
-                            {invite.role}
+                return (
+                  <div
+                    key={invite.id}
+                    className="rounded-xl border p-4"
+                    style={{ borderColor: colors.state.neutral }}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold">
+                          {invitedEmail || t("invites.accountUnknown")}
+                        </p>
+                        <div
+                          className="flex flex-wrap gap-3 text-xs"
+                          style={{ color: colors.text.secondary }}
+                        >
+                          <span>{humanizeRole(invite.role, locale)}</span>
+                          <span>
+                            {t("invites.expiresLabel")} {" "}
+                            {new Date(invite.expires_at).toLocaleDateString(locale)}
                           </span>
                         </div>
-                        <div className="text-sm text-muted-foreground mt-1">
-                          {t("invites.expiresLabel")}:{" "}
-                          {isTargeted
-                            ? t("invites.expiresNone")
-                            : new Date(invite.expires_at).toLocaleDateString()} •
-                          {t("invites.usesLabel")}: {invite.uses_count}/
-                          {invite.max_uses || "∞"}
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        {isActive && (
-                          <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="destructive">
-                                  {t("invites.revokeButton")}
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>
-                                    {t("invites.revokePromptTitle")}
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    {t("invites.revokeDialogDescription")}
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>
-                                    {t("common.cancel")}
-                                  </AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => revokeInvite(invite.id)}
-                                  >
-                                    {t("invites.revokeButton")}
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                        {invite.code && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span
+                              className="text-xs"
+                              style={{ color: colors.text.secondary }}
+                            >
+                              {t("invites.codeLabel")}:
+                            </span>
+                            <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs">
+                              {invite.code}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => copyCode(invite.code!)}
+                            >
+                              {t("invites.codeCopy")}
+                            </Button>
+                          </div>
                         )}
                       </div>
+                      <span
+                        className="rounded-full border px-3 py-1 text-xs font-semibold"
+                        style={{ borderColor: colors.state.neutral }}
+                      >
+                        {statusLabel}
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+
+                    {invite.status === "pending" && !invite.expired && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {confirmRevokeId === invite.id ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              onClick={() => setConfirmRevokeId(null)}
+                            >
+                              {t("common.cancel")}
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              onClick={() => revokeInvite(invite.id)}
+                            >
+                              {t("invites.revokeButton")}
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            onClick={() => setConfirmRevokeId(invite.id)}
+                          >
+                            {t("invites.revokeButton")}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

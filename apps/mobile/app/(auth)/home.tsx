@@ -32,6 +32,7 @@ import {
   getSummaryForDay,
   markObligationPaid,
   themeTokens,
+  isExpired,
   type AddActionKey,
   type UserRole,
   type Obligation,
@@ -143,6 +144,7 @@ export default function HomeScreen() {
   const [updatingObligationId, setUpdatingObligationId] = useState<string | null>(
     null
   );
+  const [inviteCount, setInviteCount] = useState(0);
   const [nextDays, setNextDays] = useState<number>(CASHFLOW_DAYS_OPTIONS[0]);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [isDayPanelOpen, setIsDayPanelOpen] = useState(false);
@@ -167,7 +169,7 @@ export default function HomeScreen() {
     let cancelled = false;
 
     async function loadAccounts() {
-      if (!session || !user) {
+      if (!session || !user || !isFocused) {
         setLoadingAccounts(false);
         return;
       }
@@ -202,7 +204,36 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [session?.user?.id, user?.id]);
+  }, [session?.user?.id, user?.id, isFocused]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadInviteCount() {
+      if (!user?.email || !isFocused) return;
+
+      const { data, error } = await supabase
+        .from("invites")
+        .select("id, expires_at, status, invited_email, invitee_email")
+        .or(`invited_email.eq.${user.email},invitee_email.eq.${user.email}`)
+        .eq("status", "pending");
+
+      if (error) {
+        if (!cancelled) setInviteCount(0);
+        return;
+      }
+
+      const count = (data ?? []).filter((invite) => !isExpired(invite.expires_at))
+        .length;
+      if (!cancelled) setInviteCount(count);
+    }
+
+    void loadInviteCount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isFocused, user?.email]);
 
   useEffect(() => {
     if (accounts && accounts.length > 0 && !selectedAccountId) {
@@ -496,6 +527,19 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {inviteCount > 0 && (
+          <TouchableOpacity
+            style={styles.inviteCard}
+            onPress={() => router.push("/(auth)/invitations")}
+          >
+            <Text style={styles.inviteTitle}>
+              {t(dictionary, "invitations.pendingBadge")}
+            </Text>
+            <Text style={styles.inviteSubtitle}>
+              {t(dictionary, "invitations.viewCta")} ({inviteCount})
+            </Text>
+          </TouchableOpacity>
+        )}
         {/* Hero */}
         <View style={styles.heroCard}>
           <View style={[styles.heroSection, styles.heroSectionFirst]}>
@@ -832,6 +876,24 @@ const styles = StyleSheet.create({
     padding: tokens.spacing.lg,
     gap: tokens.spacing.md,
     backgroundColor: colors.bg.surface,
+  },
+  inviteCard: {
+    borderRadius: tokens.radii.lg,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    padding: tokens.spacing.lg,
+    marginBottom: tokens.spacing.md,
+    backgroundColor: colors.bg.surface,
+  },
+  inviteTitle: {
+    ...typography.body,
+    color: colors.text.primary,
+    fontWeight: tokens.typography.weight.semibold,
+    marginBottom: tokens.spacing.xs,
+  },
+  inviteSubtitle: {
+    ...typography.meta,
+    color: colors.text.secondary,
   },
   heroSection: {
     borderTopWidth: 1,

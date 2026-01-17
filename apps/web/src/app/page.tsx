@@ -13,6 +13,7 @@ import {
   formatMoneyWithSymbol,
   getDictionary,
   getMonthRange,
+  isExpired,
   t,
   themeTokens,
   type UserRole,
@@ -48,6 +49,21 @@ export default async function DashboardPage() {
   if (!cookieAccountId) {
     redirect("/select-account");
   }
+
+  const inviteEmail = user.email?.trim().toLowerCase();
+  const { data: inviteRows } = inviteEmail
+    ? await supabase
+        .from("invites")
+        .select("id, expires_at, status, invited_email, invitee_email")
+        .or(
+          `invited_email.ilike.${inviteEmail},invitee_email.ilike.${inviteEmail}`
+        )
+        .eq("status", "pending")
+    : { data: [] as { expires_at: string; status: string | null }[] };
+
+  const pendingInviteCount = (inviteRows ?? []).filter(
+    (invite) => !isExpired(invite.expires_at)
+  ).length;
 
   const mainAccount = accounts.find((account) => account.id === cookieAccountId);
 
@@ -147,6 +163,35 @@ export default async function DashboardPage() {
         accountId={mainAccount.id}
       />
       <PageContainer className="flex flex-col gap-6">
+        {pendingInviteCount > 0 && (
+          <div
+            className="rounded-2xl border p-4"
+            style={{
+              borderColor: colors.state.neutral,
+              backgroundColor: colors.bg.secondary,
+            }}
+          >
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold">
+                  {t(dictionary, "invitations.pendingBadge")}
+                </p>
+                <p className="text-sm" style={{ color: colors.text.secondary }}>
+                  {t(dictionary, "invitations.subtitle")}
+                </p>
+              </div>
+              <Button
+                asChild
+                variant="outline"
+                style={{ borderColor: colors.action.secondary }}
+              >
+                <Link href="/invitations">
+                  {t(dictionary, "invitations.viewCta")} ({pendingInviteCount})
+                </Link>
+              </Button>
+            </div>
+          </div>
+        )}
         {viewModel.permissions.isGuestReadOnly && (
           <div className="flex justify-end">
             <span

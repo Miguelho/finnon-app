@@ -1,36 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { acceptInviteSchema } from "@poleursus/shared";
 import { hashInviteToken } from "@poleursus/shared/src/utils/invite";
-
-// Create service role client for bypassing RLS (used only for invite acceptance)
-function createServiceRoleClient() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  );
-}
+import {
+  createServiceRoleClient,
+  getAuthenticatedUser,
+  inviteMatchesUser,
+  isInviteExpired,
+  type InviteLookup,
+} from "@/lib/invites";
 
 export async function POST(request: NextRequest) {
   try {
     // 1. Parse and validate request body
     const body = await request.json();
     const validatedData = acceptInviteSchema.parse(body);
-    const { token } = validatedData;
+    const { token, inviteId, code } = validatedData;
 
-    // 2. Get current user session (may be anonymous or authenticated)
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    // 2. Get current user session (cookies or Authorization header)
+    const { user } = await getAuthenticatedUser(request);
 
     if (!user) {
       return NextResponse.json(
@@ -41,81 +28,122 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Hash the token for database lookup
-    const tokenHash = hashInviteToken(token);
+    const serviceClient = createServiceRoleClient();
+    let invite: InviteLookup | null = null;
 
-    // 4. Lookup invite by token hash
-    const { data: invite, error: inviteError } = await supabase
-      .from("invites")
-      .select(
-        "id, account_id, role, expires_at, revoked_at, max_uses, uses_count, invitee_user_id, invitee_email"
-      )
-      .eq("token_hash", tokenHash)
-      .single();
+    if (token) {
+      const tokenHash = hashInviteToken(token);
+      const { data, error } = await serviceClient
+        .from("invites")
+        .select(
+          "id, account_id, role, status, expires_at, revoked_at, max_uses, uses_count, invited_email, invitee_user_id, invitee_email"
+        )
+        .eq("token_hash", tokenHash)
+        .single();
 
-    if (inviteError || !invite) {
-      console.error("Invite lookup error:", inviteError);
-      console.error("Invite not found for token hash:", tokenHash);
+      if (error || !data) {
+        console.error("Invite lookup error:", error);
+        return NextResponse.json(
+          { errorKey: "errors.inviteInvalidToken" },
+          { status: 404 }
+        );
+      }
+
+      invite = data as InviteLookup;
+    } else if (inviteId) {
+      const { data, error } = await serviceClient
+        .from("invites")
+        .select(
+          "id, account_id, role, status, expires_at, revoked_at, invited_email, invitee_user_id, invitee_email"
+        )
+        .eq("id", inviteId)
+        .single();
+
+      if (error || !data) {
+        return NextResponse.json(
+          { errorKey: "errors.inviteInvalidOrExpired" },
+          { status: 404 }
+        );
+      }
+
+      invite = data as InviteLookup;
+    } else if (code) {
+      const normalizedCode = code.trim().toUpperCase();
+      const codeHash = hashInviteToken(normalizedCode);
+      const { data, error } = await serviceClient
+        .from("invites")
+        .select(
+          "id, account_id, role, status, expires_at, revoked_at, invited_email, invitee_user_id, invitee_email"
+        )
+        .eq("code_hash", codeHash)
+        .single();
+
+      if (error || !data) {
+        return NextResponse.json(
+          { errorKey: "errors.inviteInvalidOrExpired" },
+          { status: 404 }
+        );
+      }
+
+      invite = data as InviteLookup;
+    }
+
+    if (!invite) {
       return NextResponse.json(
-        { errorKey: "errors.inviteInvalidToken" },
-        { status: 404 }
+        { errorKey: "errors.invalidRequest" },
+        { status: 400 }
       );
     }
 
-    const inviteTargetEmail =
-      typeof invite.invitee_email === "string"
-        ? invite.invitee_email.toLowerCase()
-        : null;
-
-    if (invite.invitee_user_id && invite.invitee_user_id !== user.id) {
+    if (!inviteMatchesUser(invite, user)) {
       return NextResponse.json(
         { errorKey: "errors.inviteInvalidRecipient" },
         { status: 403 }
       );
     }
 
-    if (inviteTargetEmail && user.email?.toLowerCase() !== inviteTargetEmail) {
-      return NextResponse.json(
-        { errorKey: "errors.inviteInvalidRecipient" },
-        { status: 403 }
-      );
-    }
-
-    // 5. Validate invite status
     const now = new Date();
+    const status = invite.status ?? "pending";
 
-    if (invite.revoked_at) {
+    if (invite.revoked_at || status === "revoked") {
       return NextResponse.json(
         { errorKey: "errors.inviteRevoked" },
         { status: 410 }
       );
     }
 
-    const isTargeted = Boolean(invite.invitee_user_id || invite.invitee_email);
+    if (status === "accepted" || status === "rejected") {
+      return NextResponse.json(
+        { errorKey: "errors.inviteInvalidOrExpired" },
+        { status: 409 }
+      );
+    }
 
-    if (!isTargeted && new Date(invite.expires_at) < now) {
+    if (status === "expired" || isInviteExpired(invite, now)) {
+      await serviceClient
+        .from("invites")
+        .update({ status: "expired", responded_at: now.toISOString() })
+        .eq("id", invite.id);
+
       return NextResponse.json(
         { errorKey: "errors.inviteExpired" },
         { status: 410 }
       );
     }
 
-    if (invite.max_uses !== null && invite.uses_count >= invite.max_uses) {
+    if (
+      token &&
+      invite.max_uses !== null &&
+      typeof invite.uses_count === "number" &&
+      invite.uses_count >= invite.max_uses
+    ) {
       return NextResponse.json(
         { errorKey: "errors.inviteMaxUses" },
         { status: 429 }
       );
     }
 
-    // 6. Use service role client for write operations (bypasses RLS)
-    // This is secure because we've already validated:
-    // - User has a valid session (anonymous or authenticated)
-    // - Invite token is valid, not expired, not revoked, within usage limits
-    const serviceClient = createServiceRoleClient();
-
-    // 7. Upsert user into account_members
-    // The UNIQUE constraint on (account_id, user_id) ensures idempotency
-    // If user is already a member, preserve their existing role (don't downgrade admins)
+    // Upsert membership (idempotent)
     const { error: memberError } = await serviceClient
       .from("account_members")
       .upsert(
@@ -126,7 +154,7 @@ export async function POST(request: NextRequest) {
         },
         {
           onConflict: "account_id,user_id",
-          ignoreDuplicates: true, // Preserve existing role if already a member
+          ignoreDuplicates: true,
         }
       );
 
@@ -138,18 +166,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 8. Increment uses_count
-    const { error: updateError } = await serviceClient
-      .from("invites")
-      .update({ uses_count: invite.uses_count + 1 })
-      .eq("id", invite.id);
+    const isTargeted = Boolean(
+      invite.invited_email || invite.invitee_email || invite.invitee_user_id
+    );
 
-    if (updateError) {
-      console.error("Error updating invite uses:", updateError);
-      // Non-fatal: member was added successfully, just log the error
+    if (token && !isTargeted && typeof invite.uses_count === "number") {
+      const { error: updateError } = await serviceClient
+        .from("invites")
+        .update({ uses_count: invite.uses_count + 1 })
+        .eq("id", invite.id);
+
+      if (updateError) {
+        console.error("Error updating invite uses:", updateError);
+      }
+    } else {
+      const { error: updateError } = await serviceClient
+        .from("invites")
+        .update({ status: "accepted", responded_at: now.toISOString() })
+        .eq("id", invite.id);
+
+      if (updateError) {
+        console.error("Error updating invite status:", updateError);
+      }
     }
 
-    // 9. Return success
     return NextResponse.json({
       accountId: invite.account_id,
       role: invite.role,

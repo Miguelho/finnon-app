@@ -70,6 +70,13 @@ export default function AuthLayout() {
         }}
       />
       <Stack.Screen
+        name="invitations"
+        options={{
+          headerShown: true,
+          title: t(dictionary, "invitations.title"),
+        }}
+      />
+      <Stack.Screen
         name="settings/language"
         options={{
           headerShown: true,

@@ -6,7 +6,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNetworkNotice } from "@/components/network/network-notice";
-import { formatParticipantCount } from "@poleursus/shared";
+import { createClient } from "@/lib/supabase/client";
+import { formatParticipantCount, isExpired } from "@poleursus/shared";
 
 type Account = {
   id: string;
@@ -32,9 +33,11 @@ export function ActiveAccountSelector({
   const t = useTranslations();
   const locale = useLocale();
   const { reportNetworkIssue } = useNetworkNotice();
+  const supabase = useMemo(() => createClient(), []);
   const [activeAccountId, setActiveAccountId] = useState(initialActiveAccountId);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [inviteCount, setInviteCount] = useState<number | null>(null);
   const lastSyncedAccountId = useRef<string | null>(null);
   const isSwitching = isSyncing || isPending;
 
@@ -101,6 +104,47 @@ export function ActiveAccountSelector({
     startTransition,
   ]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadInviteCount() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user?.email) {
+        if (!cancelled) setInviteCount(0);
+        return;
+      }
+
+      const inviteEmail = user.email?.trim().toLowerCase();
+      const { data, error } = inviteEmail
+        ? await supabase
+            .from("invites")
+            .select("id, expires_at, status, invited_email, invitee_email")
+            .or(
+              `invited_email.ilike.${inviteEmail},invitee_email.ilike.${inviteEmail}`
+            )
+            .eq("status", "pending")
+        : { data: [], error: null };
+
+      if (error) {
+        if (!cancelled) setInviteCount(0);
+        return;
+      }
+
+      const count = (data ?? []).filter((invite) => !isExpired(invite.expires_at))
+        .length;
+
+      if (!cancelled) setInviteCount(count);
+    }
+
+    void loadInviteCount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase]);
+
   if (accounts.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -111,6 +155,35 @@ export function ActiveAccountSelector({
 
   return (
     <div className="space-y-3" aria-busy={isSwitching}>
+      <button
+        type="button"
+        onClick={() => router.push("/invitations")}
+        className={cn(
+          "flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition",
+          "border-border hover:bg-muted/50"
+        )}
+      >
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-foreground">
+            {t("invitations.title")}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {t("invitations.subtitle")}
+          </p>
+        </div>
+        {inviteCount !== null && (
+          <span
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-semibold",
+              inviteCount > 0
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border text-muted-foreground"
+            )}
+          >
+            {inviteCount}
+          </span>
+        )}
+      </button>
       {accounts.map((account) => {
         const isActive = account.id === activeAccount?.id;
         return (

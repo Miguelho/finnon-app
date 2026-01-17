@@ -63,9 +63,21 @@ export default function JoinScreen() {
         // 3. Call web API to accept invite
         const apiUrl =
           process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+        const {
+          data: { session: activeSession },
+        } = await supabase.auth.getSession();
+
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+
+        if (activeSession?.access_token) {
+          headers.Authorization = `Bearer ${activeSession.access_token}`;
+        }
+
         const response = await fetch(`${apiUrl}/api/invites/accept`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ token }),
         });
 

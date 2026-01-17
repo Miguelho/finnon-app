@@ -1,79 +1,87 @@
 import { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Modal,
   ActivityIndicator,
-  RefreshControl,
-  Alert,
+  ScrollView,
   Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { supabase } from "../../../src/lib/supabase";
-import { Card } from "../../../src/components/Card";
-import { Button } from "../../../src/components/Button";
 import { Picker } from "@react-native-picker/picker";
+import { supabase } from "../../../src/lib/supabase";
+import { Button } from "../../../src/components/Button";
+import { Card } from "../../../src/components/Card";
 import { useCopy, t } from "../../../src/lib/i18n";
-import { mapInvitesToInvitesVM, themeTokens, type InviteItemVM } from "@poleursus/shared";
+import {
+  createTypographyStyles,
+  humanizeRole,
+  isExpired,
+  themeTokens,
+  type MemberRole,
+} from "@poleursus/shared";
 
 const tokens = themeTokens.light;
+const colors = tokens.colors;
+const typography = createTypographyStyles(tokens);
 
-type RawInvite = {
+const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+
+type InviteRow = {
   id: string;
   account_id: string;
-  role: "viewer" | "contributor" | "admin";
+  role: MemberRole;
+  status: "pending" | "accepted" | "rejected" | "revoked" | "expired" | null;
   expires_at: string;
-  revoked_at: string | null;
-  max_uses: number | null;
-  uses_count: number;
   created_at: string;
-  created_by: string;
-  invitee_user_id?: string | null;
+  invited_email: string | null;
   invitee_email?: string | null;
-  accounts?: {
-    name: string;
-  };
+  accounts?: { name: string } | null;
 };
 
-type FilterStatus = "all" | "active" | "expired" | "revoked";
-type InviteMode = "link" | "registered";
-type ExpirationMode = "unlimited" | "custom";
+type AccountOption = {
+  id: string;
+  name: string;
+};
 
-export default function InvitationsScreen() {
-  const [invites, setInvites] = useState<InviteItemVM[]>([]);
-  const [rawInvites, setRawInvites] = useState<RawInvite[]>([]);
-  const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<FilterStatus>("active");
-  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
-  const [createdInviteUrl, setCreatedInviteUrl] = useState<string | null>(null);
-  const [inviteMode, setInviteMode] = useState<InviteMode>("link");
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [expirationMode, setExpirationMode] = useState<ExpirationMode>("unlimited");
-  const { dictionary } = useCopy();
-
-  // Form state
+export default function InvitationsSettingsScreen() {
+  const { dictionary, locale } = useCopy();
+  const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState("");
-  const [selectedRole, setSelectedRole] = useState<"viewer" | "contributor" | "admin">("viewer");
-  const [expiresInHours, setExpiresInHours] = useState("24");
-  const [maxUses, setMaxUses] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
-  const [isInvitingRegistered, setIsInvitingRegistered] = useState(false);
+  const [invites, setInvites] = useState<InviteRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [selectedRole, setSelectedRole] = useState<MemberRole>("viewer");
+  const [generateCode, setGenerateCode] = useState(false);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [noticeTone, setNoticeTone] = useState<"positive" | "negative" | null>(
+    null
+  );
 
   useEffect(() => {
-    fetchAccounts();
-    fetchInvites();
+    void loadAccounts();
   }, []);
 
-  async function fetchAccounts() {
+  useEffect(() => {
+    if (selectedAccountId) {
+      void loadInvites(selectedAccountId);
+    }
+  }, [selectedAccountId]);
+
+  async function loadAccounts() {
+    setLoading(true);
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return;
+
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("account_members")
@@ -82,877 +90,373 @@ export default function InvitationsScreen() {
       .eq("role", "admin");
 
     if (error) {
-      console.error("Error fetching accounts:", error);
-      return;
-    }
-
-    const accountsList = data
-      .filter((m) => m.accounts)
-      .map((m) => ({
-        id: m.account_id,
-        name: (m.accounts as any).name,
-      }));
-
-    setAccounts(accountsList);
-    if (accountsList.length > 0 && accountsList[0] && !selectedAccountId) {
-      setSelectedAccountId(accountsList[0].id);
-    }
-  }
-
-  async function fetchInvites() {
-    setLoading(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+      console.error("Error loading accounts:", error);
       setLoading(false);
       return;
     }
 
+    const options = (data || [])
+      .filter((member) => member.accounts)
+      .map((member) => ({
+        id: member.account_id,
+        name: (member.accounts as any).name,
+      }));
+
+    setAccounts(options);
+    if (options.length > 0) {
+      setSelectedAccountId(options[0].id);
+    }
+    setLoading(false);
+  }
+
+  async function loadInvites(accountId: string) {
     const { data, error } = await supabase
       .from("invites")
-      .select("*, accounts(name)")
+      .select("id, account_id, role, status, expires_at, created_at, invited_email, invitee_email")
+      .eq("account_id", accountId)
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error fetching invites:", error);
-      setLoading(false);
+      console.error("Error loading invites:", error);
       return;
     }
 
-    setRawInvites(data || []);
-    setInvites(mapInvitesToInvitesVM(data || []));
-    setLoading(false);
-    setRefreshing(false);
+    setInvites((data || []) as InviteRow[]);
   }
 
-  async function createInvite() {
-    if (!selectedAccountId) {
-      Alert.alert(
-        t(dictionary, "common.errorTitle"),
-        t(dictionary, "invites.selectAccountError")
-      );
-      return;
-    }
+  async function sendInvite() {
+    if (!selectedAccountId || inviteEmail.trim().length === 0) return;
 
-    setIsCreating(true);
+    setSending(true);
+    setNotice(null);
+    setNoticeTone(null);
 
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session) {
-        Alert.alert(
-          t(dictionary, "common.errorTitle"),
-          t(dictionary, "invites.noSessionError")
-        );
-        setIsCreating(false);
+
+      if (!session?.access_token) {
+        setNotice(t(dictionary, "errors.noSession"));
+        setNoticeTone("negative");
         return;
       }
 
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
-
-      const body: Record<string, unknown> = {
-        accountId: selectedAccountId,
-        role: selectedRole,
-        maxUses: maxUses ? parseInt(maxUses) : undefined,
-      };
-
-      // Only include expiresInHours if mode is custom
-      if (expirationMode === "custom" && expiresInHours) {
-        body.expiresInHours = parseInt(expiresInHours);
-      }
-
-      const response = await fetch(`${apiUrl}/api/invites/create`, {
+      const response = await fetch(`${API_URL}/api/invites/send`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          accountId: selectedAccountId,
+          email: inviteEmail.trim(),
+          role: selectedRole,
+          generateCode,
+        }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        Alert.alert(
-          t(dictionary, "common.errorTitle"),
-          error.error || t(dictionary, "invites.createError")
+        setNotice(
+          error.errorKey
+            ? t(dictionary, error.errorKey, error.errorParams)
+            : t(dictionary, "invites.sendError")
         );
-        setIsCreating(false);
+        setNoticeTone("negative");
         return;
       }
 
       const data = await response.json();
-      setCreatedInviteUrl(data.inviteUrl);
-      fetchInvites();
-    } catch (error) {
-      console.error("Error creating invite:", error);
-      Alert.alert(
-        t(dictionary, "common.errorTitle"),
-        t(dictionary, "invites.createError")
-      );
-    } finally {
-      setIsCreating(false);
-    }
-  }
 
-  async function createRegisteredInvite() {
-    if (!selectedAccountId) {
-      Alert.alert(
-        t(dictionary, "common.errorTitle"),
-        t(dictionary, "invites.selectAccountError")
-      );
-      return;
-    }
-
-    const trimmedEmail = inviteEmail.trim();
-    if (!trimmedEmail) {
-      Alert.alert(
-        t(dictionary, "common.errorTitle"),
-        t(dictionary, "errors.invalidRequest")
-      );
-      return;
-    }
-
-    setIsInvitingRegistered(true);
-
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        Alert.alert(
-          t(dictionary, "common.errorTitle"),
-          t(dictionary, "invites.noSessionError")
-        );
-        setIsInvitingRegistered(false);
-        return;
-      }
-
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
-      const maxUsesValue = maxUses ? parseInt(maxUses) : 1;
-
-      const body: Record<string, unknown> = {
-        accountId: selectedAccountId,
-        role: selectedRole,
-        email: trimmedEmail,
-        maxUses: Number.isNaN(maxUsesValue) ? 1 : maxUsesValue,
-      };
-
-      // Only include expiresInHours if mode is custom
-      if (expirationMode === "custom" && expiresInHours) {
-        body.expiresInHours = parseInt(expiresInHours);
-      }
-
-      const response = await fetch(`${apiUrl}/api/participants/invite`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        const message = error.errorKey
-          ? t(dictionary, error.errorKey, error.errorParams)
-          : t(dictionary, "invites.registeredInviteError");
-        Alert.alert(t(dictionary, "common.errorTitle"), message);
-        return;
-      }
-
-      const data = await response.json();
       if (data.status === "already_member") {
-        Alert.alert(
-          t(dictionary, "common.successTitle"),
-          t(dictionary, "invites.registeredAlreadyMember")
-        );
+        setNotice(t(dictionary, "invites.registeredAlreadyMember"));
+        setNoticeTone("negative");
         return;
       }
 
       if (data.status === "pending") {
-        Alert.alert(
-          t(dictionary, "common.successTitle"),
-          t(dictionary, "invites.registeredPending")
-        );
+        setNotice(t(dictionary, "invites.registeredPending"));
+        setNoticeTone("negative");
         return;
       }
 
-      if (data.inviteUrl) {
-        setCreatedInviteUrl(data.inviteUrl);
-      }
-
-      fetchInvites();
+      setInviteEmail("");
+      setGenerateCode(false);
+      setInviteCode(data.code ?? null);
+      setNotice(t(dictionary, "invites.sendSuccess"));
+      setNoticeTone("positive");
+      await loadInvites(selectedAccountId);
     } catch (error) {
-      console.error("Error inviting registered user:", error);
-      Alert.alert(
-        t(dictionary, "common.errorTitle"),
-        t(dictionary, "invites.registeredInviteError")
-      );
+      console.error("Error sending invite:", error);
+      setNotice(t(dictionary, "invites.sendError"));
+      setNoticeTone("negative");
     } finally {
-      setIsInvitingRegistered(false);
+      setSending(false);
     }
   }
 
   async function revokeInvite(inviteId: string) {
-    try {
-      const { error } = await supabase
-        .from("invites")
-        .update({ revoked_at: new Date().toISOString() })
-        .eq("id", inviteId);
+    const { error } = await supabase
+      .from("invites")
+      .update({ status: "revoked", responded_at: new Date().toISOString() })
+      .eq("id", inviteId);
 
-      if (error) {
-        Alert.alert(
-          t(dictionary, "common.errorTitle"),
-          t(dictionary, "invites.revokeError")
-        );
-        return;
-      }
-
-      Alert.alert(
-        t(dictionary, "common.successTitle"),
-        t(dictionary, "invites.revokeSuccess")
-      );
-      fetchInvites();
-    } catch (error) {
+    if (error) {
       console.error("Error revoking invite:", error);
-      Alert.alert(
-        t(dictionary, "common.errorTitle"),
-        t(dictionary, "invites.revokeError")
-      );
+      setNotice(t(dictionary, "invites.revokeError"));
+      setNoticeTone("negative");
+      return;
     }
+
+    setNotice(t(dictionary, "invites.revokeSuccess"));
+    setNoticeTone("positive");
+    await loadInvites(selectedAccountId);
   }
 
-  async function shareInviteUrl(url: string) {
-    try {
-      await Share.share({
-        message: t(dictionary, "invites.shareMessage", { url }),
-      });
-    } catch (error) {
-      console.error("Error sharing:", error);
-    }
+  async function shareCode(code: string) {
+    await Share.share({ message: code });
   }
 
-  function closeCreateModal() {
-    setIsCreateModalVisible(false);
-    setCreatedInviteUrl(null);
-    setSelectedRole("viewer");
-    setExpiresInHours("24");
-    setMaxUses("");
-    setInviteMode("link");
-    setInviteEmail("");
-    setExpirationMode("unlimited");
-  }
-
-  const filteredInvites = invites.filter((invite) => {
-    if (filter === "all") return true;
-    return invite.status === filter;
+  const inviteList = invites.map((invite) => {
+    const expired = isExpired(invite.expires_at);
+    const status = invite.status ?? "pending";
+    return {
+      ...invite,
+      status: status === "pending" && expired ? "expired" : status,
+      expired,
+    };
   });
 
-  const statusCounts = {
-    all: invites.length,
-    active: invites.filter((i) => i.status === "active").length,
-    expired: invites.filter((i) => i.status === "expired").length,
-    revoked: invites.filter((i) => i.status === "revoked").length,
-  };
-  const isRegisteredMode = inviteMode === "registered";
-  const modalTitle = createdInviteUrl
-    ? t(dictionary, "invites.createdTitle")
-    : isRegisteredMode
-    ? t(dictionary, "invites.registeredTitle")
-    : t(dictionary, "invites.createTitle");
-  const modalDescription = createdInviteUrl
-    ? t(dictionary, "invites.createdDescription")
-    : isRegisteredMode
-    ? t(dictionary, "invites.registeredDescription")
-    : t(dictionary, "invites.createDescription");
-  const isSubmitting = isRegisteredMode ? isInvitingRegistered : isCreating;
-  const isCreateDisabled =
-    isSubmitting ||
-    !selectedAccountId ||
-    (isRegisteredMode && inviteEmail.trim().length === 0);
-
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => {
-            setRefreshing(true);
-            fetchInvites();
-          }}
-        />
-      }
-    >
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.subtitle}>{t(dictionary, "invites.subtitle")}</Text>
-        </View>
+    <ScrollView contentContainerStyle={styles.container}>
+      {loading ? (
+        <ActivityIndicator size="large" color={colors.text.muted} />
+      ) : accounts.length === 0 ? (
+        <Card title={t(dictionary, "invites.title")} description={t(dictionary, "invites.noAdminAccounts")}> 
+          <Text style={styles.helperText}>{t(dictionary, "invites.noAdminAccounts")}</Text>
+        </Card>
+      ) : (
+        <>
+          <Card title={t(dictionary, "invites.title")} description={t(dictionary, "invites.subtitle")}>
+            <Text style={styles.label}>{t(dictionary, "invites.accountLabel")}</Text>
+            <View style={styles.pickerWrapper}>
+              <Picker
+                selectedValue={selectedAccountId}
+                onValueChange={(value) => setSelectedAccountId(String(value))}
+              >
+                {accounts.map((account) => (
+                  <Picker.Item key={account.id} label={account.name} value={account.id} />
+                ))}
+              </Picker>
+            </View>
 
-        <Button
-          title={t(dictionary, "invites.createButton")}
-          onPress={() => setIsCreateModalVisible(true)}
-        />
+            <Text style={styles.label}>{t(dictionary, "invites.emailLabel")}</Text>
+            <TextInput
+              style={styles.input}
+              value={inviteEmail}
+              onChangeText={setInviteEmail}
+              placeholder={t(dictionary, "login.emailPlaceholder")}
+              placeholderTextColor={colors.text.muted}
+              autoCapitalize="none"
+            />
 
-        {/* Filter buttons */}
-        <View style={styles.filters}>
-          {(["all", "active", "expired", "revoked"] as FilterStatus[]).map((status) => (
-            <TouchableOpacity
-              key={status}
-              style={[styles.filterButton, filter === status && styles.filterButtonActive]}
-              onPress={() => setFilter(status)}
-            >
-              <Text style={[styles.filterText, filter === status && styles.filterTextActive]}>
-                {t(dictionary, `invites.filter${status.charAt(0).toUpperCase() + status.slice(1)}` as any, {
-                  count: statusCounts[status],
-                })}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+            <Text style={styles.label}>{t(dictionary, "invites.roleLabel")}</Text>
+            <View style={styles.pickerWrapper}>
+              <Picker
+                selectedValue={selectedRole}
+                onValueChange={(value) => setSelectedRole(value as MemberRole)}
+              >
+                <Picker.Item label={t(dictionary, "invites.roleViewer")} value="viewer" />
+                <Picker.Item label={t(dictionary, "invites.roleContributor")} value="contributor" />
+                <Picker.Item label={t(dictionary, "invites.roleAdmin")} value="admin" />
+              </Picker>
+            </View>
 
-        {/* Invites list */}
-        <Card
-          title={t(dictionary, "invites.cardTitle")}
-          description={t(dictionary, "invites.cardDescription", { count: filteredInvites.length })}
-        >
-          {loading ? (
-            <ActivityIndicator size="large" color={tokens.colors.text.muted} />
-          ) : filteredInvites.length === 0 ? (
-            <Text style={styles.emptyText}>
-              {filter === "all"
-                ? t(dictionary, "invites.emptyAll")
-                : filter === "active"
-                ? t(dictionary, "invites.emptyActive")
-                : filter === "expired"
-                ? t(dictionary, "invites.emptyExpired")
-                : t(dictionary, "invites.emptyRevoked")}
-            </Text>
-          ) : (
-            filteredInvites.map((invite) => (
-              <View key={invite.id} style={styles.inviteCard}>
-                <View style={styles.inviteHeader}>
-                  <Text style={styles.inviteAccount}>{invite.accountName}</Text>
-                  <View style={styles.badges}>
-                    <View
-                      style={[
-                        styles.badge,
-                        invite.status === "active"
-                          ? styles.badgeActive
-                          : invite.status === "expired"
-                          ? styles.badgeExpired
-                          : styles.badgeRevoked,
-                      ]}
-                    >
-                      <Text style={styles.badgeText}>
-                        {invite.status === "active"
-                          ? t(dictionary, "invites.statusActive")
+            <View style={styles.actionsRow}>
+              <Button
+                title={t(dictionary, "invites.generateCodeLabel")}
+                variant={generateCode ? "secondary" : "primary"}
+                onPress={() => setGenerateCode((prev) => !prev)}
+              />
+              <Button
+                title={sending ? t(dictionary, "common.creating") : t(dictionary, "invites.createButton")}
+                onPress={sendInvite}
+                disabled={sending || inviteEmail.trim().length === 0}
+              />
+            </View>
+
+            {inviteCode && (
+              <TouchableOpacity
+                style={styles.codeCard}
+                onPress={() => shareCode(inviteCode)}
+              >
+                <Text style={styles.codeTitle}>{t(dictionary, "invites.codeLabel")}</Text>
+                <Text style={styles.codeValue}>{inviteCode}</Text>
+                <Text style={styles.codeCopy}>{t(dictionary, "invites.codeCopy")}</Text>
+                <Text style={styles.codeHint}>{t(dictionary, "invites.codeHint")}</Text>
+              </TouchableOpacity>
+            )}
+          </Card>
+
+          <Card title={t(dictionary, "invites.listTitle")} description={t(dictionary, "invites.listEmpty")}> 
+            {inviteList.length === 0 ? (
+              <Text style={styles.helperText}>{t(dictionary, "invites.listEmpty")}</Text>
+            ) : (
+              <View style={styles.inviteList}>
+                {inviteList.map((invite) => (
+                  <View key={invite.id} style={styles.inviteCard}>
+                    <Text style={styles.inviteEmail}>
+                      {invite.invited_email || invite.invitee_email || t(dictionary, "invites.accountUnknown")}
+                    </Text>
+                    <Text style={styles.inviteMeta}>
+                      {humanizeRole(invite.role, locale)} · {t(dictionary, "invites.expiresLabel")} {new Date(invite.expires_at).toLocaleDateString(locale)}
+                    </Text>
+                    <View style={styles.inviteActions}>
+                      <Text style={styles.inviteStatus}>
+                        {invite.status === "accepted"
+                          ? t(dictionary, "invites.statusAccepted")
+                          : invite.status === "rejected"
+                          ? t(dictionary, "invites.statusRejected")
+                          : invite.status === "revoked"
+                          ? t(dictionary, "invites.statusRevoked")
                           : invite.status === "expired"
                           ? t(dictionary, "invites.statusExpired")
-                          : t(dictionary, "invites.statusRevoked")}
+                          : t(dictionary, "invites.statusPending")}
                       </Text>
+                      {invite.status === "pending" && !invite.expired && (
+                        <Button
+                          title={t(dictionary, "invites.revokeButton")}
+                          variant="secondary"
+                          onPress={() => revokeInvite(invite.id)}
+                        />
+                      )}
                     </View>
-                    <View style={styles.badgeRole}>
-                      <Text style={styles.badgeText}>{invite.role}</Text>
-                    </View>
                   </View>
-                </View>
-                <Text style={styles.inviteDetails}>
-                  {t(dictionary, "invites.expiresLabel")}:{" "}
-                  {(invite.expiresAt
-                    ? invite.expiresAt.toLocaleDateString()
-                    : t(dictionary, "invites.expiresNone"))} •{" "}
-                  {t(dictionary, "invites.usesLabel")}: {invite.usesCount}/
-                  {invite.maxUses || "∞"}
-                </Text>
-                {invite.isActive && (
-                  <View style={styles.inviteActions}>
-                    <TouchableOpacity
-                      style={styles.revokeButton}
-                      onPress={() => {
-                        Alert.alert(
-                          t(dictionary, "invites.revokePromptTitle"),
-                          t(dictionary, "invites.revokePromptDescription"),
-                          [
-                            { text: t(dictionary, "common.cancel"), style: "cancel" },
-                            {
-                              text: t(dictionary, "invites.revokeButton"),
-                              style: "destructive",
-                              onPress: () => revokeInvite(invite.id),
-                            },
-                          ]
-                        );
-                      }}
-                    >
-                      <Text style={styles.revokeButtonText}>
-                        {t(dictionary, "invites.revokeButton")}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+                ))}
               </View>
-            ))
-          )}
-        </Card>
-      </View>
-
-      {/* Create Invite Modal */}
-      <Modal
-        visible={isCreateModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={closeCreateModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {modalTitle}
-            </Text>
-            <Text style={styles.modalDescription}>
-              {modalDescription}
-            </Text>
-
-            {createdInviteUrl ? (
-              <View style={styles.urlContainer}>
-                <TextInput
-                  style={styles.urlInput}
-                  value={createdInviteUrl}
-                  editable={false}
-                  multiline
-                />
-                <Button
-                  title={t(dictionary, "invites.shareButton")}
-                  onPress={() => shareInviteUrl(createdInviteUrl)}
-                />
-                <Text style={styles.warning}>{t(dictionary, "invites.warning")}</Text>
-                <Button
-                  title={t(dictionary, "invites.closeButton")}
-                  onPress={closeCreateModal}
-                  variant="secondary"
-                />
-              </View>
-            ) : accounts.length === 0 ? (
-              <View style={styles.noAdminAccountsContainer}>
-                <Text style={styles.noAdminAccountsText}>
-                  {t(dictionary, "invites.noAdminAccounts")}
-                </Text>
-              </View>
-            ) : (
-              <>
-                <View style={styles.formField}>
-                  <Text style={styles.label}>{t(dictionary, "invites.inviteTypeLabel")}</Text>
-                  <View style={styles.inviteTypeButtons}>
-                    <TouchableOpacity
-                      style={[
-                        styles.inviteTypeButton,
-                        inviteMode === "link" && styles.inviteTypeButtonActive,
-                      ]}
-                      onPress={() => setInviteMode("link")}
-                    >
-                      <Text
-                        style={[
-                          styles.inviteTypeButtonText,
-                          inviteMode === "link" && styles.inviteTypeButtonTextActive,
-                        ]}
-                      >
-                        {t(dictionary, "invites.inviteTypeLink")}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.inviteTypeButton,
-                        inviteMode === "registered" && styles.inviteTypeButtonActive,
-                      ]}
-                      onPress={() => setInviteMode("registered")}
-                    >
-                      <Text
-                        style={[
-                          styles.inviteTypeButtonText,
-                          inviteMode === "registered" && styles.inviteTypeButtonTextActive,
-                        ]}
-                      >
-                        {t(dictionary, "invites.inviteTypeRegistered")}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <View style={styles.formField}>
-                  <Text style={styles.label}>{t(dictionary, "invites.accountLabel")}</Text>
-                  <Picker
-                    selectedValue={selectedAccountId}
-                    onValueChange={setSelectedAccountId}
-                    style={styles.picker}
-                  >
-                    {accounts.map((account) => (
-                      <Picker.Item key={account.id} label={account.name} value={account.id} />
-                    ))}
-                  </Picker>
-                </View>
-
-                {inviteMode === "registered" && (
-                  <View style={styles.formField}>
-                    <Text style={styles.label}>
-                      {t(dictionary, "invites.registeredEmailLabel")}
-                    </Text>
-                    <TextInput
-                      style={styles.input}
-                      value={inviteEmail}
-                      onChangeText={setInviteEmail}
-                      autoCapitalize="none"
-                      keyboardType="email-address"
-                      placeholder={t(dictionary, "login.emailPlaceholder")}
-                    />
-                  </View>
-                )}
-
-                <View style={styles.formField}>
-                  <Text style={styles.label}>{t(dictionary, "invites.roleLabel")}</Text>
-                  <Picker
-                    selectedValue={selectedRole}
-                    onValueChange={(v: any) => setSelectedRole(v)}
-                    style={styles.picker}
-                  >
-                    <Picker.Item label={t(dictionary, "invites.roleViewer")} value="viewer" />
-                    <Picker.Item label={t(dictionary, "invites.roleContributor")} value="contributor" />
-                    <Picker.Item label={t(dictionary, "invites.roleAdmin")} value="admin" />
-                  </Picker>
-                </View>
-
-                <View style={styles.formField}>
-                  <Text style={styles.label}>{t(dictionary, "invites.expirationModeLabel")}</Text>
-                  <View style={styles.inviteTypeButtons}>
-                    <TouchableOpacity
-                      style={[
-                        styles.inviteTypeButton,
-                        expirationMode === "unlimited" && styles.inviteTypeButtonActive,
-                      ]}
-                      onPress={() => setExpirationMode("unlimited")}
-                    >
-                      <Text
-                        style={[
-                          styles.inviteTypeButtonText,
-                          expirationMode === "unlimited" && styles.inviteTypeButtonTextActive,
-                        ]}
-                      >
-                        {t(dictionary, "invites.expirationUnlimited")}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.inviteTypeButton,
-                        expirationMode === "custom" && styles.inviteTypeButtonActive,
-                      ]}
-                      onPress={() => setExpirationMode("custom")}
-                    >
-                      <Text
-                        style={[
-                          styles.inviteTypeButtonText,
-                          expirationMode === "custom" && styles.inviteTypeButtonTextActive,
-                        ]}
-                      >
-                        {t(dictionary, "invites.expirationCustom")}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {expirationMode === "custom" && (
-                  <View style={styles.formField}>
-                    <Text style={styles.label}>{t(dictionary, "invites.expiresInLabel")}</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={expiresInHours}
-                      onChangeText={setExpiresInHours}
-                      keyboardType="number-pad"
-                      placeholder={expiresInHours || "24"}
-                    />
-                  </View>
-                )}
-
-                <View style={styles.formField}>
-                  <Text style={styles.label}>{t(dictionary, "invites.maxUsesLabel")}</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={maxUses}
-                    onChangeText={setMaxUses}
-                    keyboardType="number-pad"
-                    placeholder={t(dictionary, "invites.maxUsesPlaceholder")}
-                  />
-                </View>
-
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity style={styles.cancelButton} onPress={closeCreateModal}>
-                    <Text style={styles.cancelButtonText}>{t(dictionary, "common.cancel")}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.createButton,
-                      isCreateDisabled && styles.createButtonDisabled,
-                    ]}
-                    onPress={isRegisteredMode ? createRegisteredInvite : createInvite}
-                    disabled={isCreateDisabled}
-                  >
-                    <Text style={styles.createButtonText}>
-                      {isSubmitting ? t(dictionary, "common.creating") : t(dictionary, "common.create")}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
             )}
-          </View>
-        </View>
-      </Modal>
+          </Card>
+
+          {notice && (
+            <Text
+              style={[
+                styles.noticeText,
+                noticeTone === "negative" && styles.noticeTextNegative,
+              ]}
+            >
+              {notice}
+            </Text>
+          )}
+        </>
+      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: tokens.colors.bg.secondary,
-  },
-  content: {
-    padding: tokens.spacing.xl,
-  },
-  header: {
-    marginBottom: tokens.spacing.xl,
-  },
-  subtitle: {
-    fontSize: tokens.typography.size.md,
-    color: tokens.colors.text.secondary,
-    marginBottom: tokens.spacing.lg,
-  },
-  filters: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: tokens.spacing.sm,
-    marginVertical: tokens.spacing.lg,
-  },
-  filterButton: {
-    paddingHorizontal: tokens.spacing.md,
-    paddingVertical: tokens.spacing.sm,
-    borderRadius: tokens.radii.sm,
-    borderWidth: 1,
-    borderColor: tokens.colors.state.neutral,
-    backgroundColor: tokens.colors.bg.surface,
-  },
-  filterButtonActive: {
-    backgroundColor: tokens.colors.text.primary,
-    borderColor: tokens.colors.text.primary,
-  },
-  filterText: {
-    fontSize: tokens.typography.size.sm,
-    color: tokens.colors.text.secondary,
-  },
-  filterTextActive: {
-    color: tokens.colors.bg.primary,
-  },
-  emptyText: {
-    textAlign: "center",
-    color: tokens.colors.text.secondary,
-    paddingVertical: tokens.spacing.xl,
-  },
-  inviteCard: {
-    padding: tokens.spacing.md,
-    borderWidth: 1,
-    borderColor: tokens.colors.state.neutral,
-    borderRadius: tokens.radii.sm,
-    marginBottom: tokens.spacing.md,
-    backgroundColor: tokens.colors.bg.secondary,
-  },
-  inviteHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: tokens.spacing.sm,
-  },
-  inviteAccount: {
-    fontSize: tokens.typography.size.md,
-    fontWeight: tokens.typography.weight.semibold,
-    color: tokens.colors.text.primary,
-    flex: 1,
-  },
-  badges: {
-    flexDirection: "row",
-    gap: tokens.spacing.xs,
-  },
-  badge: {
-    paddingHorizontal: tokens.spacing.sm,
-    paddingVertical: tokens.spacing.xs,
-    borderRadius: tokens.radii.sm,
-  },
-  badgeActive: {
-    backgroundColor: "#d1fae5",
-  },
-  badgeExpired: {
-    backgroundColor: "#fed7aa",
-  },
-  badgeRevoked: {
-    backgroundColor: "#fecaca",
-  },
-  badgeRole: {
-    backgroundColor: "#dbeafe",
-    paddingHorizontal: tokens.spacing.sm,
-    paddingVertical: tokens.spacing.xs,
-    borderRadius: tokens.radii.sm,
-  },
-  badgeText: {
-    fontSize: tokens.typography.size.xs,
-    fontWeight: tokens.typography.weight.medium,
-    color: tokens.colors.text.primary,
-  },
-  inviteDetails: {
-    fontSize: tokens.typography.size.sm,
-    color: tokens.colors.text.secondary,
-    marginBottom: tokens.spacing.sm,
-  },
-  inviteActions: {
-    flexDirection: "row",
-    gap: tokens.spacing.sm,
-  },
-  revokeButton: {
-    backgroundColor: tokens.colors.state.negative,
-    paddingHorizontal: tokens.spacing.md,
-    paddingVertical: tokens.spacing.sm,
-    borderRadius: tokens.radii.sm,
-  },
-  revokeButtonText: {
-    color: tokens.colors.bg.primary,
-    fontSize: tokens.typography.size.sm,
-    fontWeight: tokens.typography.weight.medium,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    backgroundColor: tokens.colors.bg.surface,
-    borderRadius: tokens.radii.md,
-    padding: tokens.spacing.xxl,
-    width: "90%",
-    maxWidth: 400,
-  },
-  modalTitle: {
-    fontSize: tokens.typography.size.xl,
-    fontWeight: tokens.typography.weight.bold,
-    color: tokens.colors.text.primary,
-    marginBottom: tokens.spacing.sm,
-  },
-  modalDescription: {
-    fontSize: tokens.typography.size.sm,
-    color: tokens.colors.text.secondary,
-    marginBottom: tokens.spacing.xl,
-  },
-  urlContainer: {
-    gap: tokens.spacing.md,
-  },
-  urlInput: {
-    borderWidth: 1,
-    borderColor: tokens.colors.state.neutral,
-    borderRadius: tokens.radii.sm,
-    padding: tokens.spacing.md,
-    fontSize: tokens.typography.size.xs,
-    fontFamily: "monospace",
-    backgroundColor: tokens.colors.bg.secondary,
-    color: tokens.colors.text.primary,
-  },
-  warning: {
-    fontSize: tokens.typography.size.xs,
-    color: tokens.colors.text.secondary,
-    fontStyle: "italic",
-  },
-  formField: {
-    marginBottom: tokens.spacing.lg,
-  },
-  inviteTypeButtons: {
-    flexDirection: "row",
-    gap: tokens.spacing.sm,
-  },
-  inviteTypeButton: {
-    flex: 1,
-    paddingVertical: tokens.spacing.sm,
-    borderRadius: tokens.radii.sm,
-    borderWidth: 1,
-    borderColor: tokens.colors.state.neutral,
-    backgroundColor: tokens.colors.bg.surface,
-    alignItems: "center",
-  },
-  inviteTypeButtonActive: {
-    borderColor: tokens.colors.text.primary,
-    backgroundColor: tokens.colors.bg.secondary,
-  },
-  inviteTypeButtonText: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: tokens.typography.weight.medium,
-    color: tokens.colors.text.secondary,
-  },
-  inviteTypeButtonTextActive: {
-    color: tokens.colors.text.primary,
+    padding: tokens.spacing.lg,
+    gap: tokens.spacing.lg,
+    backgroundColor: colors.bg.secondary,
   },
   label: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: tokens.typography.weight.medium,
-    color: tokens.colors.text.primary,
-    marginBottom: tokens.spacing.sm,
+    ...typography.meta,
+    color: colors.text.secondary,
+    marginTop: tokens.spacing.md,
+    marginBottom: tokens.spacing.xs,
   },
   input: {
     borderWidth: 1,
-    borderColor: tokens.colors.state.neutral,
-    borderRadius: tokens.radii.sm,
-    padding: tokens.spacing.md,
-    fontSize: tokens.typography.size.md,
-    backgroundColor: tokens.colors.bg.surface,
-    color: tokens.colors.text.primary,
+    borderColor: colors.state.neutral,
+    borderRadius: tokens.radii.md,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+    backgroundColor: colors.bg.surface,
+    color: colors.text.primary,
   },
-  picker: {
+  pickerWrapper: {
     borderWidth: 1,
-    borderColor: tokens.colors.state.neutral,
-    borderRadius: tokens.radii.sm,
+    borderColor: colors.state.neutral,
+    borderRadius: tokens.radii.md,
+    backgroundColor: colors.bg.surface,
+    overflow: "hidden",
   },
-  modalButtons: {
+  actionsRow: {
     flexDirection: "row",
-    gap: tokens.spacing.md,
-    marginTop: tokens.spacing.sm,
+    flexWrap: "wrap",
+    gap: tokens.spacing.sm,
+    marginTop: tokens.spacing.md,
   },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: tokens.spacing.md,
-    borderRadius: tokens.radii.sm,
+  codeCard: {
+    marginTop: tokens.spacing.md,
+    padding: tokens.spacing.md,
+    borderRadius: tokens.radii.md,
     borderWidth: 1,
-    borderColor: tokens.colors.state.neutral,
+    borderColor: colors.state.neutral,
+    backgroundColor: colors.bg.surface,
+  },
+  codeTitle: {
+    ...typography.meta,
+    color: colors.text.secondary,
+    marginBottom: tokens.spacing.xs,
+  },
+  codeValue: {
+    ...typography.h3,
+    color: colors.text.primary,
+    letterSpacing: 2,
+  },
+  codeCopy: {
+    ...typography.meta,
+    color: colors.action.primary,
+    marginTop: tokens.spacing.xs,
+  },
+  codeHint: {
+    ...typography.meta,
+    color: colors.text.secondary,
+    marginTop: tokens.spacing.xs,
+  },
+  inviteList: {
+    gap: tokens.spacing.md,
+  },
+  inviteCard: {
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    borderRadius: tokens.radii.md,
+    padding: tokens.spacing.md,
+    backgroundColor: colors.bg.surface,
+    gap: tokens.spacing.xs,
+  },
+  inviteEmail: {
+    ...typography.body,
+    color: colors.text.primary,
+    fontWeight: tokens.typography.weight.semibold,
+  },
+  inviteMeta: {
+    ...typography.meta,
+    color: colors.text.secondary,
+  },
+  inviteActions: {
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    gap: tokens.spacing.sm,
+    marginTop: tokens.spacing.xs,
   },
-  cancelButtonText: {
-    fontSize: tokens.typography.size.md,
-    color: tokens.colors.text.secondary,
+  inviteStatus: {
+    ...typography.meta,
+    color: colors.text.secondary,
   },
-  createButton: {
-    flex: 1,
-    paddingVertical: tokens.spacing.md,
-    borderRadius: tokens.radii.sm,
-    backgroundColor: tokens.colors.text.primary,
-    alignItems: "center",
+  helperText: {
+    ...typography.meta,
+    color: colors.text.secondary,
   },
-  createButtonDisabled: {
-    backgroundColor: tokens.colors.action.disabled,
-  },
-  createButtonText: {
-    fontSize: tokens.typography.size.md,
-    color: tokens.colors.bg.primary,
-    fontWeight: tokens.typography.weight.medium,
-  },
-  noAdminAccountsContainer: {
-    padding: tokens.spacing.lg,
-    alignItems: "center",
-  },
-  noAdminAccountsText: {
-    fontSize: tokens.typography.size.md,
-    color: tokens.colors.text.secondary,
+  noticeText: {
+    ...typography.meta,
+    color: colors.state.positive,
     textAlign: "center",
+  },
+  noticeTextNegative: {
+    color: colors.state.negative,
   },
 });
