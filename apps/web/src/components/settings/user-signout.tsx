@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { signOutAndReset } from "@poleursus/shared";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,17 +22,11 @@ const STORAGE_KEY = "finnon:activeAccountId";
 export function UserSignOutRow() {
   const t = useTranslations();
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const clearActiveAccount = async () => {
     localStorage.removeItem(STORAGE_KEY);
-    try {
-      await fetch("/api/active-account", { method: "DELETE" });
-    } catch (error) {
-      console.warn("[UserSignOut] Failed to clear active account:", error);
-    }
   };
 
   const handleSignOut = async () => {
@@ -41,7 +34,18 @@ export function UserSignOutRow() {
 
     try {
       await signOutAndReset({
-        signOut: () => supabase.auth.signOut(),
+        signOut: async () => {
+          const res = await fetch("/api/auth/signout", {
+            method: "POST",
+            credentials: "include",
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(
+              typeof data?.error === "string" ? data.error : "Sign out failed"
+            );
+          }
+        },
         clearLocalSessionArtifacts: clearActiveAccount,
         onReset: () => setIsDialogOpen(false),
         onNavigate: () => router.replace("/login"),
