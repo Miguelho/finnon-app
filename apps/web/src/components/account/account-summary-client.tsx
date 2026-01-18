@@ -1,18 +1,20 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
+import { Info } from "lucide-react";
 import {
   buildAccountViewModel,
   CURRENCIES,
   formatMoneyWithSymbol,
-  themeTokens,
   type AccountSummaryData,
+  type AccountParticipantVM,
   type UserRole,
 } from "@poleursus/shared";
 import { CategoryIcon } from "@/components/category-icon";
 import { AccountSwitcher } from "@/components/home/account-switcher";
+import { UserAvatar } from "@/components/user-avatar";
 import {
   Card,
   CardContent,
@@ -20,9 +22,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  SlidePanel,
+  SlidePanelBody,
+  SlidePanelContent,
+  SlidePanelDescription,
+  SlidePanelHeader,
+  SlidePanelTitle,
+} from "@/components/ui/slide-panel";
 import { cn } from "@/lib/utils";
-
-const tokens = themeTokens.light;
 
 type AccountSummaryClientProps = {
   summaryData: AccountSummaryData;
@@ -45,7 +53,6 @@ export function AccountSummaryClient({
   activeAccountId,
 }: AccountSummaryClientProps) {
   const t = useTranslations();
-  const locale = useLocale();
 
   // Build a minimal dictionary for the viewmodel
   const dictionary = useMemo(() => {
@@ -88,17 +95,113 @@ export function AccountSummaryClient({
 
   const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
   const accountIdShort = summaryData.account.id.slice(0, 6);
+  const participants = viewModel.participants;
+
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isMemberPanelOpen, setIsMemberPanelOpen] = useState(false);
+  const [isMembersPanelOpen, setIsMembersPanelOpen] = useState(false);
+  const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
+
+  const infoButtonRef = useRef<HTMLButtonElement | null>(null);
+  const infoPopoverRef = useRef<HTMLDivElement | null>(null);
+
+  const activeMember = useMemo(
+    () => participants.find((participant) => participant.userId === activeMemberId) ?? null,
+    [participants, activeMemberId]
+  );
+
+  useEffect(() => {
+    if (!isInfoOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        infoPopoverRef.current?.contains(target) ||
+        infoButtonRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setIsInfoOpen(false);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsInfoOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isInfoOpen]);
 
   return (
     <div className="space-y-6">
-      {/* Account Header */}
-      <div className="text-center">
-        <h2 className="text-3xl font-bold tracking-tight">
-          {viewModel.account.name}
-        </h2>
-        <p className="text-muted-foreground">
-          {viewModel.account.baseCurrency} · {viewModel.copy.baseCurrencySubtitle} · {roleLabel} · <span className="font-mono">{accountIdShort}</span>
-        </p>
+      {/* Account Hero */}
+      <div className="space-y-3">
+        <div className="flex justify-center">
+          <div className="relative inline-flex items-center gap-2">
+            <h2 className="text-3xl font-bold tracking-tight text-center">
+              {viewModel.account.name}
+            </h2>
+            <button
+              type="button"
+              ref={infoButtonRef}
+              onClick={() => setIsInfoOpen((prev) => !prev)}
+              aria-label={t("account.infoButtonLabel")}
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition hover:text-foreground"
+            >
+              <Info className="h-4 w-4" />
+            </button>
+            {isInfoOpen ? (
+              <div
+                ref={infoPopoverRef}
+                className="absolute right-0 top-full z-20 mt-2 w-64 rounded-lg border border-border bg-background p-3 shadow-sm animate-in fade-in-0 zoom-in-95"
+              >
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {t("account.yourRoleLabel")}
+                    </span>
+                    <span className="font-medium text-foreground">{roleLabel}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {t("account.summary.baseCurrencySubtitle")}
+                    </span>
+                    <span className="font-medium text-foreground">
+                      {viewModel.account.baseCurrency}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {t("account.idLabel")}
+                    </span>
+                    <span className="font-mono text-xs text-foreground">
+                      {accountIdShort}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <MemberAvatarsRow
+          participants={participants}
+          currentUserId={currentUserId}
+          youLabel={viewModel.copy.youLabel}
+          emptyLabel={viewModel.copy.participantsEmpty}
+          onOpenMember={(memberId) => {
+            setActiveMemberId(memberId);
+            setIsMembersPanelOpen(false);
+            setIsMemberPanelOpen(true);
+          }}
+          onOpenAllMembers={() => setIsMembersPanelOpen(true)}
+          maxVisible={5}
+        />
       </div>
 
       {/* Financial Summary */}
@@ -154,53 +257,6 @@ export function AccountSummaryClient({
           </CardContent>
         </Card>
       </div>
-
-      {/* Participants */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">{viewModel.copy.participantsLabel}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {viewModel.participants.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {viewModel.copy.participantsEmpty}
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {viewModel.participants.map((participant) => {
-                const isCurrentUser = participant.userId === currentUserId;
-                const displayName = isCurrentUser
-                  ? viewModel.copy.youLabel
-                  : participant.displayName ||
-                    participant.email ||
-                    `User ${participant.userId.slice(0, 6)}`;
-
-                return (
-                  <div
-                    key={participant.userId}
-                    className="flex items-center rounded-md border px-3 py-2"
-                  >
-                    <div className="flex items-center gap-3">
-                      <ParticipantAvatar
-                        email={participant.email}
-                        fallbackText={participant.avatarFallbackText}
-                      />
-                      <div>
-                        <p className="text-sm font-medium">{displayName}</p>
-                        {!isCurrentUser && participant.email && (
-                          <p className="text-xs text-muted-foreground">
-                            {participant.email}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Categories */}
       <Card>
@@ -266,26 +322,211 @@ export function AccountSummaryClient({
           initialActiveAccountId={activeAccountId}
         />
       </div>
+
+      <SlidePanel open={isMemberPanelOpen} onOpenChange={setIsMemberPanelOpen}>
+        <SlidePanelContent>
+          <SlidePanelHeader>
+            <SlidePanelTitle>
+              {activeMember
+                ? resolveParticipantName(activeMember, currentUserId, viewModel.copy.youLabel)
+                : viewModel.copy.participantsLabel}
+            </SlidePanelTitle>
+            {activeMember?.email ? (
+              <SlidePanelDescription>{activeMember.email}</SlidePanelDescription>
+            ) : null}
+          </SlidePanelHeader>
+          <SlidePanelBody className="space-y-6">
+            {activeMember ? (
+              <>
+                <div className="flex items-center gap-4">
+                  <UserAvatar
+                    email={activeMember.email}
+                    userId={activeMember.userId}
+                    avatarPath={activeMember.avatarPath}
+                    fallbackText={activeMember.avatarFallbackText}
+                    fallbackBgToken={activeMember.avatarFallbackBgToken as any}
+                    size={56}
+                    className="border border-border"
+                  />
+                  <div className="space-y-1">
+                    <p className="text-base font-semibold text-foreground">
+                      {resolveParticipantName(
+                        activeMember,
+                        currentUserId,
+                        viewModel.copy.youLabel
+                      )}
+                    </p>
+                    {activeMember.email ? (
+                      <p className="text-sm text-muted-foreground">
+                        {activeMember.email}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {t("account.roleLabel")}
+                  </span>
+                  <span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold uppercase text-foreground">
+                    {activeMember.role}
+                  </span>
+                </div>
+              </>
+            ) : null}
+          </SlidePanelBody>
+        </SlidePanelContent>
+      </SlidePanel>
+
+      <SlidePanel open={isMembersPanelOpen} onOpenChange={setIsMembersPanelOpen}>
+        <SlidePanelContent>
+          <SlidePanelHeader>
+            <SlidePanelTitle>{viewModel.copy.participantsLabel}</SlidePanelTitle>
+            <SlidePanelDescription>{viewModel.account.name}</SlidePanelDescription>
+          </SlidePanelHeader>
+          <SlidePanelBody className="space-y-2">
+            {participants.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {viewModel.copy.participantsEmpty}
+              </p>
+            ) : (
+              participants.map((participant) => {
+                const displayName = resolveParticipantName(
+                  participant,
+                  currentUserId,
+                  viewModel.copy.youLabel
+                );
+                return (
+                  <button
+                    key={participant.userId}
+                    type="button"
+                    onClick={() => {
+                      setActiveMemberId(participant.userId);
+                      setIsMembersPanelOpen(false);
+                      setIsMemberPanelOpen(true);
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg border border-border px-3 py-2 text-left transition hover:bg-muted/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <UserAvatar
+                        email={participant.email}
+                        userId={participant.userId}
+                        avatarPath={participant.avatarPath}
+                        fallbackText={participant.avatarFallbackText}
+                        fallbackBgToken={participant.avatarFallbackBgToken as any}
+                        size={32}
+                        className="border border-border"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {displayName}
+                        </p>
+                        {participant.email && participant.userId !== currentUserId ? (
+                          <p className="text-xs text-muted-foreground">
+                            {participant.email}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold uppercase text-foreground">
+                      {participant.role}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </SlidePanelBody>
+        </SlidePanelContent>
+      </SlidePanel>
     </div>
   );
 }
 
-function ParticipantAvatar({
-  email,
-  fallbackText,
+function MemberAvatarsRow({
+  participants,
+  currentUserId,
+  youLabel,
+  emptyLabel,
+  onOpenMember,
+  onOpenAllMembers,
+  maxVisible,
 }: {
-  email: string | null;
-  fallbackText: string | null;
+  participants: AccountParticipantVM[];
+  currentUserId: string;
+  youLabel: string;
+  emptyLabel: string;
+  onOpenMember: (memberId: string) => void;
+  onOpenAllMembers: () => void;
+  maxVisible: number;
 }) {
-  const initial = fallbackText || (email ? email[0].toUpperCase() : "?");
-  const avatarShadow = `0 6px 16px ${tokens.colors.action.primary}33`;
+  const { visibleMembers, overflowCount } = useMemo(() => {
+    if (participants.length <= maxVisible) {
+      return { visibleMembers: participants, overflowCount: 0 };
+    }
+    const visibleCount = Math.max(maxVisible - 1, 0);
+    return {
+      visibleMembers: participants.slice(0, visibleCount),
+      overflowCount: participants.length - visibleCount,
+    };
+  }, [participants, maxVisible]);
+
+  if (participants.length === 0) {
+    return (
+      <p className="text-center text-sm text-muted-foreground">
+        {emptyLabel}
+      </p>
+    );
+  }
 
   return (
-    <div
-      className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-semibold"
-      style={{ boxShadow: avatarShadow }}
-    >
-      {initial}
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      {visibleMembers.map((participant) => {
+        const displayName = resolveParticipantName(
+          participant,
+          currentUserId,
+          youLabel
+        );
+        return (
+          <button
+            key={participant.userId}
+            type="button"
+            onClick={() => onOpenMember(participant.userId)}
+            className="rounded-full border border-transparent transition hover:border-border focus:outline-none focus:ring-2 focus:ring-ring"
+            aria-label={displayName}
+          >
+            <UserAvatar
+              email={participant.email}
+              userId={participant.userId}
+              avatarPath={participant.avatarPath}
+              fallbackText={participant.avatarFallbackText}
+              fallbackBgToken={participant.avatarFallbackBgToken as any}
+              size={32}
+            />
+          </button>
+        );
+      })}
+      {overflowCount > 0 ? (
+        <button
+          type="button"
+          onClick={onOpenAllMembers}
+          className="flex h-9 min-w-[36px] items-center justify-center rounded-full border border-border bg-muted px-2 text-xs font-semibold text-foreground"
+          aria-label={`+${overflowCount}`}
+        >
+          +{overflowCount}
+        </button>
+      ) : null}
     </div>
+  );
+}
+
+function resolveParticipantName(
+  participant: AccountParticipantVM,
+  currentUserId: string,
+  youLabel: string
+) {
+  if (participant.userId === currentUserId) return youLabel;
+  return (
+    participant.displayName ||
+    participant.email ||
+    `User ${participant.userId.slice(0, 6)}`
   );
 }
