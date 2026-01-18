@@ -764,12 +764,20 @@ export function TransactionsClient({
             <h1 className="text-3xl font-bold tracking-tight">{t("pageTitle")}</h1>
             <p className="text-muted-foreground">{t("pageDescription")}</p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setIsFiltersOpen(true)}
-          >
-            {t("filtersButton")}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => router.push("/recurrentes")}
+            >
+              {tGlobal("recurrentes.title")}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsFiltersOpen(true)}
+            >
+              {t("filtersButton")}
+            </Button>
+          </div>
         </div>
         {!canEdit && (
           <p className="text-sm text-muted-foreground">

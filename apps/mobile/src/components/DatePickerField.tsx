@@ -39,6 +39,7 @@ type DatePickerFieldProps = {
   error?: string;
   disabled?: boolean;
   allowClear?: boolean;
+  formatValue?: (value: string) => string;
 };
 
 export function DatePickerField({
@@ -50,6 +51,7 @@ export function DatePickerField({
   error,
   disabled,
   allowClear,
+  formatValue,
 }: DatePickerFieldProps) {
   const { locale, dictionary } = useCopy();
   const selectedDate = useMemo(() => parseIsoDate(value), [value]);
@@ -95,7 +97,10 @@ export function DatePickerField({
     );
   };
 
-  const displayValue = value || placeholder || "";
+  const formattedValue = value
+    ? formatValue?.(value) ?? value
+    : "";
+  const displayValue = formattedValue || placeholder || "";
 
   return (
     <View style={styles.container}>

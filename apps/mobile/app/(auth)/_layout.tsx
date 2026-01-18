@@ -83,6 +83,20 @@ export default function AuthLayout() {
           title: t(dictionary, "settings.language.title"),
         }}
       />
+      <Stack.Screen
+        name="recurrentes/index"
+        options={{
+          headerShown: true,
+          title: t(dictionary, "recurrentes.title"),
+        }}
+      />
+      <Stack.Screen
+        name="recurrentes/[id]"
+        options={{
+          headerShown: true,
+          title: t(dictionary, "recurrentes.edit"),
+        }}
+      />
     </Stack>
   );
 }

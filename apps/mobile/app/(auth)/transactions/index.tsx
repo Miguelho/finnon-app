@@ -575,6 +575,25 @@ export default function TransactionsScreen(): React.JSX.Element {
                 </Text>
               </View>
             </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/(auth)/recurrentes")}
+              style={styles.filterButton}
+              accessibilityRole="button"
+              accessibilityLabel={t(dictionary, "recurrentes.title")}
+            >
+              <View style={styles.filterIcon}>
+                <MaterialCommunityIcons
+                  name="repeat"
+                  size={18}
+                  color={colors.text.primary}
+                />
+              </View>
+              <View style={styles.filterText}>
+                <Text style={styles.filterLabel}>
+                  {t(dictionary, "recurrentes.title")}
+                </Text>
+              </View>
+            </TouchableOpacity>
           </View>
 
           {/* Month Summary */}

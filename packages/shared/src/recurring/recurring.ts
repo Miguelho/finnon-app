@@ -82,6 +82,26 @@ export const normalizeMonthlyDay = (
   return Math.min(targetDay, daysInMonth(year, monthIndex));
 };
 
+/**
+ * Gets the next occurrence date for a recurring item from a given date.
+ * Returns null if the item is paused, ended, or has no future occurrences.
+ */
+export const getNextOccurrence = (
+  item: RecurringItem,
+  fromISO: string
+): string | null => {
+  if (item.is_paused) return null;
+
+  // Look up to 2 years ahead for the next occurrence
+  const fromDate = toUtcDate(fromISO);
+  const twoYearsLater = new Date(fromDate);
+  twoYearsLater.setUTCFullYear(twoYearsLater.getUTCFullYear() + 2);
+  const toISO = toIsoDate(twoYearsLater);
+
+  const occurrences = getOccurrencesBetween(item, fromISO, toISO);
+  return occurrences[0]?.date ?? null;
+};
+
 export const getOccurrencesBetween = (
   item: RecurringItem,
   fromISO: string,

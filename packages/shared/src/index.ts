@@ -5,6 +5,7 @@ export { transactionSchema, createTransactionSchema, transactionTypeSchema } fro
 export type { TransactionType, CreateTransaction } from "./schemas/transaction";
 export * from "./schemas/invite";
 export * from "./schemas/participant";
+export * from "./schemas/recurring";
 export * from "./constants/currencies";
 export * from "./icons/category-icons";
 export * from "./icons/category-icons/legacy";

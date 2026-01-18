@@ -690,3 +690,227 @@ export async function deleteTransaction(
     };
   }
 }
+
+export async function updateRecurringItem(input: {
+  id: string;
+  merchant?: string;
+  amount_minor?: number;
+  start_date?: string;
+  end_date?: string | null;
+  effective_from: string; // For audit/logging purposes
+}): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: { key: "errors.unauthorized" } };
+    }
+
+    // Get the recurring item
+    const { data: recurringItem } = await supabase
+      .from("recurring_items")
+      .select("id, account_id")
+      .eq("id", input.id)
+      .single();
+
+    if (!recurringItem) {
+      return { success: false, error: { key: "errors.invalidRequest" } };
+    }
+
+    // Verify user has contributor+ role
+    const { data: membership } = await supabase
+      .from("account_members")
+      .select("role")
+      .eq("account_id", recurringItem.account_id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!membership || membership.role === "viewer") {
+      return { success: false, error: { key: "errors.accessDenied" } };
+    }
+
+    // Validate effective_from is today or in the future
+    const today = new Date().toISOString().slice(0, 10);
+    if (input.effective_from < today) {
+      return { success: false, error: { key: "errors.invalidRequest" } };
+    }
+
+    // Build update payload (only include fields that were provided)
+    const updatePayload: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (input.merchant !== undefined) {
+      updatePayload.merchant = input.merchant;
+    }
+
+    if (input.amount_minor !== undefined) {
+      if (input.amount_minor <= 0) {
+        return { success: false, error: { key: "errors.invalidRequest" } };
+      }
+      updatePayload.amount_minor = input.amount_minor.toString();
+    }
+
+    if (input.start_date !== undefined) {
+      updatePayload.start_date = input.start_date;
+    }
+
+    if (input.end_date !== undefined) {
+      updatePayload.end_date = input.end_date;
+    }
+
+    // Validate start_date <= end_date if both are set
+    if (updatePayload.start_date && updatePayload.end_date) {
+      if (updatePayload.start_date > updatePayload.end_date) {
+        return { success: false, error: { key: "errors.invalidRequest" } };
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("recurring_items")
+      .update(updatePayload)
+      .eq("id", input.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating recurring item:", error);
+      return { success: false, error: { key: "errors.internalServer" } };
+    }
+
+    revalidatePath("/transactions");
+    revalidatePath("/recurrentes");
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Error in updateRecurringItem:", error);
+    return { success: false, error: { key: "errors.internalServer" } };
+  }
+}
+
+export async function pauseRecurringItem(input: {
+  id: string;
+  is_paused: boolean;
+}): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: { key: "errors.unauthorized" } };
+    }
+
+    // Get the recurring item
+    const { data: recurringItem } = await supabase
+      .from("recurring_items")
+      .select("id, account_id")
+      .eq("id", input.id)
+      .single();
+
+    if (!recurringItem) {
+      return { success: false, error: { key: "errors.invalidRequest" } };
+    }
+
+    // Verify user has contributor+ role
+    const { data: membership } = await supabase
+      .from("account_members")
+      .select("role")
+      .eq("account_id", recurringItem.account_id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!membership || membership.role === "viewer") {
+      return { success: false, error: { key: "errors.accessDenied" } };
+    }
+
+    const { data, error } = await supabase
+      .from("recurring_items")
+      .update({
+        is_paused: input.is_paused,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", input.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error pausing recurring item:", error);
+      return { success: false, error: { key: "errors.internalServer" } };
+    }
+
+    revalidatePath("/transactions");
+    revalidatePath("/recurrentes");
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Error in pauseRecurringItem:", error);
+    return { success: false, error: { key: "errors.internalServer" } };
+  }
+}
+
+export async function endRecurringItem(input: {
+  id: string;
+  end_date: string;
+}): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: { key: "errors.unauthorized" } };
+    }
+
+    // Get the recurring item
+    const { data: recurringItem } = await supabase
+      .from("recurring_items")
+      .select("id, account_id")
+      .eq("id", input.id)
+      .single();
+
+    if (!recurringItem) {
+      return { success: false, error: { key: "errors.invalidRequest" } };
+    }
+
+    // Verify user has contributor+ role
+    const { data: membership } = await supabase
+      .from("account_members")
+      .select("role")
+      .eq("account_id", recurringItem.account_id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!membership || membership.role === "viewer") {
+      return { success: false, error: { key: "errors.accessDenied" } };
+    }
+
+    const { data, error } = await supabase
+      .from("recurring_items")
+      .update({
+        end_date: input.end_date,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", input.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error ending recurring item:", error);
+      return { success: false, error: { key: "errors.internalServer" } };
+    }
+
+    revalidatePath("/transactions");
+    revalidatePath("/recurrentes");
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Error in endRecurringItem:", error);
+    return { success: false, error: { key: "errors.internalServer" } };
+  }
+}
