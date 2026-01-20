@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 import { useCopy, t } from "../../src/lib/i18n";
 import { useStackScreenOptions } from "../../src/lib/navigation-presets";
+import { SettingsHeaderBackButton } from "../../src/components/navigation/SettingsHeaderBackButton";
 
 export default function AuthLayout() {
   const { dictionary } = useCopy();
@@ -46,6 +47,7 @@ export default function AuthLayout() {
         options={{
           headerShown: true,
           title: t(dictionary, "settings.title"),
+          headerLeft: (props) => <SettingsHeaderBackButton {...props} />,
         }}
       />
       <Stack.Screen
@@ -53,6 +55,7 @@ export default function AuthLayout() {
         options={{
           headerShown: true,
           title: t(dictionary, "settings.menu.sections.account.items.activeAccount.title"),
+          headerLeft: (props) => <SettingsHeaderBackButton {...props} />,
         }}
       />
       <Stack.Screen
@@ -60,6 +63,7 @@ export default function AuthLayout() {
         options={{
           headerShown: true,
           title: t(dictionary, "settings.userDetails.title"),
+          headerLeft: (props) => <SettingsHeaderBackButton {...props} />,
         }}
       />
       <Stack.Screen
@@ -67,6 +71,7 @@ export default function AuthLayout() {
         options={{
           headerShown: true,
           title: t(dictionary, "invites.title"),
+          headerLeft: (props) => <SettingsHeaderBackButton {...props} />,
         }}
       />
       <Stack.Screen
@@ -81,6 +86,7 @@ export default function AuthLayout() {
         options={{
           headerShown: true,
           title: t(dictionary, "settings.language.title"),
+          headerLeft: (props) => <SettingsHeaderBackButton {...props} />,
         }}
       />
       <Stack.Screen

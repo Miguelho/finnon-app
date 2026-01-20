@@ -65,7 +65,7 @@ export function UserSignOutRow() {
           <button
             type="button"
             disabled={isSigningOut}
-            className="flex w-full items-start justify-between gap-2 rounded-md px-2 py-2 text-left text-sm font-semibold text-destructive transition hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex w-full items-start justify-between gap-2 rounded-md px-2 py-2 text-left text-sm font-semibold text-foreground transition hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <div>
               <p>{t("settings.signOut.label")}</p>

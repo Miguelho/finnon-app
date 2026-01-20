@@ -331,7 +331,7 @@ export default function GoalScreen() {
     return (
       <>
         <Stack.Screen options={{ title: t(dictionary, "goal.pageTitle") }} />
-        <View style={[styles.loading, { paddingTop: insets.top }]}>
+        <View style={[styles.loading, { paddingTop: tokens.spacing.lg }]}>
           <ActivityIndicator size="large" color={colors.text.muted} />
         </View>
       </>
@@ -342,7 +342,7 @@ export default function GoalScreen() {
     return (
       <>
         <Stack.Screen options={{ title: t(dictionary, "goal.pageTitle") }} />
-        <View style={[styles.errorContainer, { paddingTop: insets.top + tokens.spacing.lg }]}>
+        <View style={[styles.errorContainer, { paddingTop: tokens.spacing.lg }]}>
           <Text style={styles.errorTitle}>{t(dictionary, "common.errorTitle")}</Text>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={loadData}>
@@ -359,7 +359,7 @@ export default function GoalScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + tokens.spacing.lg, paddingBottom: 120 + insets.bottom },
+          { paddingTop: tokens.spacing.lg, paddingBottom: 120 + insets.bottom },
         ]}
       >
         <View style={styles.header}>

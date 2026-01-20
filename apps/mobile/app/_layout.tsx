@@ -1,28 +1,36 @@
-import { Stack } from "expo-router";
+import "react-native-gesture-handler";
+import { useWindowDimensions } from "react-native";
+import { Drawer } from "expo-router/drawer";
 import { ActionSheetProvider } from "@expo/react-native-action-sheet";
-import { AuthProvider } from "../src/contexts/AuthContext";
+import { themeTokens } from "@poleursus/shared";
+import { AuthProvider, useAuth } from "../src/contexts/AuthContext";
 import { NetworkNoticeProvider } from "../src/contexts/NetworkNoticeContext";
-import { LocaleProvider, useCopy, t } from "../src/lib/i18n";
-import { useStackScreenOptions } from "../src/lib/navigation-presets";
+import { SettingsDrawerContent } from "../src/components/settings/SettingsDrawerContent";
+import { LocaleProvider } from "../src/lib/i18n";
+
+const tokens = themeTokens.light;
+const colors = tokens.colors;
 
 function RootLayoutNav() {
-  const { dictionary } = useCopy();
-  const stackScreenOptions = useStackScreenOptions();
+  const { width } = useWindowDimensions();
+  const { session } = useAuth();
+  const drawerWidth = Math.round(width * 0.82);
 
   return (
-    <Stack
+    <Drawer
       screenOptions={{
-        ...stackScreenOptions,
         headerShown: false,
-        animation: "none",
+        drawerType: "front",
+        overlayColor: "rgba(0,0,0,0.3)",
+        drawerStyle: { width: drawerWidth, backgroundColor: colors.bg.surface },
+        sceneContainerStyle: { backgroundColor: colors.bg.primary },
       }}
+      drawerContent={(props) => <SettingsDrawerContent {...props} />}
     >
-      <Stack.Screen
-        name="index"
-        options={{ headerShown: true, title: t(dictionary, "common.appName") }}
-      />
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-    </Stack>
+      <Drawer.Screen name="index" options={{ swipeEnabled: false }} />
+      <Drawer.Screen name="join" options={{ swipeEnabled: false }} />
+      <Drawer.Screen name="(auth)" options={{ swipeEnabled: Boolean(session) }} />
+    </Drawer>
   );
 }
 

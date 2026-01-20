@@ -10,14 +10,12 @@ import {
   Pressable,
   Alert,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { useAuth } from "../../src/contexts/AuthContext";
 import { Button } from "../../src/components/Button";
 import { AddMenuItem } from "../../src/components/AddMenuItem";
-import { FinnonMark } from "../../src/components/FinnonMark";
 import { CashFlowArrows } from "../../src/components/home/CashFlowArrows";
 import { MonthMap } from "../../src/components/home/MonthMap";
 import { DayDetailPanel } from "../../src/components/home/DayDetailPanel";
@@ -126,7 +124,6 @@ export default function HomeScreen() {
   const { user, session, selectedAccountId, setSelectedAccountId } = useAuth();
   const { dictionary, locale } = useCopy();
   const isFocused = useIsFocused();
-  const insets = useSafeAreaInsets();
 
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [monthlyTransactions, setMonthlyTransactions] = useState<Transaction[]>(
@@ -488,45 +485,16 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.root}>
-      <View
-        style={[
-          styles.headerContainer,
-          { paddingTop: tokens.spacing.lg + insets.top },
-        ]}
-      >
-        {/* Header */}
-        <View style={styles.headerBlock}>
-          <View style={styles.header}>
-            {/* Izquierda: Logo + Finnon */}
-            <View style={styles.headerLeft}>
-              <FinnonMark mode="iconWordmark" size="md" />
-            </View>
-
-            {/* Derecha: Settings */}
-            <TouchableOpacity
-              style={styles.headerRight}
-              onPress={() => router.push("/(auth)/settings")}
-            >
-              <Text style={styles.profileButtonText}>
-                {t(dictionary, "mobile.home.settingsTitle")}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Badge read-only (debajo del header si aplica) */}
-          {viewModel.permissions.isGuestReadOnly && (
-            <View style={styles.readOnlyBadgeRow}>
-              <View style={styles.readOnlyBadge}>
-                <Text style={styles.readOnlyBadgeText}>
-                  {viewModel.copy.guestBadge}
-                </Text>
-              </View>
-            </View>
-          )}
-        </View>
-      </View>
-
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {viewModel.permissions.isGuestReadOnly && (
+          <View style={styles.readOnlyBadgeRow}>
+            <View style={styles.readOnlyBadge}>
+              <Text style={styles.readOnlyBadgeText}>
+                {viewModel.copy.guestBadge}
+              </Text>
+            </View>
+          </View>
+        )}
         {inviteCount > 0 && (
           <TouchableOpacity
             style={styles.inviteCard}
@@ -808,11 +776,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg.primary,
   },
-  headerContainer: {
-    paddingHorizontal: tokens.spacing.lg,
-    paddingBottom: tokens.spacing.lg,
-    backgroundColor: colors.bg.primary,
-  },
   loading: {
     flex: 1,
     justifyContent: "center",
@@ -829,27 +792,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    paddingTop: tokens.spacing.lg,
     paddingHorizontal: tokens.spacing.lg,
     paddingBottom: 120,
     gap: tokens.spacing.lg,
-  },
-  headerBlock: {
-    gap: tokens.spacing.sm,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: tokens.spacing.sm,
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: tokens.spacing.sm,
-    flex: 1,
-  },
-  headerRight: {
-    alignItems: "flex-end",
   },
   readOnlyBadgeRow: {
     flexDirection: "row",
@@ -863,10 +809,6 @@ const styles = StyleSheet.create({
   },
   readOnlyBadgeText: {
     ...typography.meta,
-    color: colors.text.primary,
-  },
-  profileButtonText: {
-    ...typography.body,
     color: colors.text.primary,
   },
   heroCard: {

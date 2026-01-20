@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { HeaderBackButton, type HeaderBackButtonProps } from "@react-navigation/elements";
 import { themeTokens } from "@poleursus/shared";
+import { AppHeaderAvatar } from "../components/navigation/AppHeaderAvatar";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -39,6 +41,8 @@ export function useStackScreenOptions() {
       fontWeight: tokens.typography.weight.bold,
       color: colors.text.primary,
     },
+    headerLeft: (props: HeaderBackButtonProps) =>
+      props.canGoBack ? <HeaderBackButton {...props} /> : <AppHeaderAvatar />,
     headerTintColor: colors.text.primary,
     headerStyle: {
       backgroundColor: colors.bg.primary,

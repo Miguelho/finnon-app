@@ -17,6 +17,19 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
+const fallbackAuthContext: AuthContextType = {
+  session: null,
+  user: null,
+  loading: false,
+  isInitialized: true,
+  selectedAccountId: null,
+  setSelectedAccountId: async () => {},
+  clearSelectedAccount: async () => {},
+  signOut: async () => {},
+};
+
+let hasWarnedMissingProvider = false;
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -121,7 +134,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    if (__DEV__) {
+      if (!hasWarnedMissingProvider) {
+        hasWarnedMissingProvider = true;
+        console.warn(
+          "[AuthContext] useAuth used outside AuthProvider; falling back.",
+          new Error().stack
+        );
+      }
+    }
+    return fallbackAuthContext;
   }
   return context;
 }

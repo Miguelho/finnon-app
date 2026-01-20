@@ -221,7 +221,7 @@ export default function AccountTabScreen() {
     return (
       <>
         <Stack.Screen options={{ title: t(dictionary, "navigation.account") }} />
-        <View style={[styles.loading, { paddingTop: insets.top }]}>
+        <View style={[styles.loading, { paddingTop: tokens.spacing.lg }]}>
           <ActivityIndicator size="large" color={colors.text.muted} />
         </View>
       </>
@@ -236,7 +236,7 @@ export default function AccountTabScreen() {
     return (
       <>
         <Stack.Screen options={{ title: t(dictionary, "navigation.account") }} />
-        <View style={[styles.loading, { paddingTop: insets.top }]}>
+        <View style={[styles.loading, { paddingTop: tokens.spacing.lg }]}>
           <ActivityIndicator size="large" color={colors.text.muted} />
         </View>
       </>
@@ -247,7 +247,7 @@ export default function AccountTabScreen() {
     return (
       <>
         <Stack.Screen options={{ title: t(dictionary, "navigation.account") }} />
-        <View style={[styles.errorContainer, { paddingTop: insets.top + tokens.spacing.lg }]}>
+        <View style={[styles.errorContainer, { paddingTop: tokens.spacing.lg }]}>
           <Text style={styles.errorTitle}>{t(dictionary, "account.errorTitle")}</Text>
           <Text style={styles.errorText}>{error ?? t(dictionary, "account.loadError")}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={loadData}>
@@ -266,7 +266,7 @@ export default function AccountTabScreen() {
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: tokens.spacing.lg + insets.top, paddingBottom: 100 + insets.bottom },
+            { paddingTop: tokens.spacing.lg, paddingBottom: 100 + insets.bottom },
           ]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
