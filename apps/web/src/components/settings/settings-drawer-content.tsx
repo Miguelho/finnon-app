@@ -5,7 +5,6 @@ import type { AvatarColorToken, SettingsMenuVM } from "@poleursus/shared";
 import { ActiveAccountSelector } from "@/components/settings/active-account-selector";
 import { UserAvatar } from "@/components/user-avatar";
 import { UserSignOutRow } from "@/components/settings/user-signout";
-import { Card, CardContent } from "@/components/ui/card";
 
 type AccountSummary = {
   id: string;
@@ -57,8 +56,7 @@ export function SettingsDrawerContent({
               <h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {section.title}
               </h2>
-              <Card>
-                <CardContent className="divide-y p-0">
+              <div className="divide-y border-y border-muted">
                   {showProfile && (
                     <div className="flex items-center gap-3 p-4">
                       <UserAvatar
@@ -111,8 +109,7 @@ export function SettingsDrawerContent({
                       <span className="text-lg text-muted-foreground">{">"}</span>
                     </Link>
                   ))}
-                </CardContent>
-              </Card>
+                </div>
             </section>
           );
         })}
@@ -121,11 +118,9 @@ export function SettingsDrawerContent({
           <h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {actionsLabel}
           </h2>
-          <Card>
-            <CardContent className="p-4">
+          <div className="border-y border-muted p-4">
               <UserSignOutRow />
-            </CardContent>
-          </Card>
+            </div>
         </section>
       </div>
     </div>

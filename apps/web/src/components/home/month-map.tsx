@@ -120,7 +120,7 @@ export function MonthMap({
               type="button"
               onClick={() => isCurrentMonth && onSelectDate(date)}
               disabled={!isCurrentMonth}
-              className="flex h-16 flex-col items-center justify-between rounded-lg border px-1 py-1.5 text-xs"
+              className="flex aspect-square flex-col items-center justify-between rounded-lg border p-1 text-xs"
               style={{
                 borderColor: isSelected
                   ? colors.action.primary

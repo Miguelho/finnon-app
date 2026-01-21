@@ -82,9 +82,14 @@ export function SettingsDrawer({
           )}
         >
           <div className="flex items-center justify-between border-b px-4 py-3">
-            <DialogPrimitive.Title className="text-base font-semibold">
-              {settingsLabel}
-            </DialogPrimitive.Title>
+            <div>
+              <DialogPrimitive.Title className="text-base font-semibold">
+                {settingsLabel}
+              </DialogPrimitive.Title>
+              {profile.displayName && (
+                <p className="text-sm text-muted-foreground">{profile.displayName}</p>
+              )}
+            </div>
             <DialogPrimitive.Close
               className={cn(
                 "inline-flex items-center justify-center rounded-md p-2 transition",

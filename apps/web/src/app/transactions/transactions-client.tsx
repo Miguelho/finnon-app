@@ -888,11 +888,11 @@ export function TransactionsClient({
       </p>
 
       {/* Monthly Summary */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2">
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>{t("income")}</CardDescription>
-            <CardTitle className="text-3xl" style={{ color: colors.state.positive }}>
+          <CardHeader className="p-3">
+            <CardDescription className="text-xs">{t("income")}</CardDescription>
+            <CardTitle className="text-lg md:text-2xl" style={{ color: colors.state.positive }}>
               {formatMoneyWithSymbol(
                 monthlySummary.income,
                 baseCurrency,
@@ -902,9 +902,9 @@ export function TransactionsClient({
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>{t("expenses")}</CardDescription>
-            <CardTitle className="text-3xl" style={{ color: colors.state.negative }}>
+          <CardHeader className="p-3">
+            <CardDescription className="text-xs">{t("expenses")}</CardDescription>
+            <CardTitle className="text-lg md:text-2xl" style={{ color: colors.state.negative }}>
               {formatMoneyWithSymbol(
                 monthlySummary.expense,
                 baseCurrency,
@@ -914,10 +914,10 @@ export function TransactionsClient({
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>{t("balance")}</CardDescription>
+          <CardHeader className="p-3">
+            <CardDescription className="text-xs">{t("balance")}</CardDescription>
             <CardTitle
-              className="text-3xl"
+              className="text-lg md:text-2xl"
               style={{
                 color:
                   monthlySummary.balance >= 0n

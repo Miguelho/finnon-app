@@ -205,15 +205,15 @@ export function AccountSummaryClient({
       </div>
 
       {/* Financial Summary */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2">
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="p-3">
             <CardDescription className="text-xs uppercase tracking-wide">
               {viewModel.copy.balanceLabel}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">
+          <CardContent className="px-3 pb-3 pt-0">
+            <p className="text-lg md:text-2xl font-bold">
               {formatMoneyWithSymbol(
                 viewModel.totals.balanceMinor,
                 viewModel.account.baseCurrency,
@@ -224,13 +224,13 @@ export function AccountSummaryClient({
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="p-3">
             <CardDescription className="text-xs uppercase tracking-wide">
               {viewModel.copy.incomeLabel}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-state-positive">
+          <CardContent className="px-3 pb-3 pt-0">
+            <p className="text-lg md:text-2xl font-bold text-state-positive">
               {formatMoneyWithSymbol(
                 viewModel.totals.incomeMinor,
                 viewModel.account.baseCurrency,
@@ -241,13 +241,13 @@ export function AccountSummaryClient({
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="p-3">
             <CardDescription className="text-xs uppercase tracking-wide">
               {viewModel.copy.expenseLabel}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-state-negative">
+          <CardContent className="px-3 pb-3 pt-0">
+            <p className="text-lg md:text-2xl font-bold text-state-negative">
               {formatMoneyWithSymbol(
                 viewModel.totals.expenseMinor,
                 viewModel.account.baseCurrency,

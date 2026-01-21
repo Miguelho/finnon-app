@@ -361,14 +361,14 @@ export function DayDetailPanel({
   if (variant === "panel") {
     return (
       <aside
-        className="rounded-2xl border p-5"
+        className="rounded-2xl border p-5 max-h-[70vh] overflow-y-auto"
         style={{
           borderColor: colors.state.neutral,
           backgroundColor: colors.bg.surface,
           minHeight: 320,
         }}
       >
-        <div className="flex justify-end">
+        <div className="flex justify-end sticky top-0" style={{ backgroundColor: colors.bg.surface }}>
           {summary && (
             <button
               type="button"
