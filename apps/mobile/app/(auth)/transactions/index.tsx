@@ -12,7 +12,8 @@ import {
   RefreshControl,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
-import { Stack, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
+import { useIsFocused } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../../../src/lib/supabase";
@@ -103,6 +104,7 @@ const getMonthRangeFromKey = (monthKey: string) => {
 
 export default function TransactionsScreen(): React.JSX.Element {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const { selectedAccountId, user } = useAuth();
   const { dictionary, locale } = useCopy();
   const { reportNetworkIssue } = useNetworkNotice();
@@ -145,8 +147,9 @@ export default function TransactionsScreen(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
+    if (!isFocused) return;
     loadData();
-  }, [selectedAccountId, selectedMonth]);
+  }, [selectedAccountId, selectedMonth, isFocused]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -475,70 +478,30 @@ export default function TransactionsScreen(): React.JSX.Element {
     }
   };
 
-  const screenTitle = t(dictionary, "transactions.pageTitle");
   const handleAddTransaction = () => {
     router.push("/(auth)/(tabs)/transactions/create");
-  };
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-    router.replace("/(auth)/(tabs)/home");
-  };
-  const screenOptions = {
-    title: screenTitle,
-    headerLeft: () => (
-      <></>
-      // <TouchableOpacity
-      //   onPress={handleBack}
-      //   accessibilityRole="button"
-      //   accessibilityLabel={t(dictionary, "common.back")}
-      //   style={styles.headerBackButton}
-      //   hitSlop={{
-      //     top: spacing.sm,
-      //     bottom: spacing.sm,
-      //     left: spacing.sm,
-      //     right: spacing.sm,
-      //   }}
-      // >
-      //   <MaterialCommunityIcons
-      //     name="arrow-left"
-      //     size={22}
-      //     color={colors.text.primary}
-      //   />
-      // </TouchableOpacity>
-    ),
   };
 
   if (loading) {
     return (
-      <>
-        <Stack.Screen options={screenOptions} />
-        <View style={styles.loading}>
-          <ActivityIndicator size="large" />
-        </View>
-      </>
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" />
+      </View>
     );
   }
 
   if (error) {
     return (
-      <>
-        <Stack.Screen options={screenOptions} />
-        <View style={styles.container}>
-          <Card title={t(dictionary, "common.errorTitle")} description={error}>
-            <Button title={t(dictionary, "common.retry")} onPress={loadData} />
-          </Card>
-        </View>
-      </>
+      <View style={styles.container}>
+        <Card title={t(dictionary, "common.errorTitle")} description={error}>
+          <Button title={t(dictionary, "common.retry")} onPress={loadData} />
+        </Card>
+      </View>
     );
   }
 
   return (
-    <>
-      <Stack.Screen options={screenOptions} />
-      <View style={styles.screen}>
+    <View style={styles.screen}>
         <ScrollView
           style={styles.container}
           contentContainerStyle={styles.content}
@@ -951,8 +914,7 @@ export default function TransactionsScreen(): React.JSX.Element {
             </View>
           </View>
         </Modal>
-      </View>
-    </>
+    </View>
   );
 }
 
@@ -1176,9 +1138,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
     elevation: 4,
-  },
-  headerBackButton: {
-    padding: spacing.sm,
   },
   sheetOverlay: {
     flex: 1,

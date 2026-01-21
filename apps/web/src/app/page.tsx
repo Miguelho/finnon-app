@@ -246,7 +246,7 @@ export default async function DashboardPage() {
                       <CategoryIcon
                         iconKey={item.iconId as CategoryIconKey}
                         size={20}
-                        tone="muted"
+                        tone={item.type === "income" ? "positive" : "negative"}
                       />
                       <div>
                         <p className="text-sm font-semibold">{item.title}</p>

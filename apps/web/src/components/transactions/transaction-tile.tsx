@@ -154,7 +154,7 @@ export function TransactionTile({
           <CategoryIcon
             iconKey={transaction.category?.icon as CategoryIconKey}
             size={styles.iconSize}
-            tone="muted"
+            tone={transactionType === "income" ? "positive" : "negative"}
             accessibilityLabel={transaction.category?.name}
           />
         </div>
