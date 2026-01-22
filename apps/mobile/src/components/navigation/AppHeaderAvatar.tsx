@@ -114,7 +114,7 @@ export function AppHeaderAvatar() {
 
 const styles = StyleSheet.create({
   button: {
-    marginLeft: tokens.spacing.lg,
+    marginRight: tokens.spacing.lg,
     alignSelf: "center",
   },
 });

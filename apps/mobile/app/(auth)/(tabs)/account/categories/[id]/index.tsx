@@ -10,12 +10,12 @@ import {
   RefreshControl,
 } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { supabase } from "../../../../src/lib/supabase";
-import { useAuth } from "../../../../src/contexts/AuthContext";
-import { Card } from "../../../../src/components/Card";
-import { Button } from "../../../../src/components/Button";
-import { CategoryIcon } from "../../../../src/components/CategoryIcon";
-import { useCopy, t } from "../../../../src/lib/i18n";
+import { supabase } from "../../../../../../src/lib/supabase";
+import { useAuth } from "../../../../../../src/contexts/AuthContext";
+import { Card } from "../../../../../../src/components/Card";
+import { Button } from "../../../../../../src/components/Button";
+import { CategoryIcon } from "../../../../../../src/components/CategoryIcon";
+import { useCopy, t } from "../../../../../../src/lib/i18n";
 import {
   addMonths,
   CURRENCIES,

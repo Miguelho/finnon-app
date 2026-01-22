@@ -18,15 +18,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Redirect, Stack, useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
-import { useAuth } from "../../../src/contexts/AuthContext";
-import { useNetworkNotice } from "../../../src/contexts/NetworkNoticeContext";
-import { supabase } from "../../../src/lib/supabase";
-import { useCopy, t } from "../../../src/lib/i18n";
-import { UserAvatar } from "../../../src/components/UserAvatar";
-import { CategoryIcon } from "../../../src/components/CategoryIcon";
+import { useAuth } from "../../../../src/contexts/AuthContext";
+import { useNetworkNotice } from "../../../../src/contexts/NetworkNoticeContext";
+import { supabase } from "../../../../src/lib/supabase";
+import { useCopy, t } from "../../../../src/lib/i18n";
+import { UserAvatar } from "../../../../src/components/UserAvatar";
+import { CategoryIcon } from "../../../../src/components/CategoryIcon";
 import {
   buildAccountViewModel,
   CURRENCIES,
@@ -213,18 +213,14 @@ export default function AccountTabScreen() {
     [selectedAccountId, setSelectedAccountId]
   );
 
-  const screenTitle = viewModel?.account.name ?? t(dictionary, "navigation.account");
   const roleLabel = userRole.charAt(0).toUpperCase() + userRole.slice(1);
   const accountIdShort = summaryData?.account?.id.slice(0, 6) ?? "-";
 
   if (!isInitialized) {
     return (
-      <>
-        <Stack.Screen options={{ title: t(dictionary, "navigation.account") }} />
-        <View style={[styles.loading, { paddingTop: tokens.spacing.lg }]}>
-          <ActivityIndicator size="large" color={colors.text.muted} />
-        </View>
-      </>
+      <View style={[styles.loading, { paddingTop: tokens.spacing.lg }]}>
+        <ActivityIndicator size="large" color={colors.text.muted} />
+      </View>
     );
   }
 
@@ -234,44 +230,36 @@ export default function AccountTabScreen() {
 
   if (loading) {
     return (
-      <>
-        <Stack.Screen options={{ title: t(dictionary, "navigation.account") }} />
-        <View style={[styles.loading, { paddingTop: tokens.spacing.lg }]}>
-          <ActivityIndicator size="large" color={colors.text.muted} />
-        </View>
-      </>
+      <View style={[styles.loading, { paddingTop: tokens.spacing.lg }]}>
+        <ActivityIndicator size="large" color={colors.text.muted} />
+      </View>
     );
   }
 
   if (error || !viewModel) {
     return (
-      <>
-        <Stack.Screen options={{ title: t(dictionary, "navigation.account") }} />
-        <View style={[styles.errorContainer, { paddingTop: tokens.spacing.lg }]}>
-          <Text style={styles.errorTitle}>{t(dictionary, "account.errorTitle")}</Text>
-          <Text style={styles.errorText}>{error ?? t(dictionary, "account.loadError")}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadData}>
-            <Text style={styles.retryButtonText}>{t(dictionary, "common.retry")}</Text>
-          </TouchableOpacity>
-        </View>
-      </>
+      <View style={[styles.errorContainer, { paddingTop: tokens.spacing.lg }]}>
+        <Text style={styles.errorTitle}>{t(dictionary, "account.errorTitle")}</Text>
+        <Text style={styles.errorText}>{error ?? t(dictionary, "account.loadError")}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadData}>
+          <Text style={styles.retryButtonText}>{t(dictionary, "common.retry")}</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
   return (
-    <>
-      <Stack.Screen options={{ title: screenTitle }} />
-      <View style={styles.root}>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingTop: tokens.spacing.lg, paddingBottom: 100 + insets.bottom },
-          ]}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-          }
-        >
+    <View style={styles.root}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: tokens.spacing.lg, paddingBottom: 100 + insets.bottom },
+        ]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
         <AccountHero
           accountName={viewModel.account.name}
           participants={participants}
@@ -339,7 +327,7 @@ export default function AccountTabScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>{viewModel.copy.categoriesTitle}</Text>
-            <TouchableOpacity onPress={() => router.push("/(auth)/categories")}>
+            <TouchableOpacity onPress={() => router.push("/(auth)/(tabs)/account/categories")}>
               <Text style={styles.sectionCta}>{viewModel.copy.categoriesViewAll}</Text>
             </TouchableOpacity>
           </View>
@@ -428,8 +416,7 @@ export default function AccountTabScreen() {
         }}
         closeLabel={t(dictionary, "common.close")}
       />
-      </View>
-    </>
+    </View>
   );
 }
 

@@ -1,7 +1,8 @@
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { HeaderBackButton, type HeaderBackButtonProps } from "@react-navigation/elements";
+import { type HeaderBackButtonProps } from "@react-navigation/elements";
 import { themeTokens } from "@poleursus/shared";
 import { AppHeaderAvatar } from "../components/navigation/AppHeaderAvatar";
+import { AppHeaderBackButton } from "../components/navigation/AppHeaderBackButton";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -35,14 +36,14 @@ export function useStackScreenOptions() {
       maxWidth: titleMaxWidth,
       marginHorizontal: tokens.spacing.lg,
     },
-    headerTitleAlign: "center" as const,
+    headerTitleAlign: "left" as const,
     headerTitleStyle: {
-      fontSize: tokens.typography.size.md,
+      fontSize: tokens.typography.size.lg,
       fontWeight: tokens.typography.weight.bold,
       color: colors.text.primary,
     },
-    headerLeft: (props: HeaderBackButtonProps) =>
-      props.canGoBack ? <HeaderBackButton {...props} /> : <AppHeaderAvatar />,
+    headerLeft: (props: HeaderBackButtonProps) => <AppHeaderBackButton {...props} />,
+    headerRight: () => <AppHeaderAvatar />,
     headerTintColor: colors.text.primary,
     headerStyle: {
       backgroundColor: colors.bg.primary,
@@ -85,10 +86,10 @@ export const tabBarBaseOptions = {
 const styles = StyleSheet.create({
   headerTitleContainer: {
     flexShrink: 1,
-    alignItems: "center",
+    alignItems: "flex-start",
   },
   headerTitleText: {
-    fontSize: tokens.typography.size.md,
+    fontSize: tokens.typography.size.lg,
     fontWeight: tokens.typography.weight.bold,
     color: colors.text.primary,
   },

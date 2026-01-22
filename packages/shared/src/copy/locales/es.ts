@@ -37,7 +37,7 @@ export const es = {
   },
   navigation: {
     home: "Inicio",
-    account: "Cuenta",
+    account: "Tu Cuenta",
     settings: "Ajustes",
     goal: "Objetivo",
   },

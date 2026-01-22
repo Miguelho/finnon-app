@@ -10,16 +10,16 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Redirect, Stack } from "expo-router";
+import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
-import { supabase } from "../../src/lib/supabase";
-import { useAuth } from "../../src/contexts/AuthContext";
-import { useNetworkNotice } from "../../src/contexts/NetworkNoticeContext";
-import { Button } from "../../src/components/Button";
-import { Card } from "../../src/components/Card";
-import { Input } from "../../src/components/Input";
-import { InsightsCarousel } from "../../src/components/goal/InsightsCarousel";
+import { supabase } from "../../../../src/lib/supabase";
+import { useAuth } from "../../../../src/contexts/AuthContext";
+import { useNetworkNotice } from "../../../../src/contexts/NetworkNoticeContext";
+import { Button } from "../../../../src/components/Button";
+import { Card } from "../../../../src/components/Card";
+import { Input } from "../../../../src/components/Input";
+import { InsightsCarousel } from "../../../../src/components/goal/InsightsCarousel";
 import {
   addMonths,
   computeGoalInsights,
@@ -40,7 +40,7 @@ import {
   CURRENCIES,
   getMonthRangeFromKey,
 } from "@poleursus/shared";
-import { useCopy, t } from "../../src/lib/i18n";
+import { useCopy, t } from "../../../../src/lib/i18n";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -329,33 +329,26 @@ export default function GoalScreen() {
 
   if (loading) {
     return (
-      <>
-        <Stack.Screen options={{ title: t(dictionary, "goal.pageTitle") }} />
-        <View style={[styles.loading, { paddingTop: tokens.spacing.lg }]}>
-          <ActivityIndicator size="large" color={colors.text.muted} />
-        </View>
-      </>
+      <View style={[styles.loading, { paddingTop: tokens.spacing.lg }]}>
+        <ActivityIndicator size="large" color={colors.text.muted} />
+      </View>
     );
   }
 
   if (error) {
     return (
-      <>
-        <Stack.Screen options={{ title: t(dictionary, "goal.pageTitle") }} />
-        <View style={[styles.errorContainer, { paddingTop: tokens.spacing.lg }]}>
-          <Text style={styles.errorTitle}>{t(dictionary, "common.errorTitle")}</Text>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadData}>
-            <Text style={styles.retryButtonText}>{t(dictionary, "common.retry")}</Text>
-          </TouchableOpacity>
-        </View>
-      </>
+      <View style={[styles.errorContainer, { paddingTop: tokens.spacing.lg }]}>
+        <Text style={styles.errorTitle}>{t(dictionary, "common.errorTitle")}</Text>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadData}>
+          <Text style={styles.retryButtonText}>{t(dictionary, "common.retry")}</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
   return (
     <>
-      <Stack.Screen options={{ title: t(dictionary, "goal.pageTitle") }} />
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,

@@ -12,14 +12,14 @@ import {
 } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { supabase } from "../../src/lib/supabase";
-import { useAuth } from "../../src/contexts/AuthContext";
-import { Button } from "../../src/components/Button";
-import { AddMenuItem } from "../../src/components/AddMenuItem";
-import { CashFlowArrows } from "../../src/components/home/CashFlowArrows";
-import { MonthMap } from "../../src/components/home/MonthMap";
-import { DayDetailPanel } from "../../src/components/home/DayDetailPanel";
-import { CategoryIcon } from "../../src/components/CategoryIcon";
+import { supabase } from "../../../../src/lib/supabase";
+import { useAuth } from "../../../../src/contexts/AuthContext";
+import { Button } from "../../../../src/components/Button";
+import { AddMenuItem } from "../../../../src/components/AddMenuItem";
+import { CashFlowArrows } from "../../../../src/components/home/CashFlowArrows";
+import { MonthMap } from "../../../../src/components/home/MonthMap";
+import { DayDetailPanel } from "../../../../src/components/home/DayDetailPanel";
+import { CategoryIcon } from "../../../../src/components/CategoryIcon";
 import {
   ADD_ACTIONS,
   buildHomeViewModel,
@@ -36,7 +36,7 @@ import {
   type Obligation,
   type CategoryIconKey,
 } from "@poleursus/shared";
-import { useCopy, t } from "../../src/lib/i18n";
+import { useCopy, t } from "../../../../src/lib/i18n";
 
 type AccountMember = {
   account_id: string;
@@ -470,7 +470,7 @@ export default function HomeScreen() {
         router.push("/(auth)/(tabs)/transactions/create?type=income");
         return;
       case "category":
-        router.push("/(auth)/categories/create");
+        router.push("/(auth)/(tabs)/account/categories/create");
         return;
       case "one_off_obligation":
         router.push("/(auth)/obligations/create");

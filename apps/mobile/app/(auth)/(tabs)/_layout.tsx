@@ -2,7 +2,7 @@ import { Tabs } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { themeTokens } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
-import { tabBarBaseOptions, useStackScreenOptions } from "../../../src/lib/navigation-presets";
+import { tabBarBaseOptions } from "../../../src/lib/navigation-presets";
 
 const tokens = themeTokens.light;
 
@@ -10,24 +10,24 @@ const tabIconMap = {
   home: { active: "home", inactive: "home-outline" },
   transactions: { active: "clipboard-list", inactive: "clipboard-list-outline" },
   goal: { active: "flag", inactive: "flag-outline" },
+  account: { active: "bookmark", inactive: "bookmark-outline" },
 } as const;
 
 const tabItems = [
   { key: "home", labelKey: "navigation.home" },
   { key: "transactions", labelKey: "transactions.pageTitle" },
   { key: "goal", labelKey: "goal.pageTitle" },
+  { key: "account", labelKey: "navigation.account" },
 ] as const;
 
 export default function TabsLayout() {
   const { dictionary } = useCopy();
-  const stackScreenOptions = useStackScreenOptions();
 
   return (
     <Tabs
       screenOptions={{
         ...tabBarBaseOptions,
-        ...stackScreenOptions,
-        headerShown: true,
+        headerShown: false,
       }}
     >
       {tabItems.map((item) => (
@@ -38,7 +38,6 @@ export default function TabsLayout() {
             title: t(dictionary, item.labelKey),
             tabBarLabel: t(dictionary, item.labelKey),
             tabBarAccessibilityLabel: t(dictionary, item.labelKey),
-            headerShown: item.key !== "transactions",
             tabBarIcon: ({ focused, color }) => (
               <MaterialCommunityIcons
                 name={focused ? tabIconMap[item.key].active : tabIconMap[item.key].inactive}

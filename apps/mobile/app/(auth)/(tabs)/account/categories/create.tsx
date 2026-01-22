@@ -8,12 +8,12 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
-import { supabase } from "../../../src/lib/supabase";
-import { useAuth } from "../../../src/contexts/AuthContext";
-import { Button } from "../../../src/components/Button";
-import { Input } from "../../../src/components/Input";
-import { Card } from "../../../src/components/Card";
-import { IconPicker } from "../../../src/components/IconPicker";
+import { supabase } from "../../../../../src/lib/supabase";
+import { useAuth } from "../../../../../src/contexts/AuthContext";
+import { Button } from "../../../../../src/components/Button";
+import { Input } from "../../../../../src/components/Input";
+import { Card } from "../../../../../src/components/Card";
+import { IconPicker } from "../../../../../src/components/IconPicker";
 import {
   normalizeCategoryName,
   suggestCategoryIcon,
@@ -21,7 +21,7 @@ import {
   type CategoryType,
   type CategoryIconKey,
 } from "@poleursus/shared";
-import { useCopy, t } from "../../../src/lib/i18n";
+import { useCopy, t } from "../../../../../src/lib/i18n";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;

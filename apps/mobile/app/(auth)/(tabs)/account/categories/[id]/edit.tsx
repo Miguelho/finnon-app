@@ -9,11 +9,11 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
-import { supabase } from "../../../../src/lib/supabase";
-import { Button } from "../../../../src/components/Button";
-import { Input } from "../../../../src/components/Input";
-import { Card } from "../../../../src/components/Card";
-import { IconPicker } from "../../../../src/components/IconPicker";
+import { supabase } from "../../../../../../src/lib/supabase";
+import { Button } from "../../../../../../src/components/Button";
+import { Input } from "../../../../../../src/components/Input";
+import { Card } from "../../../../../../src/components/Card";
+import { IconPicker } from "../../../../../../src/components/IconPicker";
 import {
   normalizeCategoryName,
   resolveCategoryIconKey,
@@ -21,7 +21,7 @@ import {
   type CategoryType,
   type CategoryIconKey,
 } from "@poleursus/shared";
-import { useCopy, t } from "../../../../src/lib/i18n";
+import { useCopy, t } from "../../../../../../src/lib/i18n";
 
 type Category = {
   id: string;

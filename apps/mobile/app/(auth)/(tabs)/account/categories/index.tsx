@@ -12,13 +12,13 @@ import { Stack, useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { supabase } from "../../../src/lib/supabase";
-import { useAuth } from "../../../src/contexts/AuthContext";
-import { Button } from "../../../src/components/Button";
-import { Card } from "../../../src/components/Card";
-import { CategoryTile } from "../../../src/components/CategoryTile";
+import { supabase } from "../../../../../src/lib/supabase";
+import { useAuth } from "../../../../../src/contexts/AuthContext";
+import { Button } from "../../../../../src/components/Button";
+import { Card } from "../../../../../src/components/Card";
+import { CategoryTile } from "../../../../../src/components/CategoryTile";
 import { themeTokens } from "@poleursus/shared";
-import { useCopy, t } from "../../../src/lib/i18n";
+import { useCopy, t } from "../../../../../src/lib/i18n";
 
 type Category = {
   id: string;
@@ -169,7 +169,7 @@ export default function CategoriesScreen() {
             <View style={styles.emptyCta}>
               <Button
                 title={t(dictionary, "categories.createTitle")}
-                onPress={() => router.push("/(auth)/categories/create")}
+                onPress={() => router.push("/(auth)/(tabs)/account/categories/create")}
               />
             </View>
           </Card>
@@ -193,8 +193,8 @@ export default function CategoriesScreen() {
                 <CategoryTile
                   key={category.id}
                   category={category}
-                  onPress={() => router.push(`/(auth)/categories/${category.id}`)}
-                  onEdit={() => router.push(`/(auth)/categories/${category.id}/edit`)}
+                  onPress={() => router.push(`/(auth)/(tabs)/account/categories/${category.id}`)}
+                  onEdit={() => router.push(`/(auth)/(tabs)/account/categories/${category.id}/edit`)}
                   onDelete={() => handleDelete(category)}
                 />
               ))}
@@ -221,8 +221,8 @@ export default function CategoriesScreen() {
                 <CategoryTile
                   key={category.id}
                   category={category}
-                  onPress={() => router.push(`/(auth)/categories/${category.id}`)}
-                  onEdit={() => router.push(`/(auth)/categories/${category.id}/edit`)}
+                  onPress={() => router.push(`/(auth)/(tabs)/account/categories/${category.id}`)}
+                  onEdit={() => router.push(`/(auth)/(tabs)/account/categories/${category.id}/edit`)}
                   onDelete={() => handleDelete(category)}
                 />
               ))}
@@ -233,7 +233,7 @@ export default function CategoriesScreen() {
         </ScrollView>
 
         <TouchableOpacity
-          onPress={() => router.push("/(auth)/categories/create")}
+          onPress={() => router.push("/(auth)/(tabs)/account/categories/create")}
           style={[styles.addFab, { bottom: spacing.lg + insets.bottom }]}
           accessibilityRole="button"
           accessibilityLabel={t(dictionary, "categories.createTitle")}

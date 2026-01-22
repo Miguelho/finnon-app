@@ -36,6 +36,12 @@ export default function AuthLayout() {
         }}
       />
       <Stack.Screen
+        name="transactions"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
         name="account/[id]"
         options={{
           headerShown: true,
