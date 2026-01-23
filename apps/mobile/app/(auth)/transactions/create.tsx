@@ -21,6 +21,7 @@ import {
   type TransactionType,
   type RecurringFrequency,
   type TopCategory,
+  type MerchantSuggestion,
   CURRENCIES,
   parseMoneyToMinor,
   computeAmountBaseMinor,
@@ -30,6 +31,7 @@ import {
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
 import { TopCategorySelector } from "../../../src/components/TopCategorySelector";
+import { MerchantAutocomplete } from "../../../src/components/MerchantAutocomplete";
 
 type Category = {
   id: string;
@@ -72,6 +74,10 @@ export default function CreateTransactionScreen(): React.JSX.Element {
   const [topCategories, setTopCategories] = useState<TopCategory[]>([]);
   const [showFullCategorySelector, setShowFullCategorySelector] = useState(false);
   const topCategoriesCache = useRef<Record<string, TopCategory[]>>({});
+
+  // Merchant suggestions state
+  const [merchantSuggestions, setMerchantSuggestions] = useState<MerchantSuggestion[]>([]);
+  const merchantSuggestionsCache = useRef<Record<string, MerchantSuggestion[]>>({});
 
   const sanitizeNumericInput = (value: string) =>
     value.replace(/[^0-9.,]/g, "");
@@ -168,12 +174,38 @@ export default function CreateTransactionScreen(): React.JSX.Element {
     [selectedAccountId]
   );
 
+  const fetchMerchantSuggestions = useCallback(
+    async (txType: TransactionType) => {
+      if (!selectedAccountId) return;
+
+      const cacheKey = `${selectedAccountId}:${txType}`;
+      if (merchantSuggestionsCache.current[cacheKey]) {
+        setMerchantSuggestions(merchantSuggestionsCache.current[cacheKey]);
+        return;
+      }
+
+      const { data, error } = await supabase.rpc("get_merchant_suggestions", {
+        p_account_id: selectedAccountId,
+        p_tx_type: txType,
+        p_limit: 20,
+      });
+
+      if (!error && data) {
+        const suggestions = data as MerchantSuggestion[];
+        merchantSuggestionsCache.current[cacheKey] = suggestions;
+        setMerchantSuggestions(suggestions);
+      }
+    },
+    [selectedAccountId]
+  );
+
   useEffect(() => {
     if (isFocused && selectedAccountId) {
       fetchTopCategories(type);
+      fetchMerchantSuggestions(type);
       setShowFullCategorySelector(false);
     }
-  }, [isFocused, type, selectedAccountId, fetchTopCategories]);
+  }, [isFocused, type, selectedAccountId, fetchTopCategories, fetchMerchantSuggestions]);
 
   const handleCreate = async () => {
     if (!amount.trim()) {
@@ -663,10 +695,11 @@ export default function CreateTransactionScreen(): React.JSX.Element {
           </View>
 
           {/* Merchant */}
-          <Input
+          <MerchantAutocomplete
             label={t(dictionary, "transactions.merchantOptionalLabel")}
             value={merchant}
             onChangeText={setMerchant}
+            suggestions={merchantSuggestions}
             placeholder={t(dictionary, "transactions.create.merchantPlaceholder")}
           />
 

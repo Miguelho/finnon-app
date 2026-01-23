@@ -59,7 +59,9 @@ import {
   themeTokens,
   type AvatarColorToken,
   type TopCategory,
+  type MerchantSuggestion,
 } from "@poleursus/shared";
+import { MerchantAutocomplete } from "@/components/ui/merchant-autocomplete";
 import { CategoryIcon } from "@/components/category-icon";
 import { TopCategorySelector } from "@/components/categories/top-category-selector";
 import { TransactionTile } from "@/components/transactions/transaction-tile";
@@ -125,6 +127,10 @@ type TransactionsClientProps = {
     expense: TopCategory[];
     income: TopCategory[];
   };
+  initialMerchantSuggestions: {
+    expense: MerchantSuggestion[];
+    income: MerchantSuggestion[];
+  };
 };
 
 const parseMonthKey = (monthKey: string) => {
@@ -155,6 +161,7 @@ export function TransactionsClient({
   profiles,
   role,
   initialTopCategories,
+  initialMerchantSuggestions,
 }: TransactionsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1557,12 +1564,13 @@ export function TransactionsClient({
                       <Label htmlFor="merchant">
                         {t("create.merchantLabel")}
                       </Label>
-                      <Input
+                      <MerchantAutocomplete
                         id="merchant"
                         value={formData.merchant}
-                        onChange={(e) =>
-                          setFormData({ ...formData, merchant: e.target.value })
+                        onChange={(value) =>
+                          setFormData({ ...formData, merchant: value })
                         }
+                        suggestions={initialMerchantSuggestions[formData.type]}
                         placeholder={t("create.merchantPlaceholder")}
                       />
                     </div>
@@ -1827,12 +1835,13 @@ export function TransactionsClient({
                     <Label htmlFor="edit-merchant">
                       {t("create.merchantLabel")}
                     </Label>
-                    <Input
+                    <MerchantAutocomplete
                       id="edit-merchant"
                       value={formData.merchant}
-                      onChange={(e) =>
-                        setFormData({ ...formData, merchant: e.target.value })
+                      onChange={(value) =>
+                        setFormData({ ...formData, merchant: value })
                       }
+                      suggestions={initialMerchantSuggestions[formData.type]}
                       placeholder={t("create.merchantPlaceholder")}
                     />
                   </div>

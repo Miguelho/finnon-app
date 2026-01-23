@@ -82,8 +82,13 @@ export default async function TransactionsPage() {
     .eq("account_id", activeAccount.id)
     .order("name", { ascending: true });
 
-  // Fetch top categories for both expense and income types
-  const [topExpenseResult, topIncomeResult] = await Promise.all([
+  // Fetch top categories and merchant suggestions for both expense and income types
+  const [
+    topExpenseResult,
+    topIncomeResult,
+    merchantExpenseResult,
+    merchantIncomeResult,
+  ] = await Promise.all([
     supabase.rpc("get_top_categories", {
       p_account_id: activeAccount.id,
       p_tx_type: "expense",
@@ -94,11 +99,26 @@ export default async function TransactionsPage() {
       p_tx_type: "income",
       p_limit: 3,
     }),
+    supabase.rpc("get_merchant_suggestions", {
+      p_account_id: activeAccount.id,
+      p_tx_type: "expense",
+      p_limit: 20,
+    }),
+    supabase.rpc("get_merchant_suggestions", {
+      p_account_id: activeAccount.id,
+      p_tx_type: "income",
+      p_limit: 20,
+    }),
   ]);
 
   const initialTopCategories = {
     expense: topExpenseResult.data || [],
     income: topIncomeResult.data || [],
+  };
+
+  const initialMerchantSuggestions = {
+    expense: merchantExpenseResult.data || [],
+    income: merchantIncomeResult.data || [],
   };
 
   return (
@@ -114,6 +134,7 @@ export default async function TransactionsPage() {
         profiles={profiles || []}
         role={activeRole}
         initialTopCategories={initialTopCategories}
+        initialMerchantSuggestions={initialMerchantSuggestions}
       />
     </div>
   );
