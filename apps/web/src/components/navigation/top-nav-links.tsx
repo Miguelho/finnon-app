@@ -4,12 +4,16 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale } from "next-intl";
+import { Bookmark, ClipboardList, Flag, Home } from "lucide-react";
 import { themeTokens } from "@poleursus/shared";
 import { cn } from "@/lib/utils";
+
+type NavIconKey = "home" | "transactions" | "goal" | "account";
 
 type NavItem = {
   href: string;
   label: string;
+  iconKey?: NavIconKey;
 };
 
 type TopNavLinksProps = {
@@ -18,6 +22,12 @@ type TopNavLinksProps = {
 };
 
 const colors = themeTokens.light.colors;
+const navIconMap: Record<NavIconKey, typeof Home> = {
+  home: Home,
+  transactions: ClipboardList,
+  goal: Flag,
+  account: Bookmark,
+};
 
 function normalizePath(pathname: string, locale: string) {
   if (pathname.startsWith(`/${locale}`)) {
@@ -100,6 +110,7 @@ export function TopNavLinks({ items, className }: TopNavLinksProps) {
       item.href === "/"
         ? normalizedPath === "/"
         : normalizedPath.startsWith(item.href);
+    const Icon = item.iconKey ? navIconMap[item.iconKey] : null;
 
     return (
       <Link
@@ -109,7 +120,9 @@ export function TopNavLinks({ items, className }: TopNavLinksProps) {
         onClick={isMobile ? closeMenu : undefined}
         className={cn(
           "rounded-md font-medium transition",
-          isMobile ? "block px-4 py-3 text-base" : "px-3 py-2 text-sm",
+          isMobile
+            ? "flex w-full items-center gap-3 px-4 py-3 text-base"
+            : "px-3 py-2 text-sm",
           isActive ? "opacity-100" : "hover:opacity-80"
         )}
         style={{
@@ -117,7 +130,10 @@ export function TopNavLinks({ items, className }: TopNavLinksProps) {
           color: isActive ? colors.text.primary : colors.text.secondary,
         }}
       >
-        {item.label}
+        {isMobile && Icon ? (
+          <Icon className="h-5 w-5" aria-hidden="true" />
+        ) : null}
+        <span>{item.label}</span>
       </Link>
     );
   };

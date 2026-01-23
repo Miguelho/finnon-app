@@ -85,10 +85,18 @@ export async function TopNav({ containerClassName }: TopNavProps) {
 
   const colors = themeTokens.light.colors;
   const navItems = [
-    { href: "/", label: t(dictionary, "navigation.home") },
-    { href: "/transactions", label: t(dictionary, "transactions.pageTitle") },
-    { href: "/goal", label: t(dictionary, "goal.pageTitle") },
-    { href: "/account", label: t(dictionary, "navigation.account") },
+    { href: "/", label: t(dictionary, "navigation.home"), iconKey: "home" },
+    {
+      href: "/transactions",
+      label: t(dictionary, "transactions.pageTitle"),
+      iconKey: "transactions",
+    },
+    { href: "/goal", label: t(dictionary, "goal.pageTitle"), iconKey: "goal" },
+    {
+      href: "/account",
+      label: t(dictionary, "navigation.account"),
+      iconKey: "account",
+    },
   ];
   const containerClasses = cn(
     "mx-auto flex w-full items-center justify-between gap-4 px-4 py-3",
