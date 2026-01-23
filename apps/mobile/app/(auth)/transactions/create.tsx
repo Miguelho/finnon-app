@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   Alert,
   Platform,
@@ -25,7 +26,6 @@ import {
   type RecurringFrequency,
   type TopCategory,
   type MerchantSuggestion,
-  CURRENCIES,
   parseMoneyToMinor,
   computeAmountBaseMinor,
   parseFxRate,
@@ -35,6 +35,7 @@ import {
 import { useCopy, t } from "../../../src/lib/i18n";
 import { TopCategorySelector } from "../../../src/components/TopCategorySelector";
 import { MerchantAutocomplete } from "../../../src/components/MerchantAutocomplete";
+import { CurrencySelector } from "../../../src/components/CurrencySelector";
 
 type Category = {
   id: string;
@@ -499,39 +500,30 @@ export default function CreateTransactionScreen(): React.JSX.Element {
             </View>
           </View>
 
-          {/* Amount */}
-          <Input
-            label={t(dictionary, "transactions.create.amountLabel")}
-            value={amount}
-            onChangeText={(value) => setAmount(sanitizeNumericInput(value))}
-            placeholder={t(dictionary, "transactions.create.amountPlaceholder")}
-            keyboardType="numeric"
-          />
-
-          {/* Currency */}
+          {/* Amount + Currency */}
           <View style={styles.field}>
-            <Text style={styles.label}>{t(dictionary, "transactions.create.currencyLabel")}</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={currency}
-                onValueChange={(value) => {
+            <Text style={styles.label}>{t(dictionary, "transactions.create.amountLabel")}</Text>
+            <View style={styles.amountRow}>
+              <TextInput
+                style={styles.amountInput}
+                value={amount}
+                onChangeText={(value) => setAmount(sanitizeNumericInput(value))}
+                placeholder={t(dictionary, "transactions.create.amountPlaceholder")}
+                keyboardType="numeric"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <CurrencySelector
+                value={currency}
+                onChange={(value) => {
                   setCurrency(value);
                   if (value === baseCurrency) {
                     setFxRate("1");
                     setFxRateError(null);
                   }
                 }}
-                style={styles.picker}
-                enabled={!repeatEnabled}
-              >
-                {CURRENCIES.map((curr) => (
-                  <Picker.Item
-                    key={curr.code}
-                    label={`${curr.code} - ${curr.name}`}
-                    value={curr.code}
-                  />
-                ))}
-              </Picker>
+                disabled={repeatEnabled}
+              />
             </View>
           </View>
 
@@ -820,6 +812,24 @@ const styles = StyleSheet.create({
   },
   field: {
     gap: 8,
+  },
+  amountRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+  },
+  amountInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    backgroundColor: colors.bg.surface,
+    color: colors.text.primary,
   },
   topCategorySelector: {
     marginBottom: 8,

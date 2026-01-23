@@ -293,7 +293,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
         const isAccountSection = section.id === "account";
         // Filter out switch-account since we show the selector directly
         const filteredItems = section.items.filter(
-          (item) => item.id !== "switch-account"
+          (item) => item.id !== "switch-account" && item.id !== "categories"
         );
 
         return (

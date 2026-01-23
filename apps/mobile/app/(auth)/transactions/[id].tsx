@@ -2,17 +2,16 @@ import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   ScrollView,
   Alert,
   ActivityIndicator,
-  Platform,
   TouchableOpacity,
   Pressable,
 } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
 import { Button } from "../../../src/components/Button";
@@ -20,10 +19,10 @@ import { Input } from "../../../src/components/Input";
 import { Card } from "../../../src/components/Card";
 import { DatePickerField } from "../../../src/components/DatePickerField";
 import { TopCategorySelector } from "../../../src/components/TopCategorySelector";
+import { CurrencySelector } from "../../../src/components/CurrencySelector";
 import {
   type TransactionType,
   type TopCategory,
-  CURRENCIES,
   parseMoneyToMinor,
   computeAmountBaseMinor,
   parseFxRate,
@@ -421,38 +420,29 @@ export default function EditTransactionScreen(): React.JSX.Element {
             </View>
           </View>
 
-          {/* Amount */}
-          <Input
-            label={t(dictionary, "transactions.create.amountLabel")}
-            value={amount}
-            onChangeText={(value) => setAmount(sanitizeNumericInput(value))}
-            placeholder={t(dictionary, "transactions.create.amountPlaceholder")}
-            keyboardType="numeric"
-          />
-
-          {/* Currency */}
+          {/* Amount + Currency */}
           <View style={styles.field}>
-            <Text style={styles.label}>{t(dictionary, "transactions.create.currencyLabel")}</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={currency}
-                onValueChange={(value) => {
+            <Text style={styles.label}>{t(dictionary, "transactions.create.amountLabel")}</Text>
+            <View style={styles.amountRow}>
+              <TextInput
+                style={styles.amountInput}
+                value={amount}
+                onChangeText={(value) => setAmount(sanitizeNumericInput(value))}
+                placeholder={t(dictionary, "transactions.create.amountPlaceholder")}
+                keyboardType="numeric"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <CurrencySelector
+                value={currency}
+                onChange={(value) => {
                   setCurrency(value);
                   if (value === baseCurrency) {
                     setFxRate("1");
                     setFxRateError(null);
                   }
                 }}
-                style={styles.picker}
-              >
-                {CURRENCIES.map((curr) => (
-                  <Picker.Item
-                    key={curr.code}
-                    label={`${curr.code} - ${curr.name}`}
-                    value={curr.code}
-                  />
-                ))}
-              </Picker>
+              />
             </View>
           </View>
 
@@ -654,6 +644,24 @@ const styles = StyleSheet.create({
   field: {
     gap: 8,
   },
+  amountRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+  },
+  amountInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    backgroundColor: colors.bg.surface,
+    color: colors.text.primary,
+  },
   topCategorySelector: {
     marginBottom: 8,
   },
@@ -697,15 +705,6 @@ const styles = StyleSheet.create({
   },
   pillTextUnselected: {
     color: colors.text.primary,
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    borderRadius: 8,
-    overflow: "hidden",
-  },
-  picker: {
-    height: Platform.OS === "ios" ? 150 : 50,
   },
   actions: {
     flexDirection: "row",
