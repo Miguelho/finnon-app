@@ -7,7 +7,7 @@ export default function TransactionsStackLayout() {
   const stackScreenOptions = useStackScreenOptions();
 
   return (
-    <Stack screenOptions={stackScreenOptions}>
+    <Stack screenOptions={stackScreenOptions} initialRouteName="index">
       <Stack.Screen
         name="index"
         options={{ title: t(dictionary, "transactions.pageTitle") }}
