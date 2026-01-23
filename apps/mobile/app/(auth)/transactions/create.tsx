@@ -3,14 +3,17 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Alert,
   Platform,
   TouchableOpacity,
+  Pressable,
+  ScrollView,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
 import { Button } from "../../../src/components/Button";
@@ -46,6 +49,7 @@ export default function CreateTransactionScreen(): React.JSX.Element {
   const { selectedAccountId } = useAuth();
   const { dictionary } = useCopy();
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
 
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState("");
@@ -435,12 +439,21 @@ export default function CreateTransactionScreen(): React.JSX.Element {
   }, [amount, currency, baseCurrency, fxRate]);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Card
-        title={t(dictionary, "transactions.newTransaction")}
-        description={t(dictionary, "transactions.create.description")}
-      >
-        <View style={styles.form}>
+    <KeyboardAwareScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: insets.bottom + 24 },
+      ]}
+      keyboardShouldPersistTaps="handled"
+      enableOnAndroid
+      extraScrollHeight={Platform.OS === "ios" ? 20 : 80}
+    >
+        <Card
+          title={t(dictionary, "transactions.newTransaction")}
+          description={t(dictionary, "transactions.create.description")}
+        >
+          <View style={styles.form}>
           {/* Type - Pill Selector */}
           <View style={styles.field}>
             <Text style={styles.label}>{t(dictionary, "transactions.create.typeLabel")}</Text>
@@ -656,40 +669,70 @@ export default function CreateTransactionScreen(): React.JSX.Element {
                 topCategories={topCategories}
                 selectedCategoryId={categoryId || undefined}
                 onSelect={(id) => setCategoryId(id)}
-                onOpenAll={() => setShowFullCategorySelector(true)}
+                onToggleAll={() => setShowFullCategorySelector((prev) => !prev)}
+                isExpanded={showFullCategorySelector}
                 seeOthersLabel={t(dictionary, "transactions.create.categorySeeOthers")}
+                hideOthersLabel={t(dictionary, "transactions.create.categoryHideOthers")}
                 style={styles.topCategorySelector}
               />
             )}
             {(showFullCategorySelector || topCategories.length === 0) && (
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={categoryId}
-                  onValueChange={(value) => setCategoryId(value)}
-                  style={styles.picker}
+              <View style={styles.categoryDropdownContainer}>
+                <ScrollView
+                  style={styles.categoryDropdownList}
+                  keyboardShouldPersistTaps="handled"
+                  nestedScrollEnabled
                 >
-                  <Picker.Item label={t(dictionary, "common.noneOption")} value="" />
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.categoryDropdownItem,
+                      !categoryId && styles.categoryDropdownItemSelected,
+                      pressed && styles.categoryDropdownItemPressed,
+                    ]}
+                    onPress={() => setCategoryId("")}
+                  >
+                    <Text style={[
+                      styles.categoryDropdownText,
+                      !categoryId && styles.categoryDropdownTextSelected,
+                    ]}>
+                      {t(dictionary, "common.noneOption")}
+                    </Text>
+                  </Pressable>
                   {availableCategories.length === 0 ? (
-                    <Picker.Item
-                      label={t(dictionary, "transactions.create.categoryEmpty", {
-                        type:
-                          type === "income"
-                            ? t(dictionary, "categories.incomeLabel")
-                            : t(dictionary, "categories.expenseLabel"),
-                      })}
-                      value=""
-                      enabled={false}
-                    />
+                    <View style={styles.categoryDropdownItem}>
+                      <Text style={styles.categoryDropdownEmptyText}>
+                        {t(dictionary, "transactions.create.categoryEmpty", {
+                          type:
+                            type === "income"
+                              ? t(dictionary, "categories.incomeLabel")
+                              : t(dictionary, "categories.expenseLabel"),
+                        })}
+                      </Text>
+                    </View>
                   ) : (
-                    availableCategories.map((cat) => (
-                      <Picker.Item
-                        key={cat.id}
-                        label={cat.name}
-                        value={cat.id}
-                      />
-                    ))
+                    availableCategories.map((cat) => {
+                      const isSelected = categoryId === cat.id;
+                      return (
+                        <Pressable
+                          key={cat.id}
+                          style={({ pressed }) => [
+                            styles.categoryDropdownItem,
+                            isSelected && styles.categoryDropdownItemSelected,
+                            pressed && styles.categoryDropdownItemPressed,
+                          ]}
+                          onPress={() => setCategoryId(cat.id)}
+                        >
+                          <Text style={[
+                            styles.categoryDropdownText,
+                            isSelected && styles.categoryDropdownTextSelected,
+                          ]}>
+                            {cat.name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })
                   )}
-                </Picker>
+                </ScrollView>
               </View>
             )}
           </View>
@@ -734,9 +777,9 @@ export default function CreateTransactionScreen(): React.JSX.Element {
               />
             </View>
           </View>
-        </View>
-      </Card>
-    </ScrollView>
+          </View>
+        </Card>
+      </KeyboardAwareScrollView>
   );
 }
 
@@ -859,5 +902,46 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     marginTop: 8,
+  },
+  // Category dropdown styles (matching MerchantAutocomplete)
+  categoryDropdownContainer: {
+    backgroundColor: colors.bg.surface,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    borderRadius: 8,
+    maxHeight: 200,
+    overflow: "hidden",
+  },
+  categoryDropdownList: {
+    maxHeight: 200,
+  },
+  categoryDropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.state.neutral,
+  },
+  categoryDropdownItemSelected: {
+    backgroundColor: colors.action.secondary,
+  },
+  categoryDropdownItemPressed: {
+    backgroundColor: colors.bg.secondary,
+  },
+  categoryDropdownText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.text.primary,
+  },
+  categoryDropdownTextSelected: {
+    color: colors.action.primary,
+    fontWeight: "600",
+  },
+  categoryDropdownEmptyText: {
+    fontSize: 14,
+    color: colors.text.muted,
+    fontStyle: "italic",
   },
 });

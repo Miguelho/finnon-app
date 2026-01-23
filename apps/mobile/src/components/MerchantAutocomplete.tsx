@@ -7,6 +7,8 @@ import {
   StyleSheet,
   ScrollView,
   Keyboard,
+  type NativeSyntheticEvent,
+  type TextInputFocusEventData,
 } from "react-native";
 import {
   themeTokens,
@@ -24,6 +26,7 @@ export interface MerchantAutocompleteProps {
   suggestions: MerchantSuggestion[];
   placeholder?: string;
   disabled?: boolean;
+  onFocus?: (event: NativeSyntheticEvent<TextInputFocusEventData>) => void;
 }
 
 export function MerchantAutocomplete({
@@ -33,6 +36,7 @@ export function MerchantAutocomplete({
   suggestions,
   placeholder,
   disabled,
+  onFocus,
 }: MerchantAutocompleteProps) {
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -61,7 +65,10 @@ export function MerchantAutocomplete({
         style={[styles.input, disabled && styles.inputDisabled]}
         value={value}
         onChangeText={onChangeText}
-        onFocus={() => setIsFocused(true)}
+        onFocus={(event) => {
+          setIsFocused(true);
+          onFocus?.(event);
+        }}
         onBlur={() => {
           // Delay to allow press on suggestion
           setTimeout(() => setIsFocused(false), 150);

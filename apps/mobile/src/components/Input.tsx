@@ -1,4 +1,11 @@
-import { TextInput, Text, View, StyleSheet } from "react-native";
+import {
+  TextInput,
+  Text,
+  View,
+  StyleSheet,
+  type NativeSyntheticEvent,
+  type TextInputFocusEventData,
+} from "react-native";
 import { themeTokens } from "@poleursus/shared";
 
 const tokens = themeTokens.light;
@@ -16,6 +23,7 @@ interface InputProps {
   helperText?: string;
   multiline?: boolean;
   numberOfLines?: number;
+  onFocus?: (event: NativeSyntheticEvent<TextInputFocusEventData>) => void;
 }
 
 export function Input({
@@ -30,6 +38,7 @@ export function Input({
   helperText,
   multiline,
   numberOfLines,
+  onFocus,
 }: InputProps) {
   return (
     <View style={styles.container}>
@@ -51,6 +60,7 @@ export function Input({
         autoCorrect={false}
         multiline={multiline}
         numberOfLines={numberOfLines}
+        onFocus={onFocus}
       />
       {error && <Text style={styles.errorText}>{error}</Text>}
       {helperText && !error && <Text style={styles.helperText}>{helperText}</Text>}

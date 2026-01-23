@@ -6,7 +6,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { CaretRight } from "phosphor-react-native";
+import { CaretRight, CaretDown } from "phosphor-react-native";
 import { themeTokens, type TopCategory, type CategoryIconKey } from "@poleursus/shared";
 import { CategoryIcon } from "./CategoryIcon";
 
@@ -19,8 +19,10 @@ export interface TopCategorySelectorProps {
   topCategories: TopCategory[];
   selectedCategoryId?: string;
   onSelect: (categoryId: string) => void;
-  onOpenAll: () => void;
+  onToggleAll: () => void;
+  isExpanded?: boolean;
   seeOthersLabel: string;
+  hideOthersLabel?: string;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -28,13 +30,18 @@ export function TopCategorySelector({
   topCategories,
   selectedCategoryId,
   onSelect,
-  onOpenAll,
+  onToggleAll,
+  isExpanded = false,
   seeOthersLabel,
+  hideOthersLabel,
   style,
 }: TopCategorySelectorProps) {
   if (topCategories.length === 0) {
     return null;
   }
+
+  const toggleLabel = isExpanded ? (hideOthersLabel ?? seeOthersLabel) : seeOthersLabel;
+  const IconComponent = isExpanded ? CaretDown : CaretRight;
 
   return (
     <View style={[styles.container, style]}>
@@ -72,16 +79,16 @@ export function TopCategorySelector({
         );
       })}
       <Pressable
-        onPress={onOpenAll}
+        onPress={onToggleAll}
         accessibilityRole="button"
-        accessibilityLabel={seeOthersLabel}
+        accessibilityLabel={toggleLabel}
         style={({ pressed }) => [
           styles.seeOthers,
           pressed && styles.seeOthersPressed,
         ]}
       >
-        <Text style={styles.seeOthersText}>{seeOthersLabel}</Text>
-        <CaretRight size={14} weight="bold" color={colors.text.muted} />
+        <Text style={styles.seeOthersText}>{toggleLabel}</Text>
+        <IconComponent size={14} weight="bold" color={colors.text.muted} />
       </Pressable>
     </View>
   );
