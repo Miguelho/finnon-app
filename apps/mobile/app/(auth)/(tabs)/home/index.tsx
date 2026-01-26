@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   View,
   Text,
@@ -9,9 +9,13 @@ import {
   Modal,
   Pressable,
   Alert,
+  Dimensions,
+  type StyleProp,
+  type TextStyle,
 } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "../../../../src/lib/supabase";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { Button } from "../../../../src/components/Button";
@@ -78,6 +82,16 @@ const colors = tokens.colors;
 const typography = createTypographyStyles(tokens);
 const CASHFLOW_DAYS_OPTIONS = [7, 14, 30] as const;
 
+const withAlpha = (color: string, alpha: number) => {
+  if (color.startsWith("#") && color.length === 7) {
+    const r = Number.parseInt(color.slice(1, 3), 16);
+    const g = Number.parseInt(color.slice(3, 5), 16);
+    const b = Number.parseInt(color.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return color;
+};
+
 function formatDateShort(value: Date, locale: string) {
   return value.toLocaleDateString(locale, {
     day: "2-digit",
@@ -116,6 +130,117 @@ function HomeSheet({
         </View>
       </View>
     </Modal>
+  );
+}
+
+type SummaryValueWithPendingChipProps = {
+  value: string;
+  pendingMinor: bigint;
+  pendingText: string;
+  triggerLabel: string;
+  valueStyle?: StyleProp<TextStyle>;
+  pendingToneColor?: string;
+  align?: "apart" | "compact";
+};
+
+function SummaryValueWithPendingChip({
+  value,
+  pendingMinor,
+  pendingText,
+  triggerLabel,
+  valueStyle,
+  pendingToneColor,
+  align = "apart",
+}: SummaryValueWithPendingChipProps) {
+  const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const triggerRef = useRef<View>(null);
+  const hasPending = pendingMinor > 0n;
+
+  const handleToggle = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    if (!triggerRef.current) {
+      setOpen(true);
+      return;
+    }
+    triggerRef.current.measureInWindow((x, y, width, height) => {
+      setAnchor({ x, y, width, height });
+      setOpen(true);
+    });
+  };
+
+  const windowWidth = Dimensions.get("window").width;
+  const chipWidth = Math.min(240, windowWidth - tokens.spacing.lg * 2);
+  const leftOffset = anchor
+    ? Math.min(
+        Math.max(tokens.spacing.lg, anchor.x + anchor.width - chipWidth),
+        windowWidth - chipWidth - tokens.spacing.lg
+      )
+    : tokens.spacing.lg;
+  const topOffset = anchor
+    ? anchor.y + anchor.height + tokens.spacing.xs
+    : tokens.spacing.lg;
+
+  const pendingTextColor = pendingToneColor
+    ? withAlpha(pendingToneColor, 0.65)
+    : colors.text.secondary;
+
+  return (
+    <View
+      style={[
+        styles.summaryValueRow,
+        align === "compact" && styles.summaryValueRowCompact,
+      ]}
+    >
+      <Text style={[styles.summaryValue, valueStyle]}>{value}</Text>
+      {hasPending ? (
+        <>
+          <Pressable
+            ref={triggerRef}
+            onPress={handleToggle}
+            accessibilityRole="button"
+            accessibilityLabel={triggerLabel}
+            accessibilityState={{ expanded: open }}
+            style={styles.pendingTriggerButton}
+            hitSlop={8}
+          >
+            <MaterialCommunityIcons
+              name="plus-circle-outline"
+              size={16}
+              color={colors.text.muted}
+            />
+          </Pressable>
+          <Modal
+            transparent
+            visible={open}
+            animationType="fade"
+            onRequestClose={() => setOpen(false)}
+          >
+            <Pressable style={styles.pendingOverlay} onPress={() => setOpen(false)}>
+              <Pressable
+                style={[
+                  styles.pendingChip,
+                  { top: topOffset, left: leftOffset, width: chipWidth },
+                ]}
+                onPress={() => {}}
+              >
+                <Text style={[styles.pendingChipText, { color: pendingTextColor }]}>
+                  {pendingText}
+                </Text>
+              </Pressable>
+            </Pressable>
+          </Modal>
+        </>
+      ) : null}
+    </View>
   );
 }
 
@@ -421,6 +546,20 @@ export default function HomeScreen() {
   });
   const cashflowNetMinor =
     viewModel.cashflow.incomeMinor - viewModel.cashflow.expenseMinor;
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const formatSignedBalance = (amountMinor: bigint) => {
+    const absoluteMinor = amountMinor < 0n ? -amountMinor : amountMinor;
+    const sign = amountMinor < 0n ? "-" : "";
+    return `${sign}${formatMoneyWithSymbol(
+      absoluteMinor,
+      mainAccount.base_currency,
+      currencySymbol
+    )}`;
+  };
+  const balancePendingText = t(dictionary, "home.pendingChipLabel", {
+    amount: formatSignedBalance(-viewModel.monthOverview.expensePendingMinor),
+  });
 
   const handleToggleObligationStatus = async (item: {
     id: string;
@@ -552,6 +691,26 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.heroSection}>
+            <Text style={styles.sectionTitle}>{viewModel.copy.balanceLabel}</Text>
+            <View style={styles.balanceCard}>
+              <View style={styles.balanceRow}>
+                <Text style={styles.balanceLabel}>
+                  {viewModel.copy.balanceTodayLabel}
+                </Text>
+                <SummaryValueWithPendingChip
+                  value={formatSignedBalance(viewModel.monthOverview.balanceTodayMinor)}
+                  pendingMinor={viewModel.monthOverview.expensePendingMinor}
+                  pendingText={balancePendingText}
+                  triggerLabel={t(dictionary, "home.pendingTriggerLabel")}
+                  valueStyle={styles.balanceValue}
+                  pendingToneColor={colors.state.negative}
+                  align="compact"
+                />
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.heroSection}>
             <View style={styles.monthHeader}>
               <View>
                 <Text style={styles.sectionTitle}>
@@ -563,6 +722,56 @@ export default function HomeScreen() {
                     year: "numeric",
                   })}
                 </Text>
+              </View>
+            </View>
+
+            <View style={styles.monthBreakdown}>
+              <View style={styles.monthBreakdownCard}>
+                <Text style={styles.summaryCardTitle}>
+                  {viewModel.copy.incomeLabel}
+                </Text>
+                <SummaryValueWithPendingChip
+                  value={formatMoneyWithSymbol(
+                    viewModel.monthOverview.incomeRealMinor,
+                    mainAccount.base_currency,
+                    currencySymbol
+                  )}
+                  pendingMinor={viewModel.monthOverview.incomePendingMinor}
+                  pendingText={t(dictionary, "home.pendingChipLabel", {
+                    amount: formatMoneyWithSymbol(
+                      viewModel.monthOverview.incomePendingMinor,
+                      mainAccount.base_currency,
+                      currencySymbol
+                    ),
+                  })}
+                  triggerLabel={t(dictionary, "home.pendingTriggerLabel")}
+                  valueStyle={styles.amountPositive}
+                  pendingToneColor={colors.state.positive}
+                />
+              </View>
+
+              <View style={styles.monthBreakdownCard}>
+                <Text style={styles.summaryCardTitle}>
+                  {viewModel.copy.expenseLabel}
+                </Text>
+                <SummaryValueWithPendingChip
+                  value={formatMoneyWithSymbol(
+                    viewModel.monthOverview.expenseRealMinor,
+                    mainAccount.base_currency,
+                    currencySymbol
+                  )}
+                  pendingMinor={viewModel.monthOverview.expensePendingMinor}
+                  pendingText={t(dictionary, "home.pendingChipLabel", {
+                    amount: formatMoneyWithSymbol(
+                      viewModel.monthOverview.expensePendingMinor,
+                      mainAccount.base_currency,
+                      currencySymbol
+                    ),
+                  })}
+                  triggerLabel={t(dictionary, "home.pendingTriggerLabel")}
+                  valueStyle={styles.amountNegative}
+                  pendingToneColor={colors.state.negative}
+                />
               </View>
             </View>
 
@@ -579,46 +788,7 @@ export default function HomeScreen() {
               <Text style={styles.emptyText}>{viewModel.copy.monthEmpty}</Text>
             )}
 
-            <View style={styles.monthSummaryRow}>
-              <View style={styles.monthSummaryItem}>
-                <Text style={styles.summaryLabel}>
-                  {viewModel.copy.committedLabel}
-                </Text>
-                <Text style={styles.summaryValue}>
-                  {formatMoneyWithSymbol(
-                    viewModel.monthlyHero.committedMinor,
-                    mainAccount.base_currency,
-                    currencySymbol
-                  )}
-                </Text>
-              </View>
-              <View style={styles.monthSummaryItem}>
-                <Text style={styles.summaryLabel}>
-                  {viewModel.copy.pendingLabel}
-                </Text>
-                <Text style={styles.summaryValue}>
-                  {formatMoneyWithSymbol(
-                    viewModel.monthlyHero.pendingMinor,
-                    mainAccount.base_currency,
-                    currencySymbol
-                  )}
-                </Text>
-              </View>
-              <View style={styles.monthSummaryItem}>
-                <Text style={styles.summaryLabel}>
-                  {viewModel.monthlyHero.paidLabel}
-                </Text>
-                <Text style={styles.summaryValue}>
-                  {formatMoneyWithSymbol(
-                    viewModel.monthlyHero.paidMinor,
-                    mainAccount.base_currency,
-                    currencySymbol
-                  )}
-                </Text>
-              </View>
-            </View>
-
-            {!viewModel.monthlyHero.hasActivity && (
+            {!viewModel.monthOverview.hasActivity && (
               <View style={styles.heroActivityEmpty}>
                 <Text style={styles.heroEmptyText}>
                   {viewModel.emptyStates.activity.title}
@@ -665,11 +835,20 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.list}>
               {viewModel.recentActivity.items.map((item) => {
+                const isPending = item.date.getTime() > todayStart.getTime();
+                const baseColor =
+                  item.type === "income" ? colors.state.positive : colors.state.negative;
+                const amountColor = isPending ? withAlpha(baseColor, 0.55) : baseColor;
                 return (
                   <View key={item.id} style={styles.listRow}>
                     <View style={styles.listRowInfo}>
                       <View style={styles.listRowTitleRow}>
-                        <View style={styles.listRowIconContainer}>
+                        <View
+                          style={[
+                            styles.listRowIconContainer,
+                            isPending && styles.pendingOpacity,
+                          ]}
+                        >
                           <CategoryIcon
                             iconKey={item.iconId as CategoryIconKey}
                             size={16}
@@ -687,9 +866,8 @@ export default function HomeScreen() {
                     <Text
                       style={[
                         styles.listRowAmount,
-                        item.type === "income"
-                          ? styles.amountPositive
-                          : styles.amountNegative,
+                        item.type === "income" ? styles.amountPositive : styles.amountNegative,
+                        { color: amountColor },
                       ]}
                     >
                       {item.type === "income" ? "+" : "-"}
@@ -856,22 +1034,77 @@ const styles = StyleSheet.create({
     ...typography.meta,
     color: colors.text.secondary,
   },
-  monthSummaryRow: {
+  balanceCard: {
+    borderRadius: tokens.radii.lg,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    padding: tokens.spacing.md,
+    backgroundColor: colors.bg.secondary,
+    gap: tokens.spacing.sm,
+  },
+  balanceRow: {
     flexDirection: "row",
-    gap: tokens.spacing.md,
+    alignItems: "center",
     justifyContent: "space-between",
+    gap: tokens.spacing.md,
   },
-  monthSummaryItem: {
-    flex: 1,
-    gap: 4,
-  },
-  summaryLabel: {
+  balanceLabel: {
     ...typography.meta,
     color: colors.text.secondary,
+  },
+  balanceValue: {
+    ...typography.body,
+    color: colors.text.primary,
+    fontWeight: tokens.typography.weight.semibold,
+  },
+  monthBreakdown: {
+    gap: tokens.spacing.md,
+  },
+  monthBreakdownCard: {
+    borderRadius: tokens.radii.lg,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    padding: tokens.spacing.md,
+    backgroundColor: colors.bg.secondary,
+    gap: tokens.spacing.sm,
+  },
+  summaryCardTitle: {
+    ...typography.body,
+    color: colors.text.primary,
+    fontWeight: tokens.typography.weight.semibold,
+  },
+  summaryValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: tokens.spacing.md,
+  },
+  summaryValueRowCompact: {
+    justifyContent: "flex-end",
   },
   summaryValue: {
     ...typography.body,
     color: colors.text.primary,
+  },
+  pendingTriggerButton: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pendingOverlay: {
+    flex: 1,
+  },
+  pendingChip: {
+    position: "absolute",
+    backgroundColor: colors.bg.surface,
+    borderRadius: tokens.radii.pill,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: 6,
+  },
+  pendingChipText: {
+    ...typography.meta,
+    color: colors.text.secondary,
   },
   heroActivityEmpty: {
     borderTopWidth: 1,
@@ -988,6 +1221,9 @@ const styles = StyleSheet.create({
     height: 20,
     justifyContent: "center",
     alignItems: "center",
+  },
+  pendingOpacity: {
+    opacity: 0.6,
   },
   listRowTitle: {
     ...typography.body,

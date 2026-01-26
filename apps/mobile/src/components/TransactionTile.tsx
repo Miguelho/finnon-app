@@ -63,6 +63,8 @@ const densityStyles = {
 
 const formatDateLabel = (value: string | Date, locale: string) =>
   new Date(value).toLocaleDateString(locale);
+const toStartOfDay = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
 export function TransactionTile({
   transaction,
@@ -92,6 +94,10 @@ export function TransactionTile({
   const displayMerchant = transaction.merchant;
   const categoryName = transaction.category?.name;
   const metaParts = [formatDateLabel(transaction.date, locale)];
+  const dateValue = new Date(transaction.date);
+  const isPending =
+    !Number.isNaN(dateValue.getTime()) &&
+    toStartOfDay(dateValue).getTime() > toStartOfDay(new Date()).getTime();
 
   if (categoryName && categoryName !== displayMerchant) {
     metaParts.push(categoryName);
@@ -176,13 +182,22 @@ export function TransactionTile({
           >
             {displayMerchant}
           </Text>
-          <Text
-            style={stylesText.meta}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {metaParts.join(" • ")}
-          </Text>
+          <View style={stylesText.metaRow}>
+            <Text
+              style={stylesText.meta}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {metaParts.join(" • ")}
+            </Text>
+            {isPending && (
+              <View style={stylesText.pendingChip}>
+                <Text style={stylesText.pendingChipText}>
+                  {t(dictionary, "common.pendingLabel")}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
       </View>
 
@@ -267,8 +282,25 @@ const stylesText = StyleSheet.create({
     color: colors.text.primary,
   },
   meta: {
-    marginTop: spacing.xs,
+    flex: 1,
     fontSize: typography.size.sm,
+    color: colors.text.secondary,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  pendingChip: {
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: radii.pill,
+    backgroundColor: colors.state.neutral,
+  },
+  pendingChipText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
     color: colors.text.secondary,
   },
   trailing: {

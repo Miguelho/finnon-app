@@ -9,7 +9,8 @@ import type { CopyDictionary } from "../copy";
 import { t } from "../copy";
 import {
   getAccountGlobalState,
-  computeMonthlySummary,
+  computeRealPendingSummary,
+  computeScheduledExpenseMinor,
   getMonthRange,
   getEventsForMonth,
   getFlowForRange,
@@ -19,7 +20,6 @@ import {
   type CashflowItem,
   type CalendarEvent,
   type DateRange,
-  type MonthlySummary,
   type RecentActivityItem,
   type UpcomingItem,
 } from "./home.compute";
@@ -28,13 +28,13 @@ export type HomeViewModel = {
   account: Account;
   monthKey: string;
   accountSummary: AccountGlobalState;
-  monthlyHero: {
-    committedMinor: bigint;
-    pendingMinor: bigint;
-    paidMinor: bigint;
-    paidLabel: string;
-    nextObligation: UpcomingItem | null;
-    hasObligations: boolean;
+  monthOverview: {
+    incomeRealMinor: bigint;
+    incomePendingMinor: bigint;
+    expenseRealMinor: bigint;
+    expensePendingMinor: bigint;
+    balanceTodayMinor: bigint;
+    balanceEomMinor: bigint;
     hasActivity: boolean;
   };
   upcoming: {
@@ -80,9 +80,11 @@ export type HomeViewModel = {
     recentCta: string;
     recentActivityTitle: string;
     balanceLabel: string;
+    balanceTodayLabel: string;
+    balanceEomLabel: string;
     incomeLabel: string;
     expenseLabel: string;
-    committedLabel: string;
+    realLabel: string;
     pendingLabel: string;
     upcomingObligationsTitle: string;
     cashflowTitle: string;
@@ -154,10 +156,15 @@ export function buildHomeViewModel({
   };
 
   const accountSummary = getAccountGlobalState(balanceSource);
-  const monthlySummary: MonthlySummary = computeMonthlySummary(
-    obligations,
+  const monthOverview = computeRealPendingSummary(
     monthlyTransactions,
-    monthRange
+    monthRange,
+    nowDate
+  );
+  const scheduledExpenseMinor = computeScheduledExpenseMinor(
+    obligations,
+    monthRange,
+    nowDate
   );
 
   const upcomingItems = getUpcomingItems(obligations, upcomingRange);
@@ -170,10 +177,6 @@ export function buildHomeViewModel({
     t(dictionary, "home.recentFallbackTitle"),
     nowDate
   );
-  const nextObligation =
-    getUpcomingItems(obligations, { start: startOfToday, end: monthRange.end })[0] ??
-    null;
-
   const recentItems = getRecentActivity(
     recentTransactions ?? monthlyTransactions,
     recentLimit,
@@ -181,28 +184,16 @@ export function buildHomeViewModel({
     t(dictionary, "home.recentFallbackTitle")
   );
 
-  const hasObligations = monthlySummary.obligationsCount > 0;
-  const hasActivity = monthlySummary.activityCount > 0;
+  const hasActivity = monthlyTransactions.length > 0;
   const isGuestReadOnly = role === "viewer";
-
-  const paidLabel = hasObligations
-    ? t(dictionary, "home.paidLabel")
-    : t(dictionary, "home.registeredLabel");
-  const paidMinor = hasObligations
-    ? monthlySummary.paidMinor
-    : monthlySummary.registeredMinor;
 
   return {
     account,
     monthKey: toMonthKey(activeMonth),
     accountSummary,
-    monthlyHero: {
-      committedMinor: monthlySummary.committedMinor,
-      pendingMinor: hasObligations ? monthlySummary.pendingMinor : 0n,
-      paidMinor,
-      paidLabel,
-      nextObligation,
-      hasObligations,
+    monthOverview: {
+      ...monthOverview,
+      expensePendingMinor: monthOverview.expensePendingMinor + scheduledExpenseMinor,
       hasActivity,
     },
     upcoming: {
@@ -254,10 +245,12 @@ export function buildHomeViewModel({
       recentCta: t(dictionary, "home.recentCta"),
       recentActivityTitle: t(dictionary, "home.recentActivityTitle"),
       balanceLabel: t(dictionary, "common.balanceLabel"),
+      balanceTodayLabel: t(dictionary, "home.balanceTodayLabel"),
+      balanceEomLabel: t(dictionary, "home.balanceEomLabel"),
       incomeLabel: t(dictionary, "common.incomeLabel"),
       expenseLabel: t(dictionary, "common.expenseLabel"),
-      committedLabel: t(dictionary, "home.committedLabel"),
-      pendingLabel: t(dictionary, "home.pendingLabel"),
+      realLabel: t(dictionary, "common.realLabel"),
+      pendingLabel: t(dictionary, "common.pendingLabel"),
       upcomingObligationsTitle: t(dictionary, "home.upcomingObligationsTitle"),
       cashflowTitle: t(dictionary, "home.cashflowTitle", { days: nextDays }),
       markPaid: t(dictionary, "home.markPaid"),

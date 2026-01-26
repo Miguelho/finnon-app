@@ -947,6 +947,9 @@ export function TransactionsClient({
       <h2 className="text-lg font-bold">
         {t("movimientosCount", { count: mergedItems.length })}
       </h2>
+      <p className="text-xs" style={{ color: colors.text.secondary }}>
+        {t("futureLegend")}
+      </p>
 
       {/* Transactions List */}
       <div

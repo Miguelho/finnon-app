@@ -70,6 +70,8 @@ const densityStyles = {
 
 const formatDateLabel = (value: string | Date) =>
   new Date(value).toLocaleDateString();
+const toStartOfDay = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
 export function TransactionTile({
   transaction,
@@ -98,6 +100,10 @@ export function TransactionTile({
   const displayMerchant = transaction.merchant;
   const categoryName = transaction.category?.name;
   const metaParts = [formatDateLabel(transaction.date)];
+  const dateValue = new Date(transaction.date);
+  const isPending =
+    !Number.isNaN(dateValue.getTime()) &&
+    toStartOfDay(dateValue).getTime() > toStartOfDay(new Date()).getTime();
 
   if (categoryName && categoryName !== displayMerchant) {
     metaParts.push(categoryName);
@@ -166,11 +172,24 @@ export function TransactionTile({
           >
             {displayMerchant}
           </div>
-          <div
-            className="text-sm truncate"
-            style={{ color: colors.text.secondary }}
-          >
-            {metaParts.join(" • ")}
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="text-sm truncate min-w-0 flex-1"
+              style={{ color: colors.text.secondary }}
+            >
+              {metaParts.join(" • ")}
+            </span>
+            {isPending && (
+              <span
+                className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                style={{
+                  backgroundColor: colors.state.neutral,
+                  color: colors.text.secondary,
+                }}
+              >
+                {tCommon("pendingLabel")}
+              </span>
+            )}
           </div>
         </div>
       </div>

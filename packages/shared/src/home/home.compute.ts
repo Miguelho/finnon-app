@@ -14,6 +14,15 @@ export type MonthlySummary = {
   activityCount: number;
 };
 
+export type RealPendingSummary = {
+  incomeRealMinor: bigint;
+  incomePendingMinor: bigint;
+  expenseRealMinor: bigint;
+  expensePendingMinor: bigint;
+  balanceTodayMinor: bigint;
+  balanceEomMinor: bigint;
+};
+
 export type UpcomingItem = {
   id: string;
   name: string;
@@ -204,6 +213,79 @@ export function computeMonthlySummary(
     registeredMinor,
     obligationsCount,
     activityCount,
+  };
+}
+
+export function computeScheduledExpenseMinor(
+  obligations: Obligation[],
+  monthRange: DateRange,
+  today: Date
+): bigint {
+  let scheduledMinor = 0n;
+  const todayStart = startOfDay(today).getTime();
+
+  obligations.forEach((obligation) => {
+    if (obligation.status === "paid") return;
+    const dueDate = toDate(obligation.due_date);
+    if (!dueDate || !isWithinRange(dueDate, monthRange)) return;
+    if (startOfDay(dueDate).getTime() <= todayStart) return;
+    const amount = toMinor(obligation.amount_base_minor ?? obligation.amount_minor);
+    scheduledMinor += amount;
+  });
+
+  return scheduledMinor;
+}
+
+export function computeRealPendingSummary(
+  transactions: Transaction[],
+  monthRange: DateRange,
+  today: Date
+): RealPendingSummary {
+  let incomeRealMinor = 0n;
+  let incomePendingMinor = 0n;
+  let expenseRealMinor = 0n;
+  let expensePendingMinor = 0n;
+
+  const todayStart = startOfDay(today).getTime();
+
+  transactions.forEach((transaction) => {
+    const date = toDate(transaction.date);
+    if (!date || !isWithinRange(date, monthRange)) return;
+
+    const amount = toMinor(
+      transaction.amount_base_minor ?? transaction.amount_minor
+    );
+    const isReal = startOfDay(date).getTime() <= todayStart;
+
+    if (transaction.type === "income") {
+      if (isReal) {
+        incomeRealMinor += amount;
+      } else {
+        incomePendingMinor += amount;
+      }
+      return;
+    }
+
+    if (isReal) {
+      expenseRealMinor += amount;
+    } else {
+      expensePendingMinor += amount;
+    }
+  });
+
+  const balanceTodayMinor = incomeRealMinor - expenseRealMinor;
+  const balanceEomMinor =
+    incomeRealMinor +
+    incomePendingMinor -
+    (expenseRealMinor + expensePendingMinor);
+
+  return {
+    incomeRealMinor,
+    incomePendingMinor,
+    expenseRealMinor,
+    expensePendingMinor,
+    balanceTodayMinor,
+    balanceEomMinor,
   };
 }
 

@@ -621,6 +621,9 @@ export default function TransactionsScreen(): React.JSX.Element {
                 count: mergedItems.length,
               })}
             </Text>
+            <Text style={styles.sectionHint}>
+              {t(dictionary, "transactions.futureLegend")}
+            </Text>
 
             <View style={styles.listContainer}>
               {mergedItems.length === 0 ? (
@@ -1032,6 +1035,12 @@ const styles = StyleSheet.create({
     fontWeight: typography.weight.bold,
     marginBottom: spacing.md,
     color: colors.text.primary,
+  },
+  sectionHint: {
+    fontSize: typography.size.xs,
+    color: colors.text.secondary,
+    marginTop: -spacing.sm,
+    marginBottom: spacing.md,
   },
   emptyText: {
     fontSize: typography.size.sm,

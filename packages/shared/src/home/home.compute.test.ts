@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   computeMonthlySummary,
+  computeRealPendingSummary,
   getMonthRange,
   getUpcomingCashflowWindow,
 } from "./home.compute";
@@ -81,6 +82,68 @@ test("computeMonthlySummary tracks commitments and activity in month", () => {
   assert.equal(summary.registeredMinor, 500n);
   assert.equal(summary.obligationsCount, 2);
   assert.equal(summary.activityCount, 2);
+});
+
+test("computeRealPendingSummary splits real vs pending for the month", () => {
+  const monthRange = getMonthRange(new Date("2024-03-10T00:00:00Z"));
+  const today = new Date("2024-03-10T12:00:00Z");
+
+  const transactions: Transaction[] = [
+    {
+      id: "tx-1",
+      account_id: "acc-1",
+      type: "income",
+      amount_minor: "1000",
+      amount_base_minor: "1000",
+      currency: "USD",
+      date: "2024-03-05",
+    },
+    {
+      id: "tx-2",
+      account_id: "acc-1",
+      type: "income",
+      amount_minor: "2000",
+      amount_base_minor: "2000",
+      currency: "USD",
+      date: "2024-03-20",
+    },
+    {
+      id: "tx-3",
+      account_id: "acc-1",
+      type: "expense",
+      amount_minor: "500",
+      amount_base_minor: "500",
+      currency: "USD",
+      date: "2024-03-10",
+    },
+    {
+      id: "tx-4",
+      account_id: "acc-1",
+      type: "expense",
+      amount_minor: "800",
+      amount_base_minor: "800",
+      currency: "USD",
+      date: "2024-03-22",
+    },
+    {
+      id: "tx-5",
+      account_id: "acc-1",
+      type: "income",
+      amount_minor: "900",
+      amount_base_minor: "900",
+      currency: "USD",
+      date: "2024-04-02",
+    },
+  ];
+
+  const summary = computeRealPendingSummary(transactions, monthRange, today);
+
+  assert.equal(summary.incomeRealMinor, 1000n);
+  assert.equal(summary.incomePendingMinor, 2000n);
+  assert.equal(summary.expenseRealMinor, 500n);
+  assert.equal(summary.expensePendingMinor, 800n);
+  assert.equal(summary.balanceTodayMinor, 500n);
+  assert.equal(summary.balanceEomMinor, 1700n);
 });
 
 test("getUpcomingCashflowWindow respects a 7-day window", () => {

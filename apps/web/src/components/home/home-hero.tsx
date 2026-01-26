@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { CashFlowArrows } from "@/components/home/cash-flow-arrows";
@@ -37,6 +38,142 @@ type HomeHeroProps = {
 };
 
 const CASHFLOW_DAYS_OPTIONS = [7, 14, 30] as const;
+
+const withAlpha = (color: string, alpha: number) => {
+  if (color.startsWith("#") && color.length === 7) {
+    const r = Number.parseInt(color.slice(1, 3), 16);
+    const g = Number.parseInt(color.slice(3, 5), 16);
+    const b = Number.parseInt(color.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return color;
+};
+
+type SummaryValueWithPendingChipProps = {
+  value: string;
+  pendingMinor: bigint;
+  pendingText: string;
+  triggerLabel: string;
+  valueColor: string;
+  pendingToneColor?: string;
+  colors: typeof themeTokens.light.colors;
+  typography: ReturnType<typeof createTypographyStyles>;
+  id?: string;
+  align?: "apart" | "compact";
+};
+
+function SummaryValueWithPendingChip({
+  value,
+  pendingMinor,
+  pendingText,
+  triggerLabel,
+  valueColor,
+  pendingToneColor,
+  colors,
+  typography,
+  id,
+  align = "apart",
+}: SummaryValueWithPendingChipProps) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const chipRef = useRef<HTMLDivElement | null>(null);
+  const generatedId = useId();
+  const chipId = id ?? generatedId;
+  const hasPending = pendingMinor > 0n;
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        chipRef.current?.contains(target) ||
+        triggerRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setOpen(false);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
+  const containerClassName =
+    align === "compact"
+      ? "flex items-center gap-2"
+      : "flex items-center justify-between gap-3";
+
+  const pendingTextColor = pendingToneColor
+    ? withAlpha(pendingToneColor, 0.65)
+    : colors.text.secondary;
+
+  return (
+    <div className={containerClassName}>
+      <p
+        style={{
+          fontSize: typography.body.fontSize,
+          fontWeight: typography.body.fontWeight,
+          color: valueColor,
+        }}
+      >
+        {value}
+      </p>
+      {hasPending ? (
+        <div className="relative">
+          <button
+            type="button"
+            ref={triggerRef}
+            onClick={() => setOpen((prev) => !prev)}
+            aria-expanded={open}
+            aria-controls={chipId}
+            aria-label={triggerLabel}
+            className="inline-flex items-center"
+            style={{
+              fontSize: typography.meta.fontSize,
+              fontWeight: typography.meta.fontWeight,
+              color: colors.text.muted,
+              background: "transparent",
+              border: "none",
+              padding: 0,
+              lineHeight: 0,
+              cursor: "pointer",
+            }}
+          >
+            <PlusCircle size={16} aria-hidden="true" />
+          </button>
+          {open ? (
+            <div
+              id={chipId}
+              ref={chipRef}
+              role="status"
+              className="absolute right-0 top-full z-10 mt-2 rounded-full border px-3 py-1 text-xs shadow-sm"
+              style={{
+                backgroundColor: colors.bg.surface,
+                borderColor: colors.state.neutral,
+                color: pendingTextColor,
+                maxWidth: 220,
+                whiteSpace: "normal",
+              }}
+            >
+              {pendingText}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function HomeHero({
   account,
@@ -82,6 +219,45 @@ export function HomeHero({
   const monthLabel = now.toLocaleDateString(locale, {
     month: "long",
     year: "numeric",
+  });
+  const formatSignedBalance = (amountMinor: bigint) => {
+    const absoluteMinor = amountMinor < 0n ? -amountMinor : amountMinor;
+    const sign = amountMinor < 0n ? "-" : "";
+    return `${sign}${formatMoneyWithSymbol(
+      absoluteMinor,
+      account.base_currency,
+      currencySymbol
+    )}`;
+  };
+  const pendingTriggerLabel = t(dictionary, "home.pendingTriggerLabel");
+  const incomeRealFormatted = formatMoneyWithSymbol(
+    viewModel.monthOverview.incomeRealMinor,
+    account.base_currency,
+    currencySymbol
+  );
+  const incomePendingFormatted = formatMoneyWithSymbol(
+    viewModel.monthOverview.incomePendingMinor,
+    account.base_currency,
+    currencySymbol
+  );
+  const expenseRealFormatted = formatMoneyWithSymbol(
+    viewModel.monthOverview.expenseRealMinor,
+    account.base_currency,
+    currencySymbol
+  );
+  const expensePendingFormatted = formatMoneyWithSymbol(
+    viewModel.monthOverview.expensePendingMinor,
+    account.base_currency,
+    currencySymbol
+  );
+  const incomePendingText = t(dictionary, "home.pendingChipLabel", {
+    amount: incomePendingFormatted,
+  });
+  const expensePendingText = t(dictionary, "home.pendingChipLabel", {
+    amount: expensePendingFormatted,
+  });
+  const balancePendingText = t(dictionary, "home.pendingChipLabel", {
+    amount: formatSignedBalance(-viewModel.monthOverview.expensePendingMinor),
   });
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [isDayPanelOpen, setIsDayPanelOpen] = useState(false);
@@ -210,127 +386,170 @@ export function HomeHero({
             </div>
 
             <div
-              className="space-y-3 border-t pt-4"
+              className="space-y-4 border-t pt-4"
               style={{ borderColor: colors.state.neutral }}
             >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2
-                    style={{
-                      fontSize: typography.h2.fontSize,
-                      fontWeight: typography.h2.fontWeight,
-                      color: colors.text.primary,
-                    }}
-                  >
-                    {t(dictionary, "dashboard.thisMonth")}
-                  </h2>
-                  <p
-                    style={{
-                      fontSize: typography.meta.fontSize,
-                      fontWeight: typography.meta.fontWeight,
-                      color: colors.text.secondary,
-                    }}
-                  >
-                    {monthLabel}
-                  </p>
-                </div>
-              </div>
-
-              <MonthMap
-                month={now}
-                locale={locale}
-                events={viewModel.calendar.events}
-                highlightRange={viewModel.calendar.highlightRange}
-                selectedDate={selectedDay}
-                onSelectDate={handleSelectDay}
-              />
-
-              {viewModel.calendar.events.length === 0 && (
-                <p className="text-sm" style={{ color: colors.text.secondary }}>
-                  {viewModel.copy.monthEmpty}
-                </p>
-              )}
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <div>
-                  <p className="text-xs" style={{ color: colors.text.secondary }}>
-                    {viewModel.copy.committedLabel}
-                  </p>
-                  <p
-                    style={{
-                      fontSize: typography.body.fontSize,
-                      fontWeight: typography.body.fontWeight,
-                      color: colors.text.primary,
-                    }}
-                  >
-                    {formatMoneyWithSymbol(
-                      viewModel.monthlyHero.committedMinor,
-                      account.base_currency,
-                      currencySymbol
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: colors.text.secondary }}>
-                    {viewModel.copy.pendingLabel}
-                  </p>
-                  <p
-                    style={{
-                      fontSize: typography.body.fontSize,
-                      fontWeight: typography.body.fontWeight,
-                      color: colors.text.primary,
-                    }}
-                  >
-                    {formatMoneyWithSymbol(
-                      viewModel.monthlyHero.pendingMinor,
-                      account.base_currency,
-                      currencySymbol
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: colors.text.secondary }}>
-                    {viewModel.monthlyHero.paidLabel}
-                  </p>
-                  <p
-                    style={{
-                      fontSize: typography.body.fontSize,
-                      fontWeight: typography.body.fontWeight,
-                      color: colors.text.primary,
-                    }}
-                  >
-                    {formatMoneyWithSymbol(
-                      viewModel.monthlyHero.paidMinor,
-                      account.base_currency,
-                      currencySymbol
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              {!viewModel.monthlyHero.hasActivity && (
-                <div
-                  className="space-y-2 border-t pt-4"
-                  style={{ borderColor: colors.state.neutral }}
+              <div className="space-y-2">
+                <h3
+                  style={{
+                    fontSize: typography.h3.fontSize,
+                    fontWeight: typography.h3.fontWeight,
+                    color: colors.text.primary,
+                  }}
                 >
-                  <p className="text-sm" style={{ color: colors.text.secondary }}>
-                    {viewModel.emptyStates.activity.title}
-                  </p>
-                  <Button
-                    variant="outline"
-                    asChild
+                  {viewModel.copy.balanceLabel}
+                </h3>
+                <div
+                  className="space-y-3 rounded-xl border p-4"
+                  style={{
+                    borderColor: colors.state.neutral,
+                    backgroundColor: colors.bg.secondary,
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs" style={{ color: colors.text.secondary }}>
+                      {viewModel.copy.balanceTodayLabel}
+                    </p>
+                    <SummaryValueWithPendingChip
+                      value={formatSignedBalance(viewModel.monthOverview.balanceTodayMinor)}
+                      pendingMinor={viewModel.monthOverview.expensePendingMinor}
+                      pendingText={balancePendingText}
+                      triggerLabel={pendingTriggerLabel}
+                      valueColor={colors.text.primary}
+                      pendingToneColor={colors.state.negative}
+                      colors={colors}
+                      typography={typography}
+                      align="compact"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2
+                      style={{
+                        fontSize: typography.h2.fontSize,
+                        fontWeight: typography.h2.fontWeight,
+                        color: colors.text.primary,
+                      }}
+                    >
+                      {t(dictionary, "dashboard.thisMonth")}
+                    </h2>
+                    <p
+                      style={{
+                        fontSize: typography.meta.fontSize,
+                        fontWeight: typography.meta.fontWeight,
+                        color: colors.text.secondary,
+                      }}
+                    >
+                      {monthLabel}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div
+                    className="rounded-xl border p-4"
                     style={{
                       borderColor: colors.state.neutral,
-                      backgroundColor: colors.bg.surface,
-                      color: colors.text.primary,
+                      backgroundColor: colors.bg.secondary,
                     }}
                   >
-                    <Link href="/transactions?new=1&type=expense">
-                      {viewModel.emptyStates.activity.cta}
-                    </Link>
-                  </Button>
+                    <p
+                      style={{
+                        fontSize: typography.h3.fontSize,
+                        fontWeight: typography.h3.fontWeight,
+                        color: colors.text.primary,
+                      }}
+                    >
+                      {viewModel.copy.incomeLabel}
+                    </p>
+                    <div className="mt-3">
+                      <SummaryValueWithPendingChip
+                        value={incomeRealFormatted}
+                        pendingMinor={viewModel.monthOverview.incomePendingMinor}
+                        pendingText={incomePendingText}
+                        triggerLabel={pendingTriggerLabel}
+                        valueColor={colors.state.positive}
+                        pendingToneColor={colors.state.positive}
+                        colors={colors}
+                        typography={typography}
+                      />
+                    </div>
+                  </div>
+
+                  <div
+                    className="rounded-xl border p-4"
+                    style={{
+                      borderColor: colors.state.neutral,
+                      backgroundColor: colors.bg.secondary,
+                    }}
+                  >
+                    <p
+                      style={{
+                        fontSize: typography.h3.fontSize,
+                        fontWeight: typography.h3.fontWeight,
+                        color: colors.text.primary,
+                      }}
+                    >
+                      {viewModel.copy.expenseLabel}
+                    </p>
+                    <div className="mt-3">
+                      <SummaryValueWithPendingChip
+                        value={expenseRealFormatted}
+                        pendingMinor={viewModel.monthOverview.expensePendingMinor}
+                        pendingText={expensePendingText}
+                        triggerLabel={pendingTriggerLabel}
+                        valueColor={colors.state.negative}
+                        pendingToneColor={colors.state.negative}
+                        colors={colors}
+                        typography={typography}
+                      />
+                    </div>
+                  </div>
                 </div>
-              )}
+
+                <MonthMap
+                  month={now}
+                  locale={locale}
+                  events={viewModel.calendar.events}
+                  highlightRange={viewModel.calendar.highlightRange}
+                  selectedDate={selectedDay}
+                  onSelectDate={handleSelectDay}
+                />
+
+                {viewModel.calendar.events.length === 0 && (
+                  <p className="text-sm" style={{ color: colors.text.secondary }}>
+                    {viewModel.copy.monthEmpty}
+                  </p>
+                )}
+
+                {!viewModel.monthOverview.hasActivity && (
+                  <div
+                    className="space-y-2 border-t pt-4"
+                    style={{ borderColor: colors.state.neutral }}
+                  >
+                    <p className="text-sm" style={{ color: colors.text.secondary }}>
+                      {viewModel.emptyStates.activity.title}
+                    </p>
+                    <Button
+                      variant="outline"
+                      asChild
+                      style={{
+                        borderColor: colors.state.neutral,
+                        backgroundColor: colors.bg.surface,
+                        color: colors.text.primary,
+                      }}
+                    >
+                      <Link href="/transactions?new=1&type=expense">
+                        {viewModel.emptyStates.activity.cta}
+                      </Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {viewModel.permissions.isGuestReadOnly && (

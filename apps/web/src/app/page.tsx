@@ -151,6 +151,17 @@ export default async function DashboardPage() {
   const currencySymbol =
     CURRENCIES.find((currency) => currency.code === mainAccount.base_currency)
       ?.symbol ?? mainAccount.base_currency;
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const withAlpha = (color: string, alpha: number) => {
+    if (color.startsWith("#") && color.length === 7) {
+      const r = Number.parseInt(color.slice(1, 3), 16);
+      const g = Number.parseInt(color.slice(3, 5), 16);
+      const b = Number.parseInt(color.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+    return color;
+  };
 
   return (
     <div
@@ -233,6 +244,14 @@ export default async function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {viewModel.recentActivity.items.map((item) => {
+                const isPending = item.date.getTime() > todayStart.getTime();
+                const baseColor =
+                  item.type === "income"
+                    ? colors.state.positive
+                    : colors.state.negative;
+                const amountColor = isPending
+                  ? withAlpha(baseColor, 0.55)
+                  : baseColor;
                 return (
                   <div
                     key={item.id}
@@ -243,11 +262,13 @@ export default async function DashboardPage() {
                     }}
                   >
                     <div className="flex items-center gap-3">
-                      <CategoryIcon
-                        iconKey={item.iconId as CategoryIconKey}
-                        size={20}
-                        tone={item.type === "income" ? "positive" : "negative"}
-                      />
+                      <div style={{ opacity: isPending ? 0.6 : 1 }}>
+                        <CategoryIcon
+                          iconKey={item.iconId as CategoryIconKey}
+                          size={20}
+                          tone={item.type === "income" ? "positive" : "negative"}
+                        />
+                      </div>
                       <div>
                         <p className="text-sm font-semibold">{item.title}</p>
                         <p className="text-xs" style={{ color: colors.text.secondary }}>
@@ -261,10 +282,7 @@ export default async function DashboardPage() {
                     <p
                       className="text-sm font-semibold"
                       style={{
-                        color:
-                          item.type === "income"
-                            ? colors.state.positive
-                            : colors.state.negative,
+                        color: amountColor,
                       }}
                     >
                       {item.type === "income" ? "+" : "-"}
