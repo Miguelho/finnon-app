@@ -17,6 +17,7 @@ import {
   markObligationPaid,
   t,
   themeTokens,
+  withAlpha,
   type CopyDictionary,
   type Obligation,
   type Transaction,
@@ -38,16 +39,6 @@ type HomeHeroProps = {
 };
 
 const CASHFLOW_DAYS_OPTIONS = [7, 14, 30] as const;
-
-const withAlpha = (color: string, alpha: number) => {
-  if (color.startsWith("#") && color.length === 7) {
-    const r = Number.parseInt(color.slice(1, 3), 16);
-    const g = Number.parseInt(color.slice(3, 5), 16);
-    const b = Number.parseInt(color.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  }
-  return color;
-};
 
 type SummaryValueWithPendingChipProps = {
   value: string;

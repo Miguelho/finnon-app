@@ -7,6 +7,8 @@ import {
   CURRENCIES,
   formatMinorToMoney,
   themeTokens,
+  withAlpha,
+  isFutureDay,
   type AvatarColorToken,
   type CategoryIconKey,
 } from "@poleursus/shared";
@@ -70,9 +72,6 @@ const densityStyles = {
 
 const formatDateLabel = (value: string | Date) =>
   new Date(value).toLocaleDateString();
-const toStartOfDay = (date: Date) =>
-  new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
 export function TransactionTile({
   transaction,
   density = "comfortable",
@@ -93,17 +92,17 @@ export function TransactionTile({
     CURRENCIES.find((currency) => currency.code === transaction.currency)
       ?.symbol ?? transaction.currency;
   const amountValue = formatMinorToMoney(absoluteAmount, transaction.currency);
-  const amountColor =
+  const baseAmountColor =
     transactionType === "income"
       ? colors.state.positive
       : colors.state.negative;
+  const isPending = isFutureDay(transaction.date);
+  const amountColor = isPending
+    ? withAlpha(baseAmountColor, 0.55)
+    : baseAmountColor;
   const displayMerchant = transaction.merchant;
   const categoryName = transaction.category?.name;
   const metaParts = [formatDateLabel(transaction.date)];
-  const dateValue = new Date(transaction.date);
-  const isPending =
-    !Number.isNaN(dateValue.getTime()) &&
-    toStartOfDay(dateValue).getTime() > toStartOfDay(new Date()).getTime();
 
   if (categoryName && categoryName !== displayMerchant) {
     metaParts.push(categoryName);
@@ -155,6 +154,7 @@ export function TransactionTile({
             height: styles.badgeSize,
             borderRadius: styles.badgeRadius,
             backgroundColor: colors.bg.secondary,
+            opacity: isPending ? 0.6 : 1,
           }}
         >
           <CategoryIcon

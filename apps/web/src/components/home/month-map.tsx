@@ -2,6 +2,8 @@ import type { CSSProperties } from "react";
 import {
   createTypographyStyles,
   themeTokens,
+  withAlpha,
+  isFutureDay,
   type CalendarEvent,
   type DateRange,
 } from "@poleursus/shared";
@@ -39,19 +41,6 @@ const isSameDay = (a: Date, b: Date) =>
 
 const toMondayIndex = (weekday: number) => (weekday + 6) % 7;
 
-const withAlpha = (color: string, alpha: number) => {
-  if (color.startsWith("#") && color.length === 7) {
-    const r = Number.parseInt(color.slice(1, 3), 16);
-    const g = Number.parseInt(color.slice(3, 5), 16);
-    const b = Number.parseInt(color.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  }
-  return color;
-};
-
-const startOfDay = (date: Date) =>
-  new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
 const getMarkerStyle = (type: CalendarEvent["type"]) => {
   switch (type) {
     case "obligation_paid":
@@ -80,7 +69,6 @@ export function MonthMap({
 }: MonthMapProps) {
   const monthStart = startOfMonth(month);
   const monthEnd = endOfMonth(month);
-  const todayStart = startOfDay(new Date()).getTime();
   const weekdayStart = toMondayIndex(monthStart.getDay());
   const totalDays = monthEnd.getDate();
   const totalCells = Math.ceil((weekdayStart + totalDays) / 7) * 7;
@@ -159,8 +147,7 @@ export function MonthMap({
               <span className="flex items-center gap-1">
                 {markers.map((event) => {
                   const marker = getMarkerStyle(event.type);
-                  const isPending =
-                    startOfDay(event.date).getTime() > todayStart;
+                  const isPending = isFutureDay(event.date);
                   const markerColor = isPending
                     ? withAlpha(marker.color, 0.5)
                     : marker.color;

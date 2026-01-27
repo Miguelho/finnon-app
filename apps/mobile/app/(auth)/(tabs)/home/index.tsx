@@ -35,6 +35,8 @@ import {
   getSummaryForDay,
   markObligationPaid,
   themeTokens,
+  withAlpha,
+  isFutureDay,
   isExpired,
   type AddActionKey,
   type UserRole,
@@ -82,16 +84,6 @@ const tokens = themeTokens.light;
 const colors = tokens.colors;
 const typography = createTypographyStyles(tokens);
 const CASHFLOW_DAYS_OPTIONS = [7, 14, 30] as const;
-
-const withAlpha = (color: string, alpha: number) => {
-  if (color.startsWith("#") && color.length === 7) {
-    const r = Number.parseInt(color.slice(1, 3), 16);
-    const g = Number.parseInt(color.slice(3, 5), 16);
-    const b = Number.parseInt(color.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  }
-  return color;
-};
 
 function formatDateShort(value: Date, locale: string) {
   return value.toLocaleDateString(locale, {
@@ -549,8 +541,6 @@ export default function HomeScreen() {
   });
   const cashflowNetMinor =
     viewModel.cashflow.incomeMinor - viewModel.cashflow.expenseMinor;
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
   const formatSignedBalance = (amountMinor: bigint) => {
     const absoluteMinor = amountMinor < 0n ? -amountMinor : amountMinor;
     const sign = amountMinor < 0n ? "-" : "";
@@ -845,7 +835,7 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.list}>
               {viewModel.recentActivity.items.map((item) => {
-                const isPending = item.date.getTime() > todayStart.getTime();
+                const isPending = isFutureDay(item.date);
                 const baseColor =
                   item.type === "income" ? colors.state.positive : colors.state.negative;
                 const amountColor = isPending ? withAlpha(baseColor, 0.55) : baseColor;

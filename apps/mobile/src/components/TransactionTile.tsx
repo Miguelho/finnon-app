@@ -5,6 +5,8 @@ import {
   CURRENCIES,
   formatMinorToMoney,
   themeTokens,
+  withAlpha,
+  isFutureDay,
   type AvatarColorToken,
   type CategoryIconKey,
 } from "@poleursus/shared";
@@ -63,9 +65,6 @@ const densityStyles = {
 
 const formatDateLabel = (value: string | Date, locale: string) =>
   new Date(value).toLocaleDateString(locale);
-const toStartOfDay = (date: Date) =>
-  new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
 export function TransactionTile({
   transaction,
   density = "comfortable",
@@ -87,17 +86,17 @@ export function TransactionTile({
     CURRENCIES.find((currency) => currency.code === transaction.currency)
       ?.symbol ?? transaction.currency;
   const amountValue = formatMinorToMoney(absoluteAmount, transaction.currency);
-  const amountColor =
+  const isPending = isFutureDay(transaction.date);
+  const baseAmountColor =
     transactionType === "income"
       ? colors.state.positive
       : colors.state.negative;
+  const amountColor = isPending
+    ? withAlpha(baseAmountColor, 0.55)
+    : baseAmountColor;
   const displayMerchant = transaction.merchant;
   const categoryName = transaction.category?.name;
   const metaParts = [formatDateLabel(transaction.date, locale)];
-  const dateValue = new Date(transaction.date);
-  const isPending =
-    !Number.isNaN(dateValue.getTime()) &&
-    toStartOfDay(dateValue).getTime() > toStartOfDay(new Date()).getTime();
 
   if (categoryName && categoryName !== displayMerchant) {
     metaParts.push(categoryName);
@@ -159,6 +158,7 @@ export function TransactionTile({
         <View
           style={[
             stylesText.badge,
+            isPending && stylesText.pendingOpacity,
             {
               width: styles.badgeSize,
               height: styles.badgeSize,
@@ -271,6 +271,9 @@ const stylesText = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.bg.secondary,
+  },
+  pendingOpacity: {
+    opacity: 0.6,
   },
   content: {
     flex: 1,

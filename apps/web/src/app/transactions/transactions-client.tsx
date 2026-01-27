@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,8 @@ import {
   formatMonthLabel,
   toMonthKey,
   themeTokens,
+  withAlpha,
+  isFutureDay,
   type AvatarColorToken,
   type TopCategory,
   type MerchantSuggestion,
@@ -65,6 +67,7 @@ import { MerchantAutocomplete } from "@/components/ui/merchant-autocomplete";
 import { CategoryIcon } from "@/components/category-icon";
 import { TopCategorySelector } from "@/components/categories/top-category-selector";
 import { TransactionTile } from "@/components/transactions/transaction-tile";
+import { PlusCircle } from "lucide-react";
 import {
   createTransaction,
   createRecurringItem,
@@ -152,6 +155,95 @@ const getMonthRangeFromKey = (monthKey: string) => {
   return { start, end };
 };
 
+const tokens = themeTokens.light;
+const colors = tokens.colors;
+
+type SummaryValueWithPendingChipProps = {
+  value: string;
+  pendingMinor: bigint;
+  pendingText: string;
+  triggerLabel: string;
+  valueColor?: string;
+  pendingToneColor?: string;
+};
+
+function SummaryValueWithPendingChip({
+  value,
+  pendingMinor,
+  pendingText,
+  triggerLabel,
+  valueColor,
+  pendingToneColor,
+}: SummaryValueWithPendingChipProps) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const hasPending = pendingMinor > 0n;
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        popoverRef.current?.contains(target) ||
+        triggerRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setOpen(false);
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
+  const pendingTextColor = pendingToneColor
+    ? withAlpha(pendingToneColor, 0.65)
+    : colors.text.secondary;
+
+  return (
+    <div className="relative inline-flex items-center gap-2">
+      <CardTitle className="text-lg md:text-2xl" style={{ color: valueColor }}>
+        {value}
+      </CardTitle>
+      {hasPending ? (
+        <>
+          <button
+            type="button"
+            ref={triggerRef}
+            aria-label={triggerLabel}
+            aria-expanded={open}
+            onClick={() => setOpen((prev) => !prev)}
+            className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition hover:text-foreground"
+          >
+            <PlusCircle className="h-4 w-4" />
+          </button>
+          {open ? (
+            <div
+              ref={popoverRef}
+              className="absolute right-0 top-full z-20 mt-2 whitespace-nowrap rounded-full border bg-background px-3 py-1 text-xs shadow-sm animate-in fade-in-0 zoom-in-95"
+              style={{
+                borderColor: colors.state.neutral,
+                color: pendingTextColor,
+              }}
+            >
+              {pendingText}
+            </div>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 export function TransactionsClient({
   accountId,
   baseCurrency,
@@ -182,7 +274,6 @@ export function TransactionsClient({
     "transaction" | "recurring" | "obligation"
   >("transaction");
   const canEdit = role !== "viewer";
-  const colors = themeTokens.light.colors;
 
   // Top categories state - initialized from server-fetched data
   const [topCategories, setTopCategories] = useState<TopCategory[]>(
@@ -468,9 +559,51 @@ export function TransactionsClient({
     return { income, expense, balance };
   }, [filteredTransactions]);
 
+  const pendingSummary = useMemo(() => {
+    let income = 0n;
+    let expense = 0n;
+    const toMinorAmount = (value: bigint | number | string) => {
+      try {
+        return BigInt(value);
+      } catch {
+        return 0n;
+      }
+    };
+
+    filteredTransactions.forEach((transaction) => {
+      if (!isFutureDay(transaction.date)) return;
+      const amount = BigInt(transaction.amount_base_minor);
+      if (transaction.type === "income") {
+        income += amount;
+      } else {
+        expense += amount;
+      }
+    });
+
+    pendingOccurrences.forEach((pending) => {
+      if (!isFutureDay(pending.occurrenceDate)) return;
+      if (pending.item.currency !== baseCurrency) return;
+      const amount = toMinorAmount(pending.item.amount_minor);
+      if (pending.item.type === "income") {
+        income += amount;
+      } else {
+        expense += amount;
+      }
+    });
+
+    return { income, expense };
+  }, [baseCurrency, filteredTransactions, pendingOccurrences]);
+
   // Get currency symbol
   const currencySymbol =
     CURRENCIES.find((c) => c.code === baseCurrency)?.symbol || baseCurrency;
+
+  const pendingIncomeText = t("pendingChipLabel", {
+    amount: formatMoneyWithSymbol(pendingSummary.income, baseCurrency, currencySymbol),
+  });
+  const pendingExpenseText = t("pendingChipLabel", {
+    amount: formatMoneyWithSymbol(pendingSummary.expense, baseCurrency, currencySymbol),
+  });
 
   const handleCreate = async () => {
     if (!canEdit) return;
@@ -899,25 +1032,35 @@ export function TransactionsClient({
         <Card>
           <CardHeader className="p-3">
             <CardDescription className="text-xs">{t("income")}</CardDescription>
-            <CardTitle className="text-lg md:text-2xl" style={{ color: colors.state.positive }}>
-              {formatMoneyWithSymbol(
+            <SummaryValueWithPendingChip
+              value={formatMoneyWithSymbol(
                 monthlySummary.income,
                 baseCurrency,
                 currencySymbol
               )}
-            </CardTitle>
+              pendingMinor={pendingSummary.income}
+              pendingText={pendingIncomeText}
+              triggerLabel={t("pendingTriggerLabel")}
+              valueColor={colors.state.positive}
+              pendingToneColor={colors.state.positive}
+            />
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="p-3">
             <CardDescription className="text-xs">{t("expenses")}</CardDescription>
-            <CardTitle className="text-lg md:text-2xl" style={{ color: colors.state.negative }}>
-              {formatMoneyWithSymbol(
+            <SummaryValueWithPendingChip
+              value={formatMoneyWithSymbol(
                 monthlySummary.expense,
                 baseCurrency,
                 currencySymbol
               )}
-            </CardTitle>
+              pendingMinor={pendingSummary.expense}
+              pendingText={pendingExpenseText}
+              triggerLabel={t("pendingTriggerLabel")}
+              valueColor={colors.state.negative}
+              pendingToneColor={colors.state.negative}
+            />
           </CardHeader>
         </Card>
         <Card>
@@ -950,6 +1093,25 @@ export function TransactionsClient({
       <p className="text-xs" style={{ color: colors.text.secondary }}>
         {t("futureLegend")}
       </p>
+      <div
+        className="mb-4 flex flex-wrap items-center gap-4 text-xs"
+        style={{ color: colors.text.secondary }}
+      >
+        <div className="flex items-center gap-2">
+          <span
+            className="h-2 w-2 rounded-full"
+            style={{ backgroundColor: withAlpha(colors.state.positive, 0.45) }}
+          />
+          <span>{t("futureIncomeLegend")}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className="h-2 w-2 rounded-full"
+            style={{ backgroundColor: withAlpha(colors.state.negative, 0.45) }}
+          />
+          <span>{t("futureExpenseLegend")}</span>
+        </div>
+      </div>
 
       {/* Transactions List */}
       <div

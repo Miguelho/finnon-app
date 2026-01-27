@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,9 @@ import {
   Modal,
   Pressable,
   RefreshControl,
+  Dimensions,
+  type StyleProp,
+  type TextStyle,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
@@ -31,6 +34,8 @@ import {
   formatMonthLabel,
   themeTokens,
   toMonthKey,
+  withAlpha,
+  isFutureDay,
   type RecurringItem,
   getOccurrencesBetween,
   getOccurrenceKey,
@@ -101,6 +106,110 @@ const getMonthRangeFromKey = (monthKey: string) => {
     .slice(0, 10);
   return { start, end };
 };
+
+type SummaryValueWithPendingChipProps = {
+  value: string;
+  pendingMinor: bigint;
+  pendingText: string;
+  triggerLabel: string;
+  valueStyle?: StyleProp<TextStyle>;
+  pendingToneColor?: string;
+};
+
+function SummaryValueWithPendingChip({
+  value,
+  pendingMinor,
+  pendingText,
+  triggerLabel,
+  valueStyle,
+  pendingToneColor,
+}: SummaryValueWithPendingChipProps) {
+  const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const triggerRef = useRef<View>(null);
+  const hasPending = pendingMinor > 0n;
+
+  const handleToggle = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    if (!triggerRef.current) {
+      setOpen(true);
+      return;
+    }
+    triggerRef.current.measureInWindow((x, y, width, height) => {
+      setAnchor({ x, y, width, height });
+      setOpen(true);
+    });
+  };
+
+  const windowWidth = Dimensions.get("window").width;
+  const chipWidth = Math.min(240, windowWidth - spacing.lg * 2);
+  const leftOffset = anchor
+    ? Math.min(
+        Math.max(spacing.lg, anchor.x + anchor.width - chipWidth),
+        windowWidth - chipWidth - spacing.lg
+      )
+    : spacing.lg;
+  const topOffset = anchor
+    ? anchor.y + anchor.height + spacing.xs
+    : spacing.lg;
+
+  const pendingTextColor = pendingToneColor
+    ? withAlpha(pendingToneColor, 0.65)
+    : colors.text.secondary;
+
+  return (
+    <View style={styles.summaryValueRow}>
+      <Text style={[styles.summaryValue, valueStyle]}>{value}</Text>
+      {hasPending ? (
+        <>
+          <Pressable
+            ref={triggerRef}
+            onPress={handleToggle}
+            accessibilityRole="button"
+            accessibilityLabel={triggerLabel}
+            accessibilityState={{ expanded: open }}
+            style={styles.pendingTriggerButton}
+            hitSlop={8}
+          >
+            <MaterialCommunityIcons
+              name="plus-circle-outline"
+              size={16}
+              color={colors.text.muted}
+            />
+          </Pressable>
+          <Modal
+            transparent
+            visible={open}
+            animationType="fade"
+            onRequestClose={() => setOpen(false)}
+          >
+            <Pressable style={styles.pendingOverlay} onPress={() => setOpen(false)}>
+              <Pressable
+                style={[
+                  styles.pendingChip,
+                  { top: topOffset, left: leftOffset, width: chipWidth },
+                ]}
+                onPress={() => {}}
+              >
+                <Text style={[styles.pendingChipText, { color: pendingTextColor }]}>
+                  {pendingText}
+                </Text>
+              </Pressable>
+            </Pressable>
+          </Modal>
+        </>
+      ) : null}
+    </View>
+  );
+}
 
 export default function TransactionsScreen(): React.JSX.Element {
   const router = useRouter();
@@ -400,9 +509,59 @@ export default function TransactionsScreen(): React.JSX.Element {
     return { income, expense, balance };
   }, [filteredTransactions]);
 
+  const pendingSummary = useMemo(() => {
+    let income = 0n;
+    let expense = 0n;
+    const toMinorAmount = (value: bigint | number | string) => {
+      try {
+        return BigInt(value);
+      } catch {
+        return 0n;
+      }
+    };
+
+    filteredTransactions.forEach((transaction) => {
+      if (!isFutureDay(transaction.date)) return;
+      const amount = BigInt(transaction.amount_base_minor);
+      if (transaction.type === "income") {
+        income += amount;
+      } else {
+        expense += amount;
+      }
+    });
+
+    pendingOccurrences.forEach((pending) => {
+      if (!isFutureDay(pending.occurrenceDate)) return;
+      if (pending.item.currency !== baseCurrency) return;
+      const amount = toMinorAmount(pending.item.amount_minor);
+      if (pending.item.type === "income") {
+        income += amount;
+      } else {
+        expense += amount;
+      }
+    });
+
+    return { income, expense };
+  }, [baseCurrency, filteredTransactions, pendingOccurrences]);
+
   // Get currency symbol
   const currencySymbol =
     CURRENCIES.find((c) => c.code === baseCurrency)?.symbol || baseCurrency;
+
+  const pendingIncomeText = t(dictionary, "transactions.pendingChipLabel", {
+    amount: formatMoneyWithSymbol(
+      pendingSummary.income,
+      baseCurrency,
+      currencySymbol
+    ),
+  });
+  const pendingExpenseText = t(dictionary, "transactions.pendingChipLabel", {
+    amount: formatMoneyWithSymbol(
+      pendingSummary.expense,
+      baseCurrency,
+      currencySymbol
+    ),
+  });
 
   const handleConfirmRecurring = async (pending: RecurringOccurrenceItem) => {
     if (!selectedAccountId) return;
@@ -572,24 +731,34 @@ export default function TransactionsScreen(): React.JSX.Element {
           <View style={styles.summaryContainer}>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryLabel}>{t(dictionary, "transactions.income")}</Text>
-              <Text style={[styles.summaryValue, styles.incomeText]}>
-                {formatMoneyWithSymbol(
+              <SummaryValueWithPendingChip
+                value={formatMoneyWithSymbol(
                   monthlySummary.income,
                   baseCurrency,
                   currencySymbol
                 )}
-              </Text>
+                pendingMinor={pendingSummary.income}
+                pendingText={pendingIncomeText}
+                triggerLabel={t(dictionary, "transactions.pendingTriggerLabel")}
+                valueStyle={styles.incomeText}
+                pendingToneColor={colors.state.positive}
+              />
             </View>
 
             <View style={styles.summaryCard}>
               <Text style={styles.summaryLabel}>{t(dictionary, "transactions.expenses")}</Text>
-              <Text style={[styles.summaryValue, styles.expenseText]}>
-                {formatMoneyWithSymbol(
+              <SummaryValueWithPendingChip
+                value={formatMoneyWithSymbol(
                   monthlySummary.expense,
                   baseCurrency,
                   currencySymbol
                 )}
-              </Text>
+                pendingMinor={pendingSummary.expense}
+                pendingText={pendingExpenseText}
+                triggerLabel={t(dictionary, "transactions.pendingTriggerLabel")}
+                valueStyle={styles.expenseText}
+                pendingToneColor={colors.state.negative}
+              />
             </View>
 
             <View style={styles.summaryCard}>
@@ -624,6 +793,30 @@ export default function TransactionsScreen(): React.JSX.Element {
             <Text style={styles.sectionHint}>
               {t(dictionary, "transactions.futureLegend")}
             </Text>
+            <View style={styles.futureLegendRow}>
+              <View style={styles.futureLegendItem}>
+                <View
+                  style={[
+                    styles.futureLegendSwatch,
+                    { backgroundColor: withAlpha(colors.state.positive, 0.45) },
+                  ]}
+                />
+                <Text style={styles.futureLegendText}>
+                  {t(dictionary, "transactions.futureIncomeLegend")}
+                </Text>
+              </View>
+              <View style={styles.futureLegendItem}>
+                <View
+                  style={[
+                    styles.futureLegendSwatch,
+                    { backgroundColor: withAlpha(colors.state.negative, 0.45) },
+                  ]}
+                />
+                <Text style={styles.futureLegendText}>
+                  {t(dictionary, "transactions.futureExpenseLegend")}
+                </Text>
+              </View>
+            </View>
 
             <View style={styles.listContainer}>
               {mergedItems.length === 0 ? (
@@ -1017,9 +1210,36 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginBottom: spacing.xs,
   },
+  summaryValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
   summaryValue: {
     fontSize: typography.size.lg,
     fontWeight: typography.weight.bold,
+  },
+  pendingTriggerButton: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pendingOverlay: {
+    flex: 1,
+  },
+  pendingChip: {
+    position: "absolute",
+    backgroundColor: colors.bg.surface,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+  },
+  pendingChipText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.medium,
+    color: colors.text.secondary,
   },
   incomeText: {
     color: colors.state.positive,
@@ -1040,7 +1260,28 @@ const styles = StyleSheet.create({
     fontSize: typography.size.xs,
     color: colors.text.secondary,
     marginTop: -spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  futureLegendRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: spacing.md,
     marginBottom: spacing.md,
+  },
+  futureLegendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  futureLegendSwatch: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+  },
+  futureLegendText: {
+    fontSize: typography.size.xs,
+    color: colors.text.secondary,
   },
   emptyText: {
     fontSize: typography.size.sm,
