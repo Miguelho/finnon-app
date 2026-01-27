@@ -34,6 +34,7 @@ export * from "./categories/defaults";
 export * from "./categories/top-categories";
 export * from "./merchants";
 export * from "./auth/signOut";
+export * from "./add-transaction";
 
 // Note: utils/invite.ts contains Node.js crypto APIs
 // Import directly only in server-side code:

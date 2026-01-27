@@ -20,6 +20,7 @@ import { supabase } from "../../../../src/lib/supabase";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { Button } from "../../../../src/components/Button";
 import { AddMenuItem } from "../../../../src/components/AddMenuItem";
+import { AddTransactionModal } from "../../../../src/components/add-transaction";
 import { CashFlowArrows } from "../../../../src/components/home/CashFlowArrows";
 import { MonthMap } from "../../../../src/components/home/MonthMap";
 import { DayDetailPanel } from "../../../../src/components/home/DayDetailPanel";
@@ -270,6 +271,8 @@ export default function HomeScreen() {
   const [nextDays, setNextDays] = useState<number>(CASHFLOW_DAYS_OPTIONS[0]);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [isDayPanelOpen, setIsDayPanelOpen] = useState(false);
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [transactionType, setTransactionType] = useState<"income" | "expense">("expense");
 
   const mainAccount = useMemo(() => {
     if (!accounts || accounts.length === 0) return null;
@@ -603,10 +606,12 @@ export default function HomeScreen() {
 
     switch (key) {
       case "expense":
-        router.push("/(auth)/(tabs)/transactions/create?type=expense");
+        setTransactionType("expense");
+        setIsTransactionModalOpen(true);
         return;
       case "income":
-        router.push("/(auth)/(tabs)/transactions/create?type=income");
+        setTransactionType("income");
+        setIsTransactionModalOpen(true);
         return;
       case "category":
         router.push("/(auth)/(tabs)/account/categories/create");
@@ -620,6 +625,11 @@ export default function HomeScreen() {
         );
         return;
     }
+  };
+
+  const handleTransactionSuccess = () => {
+    // Reload transactions after successful creation
+    setIsTransactionModalOpen(false);
   };
 
   return (
@@ -945,6 +955,18 @@ export default function HomeScreen() {
           ))}
         </View>
       </HomeSheet>
+
+      {/* Transaction Modal */}
+      {mainAccount && (
+        <AddTransactionModal
+          visible={isTransactionModalOpen}
+          type={transactionType}
+          accountId={mainAccount.id}
+          currency={mainAccount.base_currency}
+          onClose={() => setIsTransactionModalOpen(false)}
+          onSuccess={handleTransactionSuccess}
+        />
+      )}
     </View>
   );
 }

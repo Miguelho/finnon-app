@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IconPicker } from "@/components/icon-picker";
+import { AddTransactionForm } from "@/components/add-transaction";
 import {
   ADD_ACTIONS,
   normalizeCategoryName,
@@ -32,19 +33,50 @@ import {
   type AddActionKey,
   type CategoryIconKey,
   type CategoryType,
+  type TopCategory,
+  type MerchantSuggestion,
+  type TransactionType,
 } from "@poleursus/shared";
 import { createCategory } from "@/app/categories/actions";
+
+type Category = {
+  id: string;
+  name: string;
+  icon_id: string;
+  type: "income" | "expense";
+};
 
 type AddActionProps = {
   canEdit: boolean;
   accountId: string;
+  currency?: string;
+  locale?: string;
+  categories?: Category[];
+  topCategories?: {
+    expense: TopCategory[];
+    income: TopCategory[];
+  };
+  merchantSuggestions?: {
+    expense: MerchantSuggestion[];
+    income: MerchantSuggestion[];
+  };
 };
 
-export function AddAction({ canEdit, accountId }: AddActionProps) {
+export function AddAction({
+  canEdit,
+  accountId,
+  currency = "EUR",
+  locale = "es",
+  categories = [],
+  topCategories = { expense: [], income: [] },
+  merchantSuggestions = { expense: [], income: [] },
+}: AddActionProps) {
   const router = useRouter();
   const t = useTranslations();
   const [isOpen, setIsOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isTransactionOpen, setIsTransactionOpen] = useState(false);
+  const [transactionType, setTransactionType] = useState<TransactionType | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -54,16 +86,19 @@ export function AddAction({ canEdit, accountId }: AddActionProps) {
   const [userSelectedIcon, setUserSelectedIcon] = useState(false);
   const normalizedNameValue = normalizeCategoryName(formData.name);
   const canSubmit = Boolean(normalizedNameValue) && !isSubmitting;
+
   const handleAction = (key: AddActionKey) => {
     if (!canEdit) return;
     setIsOpen(false);
 
     switch (key) {
       case "expense":
-        router.push("/transactions?new=1&type=expense");
+        setTransactionType("expense");
+        setIsTransactionOpen(true);
         return;
       case "income":
-        router.push("/transactions?new=1&type=income");
+        setTransactionType("income");
+        setIsTransactionOpen(true);
         return;
       case "category":
         setIsCreateOpen(true);
@@ -75,6 +110,17 @@ export function AddAction({ canEdit, accountId }: AddActionProps) {
         router.push("/transactions?new=1&kind=recurring");
         return;
     }
+  };
+
+  const handleTransactionSuccess = () => {
+    setIsTransactionOpen(false);
+    setTransactionType(null);
+    router.refresh();
+  };
+
+  const handleTransactionCancel = () => {
+    setIsTransactionOpen(false);
+    setTransactionType(null);
   };
 
   const handleCreateCategory = async () => {
@@ -117,6 +163,15 @@ export function AddAction({ canEdit, accountId }: AddActionProps) {
       setIsSubmitting(false);
     }
   };
+
+  // Get the appropriate top categories and merchant suggestions for the selected type
+  const currentTopCategories = transactionType
+    ? topCategories[transactionType]
+    : [];
+  const currentMerchantSuggestions = transactionType
+    ? merchantSuggestions[transactionType]
+    : [];
+
   return (
     <>
       <Button
@@ -126,6 +181,7 @@ export function AddAction({ canEdit, accountId }: AddActionProps) {
         + {t("home.addCta")}
       </Button>
 
+      {/* Action menu */}
       <SlidePanel open={isOpen} onOpenChange={setIsOpen}>
         <SlidePanelContent>
           <SlidePanelHeader>
@@ -151,6 +207,37 @@ export function AddAction({ canEdit, accountId }: AddActionProps) {
         </SlidePanelContent>
       </SlidePanel>
 
+      {/* Add Transaction panel */}
+      {canEdit && transactionType && (
+        <SlidePanel open={isTransactionOpen} onOpenChange={setIsTransactionOpen}>
+          <SlidePanelContent>
+            <SlidePanelHeader>
+              <SlidePanelTitle>
+                {transactionType === "income"
+                  ? t("addTransaction.typeIncome")
+                  : t("addTransaction.typeExpense")}
+              </SlidePanelTitle>
+            </SlidePanelHeader>
+            <SlidePanelBody className="p-0">
+              <div className="h-full px-6 py-4">
+                <AddTransactionForm
+                  type={transactionType}
+                  accountId={accountId}
+                  currency={currency}
+                  locale={locale}
+                  categories={categories}
+                  topCategories={currentTopCategories}
+                  merchantSuggestions={currentMerchantSuggestions}
+                  onSuccess={handleTransactionSuccess}
+                  onCancel={handleTransactionCancel}
+                />
+              </div>
+            </SlidePanelBody>
+          </SlidePanelContent>
+        </SlidePanel>
+      )}
+
+      {/* Create Category panel */}
       {canEdit && (
         <SlidePanel open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <SlidePanelContent>

@@ -813,4 +813,83 @@ export const en = {
       markPending: "Undo payment",
     },
   },
+  addTransaction: {
+    // Entry screen
+    entryTitle: "Add transaction",
+    entrySubtitle: "What do you want to record?",
+    typeIncome: "Income",
+    typeExpense: "Expense",
+
+    // Stepper
+    stepDetails: "Details",
+    stepCategory: "Category",
+    stepNotes: "Notes",
+
+    // Mode toggle
+    modeLabel: "Form mode",
+    modePanels: "Panels",
+    modeList: "List",
+    modeHelper: "Choose what feels most comfortable",
+    modePanelsRecommended: "Panels (recommended)",
+
+    // Step 1 - Details
+    nameLabel: "Name",
+    namePlaceholder: "e.g. \"Dinner at La Tagliatella\", \"Salary\", \"Gas\"",
+    nameHelper: "Something that helps you recognize it later",
+    dateLabel: "Date",
+    dateToday: "Today",
+    dateYesterday: "Yesterday",
+    dateTomorrow: "Tomorrow",
+    datePickOther: "Pick date",
+    amountLabel: "Amount",
+    amountPlaceholder: "0.00",
+    amountHelper: "You can use comma or period",
+
+    // Step 2 - Category & Merchant
+    categoryLabel: "Category",
+    categorySeeAll: "See all",
+    categoryHide: "Hide",
+    categoryEmpty: "Pick a category to continue",
+    merchantLabel: "Merchant",
+    merchantPlaceholder: "e.g. \"Mercadona\", \"Amazon\", \"Renfe\"",
+    merchantSuggested: "Suggested",
+    merchantSkip: "Skip merchant",
+    merchantHistoryHint: "Based on your history...",
+
+    // Step 3 - Notes & Photos
+    notesLabel: "Notes",
+    notesPlaceholder: "Add any details: reason, who paid, etc.",
+    notesQuickAdd: "Add quick note",
+    notesQuickOptions: "Refund, Work, Travel, Gift",
+    photosLabel: "Photos",
+    photosAdd: "Add photo",
+    photosEmpty: "Add a receipt or photo if useful",
+    photoView: "View",
+    photoRemove: "Remove",
+
+    // Actions
+    next: "Next",
+    back: "Back",
+    save: "Save transaction",
+    saving: "Saving...",
+    cancel: "Cancel",
+
+    // Success/Error toasts
+    successToast: "Transaction saved",
+    errorToast: "Could not save. Try again.",
+    photosErrorToast: "Transaction saved, but photos failed to upload",
+    photosPermissionDenied: "Permission to access photos was denied",
+    photosError: "Could not load photos. Try again.",
+
+    // Validation errors
+    errors: {
+      nameRequired: "Enter a name",
+      dateRequired: "Pick a date",
+      dateInvalid: "Invalid date format",
+      amountRequired: "Enter an amount",
+      amountPositive: "Amount must be greater than 0",
+      amountInvalid: "Invalid format",
+      categoryRequired: "Pick a category",
+    },
+  },
 } as const;

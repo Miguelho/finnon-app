@@ -129,6 +129,33 @@ export default async function DashboardPage() {
     .lte("due_date", obligationsEndDate)
     .order("due_date", { ascending: true });
 
+  // Fetch categories for the transaction form
+  const { data: categories } = await supabase
+    .from("categories")
+    .select("id, name, icon_id, type")
+    .eq("account_id", mainAccount.id)
+    .order("name");
+
+  // Fetch top categories for expense and income
+  const { data: topExpenseCategories } = await supabase.rpc(
+    "get_top_categories",
+    { p_account_id: mainAccount.id, p_tx_type: "expense", p_limit: 3 }
+  );
+  const { data: topIncomeCategories } = await supabase.rpc(
+    "get_top_categories",
+    { p_account_id: mainAccount.id, p_tx_type: "income", p_limit: 3 }
+  );
+
+  // Fetch merchant suggestions for expense and income
+  const { data: expenseMerchantSuggestions } = await supabase.rpc(
+    "get_merchant_suggestions",
+    { p_account_id: mainAccount.id, p_tx_type: "expense", p_limit: 10 }
+  );
+  const { data: incomeMerchantSuggestions } = await supabase.rpc(
+    "get_merchant_suggestions",
+    { p_account_id: mainAccount.id, p_tx_type: "income", p_limit: 10 }
+  );
+
   const viewModel = buildHomeViewModel({
     account: {
       id: mainAccount.id,
@@ -172,6 +199,17 @@ export default async function DashboardPage() {
       <AddAction
         canEdit={viewModel.permissions.canEdit}
         accountId={mainAccount.id}
+        currency={mainAccount.base_currency}
+        locale={locale}
+        categories={categories ?? []}
+        topCategories={{
+          expense: topExpenseCategories ?? [],
+          income: topIncomeCategories ?? [],
+        }}
+        merchantSuggestions={{
+          expense: expenseMerchantSuggestions ?? [],
+          income: incomeMerchantSuggestions ?? [],
+        }}
       />
       <PageContainer className="flex flex-col gap-6">
         {pendingInviteCount > 0 && (

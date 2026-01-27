@@ -28,6 +28,7 @@ export default async function TransactionsPage() {
 
   const cookieStore = await cookies();
   const cookieAccountId = cookieStore.get("finnon:activeAccountId")?.value;
+  const locale = cookieStore.get("NEXT_LOCALE")?.value || "es";
   if (!cookieAccountId) {
     redirect("/select-account");
   }
@@ -124,7 +125,15 @@ export default async function TransactionsPage() {
   return (
     <div className="min-h-screen bg-background">
       <TopNav />
-      <AddAction canEdit={canEdit} accountId={activeAccount.id} />
+      <AddAction
+        canEdit={canEdit}
+        accountId={activeAccount.id}
+        currency={activeAccount.base_currency}
+        locale={locale}
+        categories={categories || []}
+        topCategories={initialTopCategories}
+        merchantSuggestions={initialMerchantSuggestions}
+      />
       <TransactionsClient
         accountId={activeAccount.id}
         baseCurrency={activeAccount.base_currency}

@@ -813,4 +813,83 @@ export const es = {
       markPending: "Deshacer pago",
     },
   },
+  addTransaction: {
+    // Pantalla de entrada
+    entryTitle: "Añadir movimiento",
+    entrySubtitle: "¿Qué quieres registrar?",
+    typeIncome: "Ingreso",
+    typeExpense: "Gasto",
+
+    // Stepper
+    stepDetails: "Detalles",
+    stepCategory: "Categoría",
+    stepNotes: "Notas",
+
+    // Toggle de modo
+    modeLabel: "Modo de formulario",
+    modePanels: "Paneles",
+    modeList: "Lista",
+    modeHelper: "Elige cómo te resulta más cómodo",
+    modePanelsRecommended: "Paneles (recomendado)",
+
+    // Paso 1 - Detalles
+    nameLabel: "Nombre",
+    namePlaceholder: "Ej. \"Cena en La Tagliatella\", \"Nómina\", \"Gasolina\"",
+    nameHelper: "Pon algo que te ayude a reconocerlo luego",
+    dateLabel: "Fecha",
+    dateToday: "Hoy",
+    dateYesterday: "Ayer",
+    dateTomorrow: "Mañana",
+    datePickOther: "Elegir fecha",
+    amountLabel: "Cantidad",
+    amountPlaceholder: "0,00",
+    amountHelper: "Puedes escribir con coma o punto",
+
+    // Paso 2 - Categoría y Comercio
+    categoryLabel: "Categoría",
+    categorySeeAll: "Ver todas",
+    categoryHide: "Ocultar",
+    categoryEmpty: "Elige una categoría para seguir",
+    merchantLabel: "Comercio",
+    merchantPlaceholder: "Ej. \"Mercadona\", \"Amazon\", \"Renfe\"",
+    merchantSuggested: "Sugeridos",
+    merchantSkip: "No poner comercio",
+    merchantHistoryHint: "Según tu historial...",
+
+    // Paso 3 - Notas y Fotos
+    notesLabel: "Notas",
+    notesPlaceholder: "Apunta lo que quieras: motivo, quién pagó, detalles...",
+    notesQuickAdd: "Añadir nota rápida",
+    notesQuickOptions: "Reembolso, Trabajo, Viaje, Regalo",
+    photosLabel: "Fotos",
+    photosAdd: "Añadir foto",
+    photosEmpty: "Añade un ticket o una foto si te viene bien",
+    photoView: "Ver",
+    photoRemove: "Quitar",
+
+    // Acciones
+    next: "Siguiente",
+    back: "Atrás",
+    save: "Guardar movimiento",
+    saving: "Guardando...",
+    cancel: "Cancelar",
+
+    // Toasts de éxito/error
+    successToast: "Movimiento guardado",
+    errorToast: "No se ha podido guardar. Inténtalo otra vez.",
+    photosErrorToast: "Movimiento guardado, pero las fotos no se han subido",
+    photosPermissionDenied: "No se ha dado permiso para acceder a las fotos",
+    photosError: "No se han podido cargar las fotos. Inténtalo otra vez.",
+
+    // Errores de validación
+    errors: {
+      nameRequired: "Escribe un nombre",
+      dateRequired: "Elige una fecha",
+      dateInvalid: "Formato de fecha no válido",
+      amountRequired: "Escribe una cantidad",
+      amountPositive: "La cantidad debe ser mayor que 0",
+      amountInvalid: "Formato no válido",
+      categoryRequired: "Elige una categoría",
+    },
+  },
 } as const;
