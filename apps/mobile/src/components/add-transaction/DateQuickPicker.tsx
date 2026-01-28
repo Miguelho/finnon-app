@@ -124,7 +124,7 @@ export function DateQuickPicker({ value, onChange, error }: DateQuickPickerProps
 
         {/* Calendar button */}
         <TouchableOpacity onPress={handleCalendarOpen} style={styles.chip}>
-          <Calendar size={16} color={colors.text.primary} style={styles.chipIcon} />
+          <Calendar size={14} color={colors.text.primary} style={styles.chipIcon} />
           <Text style={styles.chipText}>
             {t(dictionary, "addTransaction.datePickOther")}
           </Text>
@@ -195,10 +195,10 @@ export function DateQuickPicker({ value, onChange, error }: DateQuickPickerProps
 
 const styles = StyleSheet.create({
   container: {
-    gap: tokens.spacing.md,
+    gap: tokens.spacing.sm,
   },
   label: {
-    fontSize: tokens.typography.size.md,
+    fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.semibold,
     color: colors.text.primary,
     marginBottom: tokens.spacing.xs,
@@ -206,29 +206,29 @@ const styles = StyleSheet.create({
   chipsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: tokens.spacing.md,
-    paddingRight: tokens.spacing.md,
+    gap: tokens.spacing.sm,
+    paddingRight: tokens.spacing.sm,
   },
   chip: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: tokens.spacing.lg,
-    paddingVertical: tokens.spacing.md,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
     borderRadius: tokens.radii.pill,
     borderWidth: 1,
     borderColor: colors.state.neutral,
     backgroundColor: colors.bg.surface,
-    minHeight: 44,
+    minHeight: 36,
   },
   chipSelected: {
     backgroundColor: colors.action.primary,
     borderColor: colors.action.primary,
   },
   chipIcon: {
-    marginRight: tokens.spacing.sm,
+    marginRight: tokens.spacing.xs,
   },
   chipText: {
-    fontSize: tokens.typography.size.md,
+    fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.medium,
     color: colors.text.primary,
   },
@@ -236,10 +236,10 @@ const styles = StyleSheet.create({
     color: colors.bg.primary,
   },
   selectedDate: {
-    fontSize: tokens.typography.size.lg,
-    fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
-    marginTop: tokens.spacing.sm,
+    fontSize: tokens.typography.size.md,
+    fontWeight: tokens.typography.weight.medium,
+    color: colors.text.secondary,
+    marginTop: tokens.spacing.xs,
   },
   errorText: {
     fontSize: tokens.typography.size.sm,

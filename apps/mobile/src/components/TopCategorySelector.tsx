@@ -88,7 +88,7 @@ export function TopCategorySelector({
         ]}
       >
         <Text style={styles.seeOthersText}>{toggleLabel}</Text>
-        <IconComponent size={16} weight="bold" color={colors.text.muted} />
+        <IconComponent size={16} weight="bold" color={colors.text.secondary} />
       </Pressable>
     </View>
   );
@@ -135,16 +135,17 @@ const styles = StyleSheet.create({
   seeOthers: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 6,
     paddingVertical: 12,
-    paddingHorizontal: 8,
-    minHeight: 44,
+    paddingHorizontal: 12,
+    minHeight: 48,
   },
   seeOthersPressed: {
     opacity: 0.7,
   },
   seeOthersText: {
     fontSize: typography.size.md,
-    color: colors.text.muted,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
   },
 });

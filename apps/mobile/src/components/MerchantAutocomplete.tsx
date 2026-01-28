@@ -122,8 +122,9 @@ const styles = StyleSheet.create({
   },
   helperText: {
     fontSize: tokens.typography.size.sm,
-    color: colors.text.muted,
-    marginBottom: tokens.spacing.sm,
+    fontWeight: tokens.typography.weight.medium,
+    color: colors.text.secondary,
+    marginBottom: tokens.spacing.md,
   },
   input: {
     borderWidth: 1,

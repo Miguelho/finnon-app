@@ -36,6 +36,8 @@ export type PhotoAttachment = {
  * Draft state for the transaction form
  * Shared across all steps
  */
+export type ObligationType = "pending" | "scheduled";
+
 export type TransactionDraft = {
   /** Transaction type: income or expense */
   type: TransactionType;
@@ -57,8 +59,12 @@ export type TransactionDraft = {
   photos: PhotoAttachment[];
   /** Step 1 - Whether this is an obligation (future payment) */
   isObligation: boolean;
-  /** Step 1 - Whether the obligation has been paid (only when isObligation=true) */
-  isPaid: boolean;
+  /** Step 1 - Obligation type (pending or scheduled) */
+  obligationType: ObligationType | null;
+  /** Step 1 - Scheduled date (only when obligationType="scheduled") */
+  scheduledDate: string | null;
+  /** Step 1 - Whether scheduled date was explicitly edited */
+  scheduledDateOverridden: boolean;
 };
 
 /**
@@ -107,7 +113,9 @@ export function createInitialDraft(
     notes: "",
     photos: [],
     isObligation: false,
-    isPaid: false,
+    obligationType: null,
+    scheduledDate: null,
+    scheduledDateOverridden: false,
   };
 }
 

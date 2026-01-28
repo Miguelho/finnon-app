@@ -59,7 +59,7 @@ export function Step2Category({
   return (
     <div className="space-y-6">
       {/* Category field */}
-      <div className="space-y-3">
+      <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
         <Label className="text-base font-semibold">{t("categoryLabel")}</Label>
 
         {/* Top category chips */}
@@ -94,13 +94,17 @@ export function Step2Category({
             <button
               type="button"
               onClick={() => setShowAllCategories(!showAllCategories)}
-              className="inline-flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-sm font-semibold",
+                "text-muted-foreground hover:text-foreground hover:bg-muted",
+                "transition-colors"
+              )}
             >
               <span>{t("categorySeeAll")}</span>
               {showAllCategories ? (
-                <CaretDown size={14} weight="bold" />
+                <CaretDown size={16} weight="bold" />
               ) : (
-                <CaretRight size={14} weight="bold" />
+                <CaretRight size={16} weight="bold" />
               )}
             </button>
           </div>
@@ -159,13 +163,13 @@ export function Step2Category({
       </div>
 
       {/* Merchant field */}
-      <div className="space-y-2">
+      <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
         <Label htmlFor="merchant" className="text-base font-semibold">
           {t("merchantLabel")}
         </Label>
 
         {merchantSuggestions.length > 0 && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm font-medium text-muted-foreground">
             {t("merchantHistoryHint")}
           </p>
         )}
@@ -182,7 +186,7 @@ export function Step2Category({
           <button
             type="button"
             onClick={() => onFieldChange("merchant", "")}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
           >
             {t("merchantSkip")}
           </button>

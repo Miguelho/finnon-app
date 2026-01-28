@@ -875,8 +875,22 @@ export const en = {
     typeLabel: "Transaction type",
 
     // Obligation toggle (Step 1)
-    obligationLabel: "Is this an obligation?",
+    obligationLabel: "Obligation",
     obligationHelper: "An obligation is a pending or scheduled payment",
+    obligationInfoTitle: "What is an obligation?",
+    obligationInfoText: "A pending or scheduled payment you haven't paid yet.",
+    obligationTypeLabel: "Obligation type",
+    obligationTypePending: "Pending",
+    obligationTypeScheduled: "Scheduled",
+    obligationScheduledDate: "Planned date",
+    obligationPickDate: "Pick date",
+    obligationChipPending: "Obligation: Pending",
+    obligationChipScheduled: "Obligation: Scheduled",
+    obligationEdit: "Edit",
+    obligationSuggestion: "This date is in the future. Do you want to save it as an obligation?",
+    obligationSuggestionAccept: "Mark as obligation",
+    obligationSuggestionDismiss: "Not now",
+    obligationSheetTitle: "Configure obligation",
 
     // Paid toggle (Step 1, only if isObligation=true)
     paidLabel: "Paid",

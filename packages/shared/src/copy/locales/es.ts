@@ -875,8 +875,22 @@ export const es = {
     typeLabel: "Tipo de movimiento",
 
     // Toggle obligación (Step 1)
-    obligationLabel: "¿Es una obligación?",
+    obligationLabel: "Obligación",
     obligationHelper: "Una obligación es un pago pendiente o programado",
+    obligationInfoTitle: "¿Qué es una obligación?",
+    obligationInfoText: "Un pago pendiente o programado que aún no has pagado.",
+    obligationTypeLabel: "Tipo de obligación",
+    obligationTypePending: "Pendiente",
+    obligationTypeScheduled: "Programada",
+    obligationScheduledDate: "Fecha prevista",
+    obligationPickDate: "Elegir fecha",
+    obligationChipPending: "Obligación: Pendiente",
+    obligationChipScheduled: "Obligación: Programada",
+    obligationEdit: "Editar",
+    obligationSuggestion: "Esta fecha es futura. ¿Quieres guardarlo como obligación?",
+    obligationSuggestionAccept: "Marcar como obligación",
+    obligationSuggestionDismiss: "Ahora no",
+    obligationSheetTitle: "Configurar obligación",
 
     // Toggle pagado (Step 1, solo si isObligation=true)
     paidLabel: "Pagado",

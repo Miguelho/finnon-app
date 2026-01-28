@@ -55,10 +55,14 @@ export function TopCategorySelector({
       <button
         type="button"
         onClick={onOpenAll}
-        className="inline-flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className={cn(
+          "inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-sm font-semibold",
+          "text-muted-foreground hover:text-foreground hover:bg-muted",
+          "transition-colors"
+        )}
       >
         <span>{seeOthersLabel}</span>
-        <CaretRight size={14} weight="bold" />
+        <CaretRight size={16} weight="bold" />
       </button>
     </div>
   );

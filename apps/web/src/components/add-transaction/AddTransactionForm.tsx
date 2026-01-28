@@ -24,6 +24,29 @@ import {
   validateStep3,
 } from "@poleursus/shared";
 
+const parseIsoDate = (value: string) => {
+  const [year, month, day] = value.split("-").map((part) => Number(part));
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
+const isFutureDate = (value: string) => {
+  const date = parseIsoDate(value);
+  if (!date) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date.getTime() > today.getTime();
+};
+
+const resolveObligationDueDate = (draft: TransactionDraft) => {
+  const effectiveType =
+    draft.obligationType ?? (isFutureDate(draft.date) ? "scheduled" : "pending");
+  if (effectiveType === "scheduled") {
+    return draft.scheduledDate ?? draft.date;
+  }
+  return draft.date;
+};
+
 interface Category {
   id: string;
   name: string;
@@ -155,14 +178,15 @@ export function AddTransactionForm({
     try {
       // If it's an obligation, create it via createObligation
       if (draft.isObligation) {
+        const dueDate = resolveObligationDueDate(draft);
         const result = await createObligation({
           account_id: accountId,
           name: draft.name,
           amount: draft.amount,
           currency: draft.currency,
-          due_date: draft.date,
-          status: draft.isPaid ? "paid" : "pending",
-          paid_at: draft.isPaid ? draft.date : null,
+          due_date: dueDate,
+          status: "pending",
+          paid_at: null,
         });
 
         if (!result.success) {

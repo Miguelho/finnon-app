@@ -82,7 +82,7 @@ export function Step3Notes({ draft, errors, onFieldChange }: Step3NotesProps) {
   return (
     <View style={styles.container}>
       {/* Notes field */}
-      <View style={styles.field}>
+      <View style={styles.section}>
         <Text style={styles.label}>
           {t(dictionary, "addTransaction.notesLabel")}
         </Text>
@@ -99,7 +99,7 @@ export function Step3Notes({ draft, errors, onFieldChange }: Step3NotesProps) {
       </View>
 
       {/* Photos field */}
-      <View style={styles.field}>
+      <View style={styles.section}>
         <Text style={styles.label}>
           {t(dictionary, "addTransaction.photosLabel")}
         </Text>
@@ -167,8 +167,13 @@ const styles = StyleSheet.create({
   container: {
     gap: 32,
   },
-  field: {
+  section: {
     gap: tokens.spacing.lg,
+    padding: tokens.spacing.lg,
+    borderRadius: tokens.radii.lg,
+    backgroundColor: colors.bg.secondary,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
   },
   label: {
     fontSize: tokens.typography.size.lg,

@@ -60,18 +60,20 @@ export function DateQuickPicker({
   const isSelected = (getValue: () => string) => value === getValue();
 
   return (
-    <div className={cn("space-y-3", className)}>
-      <Label>{t("dateLabel")}</Label>
+    <div className={cn("space-y-2", className)}>
+      <Label className="text-sm font-semibold text-foreground">
+        {t("dateLabel")}
+      </Label>
 
       {/* Quick option chips */}
-      <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
+      <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-0.5">
         {quickOptions.map((option) => (
           <button
             key={option.labelKey}
             type="button"
             onClick={() => handleQuickSelect(option.getValue)}
             className={cn(
-              "shrink-0 px-3 py-1.5 text-sm rounded-full border transition-colors",
+              "shrink-0 px-2.5 py-1 text-xs rounded-full border transition-colors",
               isSelected(option.getValue)
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-background border-input hover:bg-accent hover:text-accent-foreground"
@@ -86,11 +88,11 @@ export function DateQuickPicker({
           type="button"
           onClick={handleCalendarClick}
           className={cn(
-            "shrink-0 inline-flex items-center px-3 py-1.5 text-sm rounded-full border transition-colors",
+            "shrink-0 inline-flex items-center px-2.5 py-1 text-xs rounded-full border transition-colors",
             "bg-background border-input hover:bg-accent hover:text-accent-foreground"
           )}
         >
-          <CalendarBlank className="w-4 h-4 mr-1" />
+          <CalendarBlank className="w-3.5 h-3.5 mr-1" />
           {t("datePickOther")}
         </button>
 
@@ -108,7 +110,7 @@ export function DateQuickPicker({
 
       {/* Selected date display */}
       {value && (
-        <p className="text-base font-semibold text-foreground">
+        <p className="text-sm font-medium text-muted-foreground">
           {formatDateForDisplay(value, locale)}
         </p>
       )}

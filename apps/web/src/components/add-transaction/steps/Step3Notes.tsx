@@ -57,7 +57,7 @@ export function Step3Notes({ draft, errors, onFieldChange }: Step3NotesProps) {
   return (
     <div className="space-y-6">
       {/* Notes field */}
-      <div className="space-y-2">
+      <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
         <Label htmlFor="notes" className="text-base font-semibold">
           {t("notesLabel")}
         </Label>
@@ -66,13 +66,13 @@ export function Step3Notes({ draft, errors, onFieldChange }: Step3NotesProps) {
           value={draft.notes}
           onChange={(e) => onFieldChange("notes", e.target.value)}
           placeholder={t("notesPlaceholder")}
-          className="min-h-[100px] resize-none"
+          className="min-h-[120px] resize-none"
           rows={4}
         />
       </div>
 
       {/* Photos field */}
-      <div className="space-y-3">
+      <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
         <Label className="text-base font-semibold">{t("photosLabel")}</Label>
 
         {/* Photo grid */}

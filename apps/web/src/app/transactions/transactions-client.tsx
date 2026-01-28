@@ -1359,7 +1359,7 @@ export function TransactionsClient({
                       }
                       placeholder={tObligations("create.amountPlaceholder")}
                     />
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm font-medium text-muted-foreground">
                       {tObligations("create.currencyHelper", {
                         currency: baseCurrency,
                       })}
@@ -1404,7 +1404,7 @@ export function TransactionsClient({
                         </SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm font-medium text-muted-foreground">
                       {tObligations("create.statusHelper")}
                     </p>
                   </div>
@@ -1412,8 +1412,10 @@ export function TransactionsClient({
               ) : (
                 <div className="grid gap-6">
                   {/* 1. Transaction Type - Toggle */}
-                  <div className="space-y-3">
-                    <Label>{t("create.typeLabel")}</Label>
+                  <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+                    <Label className="text-sm font-semibold text-foreground">
+                      {t("create.typeLabel")}
+                    </Label>
                     <div className="relative flex rounded-full border bg-muted/30 p-1">
                       <span
                         aria-hidden="true"
@@ -1463,8 +1465,13 @@ export function TransactionsClient({
                   </div>
 
                   {/* 2. Date with Monthly Context */}
-                  <div className="space-y-3">
-                    <Label htmlFor="date">{t("create.dateLabel")}</Label>
+                  <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-4">
+                    <Label
+                      htmlFor="date"
+                      className="text-sm font-semibold text-foreground"
+                    >
+                      {t("create.dateLabel")}
+                    </Label>
                     <Input
                       id="date"
                       type="date"
@@ -1472,9 +1479,10 @@ export function TransactionsClient({
                       onChange={(e) =>
                         setFormData({ ...formData, date: e.target.value })
                       }
+                      className="h-11"
                     />
                     <p
-                      className={`text-sm ${
+                      className={`text-xs font-medium ${
                         getMonthContext(formData.date).isCurrent
                           ? "text-muted-foreground"
                           : "text-amber-600"
@@ -1485,9 +1493,11 @@ export function TransactionsClient({
                   </div>
 
                   {createKind === "transaction" && (
-                    <div className="space-y-3">
-                      <Label>{t("repeat.label")}</Label>
-                      <label className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+                      <Label className="text-sm font-semibold text-foreground">
+                        {t("repeat.label")}
+                      </Label>
+                      <label className="flex items-center gap-3 text-sm font-medium text-muted-foreground">
                         <input
                           type="checkbox"
                           checked={repeatConfig.enabled}
@@ -1513,7 +1523,7 @@ export function TransactionsClient({
                   )}
 
                   {repeatConfig.enabled && (
-                    <div className="grid gap-4 rounded-lg border p-4">
+                    <div className="grid gap-4 rounded-lg border border-border bg-background p-4">
                       <div className="space-y-2">
                         <Label>{t("repeat.frequencyLabel")}</Label>
                         <Select
@@ -1583,8 +1593,10 @@ export function TransactionsClient({
                   )}
 
                   {/* 3. Amount + Currency (Grouped) */}
-                  <div className="space-y-3">
-                    <Label>{t("create.amountLabel")}</Label>
+                  <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+                    <Label className="text-lg font-bold">
+                      {t("create.amountLabel")}
+                    </Label>
                     <div className="flex gap-2">
                       <Input
                         id="amount"
@@ -1597,7 +1609,7 @@ export function TransactionsClient({
                           })
                         }
                         placeholder={t("create.amountPlaceholder")}
-                        className="flex-1"
+                        className="flex-1 h-14 text-2xl font-semibold"
                       />
                       <Select
                         value={formData.currency}
@@ -1611,7 +1623,7 @@ export function TransactionsClient({
                         }
                         disabled={repeatConfig.enabled}
                       >
-                        <SelectTrigger className="w-32">
+                        <SelectTrigger className="h-14 w-28 text-sm font-semibold">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1626,8 +1638,13 @@ export function TransactionsClient({
                   </div>
 
                   {requiresFxRate && (
-                    <div className="space-y-2">
-                      <Label htmlFor="fx-rate">{t("fxRateLabel")}</Label>
+                    <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-4">
+                      <Label
+                        htmlFor="fx-rate"
+                        className="text-sm font-semibold text-foreground"
+                      >
+                        {t("fxRateLabel")}
+                      </Label>
                       <Input
                         id="fx-rate"
                         type="text"
@@ -1640,13 +1657,13 @@ export function TransactionsClient({
                         }
                         placeholder={t("fxRatePlaceholder")}
                       />
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm font-medium text-muted-foreground">
                         {t("fxRateHelper", {
                           currency: formData.currency,
                           baseCurrency,
                         })}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm font-medium text-muted-foreground">
                         {t("baseAmountPreview", {
                           amount: previewBaseAmount ?? "-",
                           baseCurrency,
@@ -1669,8 +1686,8 @@ export function TransactionsClient({
 
                   {/* 4. Optional Fields */}
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="category">
+                    <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+                      <Label htmlFor="category" className="text-base font-semibold">
                         {t("create.categoryLabel")}
                       </Label>
                       {topCategories.length > 0 && (
@@ -1736,8 +1753,8 @@ export function TransactionsClient({
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="merchant">
+                    <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+                      <Label htmlFor="merchant" className="text-base font-semibold">
                         {t("create.merchantLabel")}
                       </Label>
                       <MerchantAutocomplete
@@ -1751,8 +1768,10 @@ export function TransactionsClient({
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="notes">{t("create.notesLabel")}</Label>
+                    <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+                      <Label htmlFor="notes" className="text-base font-semibold">
+                        {t("create.notesLabel")}
+                      </Label>
                       <Textarea
                         id="notes"
                         value={formData.notes}
@@ -1761,6 +1780,7 @@ export function TransactionsClient({
                         }
                         placeholder={t("create.notesPlaceholder")}
                         rows={3}
+                        className="min-h-[120px]"
                       />
                     </div>
                   </div>
@@ -1794,8 +1814,10 @@ export function TransactionsClient({
             <SlidePanelBody>
               <div className="grid gap-6">
                 {/* 1. Transaction Type - Toggle */}
-                <div className="space-y-3">
-                  <Label>{t("create.typeLabel")}</Label>
+                <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+                  <Label className="text-sm font-semibold text-foreground">
+                    {t("create.typeLabel")}
+                  </Label>
                   <div className="relative flex rounded-full border bg-muted/30 p-1">
                     <span
                       aria-hidden="true"
@@ -1852,8 +1874,13 @@ export function TransactionsClient({
                 </div>
 
                 {/* 2. Date with Monthly Context */}
-                <div className="space-y-3">
-                  <Label htmlFor="edit-date">{t("create.dateLabel")}</Label>
+                <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-4">
+                  <Label
+                    htmlFor="edit-date"
+                    className="text-sm font-semibold text-foreground"
+                  >
+                    {t("create.dateLabel")}
+                  </Label>
                   <Input
                     id="edit-date"
                     type="date"
@@ -1861,9 +1888,10 @@ export function TransactionsClient({
                     onChange={(e) =>
                       setFormData({ ...formData, date: e.target.value })
                     }
+                    className="h-11"
                   />
                   <p
-                    className={`text-sm ${
+                    className={`text-xs font-medium ${
                       getMonthContext(formData.date).isCurrent
                         ? "text-muted-foreground"
                         : "text-amber-600"
@@ -1874,8 +1902,10 @@ export function TransactionsClient({
                 </div>
 
                 {/* 3. Amount + Currency (Grouped) */}
-                <div className="space-y-3">
-                  <Label>{t("create.amountLabel")}</Label>
+                <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+                  <Label className="text-lg font-bold">
+                    {t("create.amountLabel")}
+                  </Label>
                   <div className="flex gap-2">
                     <Input
                       id="edit-amount"
@@ -1888,7 +1918,7 @@ export function TransactionsClient({
                         })
                       }
                       placeholder={t("create.amountPlaceholder")}
-                      className="flex-1"
+                      className="flex-1 h-14 text-2xl font-semibold"
                     />
                     <Select
                       value={formData.currency}
@@ -1901,7 +1931,7 @@ export function TransactionsClient({
                         })
                       }
                     >
-                      <SelectTrigger className="w-32">
+                      <SelectTrigger className="h-14 w-28 text-sm font-semibold">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1916,8 +1946,13 @@ export function TransactionsClient({
                 </div>
 
                 {requiresFxRate && (
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-fx-rate">{t("fxRateLabel")}</Label>
+                  <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-4">
+                    <Label
+                      htmlFor="edit-fx-rate"
+                      className="text-sm font-semibold text-foreground"
+                    >
+                      {t("fxRateLabel")}
+                    </Label>
                     <Input
                       id="edit-fx-rate"
                       type="text"
@@ -1930,13 +1965,13 @@ export function TransactionsClient({
                       }
                       placeholder={t("fxRatePlaceholder")}
                     />
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm font-medium text-muted-foreground">
                       {t("fxRateHelper", {
                         currency: formData.currency,
                         baseCurrency,
                       })}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm font-medium text-muted-foreground">
                       {t("baseAmountPreview", {
                         amount: previewBaseAmount ?? "-",
                         baseCurrency,
@@ -1959,8 +1994,11 @@ export function TransactionsClient({
 
                 {/* 4. Optional Fields */}
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-category">
+                  <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+                    <Label
+                      htmlFor="edit-category"
+                      className="text-base font-semibold"
+                    >
                       {t("create.categoryLabel")}
                     </Label>
                     {topCategories.length > 0 && (
@@ -2026,8 +2064,11 @@ export function TransactionsClient({
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-merchant">
+                  <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+                    <Label
+                      htmlFor="edit-merchant"
+                      className="text-base font-semibold"
+                    >
                       {t("create.merchantLabel")}
                     </Label>
                     <MerchantAutocomplete
@@ -2041,8 +2082,10 @@ export function TransactionsClient({
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-notes">{t("create.notesLabel")}</Label>
+                  <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+                    <Label htmlFor="edit-notes" className="text-base font-semibold">
+                      {t("create.notesLabel")}
+                    </Label>
                     <Textarea
                       id="edit-notes"
                       value={formData.notes}
@@ -2051,6 +2094,7 @@ export function TransactionsClient({
                       }
                       placeholder={t("create.notesPlaceholder")}
                       rows={3}
+                      className="min-h-[120px]"
                     />
                   </div>
                 </div>

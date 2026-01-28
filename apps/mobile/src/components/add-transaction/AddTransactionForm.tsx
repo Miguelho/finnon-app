@@ -38,6 +38,29 @@ const colors = tokens.colors;
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const FORM_MODE_KEY = "finnon:addTransaction:formMode";
 
+const parseIsoDate = (value: string) => {
+  const [year, month, day] = value.split("-").map((part) => Number(part));
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
+const isFutureDate = (value: string) => {
+  const date = parseIsoDate(value);
+  if (!date) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date.getTime() > today.getTime();
+};
+
+const resolveObligationDueDate = (draft: TransactionDraft) => {
+  const effectiveType =
+    draft.obligationType ?? (isFutureDate(draft.date) ? "scheduled" : "pending");
+  if (effectiveType === "scheduled") {
+    return draft.scheduledDate ?? draft.date;
+  }
+  return draft.date;
+};
+
 interface Category {
   id: string;
   name: string;
@@ -208,41 +231,23 @@ export function AddTransactionForm({
 
       // If it's an obligation, create it instead of a transaction
       if (draft.isObligation) {
-        const { data: obligation, error: obligationError } = await supabase
+        const dueDate = resolveObligationDueDate(draft);
+        const { error: obligationError } = await supabase
           .from("obligations")
           .insert({
             account_id: accountId,
             name: draft.name,
             amount_minor: amountMinor,
             currency: draft.currency,
-            due_date: draft.date,
-            status: draft.isPaid ? "paid" : "pending",
-            paid_at: draft.isPaid ? draft.date : null,
+            due_date: dueDate,
+            status: "pending",
+            paid_at: null,
             created_by: user.id,
           })
           .select()
           .single();
 
         if (obligationError) throw obligationError;
-
-        // If paid, create linked transaction
-        if (draft.isPaid && obligation) {
-          await supabase
-            .from("transactions")
-            .insert({
-              account_id: accountId,
-              type: "expense",
-              amount_minor: amountMinor,
-              amount_base_minor: amountMinor,
-              currency: draft.currency,
-              category_id: null,
-              date: draft.date,
-              merchant: draft.name,
-              notes: null,
-              obligation_id: obligation.id,
-              created_by: user.id,
-            });
-        }
 
         Alert.alert(
           t(dictionary, "common.success"),

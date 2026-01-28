@@ -108,6 +108,7 @@ const styles = StyleSheet.create({
   helperText: {
     color: colors.text.secondary,
     fontSize: 12,
+    fontWeight: tokens.typography.weight.medium,
     marginTop: 4,
   },
 });

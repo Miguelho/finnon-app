@@ -61,7 +61,7 @@ export function Step2Category({
   return (
     <View style={styles.container}>
       {/* Category field */}
-      <View style={styles.field}>
+      <View style={styles.section}>
         <Text style={styles.label}>
           {t(dictionary, "addTransaction.categoryLabel")}
         </Text>
@@ -137,7 +137,7 @@ export function Step2Category({
       </View>
 
       {/* Merchant field */}
-      <View style={styles.merchantField}>
+      <View style={[styles.section, styles.merchantField]}>
         <MerchantAutocomplete
           label={t(dictionary, "addTransaction.merchantLabel")}
           helperText={
@@ -159,8 +159,13 @@ const styles = StyleSheet.create({
   container: {
     gap: 32,
   },
-  field: {
+  section: {
     gap: tokens.spacing.lg,
+    padding: tokens.spacing.lg,
+    borderRadius: tokens.radii.lg,
+    backgroundColor: colors.bg.secondary,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
   },
   merchantField: {
     zIndex: 10,

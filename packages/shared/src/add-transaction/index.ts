@@ -7,6 +7,7 @@
 export type {
   FormMode,
   PhotoAttachment,
+  ObligationType,
   TransactionDraft,
   StepStatus,
   Step,
