@@ -21,6 +21,7 @@ const colors = tokens.colors;
 
 export interface MerchantAutocompleteProps {
   label: string;
+  helperText?: string;
   value: string;
   onChangeText: (text: string) => void;
   suggestions: MerchantSuggestion[];
@@ -31,6 +32,7 @@ export interface MerchantAutocompleteProps {
 
 export function MerchantAutocomplete({
   label,
+  helperText,
   value,
   onChangeText,
   suggestions,
@@ -60,6 +62,7 @@ export function MerchantAutocomplete({
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
+      {helperText ? <Text style={styles.helperText}>{helperText}</Text> : null}
       <TextInput
         ref={inputRef}
         style={[styles.input, disabled && styles.inputDisabled]}
@@ -116,6 +119,11 @@ const styles = StyleSheet.create({
     fontWeight: tokens.typography.weight.semibold,
     marginBottom: tokens.spacing.md,
     color: colors.text.primary,
+  },
+  helperText: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.muted,
+    marginBottom: tokens.spacing.sm,
   },
   input: {
     borderWidth: 1,

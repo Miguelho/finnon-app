@@ -78,7 +78,7 @@ const SlidePanelBody = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex-1 overflow-y-auto px-6 py-6",
+      "flex-1 min-h-0 overflow-y-auto px-6 py-6",
       className
     )}
     {...props}

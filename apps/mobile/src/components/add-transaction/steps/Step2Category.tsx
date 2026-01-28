@@ -140,17 +140,16 @@ export function Step2Category({
       <View style={styles.merchantField}>
         <MerchantAutocomplete
           label={t(dictionary, "addTransaction.merchantLabel")}
+          helperText={
+            merchantSuggestions.length > 0
+              ? t(dictionary, "addTransaction.merchantHistoryHint")
+              : undefined
+          }
           value={draft.merchant}
           onChangeText={(value) => onFieldChange("merchant", value)}
           suggestions={merchantSuggestions}
           placeholder={t(dictionary, "addTransaction.merchantPlaceholder")}
         />
-
-        {merchantSuggestions.length > 0 && (
-          <Text style={styles.helperText}>
-            {t(dictionary, "addTransaction.merchantHistoryHint")}
-          </Text>
-        )}
       </View>
     </View>
   );
@@ -215,11 +214,6 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.md,
     color: colors.text.muted,
     paddingVertical: tokens.spacing.xl,
-  },
-  helperText: {
-    fontSize: tokens.typography.size.sm,
-    color: colors.text.muted,
-    marginTop: tokens.spacing.sm,
   },
   errorText: {
     fontSize: tokens.typography.size.sm,

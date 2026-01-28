@@ -1,13 +1,9 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import {
-  ArrowDownCircle,
-  ArrowUpCircle,
-  CalendarCheck,
-  CalendarClock,
   HelpCircle,
+  PlusCircle,
   RefreshCw,
   Repeat,
-  Tag,
 } from "lucide-react-native";
 import {
   themeTokens,
@@ -19,11 +15,7 @@ const tokens = themeTokens.light;
 const colors = tokens.colors;
 
 const iconMap: Record<AddActionIconName, typeof HelpCircle> = {
-  ArrowDownCircle,
-  ArrowUpCircle,
-  Tag,
-  CalendarClock,
-  CalendarCheck,
+  PlusCircle,
   Repeat,
   RefreshCw,
 };

@@ -1,16 +1,7 @@
-export type AddActionKey =
-  | "expense"
-  | "income"
-  | "category"
-  | "one_off_obligation"
-  | "recurring";
+export type AddActionKey = "movement" | "recurring";
 
 export type AddActionIconName =
-  | "ArrowDownCircle"
-  | "ArrowUpCircle"
-  | "Tag"
-  | "CalendarClock"
-  | "CalendarCheck"
+  | "PlusCircle"
   | "Repeat"
   | "RefreshCw";
 
@@ -24,29 +15,10 @@ export type AddActionMeta = {
 
 export const ADD_ACTIONS: AddActionMeta[] = [
   {
-    key: "expense",
-    title: "Añadir gasto",
-    description: "Registra un pago del día a día.",
-    icon: "ArrowDownCircle",
-  },
-  {
-    key: "income",
-    title: "Añadir ingreso",
-    description: "Suma un ingreso a tu mes.",
-    icon: "ArrowUpCircle",
-  },
-  {
-    key: "category",
-    title: "Añadir categoría",
-    description: "Crea o actualiza categorías compartidas.",
-    icon: "Tag",
-  },
-  {
-    key: "one_off_obligation",
-    title: "Añadir obligación (pago único)",
-    description: "Un pago único con fecha de vencimiento.",
-    icon: "CalendarClock",
-    iconFallback: "CalendarCheck",
+    key: "movement",
+    title: "Añadir movimiento",
+    description: "Registra un ingreso, gasto u obligación.",
+    icon: "PlusCircle",
   },
   {
     key: "recurring",

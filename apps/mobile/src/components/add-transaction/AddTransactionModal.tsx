@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Modal, View, Pressable, StyleSheet, ActivityIndicator } from "react-native";
+import { Modal, View, StyleSheet, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   themeTokens,
@@ -21,7 +21,7 @@ interface Category {
 
 interface AddTransactionModalProps {
   visible: boolean;
-  type: "income" | "expense";
+  type?: "income" | "expense";
   accountId: string;
   currency: string;
   onClose: () => void;
@@ -30,7 +30,7 @@ interface AddTransactionModalProps {
 
 export function AddTransactionModal({
   visible,
-  type,
+  type = "expense",
   accountId,
   currency,
   onClose,
@@ -39,8 +39,14 @@ export function AddTransactionModal({
   const insets = useSafeAreaInsets();
 
   const [categories, setCategories] = useState<Category[]>([]);
-  const [topCategories, setTopCategories] = useState<TopCategory[]>([]);
-  const [merchantSuggestions, setMerchantSuggestions] = useState<MerchantSuggestion[]>([]);
+  const [topCategories, setTopCategories] = useState<{
+    expense: TopCategory[];
+    income: TopCategory[];
+  }>({ expense: [], income: [] });
+  const [merchantSuggestions, setMerchantSuggestions] = useState<{
+    expense: MerchantSuggestion[];
+    income: MerchantSuggestion[];
+  }>({ expense: [], income: [] });
   const [isLoading, setIsLoading] = useState(true);
 
   const topCategoriesCache = useRef<Record<string, TopCategory[]>>({});
@@ -50,13 +56,13 @@ export function AddTransactionModal({
     if (visible && accountId) {
       loadData();
     }
-  }, [visible, accountId, type]);
+  }, [visible, accountId]);
 
   const loadData = async () => {
     setIsLoading(true);
 
     try {
-      // Load categories
+      // Load categories (all types)
       const { data: categoriesData } = await supabase
         .from("categories")
         .select("id, name, icon_id, type")
@@ -65,34 +71,68 @@ export function AddTransactionModal({
 
       setCategories(categoriesData ?? []);
 
-      // Load top categories (with cache)
-      const cacheKey = `${accountId}:${type}`;
-      if (topCategoriesCache.current[cacheKey]) {
-        setTopCategories(topCategoriesCache.current[cacheKey]);
+      // Load top categories for both types
+      const expenseTopKey = `${accountId}:expense`;
+      const incomeTopKey = `${accountId}:income`;
+
+      let expenseTop: TopCategory[] = [];
+      let incomeTop: TopCategory[] = [];
+
+      if (topCategoriesCache.current[expenseTopKey]) {
+        expenseTop = topCategoriesCache.current[expenseTopKey];
       } else {
         const { data: topData } = await supabase.rpc("get_top_categories", {
           p_account_id: accountId,
-          p_tx_type: type,
+          p_tx_type: "expense",
           p_limit: 3,
         });
-        const topCats = topData ?? [];
-        topCategoriesCache.current[cacheKey] = topCats;
-        setTopCategories(topCats);
+        expenseTop = topData ?? [];
+        topCategoriesCache.current[expenseTopKey] = expenseTop;
       }
 
-      // Load merchant suggestions (with cache)
-      if (merchantSuggestionsCache.current[cacheKey]) {
-        setMerchantSuggestions(merchantSuggestionsCache.current[cacheKey]);
+      if (topCategoriesCache.current[incomeTopKey]) {
+        incomeTop = topCategoriesCache.current[incomeTopKey];
+      } else {
+        const { data: topData } = await supabase.rpc("get_top_categories", {
+          p_account_id: accountId,
+          p_tx_type: "income",
+          p_limit: 3,
+        });
+        incomeTop = topData ?? [];
+        topCategoriesCache.current[incomeTopKey] = incomeTop;
+      }
+
+      setTopCategories({ expense: expenseTop, income: incomeTop });
+
+      // Load merchant suggestions for both types
+      let expenseMerchants: MerchantSuggestion[] = [];
+      let incomeMerchants: MerchantSuggestion[] = [];
+
+      if (merchantSuggestionsCache.current[expenseTopKey]) {
+        expenseMerchants = merchantSuggestionsCache.current[expenseTopKey];
       } else {
         const { data: merchantData } = await supabase.rpc("get_merchant_suggestions", {
           p_account_id: accountId,
-          p_tx_type: type,
+          p_tx_type: "expense",
           p_limit: 20,
         });
-        const merchants = merchantData ?? [];
-        merchantSuggestionsCache.current[cacheKey] = merchants;
-        setMerchantSuggestions(merchants);
+        expenseMerchants = merchantData ?? [];
+        merchantSuggestionsCache.current[expenseTopKey] = expenseMerchants;
       }
+
+      if (merchantSuggestionsCache.current[incomeTopKey]) {
+        incomeMerchants = merchantSuggestionsCache.current[incomeTopKey];
+      } else {
+        const { data: merchantData } = await supabase.rpc("get_merchant_suggestions", {
+          p_account_id: accountId,
+          p_tx_type: "income",
+          p_limit: 20,
+        });
+        incomeMerchants = merchantData ?? [];
+        merchantSuggestionsCache.current[incomeTopKey] = incomeMerchants;
+      }
+
+      setMerchantSuggestions({ expense: expenseMerchants, income: incomeMerchants });
     } catch (error) {
       console.error("Error loading data for transaction form:", error);
     } finally {

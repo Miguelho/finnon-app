@@ -8,10 +8,9 @@ import { parseMoneyToMinor, CURRENCY_MINOR_UNITS } from "../utils/money";
 import type { TransactionDraft, StepValidationResult } from "./types";
 
 /**
- * Step 1 validation schema: Name + Date + Amount
+ * Step 1 validation schema: Date + Amount
  */
 export const step1Schema = z.object({
-  name: z.string().min(1, { message: "addTransaction.errors.nameRequired" }),
   date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, {
@@ -83,18 +82,12 @@ export function validateAmount(
 }
 
 /**
- * Validate Step 1: Name + Date + Amount
+ * Validate Step 1: Date + Amount
  */
 export function validateStep1(
   draft: TransactionDraft
 ): StepValidationResult {
   const errors: Record<string, string> = {};
-
-  // Validate name
-  const name = draft.name.trim();
-  if (!name) {
-    errors.name = "addTransaction.errors.nameRequired";
-  }
 
   // Validate date
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;

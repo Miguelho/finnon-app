@@ -46,18 +46,24 @@ interface Category {
 }
 
 interface AddTransactionFormProps {
-  type: "income" | "expense";
+  type?: "income" | "expense";
   accountId: string;
   currency: string;
   categories: Category[];
-  topCategories: TopCategory[];
-  merchantSuggestions: MerchantSuggestion[];
+  topCategories: {
+    expense: TopCategory[];
+    income: TopCategory[];
+  };
+  merchantSuggestions: {
+    expense: MerchantSuggestion[];
+    income: MerchantSuggestion[];
+  };
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
 export function AddTransactionForm({
-  type,
+  type = "expense",
   accountId,
   currency,
   categories,
@@ -73,6 +79,10 @@ export function AddTransactionForm({
   const [draft, setDraft] = useState<TransactionDraft>(() =>
     createInitialDraft(type, currency)
   );
+
+  // Get current top categories and merchant suggestions based on draft type
+  const currentTopCategories = topCategories[draft.type];
+  const currentMerchantSuggestions = merchantSuggestions[draft.type];
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -158,7 +168,8 @@ export function AddTransactionForm({
   const handleSubmit = async () => {
     // Validate all steps
     const step1 = validateStep1(draft);
-    const step2 = validateStep2(draft);
+    // Skip category validation for obligations
+    const step2 = draft.isObligation ? { valid: true, errors: {} } : validateStep2(draft);
     const step3 = validateStep3(draft);
 
     if (!step1.valid || !step2.valid || !step3.valid) {
@@ -195,7 +206,53 @@ export function AddTransactionForm({
       // Convert BigInt to Number for Supabase serialization
       const amountMinor = Number(amountMinorResult);
 
-      // Insert transaction
+      // If it's an obligation, create it instead of a transaction
+      if (draft.isObligation) {
+        const { data: obligation, error: obligationError } = await supabase
+          .from("obligations")
+          .insert({
+            account_id: accountId,
+            name: draft.name,
+            amount_minor: amountMinor,
+            currency: draft.currency,
+            due_date: draft.date,
+            status: draft.isPaid ? "paid" : "pending",
+            paid_at: draft.isPaid ? draft.date : null,
+            created_by: user.id,
+          })
+          .select()
+          .single();
+
+        if (obligationError) throw obligationError;
+
+        // If paid, create linked transaction
+        if (draft.isPaid && obligation) {
+          await supabase
+            .from("transactions")
+            .insert({
+              account_id: accountId,
+              type: "expense",
+              amount_minor: amountMinor,
+              amount_base_minor: amountMinor,
+              currency: draft.currency,
+              category_id: null,
+              date: draft.date,
+              merchant: draft.name,
+              notes: null,
+              obligation_id: obligation.id,
+              created_by: user.id,
+            });
+        }
+
+        Alert.alert(
+          t(dictionary, "common.success"),
+          t(dictionary, "addTransaction.successToast"),
+          [{ text: t(dictionary, "common.ok"), onPress: () => onSuccess?.() }]
+        );
+        return;
+      }
+
+      // Insert regular transaction
       const { error } = await supabase
         .from("transactions")
         .insert({
@@ -293,9 +350,9 @@ export function AddTransactionForm({
                 <Step2Category
                   draft={draft}
                   errors={errors}
-                  topCategories={topCategories}
+                  topCategories={currentTopCategories}
                   allCategories={categories}
-                  merchantSuggestions={merchantSuggestions}
+                  merchantSuggestions={currentMerchantSuggestions}
                   onFieldChange={handleFieldChange}
                 />
               </KeyboardAwareScrollView>
@@ -367,9 +424,6 @@ export function AddTransactionForm({
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.listSection}>
-          <Text style={styles.sectionTitle}>
-            {t(dictionary, "addTransaction.stepDetails")}
-          </Text>
           <Step1Details
             draft={draft}
             errors={errors}
@@ -378,23 +432,17 @@ export function AddTransactionForm({
         </View>
 
         <View style={styles.listSection}>
-          <Text style={styles.sectionTitle}>
-            {t(dictionary, "addTransaction.stepCategory")}
-          </Text>
           <Step2Category
             draft={draft}
             errors={errors}
-            topCategories={topCategories}
+            topCategories={currentTopCategories}
             allCategories={categories}
-            merchantSuggestions={merchantSuggestions}
+            merchantSuggestions={currentMerchantSuggestions}
             onFieldChange={handleFieldChange}
           />
         </View>
 
         <View style={styles.listSection}>
-          <Text style={styles.sectionTitle}>
-            {t(dictionary, "addTransaction.stepNotes")}
-          </Text>
           <Step3Notes
             draft={draft}
             errors={errors}

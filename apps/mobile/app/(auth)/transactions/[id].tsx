@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { ArrowDownRight, ArrowUpRight } from "phosphor-react-native";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
 import { Button } from "../../../src/components/Button";
@@ -375,24 +376,29 @@ export default function EditTransactionScreen(): React.JSX.Element {
         description={t(dictionary, "transactions.edit.description")}
       >
         <View style={styles.form}>
-          {/* Type - Pill Selector */}
+          {/* Type - Toggle */}
           <View style={styles.field}>
             <Text style={styles.label}>{t(dictionary, "transactions.create.typeLabel")}</Text>
-            <View style={styles.pillContainer}>
+            <View style={styles.typeToggle}>
               <TouchableOpacity
                 style={[
-                  styles.pillButton,
-                  type === "expense" ? styles.pillSelected : styles.pillUnselected,
+                  styles.typeOption,
+                  type === "expense" && styles.typeOptionActive,
                 ]}
                 onPress={() => {
                   setType("expense");
                   setCategoryId(""); // Reset category when type changes
                 }}
               >
+                <ArrowDownRight
+                  size={18}
+                  weight="regular"
+                  color={type === "expense" ? colors.text.primary : colors.text.muted}
+                />
                 <Text
                   style={[
-                    styles.pillText,
-                    type === "expense" ? styles.pillTextSelected : styles.pillTextUnselected,
+                    styles.typeOptionText,
+                    type === "expense" && styles.typeOptionTextActive,
                   ]}
                 >
                   {t(dictionary, "transactions.create.typeExpense")}
@@ -400,18 +406,23 @@ export default function EditTransactionScreen(): React.JSX.Element {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
-                  styles.pillButton,
-                  type === "income" ? styles.pillSelected : styles.pillUnselected,
+                  styles.typeOption,
+                  type === "income" && styles.typeOptionActive,
                 ]}
                 onPress={() => {
                   setType("income");
                   setCategoryId(""); // Reset category when type changes
                 }}
               >
+                <ArrowUpRight
+                  size={18}
+                  weight="regular"
+                  color={type === "income" ? colors.text.primary : colors.text.muted}
+                />
                 <Text
                   style={[
-                    styles.pillText,
-                    type === "income" ? styles.pillTextSelected : styles.pillTextUnselected,
+                    styles.typeOptionText,
+                    type === "income" && styles.typeOptionTextActive,
                   ]}
                 >
                   {t(dictionary, "transactions.create.typeIncome")}
@@ -674,36 +685,34 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.text.secondary,
   },
-  // Pill selector styles
-  pillContainer: {
+  // Type toggle styles
+  typeToggle: {
     flexDirection: "row",
-    gap: 8,
-  },
-  pillButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    gap: 6,
+    padding: 4,
+    borderRadius: 999,
     borderWidth: 1,
+    borderColor: colors.state.neutral,
+    backgroundColor: colors.bg.secondary,
+  },
+  typeOption: {
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 999,
   },
-  pillSelected: {
-    backgroundColor: colors.action.primary,
-    borderColor: colors.action.primary,
+  typeOptionActive: {
+    backgroundColor: colors.bg.surface,
   },
-  pillUnselected: {
-    backgroundColor: colors.bg.primary,
-    borderColor: colors.state.neutral,
-  },
-  pillText: {
+  typeOptionText: {
     fontSize: 14,
     fontWeight: "600",
+    color: colors.text.muted,
   },
-  pillTextSelected: {
-    color: "#FFFFFF",
-  },
-  pillTextUnselected: {
+  typeOptionTextActive: {
     color: colors.text.primary,
   },
   actions: {

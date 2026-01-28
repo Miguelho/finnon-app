@@ -55,6 +55,10 @@ export type TransactionDraft = {
   notes: string;
   /** Step 3 - Photo attachments */
   photos: PhotoAttachment[];
+  /** Step 1 - Whether this is an obligation (future payment) */
+  isObligation: boolean;
+  /** Step 1 - Whether the obligation has been paid (only when isObligation=true) */
+  isPaid: boolean;
 };
 
 /**
@@ -88,7 +92,7 @@ export type StepValidationResult = {
  * Initial draft state factory
  */
 export function createInitialDraft(
-  type: TransactionType,
+  type: TransactionType = "expense",
   currency: string
 ): TransactionDraft {
   const today = new Date().toISOString().slice(0, 10);
@@ -102,6 +106,8 @@ export function createInitialDraft(
     merchant: "",
     notes: "",
     photos: [],
+    isObligation: false,
+    isPaid: false,
   };
 }
 

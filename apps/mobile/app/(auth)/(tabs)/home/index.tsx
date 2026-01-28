@@ -264,7 +264,6 @@ export default function HomeScreen() {
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [isDayPanelOpen, setIsDayPanelOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
-  const [transactionType, setTransactionType] = useState<"income" | "expense">("expense");
 
   const mainAccount = useMemo(() => {
     if (!accounts || accounts.length === 0) return null;
@@ -595,19 +594,8 @@ export default function HomeScreen() {
     setIsAddSheetOpen(false);
 
     switch (key) {
-      case "expense":
-        setTransactionType("expense");
+      case "movement":
         setIsTransactionModalOpen(true);
-        return;
-      case "income":
-        setTransactionType("income");
-        setIsTransactionModalOpen(true);
-        return;
-      case "category":
-        router.push("/(auth)/(tabs)/account/categories/create");
-        return;
-      case "one_off_obligation":
-        router.push("/(auth)/obligations/create");
         return;
       case "recurring":
         router.push(
@@ -950,7 +938,6 @@ export default function HomeScreen() {
       {mainAccount && (
         <AddTransactionModal
           visible={isTransactionModalOpen}
-          type={transactionType}
           accountId={mainAccount.id}
           currency={mainAccount.base_currency}
           onClose={() => setIsTransactionModalOpen(false)}

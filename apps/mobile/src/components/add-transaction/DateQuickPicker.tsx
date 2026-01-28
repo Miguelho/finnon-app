@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
 } from "react-native";
 import { Calendar } from "phosphor-react-native";
@@ -96,7 +97,11 @@ export function DateQuickPicker({ value, onChange, error }: DateQuickPickerProps
       <Text style={styles.label}>{t(dictionary, "addTransaction.dateLabel")}</Text>
 
       {/* Quick option chips */}
-      <View style={styles.chipsRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipsRow}
+      >
         {quickOptions.map((option) => (
           <TouchableOpacity
             key={option.labelKey}
@@ -124,7 +129,7 @@ export function DateQuickPicker({ value, onChange, error }: DateQuickPickerProps
             {t(dictionary, "addTransaction.datePickOther")}
           </Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
 
       {/* Selected date display */}
       {value && (
@@ -200,8 +205,9 @@ const styles = StyleSheet.create({
   },
   chipsRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "center",
     gap: tokens.spacing.md,
+    paddingRight: tokens.spacing.md,
   },
   chip: {
     flexDirection: "row",
@@ -230,9 +236,10 @@ const styles = StyleSheet.create({
     color: colors.bg.primary,
   },
   selectedDate: {
-    fontSize: tokens.typography.size.md,
-    color: colors.text.secondary,
-    marginTop: tokens.spacing.xs,
+    fontSize: tokens.typography.size.lg,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.text.primary,
+    marginTop: tokens.spacing.sm,
   },
   errorText: {
     fontSize: tokens.typography.size.sm,

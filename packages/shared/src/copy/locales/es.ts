@@ -239,8 +239,8 @@ export const es = {
       confirmError: "No se pudo confirmar el recurrente",
     },
     edit: {
-      title: "Editar movimiento",
-      description: "Actualiza los detalles del movimiento",
+      title: "Añadir movimiento",
+      description: "Registra un ingreso, gasto u obligación.",
     },
     delete: {
       title: "¿Estás seguro?",
@@ -870,6 +870,17 @@ export const es = {
     photosEmpty: "Añade un ticket o una foto si te viene bien",
     photoView: "Ver",
     photoRemove: "Quitar",
+
+    // Selector de tipo (Step 1)
+    typeLabel: "Tipo de movimiento",
+
+    // Toggle obligación (Step 1)
+    obligationLabel: "¿Es una obligación?",
+    obligationHelper: "Una obligación es un pago pendiente o programado",
+
+    // Toggle pagado (Step 1, solo si isObligation=true)
+    paidLabel: "Pagado",
+    paidHelper: "Marca si ya realizaste este pago",
 
     // Acciones
     next: "Siguiente",

@@ -64,14 +64,14 @@ export function DateQuickPicker({
       <Label>{t("dateLabel")}</Label>
 
       {/* Quick option chips */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
         {quickOptions.map((option) => (
           <button
             key={option.labelKey}
             type="button"
             onClick={() => handleQuickSelect(option.getValue)}
             className={cn(
-              "px-3 py-1.5 text-sm rounded-full border transition-colors",
+              "shrink-0 px-3 py-1.5 text-sm rounded-full border transition-colors",
               isSelected(option.getValue)
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-background border-input hover:bg-accent hover:text-accent-foreground"
@@ -86,7 +86,7 @@ export function DateQuickPicker({
           type="button"
           onClick={handleCalendarClick}
           className={cn(
-            "inline-flex items-center px-3 py-1.5 text-sm rounded-full border transition-colors",
+            "shrink-0 inline-flex items-center px-3 py-1.5 text-sm rounded-full border transition-colors",
             "bg-background border-input hover:bg-accent hover:text-accent-foreground"
           )}
         >
@@ -108,7 +108,7 @@ export function DateQuickPicker({
 
       {/* Selected date display */}
       {value && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-base font-semibold text-foreground">
           {formatDateForDisplay(value, locale)}
         </p>
       )}

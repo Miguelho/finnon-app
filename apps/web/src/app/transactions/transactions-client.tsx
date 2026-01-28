@@ -67,7 +67,8 @@ import { MerchantAutocomplete } from "@/components/ui/merchant-autocomplete";
 import { CategoryIcon } from "@/components/category-icon";
 import { TopCategorySelector } from "@/components/categories/top-category-selector";
 import { TransactionTile } from "@/components/transactions/transaction-tile";
-import { PlusCircle } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, PlusCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   createTransaction,
   createRecurringItem,
@@ -1410,16 +1411,18 @@ export function TransactionsClient({
                 </div>
               ) : (
                 <div className="grid gap-6">
-                  {/* 1. Transaction Type - Pill Selector */}
+                  {/* 1. Transaction Type - Toggle */}
                   <div className="space-y-3">
                     <Label>{t("create.typeLabel")}</Label>
-                    <div className="flex gap-2">
-                      <Button
+                    <div className="relative flex rounded-full border bg-muted/30 p-1">
+                      <span
+                        aria-hidden="true"
+                        className={`pointer-events-none absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-background shadow-sm transition-transform ${
+                          formData.type === "income" ? "translate-x-full" : ""
+                        }`}
+                      />
+                      <button
                         type="button"
-                        variant={
-                          formData.type === "expense" ? "default" : "outline"
-                        }
-                        className="flex-1"
                         aria-pressed={formData.type === "expense"}
                         onClick={() =>
                           setFormData({
@@ -1428,15 +1431,17 @@ export function TransactionsClient({
                             category_id: undefined,
                           })
                         }
+                        className={`relative z-10 flex-1 rounded-full py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                          formData.type === "expense"
+                            ? "text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
                       >
+                        <ArrowDownLeft className="h-4 w-4" />
                         {t("create.typeExpense")}
-                      </Button>
-                      <Button
+                      </button>
+                      <button
                         type="button"
-                        variant={
-                          formData.type === "income" ? "default" : "outline"
-                        }
-                        className="flex-1"
                         aria-pressed={formData.type === "income"}
                         onClick={() =>
                           setFormData({
@@ -1445,9 +1450,15 @@ export function TransactionsClient({
                             category_id: undefined,
                           })
                         }
+                        className={`relative z-10 flex-1 rounded-full py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                          formData.type === "income"
+                            ? "text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
                       >
+                        <ArrowUpRight className="h-4 w-4" />
                         {t("create.typeIncome")}
-                      </Button>
+                      </button>
                     </div>
                   </div>
 
@@ -1782,17 +1793,19 @@ export function TransactionsClient({
             </SlidePanelHeader>
             <SlidePanelBody>
               <div className="grid gap-6">
-                {/* 1. Transaction Type - Pill Selector */}
+                {/* 1. Transaction Type - Toggle */}
                 <div className="space-y-3">
                   <Label>{t("create.typeLabel")}</Label>
-                  <div className="flex gap-2">
-                    <Button
+                  <div className="relative flex rounded-full border bg-muted/30 p-1">
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "pointer-events-none absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-background shadow-sm transition-transform",
+                        formData.type === "income" && "translate-x-full"
+                      )}
+                    />
+                    <button
                       type="button"
-                      variant={
-                        formData.type === "expense" ? "default" : "outline"
-                      }
-                      className="flex-1"
-                      aria-pressed={formData.type === "expense"}
                       onClick={() =>
                         setFormData({
                           ...formData,
@@ -1800,14 +1813,21 @@ export function TransactionsClient({
                           category_id: undefined,
                         })
                       }
+                      aria-pressed={formData.type === "expense"}
+                      className={cn(
+                        "relative z-10 flex-1 rounded-full py-2.5 text-sm font-semibold",
+                        "inline-flex items-center justify-center gap-2 transition-colors",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                        formData.type === "expense"
+                          ? "text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
                     >
+                      <ArrowDownLeft className="h-4 w-4" />
                       {t("create.typeExpense")}
-                    </Button>
-                    <Button
+                    </button>
+                    <button
                       type="button"
-                      variant={formData.type === "income" ? "default" : "outline"}
-                      className="flex-1"
-                      aria-pressed={formData.type === "income"}
                       onClick={() =>
                         setFormData({
                           ...formData,
@@ -1815,9 +1835,19 @@ export function TransactionsClient({
                           category_id: undefined,
                         })
                       }
+                      aria-pressed={formData.type === "income"}
+                      className={cn(
+                        "relative z-10 flex-1 rounded-full py-2.5 text-sm font-semibold",
+                        "inline-flex items-center justify-center gap-2 transition-colors",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                        formData.type === "income"
+                          ? "text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
                     >
+                      <ArrowUpRight className="h-4 w-4" />
                       {t("create.typeIncome")}
-                    </Button>
+                    </button>
                   </div>
                 </div>
 

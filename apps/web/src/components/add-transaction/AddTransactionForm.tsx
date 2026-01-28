@@ -11,7 +11,7 @@ import { Step1Details } from "./steps/Step1Details";
 import { Step2Category } from "./steps/Step2Category";
 import { Step3Notes } from "./steps/Step3Notes";
 import { getFormMode, setFormMode } from "@/lib/form-mode-storage";
-import { createTransaction } from "@/app/transactions/actions";
+import { createTransaction, createObligation } from "@/app/transactions/actions";
 import {
   type TransactionDraft,
   type FormMode,
@@ -32,19 +32,25 @@ interface Category {
 }
 
 interface AddTransactionFormProps {
-  type: "income" | "expense";
+  type?: "income" | "expense";
   accountId: string;
   currency: string;
   locale: string;
   categories: Category[];
-  topCategories: TopCategory[];
-  merchantSuggestions: MerchantSuggestion[];
+  topCategories: {
+    expense: TopCategory[];
+    income: TopCategory[];
+  };
+  merchantSuggestions: {
+    expense: MerchantSuggestion[];
+    income: MerchantSuggestion[];
+  };
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
 export function AddTransactionForm({
-  type,
+  type = "expense",
   accountId,
   currency,
   locale,
@@ -60,6 +66,10 @@ export function AddTransactionForm({
   const [draft, setDraft] = React.useState<TransactionDraft>(() =>
     createInitialDraft(type, currency)
   );
+
+  // Get current top categories and merchant suggestions based on draft type
+  const currentTopCategories = topCategories[draft.type];
+  const currentMerchantSuggestions = merchantSuggestions[draft.type];
   const [currentStep, setCurrentStep] = React.useState<1 | 2 | 3>(1);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -128,7 +138,8 @@ export function AddTransactionForm({
   const handleSubmit = async () => {
     // Validate all steps
     const step1 = validateStep1(draft);
-    const step2 = validateStep2(draft);
+    // Skip category validation for obligations
+    const step2 = draft.isObligation ? { valid: true, errors: {} } : validateStep2(draft);
     const step3 = validateStep3(draft);
 
     if (!step1.valid || !step2.valid || !step3.valid) {
@@ -142,6 +153,29 @@ export function AddTransactionForm({
     setIsSubmitting(true);
 
     try {
+      // If it's an obligation, create it via createObligation
+      if (draft.isObligation) {
+        const result = await createObligation({
+          account_id: accountId,
+          name: draft.name,
+          amount: draft.amount,
+          currency: draft.currency,
+          due_date: draft.date,
+          status: draft.isPaid ? "paid" : "pending",
+          paid_at: draft.isPaid ? draft.date : null,
+        });
+
+        if (!result.success) {
+          toast.error(t("errorToast"));
+          return;
+        }
+
+        toast.success(t("successToast"));
+        onSuccess?.();
+        return;
+      }
+
+      // Otherwise, create a regular transaction
       const result = await createTransaction({
         account_id: accountId,
         type: draft.type,
@@ -201,9 +235,9 @@ export function AddTransactionForm({
           <Step2Category
             draft={draft}
             errors={errors}
-            topCategories={topCategories}
+            topCategories={currentTopCategories}
             allCategories={categories}
-            merchantSuggestions={merchantSuggestions}
+            merchantSuggestions={currentMerchantSuggestions}
             onFieldChange={handleFieldChange}
           />
         );
@@ -249,9 +283,9 @@ export function AddTransactionForm({
               <Step2Category
                 draft={draft}
                 errors={errors}
-                topCategories={topCategories}
+                topCategories={currentTopCategories}
                 allCategories={categories}
-                merchantSuggestions={merchantSuggestions}
+                merchantSuggestions={currentMerchantSuggestions}
                 onFieldChange={handleFieldChange}
               />
             }
@@ -308,26 +342,9 @@ export function AddTransactionForm({
 
       {/* All steps */}
       <div className="flex-1 overflow-y-auto py-6 space-y-8">
-        <div>
-          <h3 className="text-sm font-semibold text-muted-foreground mb-4">
-            {t("stepDetails")}
-          </h3>
-          {renderStepContent(1)}
-        </div>
-
-        <div>
-          <h3 className="text-sm font-semibold text-muted-foreground mb-4">
-            {t("stepCategory")}
-          </h3>
-          {renderStepContent(2)}
-        </div>
-
-        <div>
-          <h3 className="text-sm font-semibold text-muted-foreground mb-4">
-            {t("stepNotes")}
-          </h3>
-          {renderStepContent(3)}
-        </div>
+        <div>{renderStepContent(1)}</div>
+        <div>{renderStepContent(2)}</div>
+        <div>{renderStepContent(3)}</div>
       </div>
 
       {/* Footer with submit button */}

@@ -3,41 +3,22 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   SlidePanel,
   SlidePanelBody,
   SlidePanelContent,
   SlidePanelHeader,
-  SlidePanelFooter,
-  SlidePanelDescription,
   SlidePanelTitle,
 } from "@/components/ui/slide-panel";
 import { AddMenuItem } from "@/components/home/AddMenuItem";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { IconPicker } from "@/components/icon-picker";
 import { AddTransactionForm } from "@/components/add-transaction";
 import {
   ADD_ACTIONS,
-  normalizeCategoryName,
-  suggestCategoryIcon,
   type AddActionKey,
-  type CategoryIconKey,
-  type CategoryType,
   type TopCategory,
   type MerchantSuggestion,
-  type TransactionType,
 } from "@poleursus/shared";
-import { createCategory } from "@/app/categories/actions";
 
 type Category = {
   id: string;
@@ -74,37 +55,15 @@ export function AddAction({
   const router = useRouter();
   const t = useTranslations();
   const [isOpen, setIsOpen] = useState(false);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isTransactionOpen, setIsTransactionOpen] = useState(false);
-  const [transactionType, setTransactionType] = useState<TransactionType | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    icon_id: "Tag" as CategoryIconKey,
-    type: "expense" as CategoryType,
-  });
-  const [userSelectedIcon, setUserSelectedIcon] = useState(false);
-  const normalizedNameValue = normalizeCategoryName(formData.name);
-  const canSubmit = Boolean(normalizedNameValue) && !isSubmitting;
 
   const handleAction = (key: AddActionKey) => {
     if (!canEdit) return;
     setIsOpen(false);
 
     switch (key) {
-      case "expense":
-        setTransactionType("expense");
+      case "movement":
         setIsTransactionOpen(true);
-        return;
-      case "income":
-        setTransactionType("income");
-        setIsTransactionOpen(true);
-        return;
-      case "category":
-        setIsCreateOpen(true);
-        return;
-      case "one_off_obligation":
-        router.push("/transactions?new=1&kind=obligation");
         return;
       case "recurring":
         router.push("/transactions?new=1&kind=recurring");
@@ -114,63 +73,12 @@ export function AddAction({
 
   const handleTransactionSuccess = () => {
     setIsTransactionOpen(false);
-    setTransactionType(null);
     router.refresh();
   };
 
   const handleTransactionCancel = () => {
     setIsTransactionOpen(false);
-    setTransactionType(null);
   };
-
-  const handleCreateCategory = async () => {
-    if (!canEdit) return;
-    const normalizedName = normalizeCategoryName(formData.name);
-    if (!normalizedName) {
-      toast.error(t("categories.nameRequired"));
-      return;
-    }
-    if (normalizedName.length < 2 || normalizedName.length > 40) {
-      toast.error(t("categories.error.nameLength"));
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const result = await createCategory({
-        account_id: accountId,
-        name: normalizedName,
-        icon_id: formData.icon_id,
-        type: formData.type,
-      });
-
-      if (result.success) {
-        toast.success(t("categories.createSuccess"));
-        setIsCreateOpen(false);
-        setUserSelectedIcon(false);
-        setFormData({ name: "", icon_id: "Tag", type: "expense" });
-        router.refresh();
-      } else {
-        toast.error(
-          result.error
-            ? t(result.error.key, result.error.params)
-            : t("categories.createError")
-        );
-      }
-    } catch (error) {
-      toast.error(t("categories.createError"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Get the appropriate top categories and merchant suggestions for the selected type
-  const currentTopCategories = transactionType
-    ? topCategories[transactionType]
-    : [];
-  const currentMerchantSuggestions = transactionType
-    ? merchantSuggestions[transactionType]
-    : [];
 
   return (
     <>
@@ -208,127 +116,26 @@ export function AddAction({
       </SlidePanel>
 
       {/* Add Transaction panel */}
-      {canEdit && transactionType && (
+      {canEdit && (
         <SlidePanel open={isTransactionOpen} onOpenChange={setIsTransactionOpen}>
           <SlidePanelContent>
             <SlidePanelHeader>
-              <SlidePanelTitle>
-                {transactionType === "income"
-                  ? t("addTransaction.typeIncome")
-                  : t("addTransaction.typeExpense")}
-              </SlidePanelTitle>
+              <SlidePanelTitle>{t("addTransaction.entryTitle")}</SlidePanelTitle>
             </SlidePanelHeader>
             <SlidePanelBody className="p-0">
-              <div className="h-full px-6 py-4">
+              <div className="px-6 py-4">
                 <AddTransactionForm
-                  type={transactionType}
                   accountId={accountId}
                   currency={currency}
                   locale={locale}
                   categories={categories}
-                  topCategories={currentTopCategories}
-                  merchantSuggestions={currentMerchantSuggestions}
+                  topCategories={topCategories}
+                  merchantSuggestions={merchantSuggestions}
                   onSuccess={handleTransactionSuccess}
                   onCancel={handleTransactionCancel}
                 />
               </div>
             </SlidePanelBody>
-          </SlidePanelContent>
-        </SlidePanel>
-      )}
-
-      {/* Create Category panel */}
-      {canEdit && (
-        <SlidePanel open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <SlidePanelContent>
-            <SlidePanelHeader>
-              <SlidePanelTitle>{t("categories.newTitle")}</SlidePanelTitle>
-              <SlidePanelDescription>
-                {t("categories.createDescription")}
-              </SlidePanelDescription>
-            </SlidePanelHeader>
-            <SlidePanelBody>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="category-name">
-                    {t("categories.nameLabel")}
-                  </Label>
-                  <Input
-                    id="category-name"
-                    value={formData.name}
-                    onChange={(event) => {
-                      const newName = event.target.value;
-                      setFormData((prev) => {
-                        if (!userSelectedIcon && newName.trim()) {
-                          const suggestion = suggestCategoryIcon(newName);
-                          return {
-                            ...prev,
-                            name: newName,
-                            icon_id: suggestion.primary,
-                          };
-                        }
-                        return { ...prev, name: newName };
-                      });
-                    }}
-                    placeholder={t("categories.namePlaceholder")}
-                    maxLength={40}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="category-type">
-                    {t("categories.typeLabel")}
-                  </Label>
-                  <Select
-                    value={formData.type}
-                    onValueChange={(value: CategoryType) =>
-                      setFormData({ ...formData, type: value })
-                    }
-                  >
-                    <SelectTrigger id="category-type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="expense">
-                        {t("categories.expenseLabel")}
-                      </SelectItem>
-                      <SelectItem value="income">
-                        {t("categories.incomeLabel")}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t("categories.iconLabel")}</Label>
-                  <IconPicker
-                    value={formData.icon_id}
-                    onChange={(iconId) => {
-                      setUserSelectedIcon(true);
-                      setFormData({ ...formData, icon_id: iconId });
-                    }}
-                    filterType={formData.type}
-                    categoryName={formData.name}
-                  />
-                </div>
-              </div>
-            </SlidePanelBody>
-            <SlidePanelFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsCreateOpen(false);
-                  setUserSelectedIcon(false);
-                  setFormData({ name: "", icon_id: "Tag", type: "expense" });
-                }}
-                disabled={isSubmitting}
-              >
-                {t("common.cancel")}
-              </Button>
-              <Button onClick={handleCreateCategory} disabled={!canSubmit}>
-                {isSubmitting
-                  ? t("common.saving")
-                  : t("categories.saveLabel")}
-              </Button>
-            </SlidePanelFooter>
           </SlidePanelContent>
         </SlidePanel>
       )}

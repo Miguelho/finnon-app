@@ -871,6 +871,17 @@ export const en = {
     photoView: "View",
     photoRemove: "Remove",
 
+    // Type selector (Step 1)
+    typeLabel: "Transaction type",
+
+    // Obligation toggle (Step 1)
+    obligationLabel: "Is this an obligation?",
+    obligationHelper: "An obligation is a pending or scheduled payment",
+
+    // Paid toggle (Step 1, only if isObligation=true)
+    paidLabel: "Paid",
+    paidHelper: "Mark if you already made this payment",
+
     // Actions
     next: "Next",
     back: "Back",

@@ -1,22 +1,14 @@
 import {
-  ArrowDownCircle,
-  ArrowUpCircle,
-  CalendarCheck,
-  CalendarClock,
   HelpCircle,
+  PlusCircle,
   RefreshCw,
   Repeat,
-  Tag,
 } from "lucide-react";
 import type { AddActionMeta, AddActionIconName } from "@poleursus/shared";
 import { cn } from "@/lib/utils";
 
 const iconMap: Record<AddActionIconName, typeof HelpCircle> = {
-  ArrowDownCircle,
-  ArrowUpCircle,
-  Tag,
-  CalendarClock,
-  CalendarCheck,
+  PlusCircle,
   Repeat,
   RefreshCw,
 };
