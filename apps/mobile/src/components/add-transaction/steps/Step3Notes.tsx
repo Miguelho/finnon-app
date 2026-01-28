@@ -165,27 +165,27 @@ export function Step3Notes({ draft, errors, onFieldChange }: Step3NotesProps) {
 
 const styles = StyleSheet.create({
   container: {
-    gap: tokens.spacing.xxl,
+    gap: 32,
   },
   field: {
-    gap: tokens.spacing.md,
+    gap: tokens.spacing.lg,
   },
   label: {
-    fontSize: tokens.typography.size.md,
+    fontSize: tokens.typography.size.lg,
     fontWeight: tokens.typography.weight.semibold,
     color: colors.text.primary,
-    marginBottom: tokens.spacing.xs,
+    marginBottom: tokens.spacing.sm,
   },
   textArea: {
     borderWidth: 1,
     borderColor: colors.state.neutral,
-    borderRadius: tokens.radii.md,
-    paddingVertical: tokens.spacing.lg,
-    paddingHorizontal: tokens.spacing.lg,
+    borderRadius: tokens.radii.lg,
+    paddingVertical: tokens.spacing.xl,
+    paddingHorizontal: tokens.spacing.xl,
     fontSize: tokens.typography.size.md,
     backgroundColor: colors.bg.surface,
     color: colors.text.primary,
-    minHeight: 140,
+    minHeight: 160,
     textAlignVertical: "top",
   },
   photoGrid: {
@@ -194,9 +194,9 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.lg,
   },
   photoItem: {
-    width: 96,
-    height: 96,
-    borderRadius: tokens.radii.md,
+    width: 100,
+    height: 100,
+    borderRadius: tokens.radii.lg,
     overflow: "hidden",
     position: "relative",
   },
@@ -220,8 +220,8 @@ const styles = StyleSheet.create({
   },
   removeButton: {
     position: "absolute",
-    top: 6,
-    right: 6,
+    top: 8,
+    right: 8,
     width: 28,
     height: 28,
     borderRadius: 14,
@@ -230,9 +230,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   addPhotoButton: {
-    width: 96,
-    height: 96,
-    borderRadius: tokens.radii.md,
+    width: 100,
+    height: 100,
+    borderRadius: tokens.radii.lg,
     borderWidth: 2,
     borderStyle: "dashed",
     borderColor: colors.state.neutral,
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: tokens.spacing.md,
-    paddingVertical: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.xl,
   },
   emptyText: {
     fontSize: tokens.typography.size.md,

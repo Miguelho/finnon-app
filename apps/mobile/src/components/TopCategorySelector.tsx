@@ -62,7 +62,7 @@ export function TopCategorySelector({
           >
             <CategoryIcon
               iconKey={category.icon_id as CategoryIconKey}
-              size={16}
+              size={20}
               tone={isSelected ? "primary" : "muted"}
               accessibilityLabel={category.name}
             />
@@ -88,7 +88,7 @@ export function TopCategorySelector({
         ]}
       >
         <Text style={styles.seeOthersText}>{toggleLabel}</Text>
-        <IconComponent size={14} weight="bold" color={colors.text.muted} />
+        <IconComponent size={16} weight="bold" color={colors.text.muted} />
       </Pressable>
     </View>
   );
@@ -99,16 +99,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
-    gap: 8,
+    gap: 12,
   },
   pill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: radii.pill,
     borderWidth: 1,
+    minHeight: 44,
   },
   pillDefault: {
     borderColor: colors.state.neutral,
@@ -122,7 +123,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   pillText: {
-    fontSize: typography.size.sm,
+    fontSize: typography.size.md,
     fontWeight: typography.weight.medium,
   },
   pillTextDefault: {
@@ -134,15 +135,16 @@ const styles = StyleSheet.create({
   seeOthers: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    gap: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    minHeight: 44,
   },
   seeOthersPressed: {
     opacity: 0.7,
   },
   seeOthersText: {
-    fontSize: typography.size.sm,
+    fontSize: typography.size.md,
     color: colors.text.muted,
   },
 });

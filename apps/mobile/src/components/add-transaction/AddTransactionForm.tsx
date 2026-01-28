@@ -178,11 +178,22 @@ export function AddTransactionForm({
 
     try {
       // Parse amount to minor units
-      const amountMinor = parseMoneyToMinor(
+      const amountMinorResult = parseMoneyToMinor(
         draft.amount,
         draft.currency,
         CURRENCY_MINOR_UNITS
       );
+
+      // Check for parse errors
+      if (typeof amountMinorResult === "object" && "error" in amountMinorResult) {
+        setErrors({ amount: amountMinorResult.error.key });
+        setCurrentStep(1);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Convert BigInt to Number for Supabase serialization
+      const amountMinor = Number(amountMinorResult);
 
       // Insert transaction
       const { error } = await supabase

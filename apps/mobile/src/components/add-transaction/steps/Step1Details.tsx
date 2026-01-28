@@ -78,27 +78,27 @@ export function Step1Details({ draft, errors, onFieldChange }: Step1DetailsProps
 
 const styles = StyleSheet.create({
   container: {
-    gap: tokens.spacing.xxl,
+    gap: 32,
   },
   field: {
     gap: tokens.spacing.md,
   },
   label: {
-    fontSize: tokens.typography.size.md,
+    fontSize: tokens.typography.size.lg,
     fontWeight: tokens.typography.weight.semibold,
     color: colors.text.primary,
-    marginBottom: tokens.spacing.xs,
+    marginBottom: tokens.spacing.sm,
   },
   input: {
     borderWidth: 1,
     borderColor: colors.state.neutral,
-    borderRadius: tokens.radii.md,
+    borderRadius: tokens.radii.lg,
     paddingVertical: tokens.spacing.lg,
-    paddingHorizontal: tokens.spacing.lg,
-    fontSize: tokens.typography.size.md,
+    paddingHorizontal: tokens.spacing.xl,
+    fontSize: tokens.typography.size.lg,
     backgroundColor: colors.bg.surface,
     color: colors.text.primary,
-    minHeight: 52,
+    minHeight: 56,
   },
   inputError: {
     borderColor: colors.state.negative,
@@ -113,20 +113,20 @@ const styles = StyleSheet.create({
   },
   currencyBadge: {
     backgroundColor: colors.bg.secondary,
-    paddingHorizontal: tokens.spacing.lg,
+    paddingHorizontal: tokens.spacing.xl,
     paddingVertical: tokens.spacing.lg,
-    borderRadius: tokens.radii.md,
-    minHeight: 52,
+    borderRadius: tokens.radii.lg,
+    minHeight: 56,
     justifyContent: "center",
   },
   currencyText: {
-    fontSize: tokens.typography.size.md,
+    fontSize: tokens.typography.size.lg,
     fontWeight: tokens.typography.weight.semibold,
     color: colors.text.secondary,
   },
   errorText: {
     fontSize: tokens.typography.size.sm,
     color: colors.state.negative,
-    marginTop: tokens.spacing.xs,
+    marginTop: tokens.spacing.sm,
   },
 });

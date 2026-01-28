@@ -97,7 +97,7 @@ export function Step2Category({
                 >
                   <CategoryIcon
                     iconKey={category.icon_id as CategoryIconKey}
-                    size={20}
+                    size={24}
                     tone={isSelected ? "primary" : "muted"}
                     accessibilityLabel={category.name}
                   />
@@ -158,26 +158,26 @@ export function Step2Category({
 
 const styles = StyleSheet.create({
   container: {
-    gap: tokens.spacing.xxl,
+    gap: 32,
   },
   field: {
     gap: tokens.spacing.lg,
   },
   merchantField: {
     zIndex: 10,
-    gap: tokens.spacing.sm,
+    gap: tokens.spacing.md,
   },
   label: {
-    fontSize: tokens.typography.size.md,
+    fontSize: tokens.typography.size.lg,
     fontWeight: tokens.typography.weight.semibold,
     color: colors.text.primary,
-    marginBottom: tokens.spacing.xs,
+    marginBottom: tokens.spacing.sm,
   },
   allCategoriesGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: tokens.spacing.md,
-    marginTop: tokens.spacing.sm,
+    marginTop: tokens.spacing.md,
   },
   categoryItem: {
     flexDirection: "row",
@@ -185,13 +185,13 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.md,
     paddingVertical: tokens.spacing.lg,
     paddingHorizontal: tokens.spacing.lg,
-    borderRadius: tokens.radii.md,
+    borderRadius: tokens.radii.lg,
     borderWidth: 1,
     borderColor: colors.state.neutral,
     backgroundColor: colors.bg.surface,
     minWidth: "45%",
     flexGrow: 1,
-    minHeight: 52,
+    minHeight: 56,
   },
   categoryItemSelected: {
     borderColor: colors.action.primary,
@@ -209,21 +209,21 @@ const styles = StyleSheet.create({
   selectedText: {
     fontSize: tokens.typography.size.md,
     color: colors.text.secondary,
-    marginTop: tokens.spacing.xs,
+    marginTop: tokens.spacing.sm,
   },
   emptyText: {
     fontSize: tokens.typography.size.md,
     color: colors.text.muted,
-    paddingVertical: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.xl,
   },
   helperText: {
     fontSize: tokens.typography.size.sm,
     color: colors.text.muted,
-    marginTop: tokens.spacing.xs,
+    marginTop: tokens.spacing.sm,
   },
   errorText: {
     fontSize: tokens.typography.size.sm,
     color: colors.state.negative,
-    marginTop: tokens.spacing.xs,
+    marginTop: tokens.spacing.sm,
   },
 });
