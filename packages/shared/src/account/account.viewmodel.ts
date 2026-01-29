@@ -32,6 +32,9 @@ export type AccountSummaryData = {
     income_total: number;
     expense_total: number;
     balance_total: number;
+    income_pending_total?: number;
+    expense_pending_total?: number;
+    balance_pending_total?: number;
   };
   category_breakdown: AccountSummaryCategoryBreakdown[];
   categories_count: number;
@@ -67,6 +70,9 @@ export type AccountViewModel = {
     balanceMinor: bigint;
     incomeMinor: bigint;
     expenseMinor: bigint;
+    balancePendingMinor: bigint;
+    incomePendingMinor: bigint;
+    expensePendingMinor: bigint;
   };
   categories: {
     count: number;
@@ -136,6 +142,13 @@ export function buildAccountViewModel({
     totalMinor: BigInt(c.total),
   }));
 
+  const incomePendingMinor = BigInt(data.totals.income_pending_total ?? 0);
+  const expensePendingMinor = BigInt(data.totals.expense_pending_total ?? 0);
+  const balancePendingMinor =
+    data.totals.balance_pending_total !== undefined
+      ? BigInt(data.totals.balance_pending_total)
+      : incomePendingMinor - expensePendingMinor;
+
   return {
     account: {
       id: data.account.id,
@@ -147,6 +160,9 @@ export function buildAccountViewModel({
       balanceMinor: BigInt(data.totals.balance_total),
       incomeMinor: BigInt(data.totals.income_total),
       expenseMinor: BigInt(data.totals.expense_total),
+      balancePendingMinor,
+      incomePendingMinor,
+      expensePendingMinor,
     },
     categories: {
       count: data.categories_count,

@@ -1,0 +1,1 @@
+La pantalla de tu cuenta muestra las cifras totales de la cuenta estén realizadas o estén pendientes, hay que añadir el mismo comportamiento de la pantalla home y de la pantalla movimientos

@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Info } from "lucide-react";
+import { Info, PlusCircle } from "lucide-react";
 import {
   buildAccountViewModel,
   CURRENCIES,
   formatMoneyWithSymbol,
+  themeTokens,
+  withAlpha,
   type AccountSummaryData,
   type AccountParticipantVM,
   type UserRole,
@@ -32,6 +34,9 @@ import {
 } from "@/components/ui/slide-panel";
 import { cn } from "@/lib/utils";
 
+const tokens = themeTokens.light;
+const colors = tokens.colors;
+
 type AccountSummaryClientProps = {
   summaryData: AccountSummaryData;
   currentUserId: string;
@@ -44,6 +49,92 @@ type AccountSummaryClientProps = {
   }[];
   activeAccountId: string;
 };
+
+type SummaryValueWithPendingChipProps = {
+  value: string;
+  pendingMinor: bigint;
+  pendingText: string;
+  triggerLabel: string;
+  valueClassName?: string;
+  pendingToneColor?: string;
+};
+
+function SummaryValueWithPendingChip({
+  value,
+  pendingMinor,
+  pendingText,
+  triggerLabel,
+  valueClassName,
+  pendingToneColor,
+}: SummaryValueWithPendingChipProps) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const hasPending = pendingMinor > 0n;
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        popoverRef.current?.contains(target) ||
+        triggerRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setOpen(false);
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
+  const pendingTextColor = pendingToneColor
+    ? withAlpha(pendingToneColor, 0.65)
+    : colors.text.secondary;
+
+  return (
+    <div className="relative inline-flex items-center gap-2">
+      <p className={cn("text-lg md:text-2xl font-bold", valueClassName)}>
+        {value}
+      </p>
+      {hasPending ? (
+        <>
+          <button
+            type="button"
+            ref={triggerRef}
+            aria-label={triggerLabel}
+            aria-expanded={open}
+            onClick={() => setOpen((prev) => !prev)}
+            className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition hover:text-foreground"
+          >
+            <PlusCircle className="h-4 w-4" />
+          </button>
+          {open ? (
+            <div
+              ref={popoverRef}
+              className="absolute right-0 top-full z-20 mt-2 whitespace-nowrap rounded-full border bg-background px-3 py-1 text-xs shadow-sm animate-in fade-in-0 zoom-in-95"
+              style={{
+                borderColor: colors.state.neutral,
+                color: pendingTextColor,
+              }}
+            >
+              {pendingText}
+            </div>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  );
+}
 
 export function AccountSummaryClient({
   summaryData,
@@ -96,6 +187,20 @@ export function AccountSummaryClient({
   const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
   const accountIdShort = summaryData.account.id.slice(0, 6);
   const participants = viewModel.participants;
+  const pendingIncomeText = t("transactions.pendingChipLabel", {
+    amount: formatMoneyWithSymbol(
+      viewModel.totals.incomePendingMinor,
+      viewModel.account.baseCurrency,
+      currencySymbol
+    ),
+  });
+  const pendingExpenseText = t("transactions.pendingChipLabel", {
+    amount: formatMoneyWithSymbol(
+      viewModel.totals.expensePendingMinor,
+      viewModel.account.baseCurrency,
+      currencySymbol
+    ),
+  });
 
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isMemberPanelOpen, setIsMemberPanelOpen] = useState(false);
@@ -230,13 +335,18 @@ export function AccountSummaryClient({
             </CardDescription>
           </CardHeader>
           <CardContent className="px-3 pb-3 pt-0">
-            <p className="text-lg md:text-2xl font-bold text-state-positive">
-              {formatMoneyWithSymbol(
+            <SummaryValueWithPendingChip
+              value={formatMoneyWithSymbol(
                 viewModel.totals.incomeMinor,
                 viewModel.account.baseCurrency,
                 currencySymbol
               )}
-            </p>
+              pendingMinor={viewModel.totals.incomePendingMinor}
+              pendingText={pendingIncomeText}
+              triggerLabel={t("transactions.pendingTriggerLabel")}
+              valueClassName="text-state-positive"
+              pendingToneColor={colors.state.positive}
+            />
           </CardContent>
         </Card>
 
@@ -247,13 +357,18 @@ export function AccountSummaryClient({
             </CardDescription>
           </CardHeader>
           <CardContent className="px-3 pb-3 pt-0">
-            <p className="text-lg md:text-2xl font-bold text-state-negative">
-              {formatMoneyWithSymbol(
+            <SummaryValueWithPendingChip
+              value={formatMoneyWithSymbol(
                 viewModel.totals.expenseMinor,
                 viewModel.account.baseCurrency,
                 currencySymbol
               )}
-            </p>
+              pendingMinor={viewModel.totals.expensePendingMinor}
+              pendingText={pendingExpenseText}
+              triggerLabel={t("transactions.pendingTriggerLabel")}
+              valueClassName="text-state-negative"
+              pendingToneColor={colors.state.negative}
+            />
           </CardContent>
         </Card>
       </div>

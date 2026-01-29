@@ -17,10 +17,13 @@ import {
   Text,
   TouchableOpacity,
   View,
+  type StyleProp,
+  type TextStyle,
 } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { useNetworkNotice } from "../../../../src/contexts/NetworkNoticeContext";
 import { supabase } from "../../../../src/lib/supabase";
@@ -33,6 +36,7 @@ import {
   formatMoneyWithSymbol,
   themeTokens,
   createTypographyStyles,
+  withAlpha,
   isExpired,
   type AccountSummaryData,
   type AccountParticipantVM,
@@ -57,6 +61,105 @@ type AnchorFrame = {
   width: number;
   height: number;
 };
+
+type SummaryValueWithPendingChipProps = {
+  value: string;
+  pendingMinor: bigint;
+  pendingText: string;
+  triggerLabel: string;
+  valueStyle?: StyleProp<TextStyle>;
+  pendingToneColor?: string;
+};
+
+function SummaryValueWithPendingChip({
+  value,
+  pendingMinor,
+  pendingText,
+  triggerLabel,
+  valueStyle,
+  pendingToneColor,
+}: SummaryValueWithPendingChipProps) {
+  const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<AnchorFrame | null>(null);
+  const triggerRef = useRef<View>(null);
+  const hasPending = pendingMinor > 0n;
+
+  const handleToggle = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    if (!triggerRef.current) {
+      setOpen(true);
+      return;
+    }
+    triggerRef.current.measureInWindow((x, y, width, height) => {
+      setAnchor({ x, y, width, height });
+      setOpen(true);
+    });
+  };
+
+  const windowWidth = Dimensions.get("window").width;
+  const chipWidth = Math.min(240, windowWidth - tokens.spacing.lg * 2);
+  const leftOffset = anchor
+    ? Math.min(
+        Math.max(tokens.spacing.lg, anchor.x + anchor.width - chipWidth),
+        windowWidth - chipWidth - tokens.spacing.lg
+      )
+    : tokens.spacing.lg;
+  const topOffset = anchor
+    ? anchor.y + anchor.height + tokens.spacing.xs
+    : tokens.spacing.lg;
+
+  const pendingTextColor = pendingToneColor
+    ? withAlpha(pendingToneColor, 0.65)
+    : colors.text.secondary;
+
+  return (
+    <View style={styles.summaryValueRow}>
+      <Text style={[styles.summaryValue, valueStyle]}>{value}</Text>
+      {hasPending ? (
+        <>
+          <Pressable
+            ref={triggerRef}
+            onPress={handleToggle}
+            accessibilityRole="button"
+            accessibilityLabel={triggerLabel}
+            accessibilityState={{ expanded: open }}
+            style={styles.pendingTriggerButton}
+            hitSlop={8}
+          >
+            <MaterialCommunityIcons
+              name="plus-circle-outline"
+              size={16}
+              color={colors.text.muted}
+            />
+          </Pressable>
+          <Modal
+            transparent
+            visible={open}
+            animationType="fade"
+            onRequestClose={() => setOpen(false)}
+          >
+            <Pressable style={styles.pendingOverlay} onPress={() => setOpen(false)}>
+              <Pressable
+                style={[
+                  styles.pendingChip,
+                  { top: topOffset, left: leftOffset, width: chipWidth },
+                ]}
+                onPress={() => {}}
+              >
+                <Text style={[styles.pendingChipText, { color: pendingTextColor }]}>
+                  {pendingText}
+                </Text>
+              </Pressable>
+            </Pressable>
+          </Modal>
+        </>
+      ) : null}
+    </View>
+  );
+}
 
 export default function AccountTabScreen() {
   const router = useRouter();
@@ -216,6 +319,21 @@ export default function AccountTabScreen() {
   const roleLabel = userRole.charAt(0).toUpperCase() + userRole.slice(1);
   const accountIdShort = summaryData?.account?.id.slice(0, 6) ?? "-";
 
+  const pendingIncomeText = t(dictionary, "transactions.pendingChipLabel", {
+    amount: formatMoneyWithSymbol(
+      viewModel?.totals.incomePendingMinor ?? 0n,
+      viewModel?.account.baseCurrency ?? "",
+      currencySymbol
+    ),
+  });
+  const pendingExpenseText = t(dictionary, "transactions.pendingChipLabel", {
+    amount: formatMoneyWithSymbol(
+      viewModel?.totals.expensePendingMinor ?? 0n,
+      viewModel?.account.baseCurrency ?? "",
+      currencySymbol
+    ),
+  });
+
   if (!isInitialized) {
     return (
       <View style={[styles.loading, { paddingTop: tokens.spacing.lg }]}>
@@ -302,23 +420,33 @@ export default function AccountTabScreen() {
           <View style={styles.summaryRow}>
             <View style={[styles.summaryCard, styles.summaryCardHalf]}>
               <Text style={styles.summaryLabel}>{viewModel.copy.incomeLabel}</Text>
-              <Text style={styles.summaryValuePositive}>
-                {formatMoneyWithSymbol(
+              <SummaryValueWithPendingChip
+                value={formatMoneyWithSymbol(
                   viewModel.totals.incomeMinor,
                   viewModel.account.baseCurrency,
                   currencySymbol
                 )}
-              </Text>
+                pendingMinor={viewModel.totals.incomePendingMinor}
+                pendingText={pendingIncomeText}
+                triggerLabel={t(dictionary, "transactions.pendingTriggerLabel")}
+                valueStyle={styles.summaryValuePositive}
+                pendingToneColor={colors.state.positive}
+              />
             </View>
             <View style={[styles.summaryCard, styles.summaryCardHalf]}>
               <Text style={styles.summaryLabel}>{viewModel.copy.expenseLabel}</Text>
-              <Text style={styles.summaryValueNegative}>
-                {formatMoneyWithSymbol(
+              <SummaryValueWithPendingChip
+                value={formatMoneyWithSymbol(
                   viewModel.totals.expenseMinor,
                   viewModel.account.baseCurrency,
                   currencySymbol
                 )}
-              </Text>
+                pendingMinor={viewModel.totals.expensePendingMinor}
+                pendingText={pendingExpenseText}
+                triggerLabel={t(dictionary, "transactions.pendingTriggerLabel")}
+                valueStyle={styles.summaryValueNegative}
+                pendingToneColor={colors.state.negative}
+              />
             </View>
           </View>
         </View>
@@ -1052,6 +1180,16 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
+  summaryValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: tokens.spacing.xs,
+  },
+  summaryValue: {
+    ...typography.h3,
+    color: colors.text.primary,
+  },
   summaryValueNeutral: {
     ...typography.h2,
     color: colors.text.primary,
@@ -1063,6 +1201,26 @@ const styles = StyleSheet.create({
   summaryValueNegative: {
     ...typography.h3,
     color: colors.state.negative,
+  },
+  pendingTriggerButton: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pendingOverlay: {
+    flex: 1,
+  },
+  pendingChip: {
+    position: "absolute",
+    backgroundColor: colors.bg.surface,
+    borderRadius: tokens.radii.pill,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: 6,
+  },
+  pendingChipText: {
+    ...typography.meta,
+    color: colors.text.secondary,
   },
   section: {
     gap: tokens.spacing.md,
