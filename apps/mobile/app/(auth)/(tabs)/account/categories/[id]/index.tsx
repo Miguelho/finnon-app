@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
@@ -163,48 +162,6 @@ export default function CategoryDetailScreen() {
     setSelectedMonth(addMonths(selectedMonth, 1));
   };
 
-  const handleDelete = async () => {
-    if (!category) return;
-
-    Alert.alert(
-      t(dictionary, "categories.deleteConfirmTitle"),
-      t(dictionary, "categories.deleteConfirmDescription", { name: category.name }),
-      [
-        { text: t(dictionary, "common.cancel"), style: "cancel" },
-        {
-          text: t(dictionary, "common.delete"),
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const { error: deleteError } = await supabase
-                .from("categories")
-                .delete()
-                .eq("id", category.id);
-
-              if (deleteError) {
-                if (deleteError.code === "23503") {
-                  Alert.alert(
-                    t(dictionary, "common.errorTitle"),
-                    t(dictionary, "categories.error.inUse")
-                  );
-                  return;
-                }
-                throw deleteError;
-              }
-
-              router.back();
-            } catch (e: any) {
-              Alert.alert(
-                t(dictionary, "common.errorTitle"),
-                e?.message || t(dictionary, "categories.deleteError")
-              );
-            }
-          },
-        },
-      ]
-    );
-  };
-
   if (loading) {
     return (
       <View style={styles.loading}>
@@ -266,24 +223,6 @@ export default function CategoryDetailScreen() {
                   : t(dictionary, "categories.expenseLabel")}
               </Text>
             </View>
-          </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => router.push(`/(auth)/categories/${category.id}/edit`)}
-            >
-              <Text style={styles.actionButtonText}>
-                {t(dictionary, "common.edit")}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.deleteButton]}
-              onPress={handleDelete}
-            >
-              <Text style={styles.deleteButtonText}>
-                {t(dictionary, "common.delete")}
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -425,30 +364,6 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.sm,
     color: colors.text.secondary,
     marginTop: 4,
-  },
-  headerActions: {
-    flexDirection: "row",
-    gap: tokens.spacing.sm,
-  },
-  actionButton: {
-    paddingHorizontal: tokens.spacing.md,
-    paddingVertical: tokens.spacing.sm,
-    borderRadius: tokens.radii.md,
-    borderWidth: 1,
-    borderColor: colors.action.primary,
-  },
-  actionButtonText: {
-    color: colors.action.primary,
-    fontSize: tokens.typography.size.sm,
-    fontWeight: tokens.typography.weight.semibold,
-  },
-  deleteButton: {
-    borderColor: colors.state.negative,
-  },
-  deleteButtonText: {
-    color: colors.state.negative,
-    fontSize: tokens.typography.size.sm,
-    fontWeight: tokens.typography.weight.semibold,
   },
   filterCard: {
     gap: tokens.spacing.md,

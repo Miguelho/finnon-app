@@ -35,7 +35,7 @@ export function IconPicker({
     suggestion && suggestion.confidence !== "high" && categoryName;
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} nestedScrollEnabled>
       {/* Suggestions row */}
       {showSuggestions && (
         <View style={styles.suggestionsSection}>
