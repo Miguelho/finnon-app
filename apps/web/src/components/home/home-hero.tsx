@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { PlusCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { CashFlowArrows } from "@/components/home/cash-flow-arrows";
@@ -13,6 +13,7 @@ import {
   CURRENCIES,
   createTypographyStyles,
   formatMoneyWithSymbol,
+  getExpandedMonthRange,
   getSummaryForDay,
   markObligationPaid,
   t,
@@ -180,24 +181,110 @@ export function HomeHero({
   const [obligationItems, setObligationItems] = useState<Obligation[]>(
     obligations
   );
+  const [monthlyTxItems, setMonthlyTxItems] = useState<Transaction[]>(
+    monthlyTransactions
+  );
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [isLoadingMonth, setIsLoadingMonth] = useState(false);
 
   useEffect(() => {
     setObligationItems(obligations);
   }, [obligations]);
 
+  useEffect(() => {
+    setMonthlyTxItems(monthlyTransactions);
+  }, [monthlyTransactions]);
+
   const now = new Date();
+  const [viewMonth, setViewMonth] = useState<Date>(now);
+
+  // Reload data when viewMonth changes
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMonthData() {
+      // Skip initial load since we have server-side data
+      const isCurrentMonth =
+        viewMonth.getFullYear() === now.getFullYear() &&
+        viewMonth.getMonth() === now.getMonth();
+      if (isCurrentMonth) return;
+
+      setIsLoadingMonth(true);
+
+      const expandedRange = getExpandedMonthRange(viewMonth);
+      const startDate = expandedRange.start.toISOString().slice(0, 10);
+      const endDate = expandedRange.end.toISOString().slice(0, 10);
+
+      try {
+        const [txResult, oblResult] = await Promise.all([
+          supabase
+            .from("transactions")
+            .select(
+              "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_at, category:categories(id, name, icon_id)"
+            )
+            .eq("account_id", account.id)
+            .gte("date", startDate)
+            .lte("date", endDate)
+            .order("date", { ascending: false })
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("obligations")
+            .select(
+              "id, account_id, name, amount_minor, amount_base_minor, currency, due_date, status, paid_at"
+            )
+            .eq("account_id", account.id)
+            .gte("due_date", startDate)
+            .lte("due_date", endDate)
+            .order("due_date", { ascending: true }),
+        ]);
+
+        if (!cancelled) {
+          if (!txResult.error) {
+            setMonthlyTxItems((txResult.data as unknown as Transaction[]) ?? []);
+          }
+          if (!oblResult.error) {
+            setObligationItems((oblResult.data as unknown as Obligation[]) ?? []);
+          }
+        }
+      } catch (error) {
+        console.error("[HomeHero] Error loading month data:", error);
+      } finally {
+        if (!cancelled) setIsLoadingMonth(false);
+      }
+    }
+
+    void loadMonthData();
+    return () => {
+      cancelled = true;
+    };
+  }, [viewMonth, account.id, supabase, now]);
+
+  const handlePrevMonth = () => {
+    setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
+
+  const viewMonthLabel = viewMonth.toLocaleDateString(locale, {
+    month: "long",
+    year: "numeric",
+  });
+
+  const calendarEventRange = getExpandedMonthRange(viewMonth);
   const viewModel = buildHomeViewModel({
     account,
     role,
     dictionary,
     obligations: obligationItems,
-    monthlyTransactions,
+    monthlyTransactions: monthlyTxItems,
     upcomingTransactions,
-    month: now,
+    month: viewMonth,
     nextDays,
     recentLimit: 6,
     now,
+    calendarEventRange,
   });
 
   const colors = themeTokens.light.colors;
@@ -207,10 +294,6 @@ export function HomeHero({
       ?.symbol ?? account.base_currency;
   const cashflowNetMinor =
     viewModel.cashflow.incomeMinor - viewModel.cashflow.expenseMinor;
-  const monthLabel = now.toLocaleDateString(locale, {
-    month: "long",
-    year: "numeric",
-  });
   const formatSignedBalance = (amountMinor: bigint) => {
     const absoluteMinor = amountMinor < 0n ? -amountMinor : amountMinor;
     const sign = amountMinor < 0n ? "-" : "";
@@ -259,14 +342,14 @@ export function HomeHero({
     return getSummaryForDay(
       selectedDay,
       obligationItems,
-      monthlyTransactions,
+      monthlyTxItems,
       account.base_currency,
       t(dictionary, "home.recentFallbackTitle")
     );
   }, [
     selectedDay,
     obligationItems,
-    monthlyTransactions,
+    monthlyTxItems,
     account.base_currency,
     dictionary,
   ]);
@@ -320,7 +403,204 @@ export function HomeHero({
       >
         <div className="flex flex-col gap-6 md:flex-row">
           <div className="flex-1 space-y-6">
+            {/* 1. Este mes - Month Header with Navigation */}
             <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2
+                  style={{
+                    fontSize: typography.h2.fontSize,
+                    fontWeight: typography.h2.fontWeight,
+                    color: colors.text.primary,
+                  }}
+                >
+                  {t(dictionary, "dashboard.thisMonth")}
+                </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePrevMonth}
+                  className="p-1 hover:opacity-70"
+                  style={{ color: colors.text.secondary }}
+                  aria-label={t(dictionary, "transactions.previousMonth")}
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <p
+                  style={{
+                    fontSize: typography.body.fontSize,
+                    fontWeight: typography.body.fontWeight,
+                    color: colors.text.primary,
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {viewMonthLabel}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleNextMonth}
+                  className="p-1 hover:opacity-70"
+                  style={{ color: colors.text.secondary }}
+                  aria-label={t(dictionary, "transactions.nextMonth")}
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </div>
+
+              {/* 2. Calendar */}
+              <MonthMap
+                month={viewMonth}
+                locale={locale}
+                events={viewModel.calendar.events}
+                highlightRange={viewModel.calendar.highlightRange}
+                selectedDate={selectedDay}
+                onSelectDate={handleSelectDay}
+              />
+
+              {viewModel.calendar.events.length === 0 && (
+                <p className="text-sm" style={{ color: colors.text.secondary }}>
+                  {viewModel.copy.monthEmpty}
+                </p>
+              )}
+            </div>
+
+            {/* 3. Income - Expenses */}
+            <div
+              className="space-y-3 border-t pt-4"
+              style={{ borderColor: colors.state.neutral }}
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <div
+                  className="rounded-xl border p-4"
+                  style={{
+                    borderColor: colors.state.neutral,
+                    backgroundColor: colors.bg.secondary,
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: typography.h3.fontSize,
+                      fontWeight: typography.h3.fontWeight,
+                      color: colors.text.primary,
+                    }}
+                  >
+                    {viewModel.copy.incomeLabel}
+                  </p>
+                  <div className="mt-3">
+                    <SummaryValueWithPendingChip
+                      value={incomeRealFormatted}
+                      pendingMinor={viewModel.monthOverview.incomePendingMinor}
+                      pendingText={incomePendingText}
+                      triggerLabel={pendingTriggerLabel}
+                      valueColor={colors.state.positive}
+                      pendingToneColor={colors.state.positive}
+                      colors={colors}
+                      typography={typography}
+                    />
+                  </div>
+                </div>
+
+                <div
+                  className="rounded-xl border p-4"
+                  style={{
+                    borderColor: colors.state.neutral,
+                    backgroundColor: colors.bg.secondary,
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: typography.h3.fontSize,
+                      fontWeight: typography.h3.fontWeight,
+                      color: colors.text.primary,
+                    }}
+                  >
+                    {viewModel.copy.expenseLabel}
+                  </p>
+                  <div className="mt-3">
+                    <SummaryValueWithPendingChip
+                      value={expenseRealFormatted}
+                      pendingMinor={viewModel.monthOverview.expensePendingMinor}
+                      pendingText={expensePendingText}
+                      triggerLabel={pendingTriggerLabel}
+                      valueColor={colors.state.negative}
+                      pendingToneColor={colors.state.negative}
+                      colors={colors}
+                      typography={typography}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {!viewModel.monthOverview.hasActivity && (
+                <div
+                  className="space-y-2 border-t pt-4"
+                  style={{ borderColor: colors.state.neutral }}
+                >
+                  <p className="text-sm" style={{ color: colors.text.secondary }}>
+                    {viewModel.emptyStates.activity.title}
+                  </p>
+                  <Button
+                    variant="outline"
+                    asChild
+                    style={{
+                      borderColor: colors.state.neutral,
+                      backgroundColor: colors.bg.surface,
+                      color: colors.text.primary,
+                    }}
+                  >
+                    <Link href="/transactions?new=1&type=expense">
+                      {viewModel.emptyStates.activity.cta}
+                    </Link>
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* 4. Balance */}
+            <div
+              className="space-y-2 border-t pt-4"
+              style={{ borderColor: colors.state.neutral }}
+            >
+              <h3
+                style={{
+                  fontSize: typography.h3.fontSize,
+                  fontWeight: typography.h3.fontWeight,
+                  color: colors.text.primary,
+                }}
+              >
+                {viewModel.copy.balanceLabel}
+              </h3>
+              <div
+                className="space-y-3 rounded-xl border p-4"
+                style={{
+                  borderColor: colors.state.neutral,
+                  backgroundColor: colors.bg.secondary,
+                }}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs" style={{ color: colors.text.secondary }}>
+                    {viewModel.copy.balanceTodayLabel}
+                  </p>
+                  <SummaryValueWithPendingChip
+                    value={formatSignedBalance(viewModel.monthOverview.balanceTodayMinor)}
+                    pendingMinor={viewModel.monthOverview.expensePendingMinor}
+                    pendingText={balancePendingText}
+                    triggerLabel={pendingTriggerLabel}
+                    valueColor={colors.text.primary}
+                    pendingToneColor={colors.state.negative}
+                    colors={colors}
+                    typography={typography}
+                    align="compact"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 5. Próximos X días (Cashflow) */}
+            <div
+              className="space-y-3 border-t pt-4"
+              style={{ borderColor: colors.state.neutral }}
+            >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2
                   style={{
@@ -374,173 +654,6 @@ export function HomeHero({
                   balanceLabel={viewModel.copy.balanceLabel}
                 />
               )}
-            </div>
-
-            <div
-              className="space-y-4 border-t pt-4"
-              style={{ borderColor: colors.state.neutral }}
-            >
-              <div className="space-y-2">
-                <h3
-                  style={{
-                    fontSize: typography.h3.fontSize,
-                    fontWeight: typography.h3.fontWeight,
-                    color: colors.text.primary,
-                  }}
-                >
-                  {viewModel.copy.balanceLabel}
-                </h3>
-                <div
-                  className="space-y-3 rounded-xl border p-4"
-                  style={{
-                    borderColor: colors.state.neutral,
-                    backgroundColor: colors.bg.secondary,
-                  }}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs" style={{ color: colors.text.secondary }}>
-                      {viewModel.copy.balanceTodayLabel}
-                    </p>
-                    <SummaryValueWithPendingChip
-                      value={formatSignedBalance(viewModel.monthOverview.balanceTodayMinor)}
-                      pendingMinor={viewModel.monthOverview.expensePendingMinor}
-                      pendingText={balancePendingText}
-                      triggerLabel={pendingTriggerLabel}
-                      valueColor={colors.text.primary}
-                      pendingToneColor={colors.state.negative}
-                      colors={colors}
-                      typography={typography}
-                      align="compact"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h2
-                      style={{
-                        fontSize: typography.h2.fontSize,
-                        fontWeight: typography.h2.fontWeight,
-                        color: colors.text.primary,
-                      }}
-                    >
-                      {t(dictionary, "dashboard.thisMonth")}
-                    </h2>
-                    <p
-                      style={{
-                        fontSize: typography.meta.fontSize,
-                        fontWeight: typography.meta.fontWeight,
-                        color: colors.text.secondary,
-                      }}
-                    >
-                      {monthLabel}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div
-                    className="rounded-xl border p-4"
-                    style={{
-                      borderColor: colors.state.neutral,
-                      backgroundColor: colors.bg.secondary,
-                    }}
-                  >
-                    <p
-                      style={{
-                        fontSize: typography.h3.fontSize,
-                        fontWeight: typography.h3.fontWeight,
-                        color: colors.text.primary,
-                      }}
-                    >
-                      {viewModel.copy.incomeLabel}
-                    </p>
-                    <div className="mt-3">
-                      <SummaryValueWithPendingChip
-                        value={incomeRealFormatted}
-                        pendingMinor={viewModel.monthOverview.incomePendingMinor}
-                        pendingText={incomePendingText}
-                        triggerLabel={pendingTriggerLabel}
-                        valueColor={colors.state.positive}
-                        pendingToneColor={colors.state.positive}
-                        colors={colors}
-                        typography={typography}
-                      />
-                    </div>
-                  </div>
-
-                  <div
-                    className="rounded-xl border p-4"
-                    style={{
-                      borderColor: colors.state.neutral,
-                      backgroundColor: colors.bg.secondary,
-                    }}
-                  >
-                    <p
-                      style={{
-                        fontSize: typography.h3.fontSize,
-                        fontWeight: typography.h3.fontWeight,
-                        color: colors.text.primary,
-                      }}
-                    >
-                      {viewModel.copy.expenseLabel}
-                    </p>
-                    <div className="mt-3">
-                      <SummaryValueWithPendingChip
-                        value={expenseRealFormatted}
-                        pendingMinor={viewModel.monthOverview.expensePendingMinor}
-                        pendingText={expensePendingText}
-                        triggerLabel={pendingTriggerLabel}
-                        valueColor={colors.state.negative}
-                        pendingToneColor={colors.state.negative}
-                        colors={colors}
-                        typography={typography}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <MonthMap
-                  month={now}
-                  locale={locale}
-                  events={viewModel.calendar.events}
-                  highlightRange={viewModel.calendar.highlightRange}
-                  selectedDate={selectedDay}
-                  onSelectDate={handleSelectDay}
-                />
-
-                {viewModel.calendar.events.length === 0 && (
-                  <p className="text-sm" style={{ color: colors.text.secondary }}>
-                    {viewModel.copy.monthEmpty}
-                  </p>
-                )}
-
-                {!viewModel.monthOverview.hasActivity && (
-                  <div
-                    className="space-y-2 border-t pt-4"
-                    style={{ borderColor: colors.state.neutral }}
-                  >
-                    <p className="text-sm" style={{ color: colors.text.secondary }}>
-                      {viewModel.emptyStates.activity.title}
-                    </p>
-                    <Button
-                      variant="outline"
-                      asChild
-                      style={{
-                        borderColor: colors.state.neutral,
-                        backgroundColor: colors.bg.surface,
-                        color: colors.text.primary,
-                      }}
-                    >
-                      <Link href="/transactions?new=1&type=expense">
-                        {viewModel.emptyStates.activity.cta}
-                      </Link>
-                    </Button>
-                  </div>
-                )}
-              </div>
             </div>
 
             {viewModel.permissions.isGuestReadOnly && (

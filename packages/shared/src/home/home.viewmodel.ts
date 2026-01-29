@@ -113,6 +113,8 @@ export type BuildHomeViewModelInput = {
   nextDays?: number;
   recentLimit?: number;
   now?: Date;
+  /** Optional expanded date range for calendar events (to show adjacent month days) */
+  calendarEventRange?: { start: Date; end: Date };
 };
 
 const addDays = (date: Date, days: number) => {
@@ -140,6 +142,7 @@ export function buildHomeViewModel({
   nextDays = 7,
   recentLimit = 6,
   now,
+  calendarEventRange,
 }: BuildHomeViewModelInput): HomeViewModel {
   const nowDate = now ?? new Date();
   const activeMonth = month ?? nowDate;
@@ -213,7 +216,8 @@ export function buildHomeViewModel({
         obligations,
         monthlyTransactions,
         account.base_currency,
-        t(dictionary, "home.recentFallbackTitle")
+        t(dictionary, "home.recentFallbackTitle"),
+        calendarEventRange
       ),
       highlightRange: upcomingRange,
     },

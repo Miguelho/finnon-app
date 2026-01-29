@@ -12,7 +12,7 @@ import {
   CURRENCIES,
   formatMoneyWithSymbol,
   getDictionary,
-  getMonthRange,
+  getExpandedMonthRange,
   isExpired,
   t,
   themeTokens,
@@ -78,14 +78,15 @@ export default async function DashboardPage() {
       ?.role as UserRole | undefined) ?? "viewer";
 
   const today = new Date();
-  const monthRange = getMonthRange(today);
-  const startDate = monthRange.start.toISOString().slice(0, 10);
-  const endDate = monthRange.end.toISOString().slice(0, 10);
+  // Use expanded range to include adjacent month days for calendar grid continuity
+  const expandedRange = getExpandedMonthRange(today);
+  const startDate = expandedRange.start.toISOString().slice(0, 10);
+  const endDate = expandedRange.end.toISOString().slice(0, 10);
   const maxUpcomingDays = 30;
   const upcomingEnd = new Date(today);
   upcomingEnd.setDate(upcomingEnd.getDate() + maxUpcomingDays);
   const obligationsEnd =
-    upcomingEnd > monthRange.end ? upcomingEnd : monthRange.end;
+    upcomingEnd > expandedRange.end ? upcomingEnd : expandedRange.end;
   const obligationsEndDate = obligationsEnd.toISOString().slice(0, 10);
   const upcomingStartDate = today.toISOString().slice(0, 10);
   const upcomingEndDate = upcomingEnd.toISOString().slice(0, 10);

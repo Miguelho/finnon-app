@@ -165,6 +165,35 @@ export const getMonthRange = (date: Date): DateRange => {
   return { start, end };
 };
 
+/**
+ * Returns a date range that covers the calendar grid for a given month.
+ * This includes days from the previous month (if the month starts mid-week)
+ * and days from the next month (if the month ends mid-week).
+ * Weeks start on Monday.
+ */
+export const getExpandedMonthRange = (date: Date): DateRange => {
+  const monthStart = new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
+  const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+
+  // Get the day of week (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+  // Convert to Monday-based index (0 = Monday, ..., 6 = Sunday)
+  const toMondayIndex = (weekday: number) => (weekday + 6) % 7;
+
+  // Start: Go back to the Monday of the week containing the 1st
+  const startWeekday = toMondayIndex(monthStart.getDay());
+  const start = new Date(monthStart);
+  start.setDate(start.getDate() - startWeekday);
+
+  // End: Go forward to the Sunday of the week containing the last day
+  const endWeekday = toMondayIndex(monthEnd.getDay());
+  const daysToSunday = endWeekday === 6 ? 0 : 6 - endWeekday;
+  const end = new Date(monthEnd);
+  end.setDate(end.getDate() + daysToSunday);
+  end.setHours(23, 59, 59, 999);
+
+  return { start, end };
+};
+
 export function computeMonthlySummary(
   obligations: Obligation[],
   transactions: Transaction[],
@@ -466,14 +495,15 @@ export function getEventsForMonth(
   obligations: Obligation[],
   transactions: Transaction[],
   baseCurrency: string | undefined,
-  fallbackTitle: string
+  fallbackTitle: string,
+  eventRange?: DateRange
 ): CalendarEvent[] {
-  const monthRange = getMonthRange(month);
+  const filterRange = eventRange ?? getMonthRange(month);
   const events: CalendarEvent[] = [];
 
   obligations.forEach((obligation) => {
     const dueDate = toDate(obligation.due_date);
-    if (!dueDate || !isWithinRange(dueDate, monthRange)) return;
+    if (!dueDate || !isWithinRange(dueDate, filterRange)) return;
     const amount = toMinor(obligation.amount_base_minor ?? obligation.amount_minor);
     const status = obligation.status === "paid" ? "paid" : "pending";
 
@@ -491,7 +521,7 @@ export function getEventsForMonth(
 
   transactions.forEach((transaction) => {
     const date = toDate(transaction.date);
-    if (!date || !isWithinRange(date, monthRange)) return;
+    if (!date || !isWithinRange(date, filterRange)) return;
 
     const amount = toMinor(
       transaction.amount_base_minor ?? transaction.amount_minor

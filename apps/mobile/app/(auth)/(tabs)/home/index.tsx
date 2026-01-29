@@ -30,6 +30,7 @@ import {
   CURRENCIES,
   createTypographyStyles,
   formatMoneyWithSymbol,
+  getExpandedMonthRange,
   getMonthRange,
   getSummaryForDay,
   markObligationPaid,
@@ -228,6 +229,20 @@ export default function HomeScreen() {
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [isDayPanelOpen, setIsDayPanelOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [viewMonth, setViewMonth] = useState<Date>(new Date());
+
+  const handlePrevMonth = () => {
+    setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
+
+  const viewMonthLabel = viewMonth.toLocaleDateString(locale, {
+    month: "long",
+    year: "numeric",
+  });
 
   const mainAccount = useMemo(() => {
     if (!accounts || accounts.length === 0) return null;
@@ -330,15 +345,16 @@ export default function HomeScreen() {
       setLoadingTransactions(true);
       setError(null);
 
-      const monthRange = getMonthRange(new Date());
-      const startDate = monthRange.start.toISOString().slice(0, 10);
-      const endDate = monthRange.end.toISOString().slice(0, 10);
+      // Use expanded range to include adjacent month days for calendar grid continuity
+      const expandedRange = getExpandedMonthRange(viewMonth);
+      const startDate = expandedRange.start.toISOString().slice(0, 10);
+      const endDate = expandedRange.end.toISOString().slice(0, 10);
       const today = new Date();
       const maxUpcomingDays = Math.max(...CASHFLOW_DAYS_OPTIONS);
       const upcomingEnd = new Date(today);
       upcomingEnd.setDate(upcomingEnd.getDate() + maxUpcomingDays);
       const obligationsEnd =
-        upcomingEnd > monthRange.end ? upcomingEnd : monthRange.end;
+        upcomingEnd > expandedRange.end ? upcomingEnd : expandedRange.end;
       const obligationsEndDate = obligationsEnd.toISOString().slice(0, 10);
       const upcomingStartDate = today.toISOString().slice(0, 10);
       const upcomingEndDate = upcomingEnd.toISOString().slice(0, 10);
@@ -413,7 +429,7 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [mainAccount?.id, isFocused]);
+  }, [mainAccount?.id, isFocused, viewMonth]);
 
   const daySummary = useMemo(() => {
     if (!selectedDay || !mainAccount) return null;
@@ -489,6 +505,7 @@ export default function HomeScreen() {
     mainAccount.base_currency;
 
   const today = new Date();
+  const calendarEventRange = getExpandedMonthRange(viewMonth);
   const viewModel = buildHomeViewModel({
     account: mainAccount,
     role: activeRole,
@@ -497,10 +514,11 @@ export default function HomeScreen() {
     monthlyTransactions,
     upcomingTransactions,
     recentTransactions,
-    month: today,
+    month: viewMonth,
     nextDays,
     recentLimit: 6,
     now: today,
+    calendarEventRange,
   });
   const cashflowNetMinor =
     viewModel.cashflow.incomeMinor - viewModel.cashflow.expenseMinor;
@@ -598,82 +616,54 @@ export default function HomeScreen() {
         )}
         {/* Hero */}
         <View style={styles.heroCard}>
+          {/* 1. Este mes - Month Header with Navigation */}
           <View style={[styles.heroSection, styles.heroSectionFirst]}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{viewModel.copy.cashflowTitle}</Text>
-              <View style={styles.daySelector}>
-                {CASHFLOW_DAYS_OPTIONS.map((days) => (
-                  <TouchableOpacity
-                    key={days}
-                    style={[
-                      styles.dayOption,
-                      nextDays === days && styles.dayOptionActive,
-                    ]}
-                    onPress={() => setNextDays(days)}
-                  >
-                    <Text
-                      style={[
-                        styles.dayOptionText,
-                        nextDays === days && styles.dayOptionTextActive,
-                      ]}
-                    >
-                      {days}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+            <Text style={styles.sectionTitle}>
+              {t(dictionary, "mobile.home.monthTitle")}
+            </Text>
+            <View style={styles.monthNavRow}>
+              <TouchableOpacity
+                onPress={handlePrevMonth}
+                style={styles.monthNavButton}
+                accessibilityLabel={t(dictionary, "transactions.previousMonth")}
+              >
+                <MaterialCommunityIcons
+                  name="chevron-left"
+                  size={24}
+                  color={colors.text.secondary}
+                />
+              </TouchableOpacity>
+              <Text style={styles.monthNavLabel}>{viewMonthLabel}</Text>
+              <TouchableOpacity
+                onPress={handleNextMonth}
+                style={styles.monthNavButton}
+                accessibilityLabel={t(dictionary, "transactions.nextMonth")}
+              >
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={24}
+                  color={colors.text.secondary}
+                />
+              </TouchableOpacity>
             </View>
-            {viewModel.cashflow.items.length === 0 ? (
-              <Text style={styles.emptyText}>{viewModel.emptyStates.upcoming}</Text>
-            ) : (
-              <CashFlowArrows
-                incomeMinor={viewModel.cashflow.incomeMinor}
-                expenseMinor={viewModel.cashflow.expenseMinor}
-                netMinor={cashflowNetMinor}
-                currency={mainAccount.base_currency}
-                currencySymbol={currencySymbol}
-                incomeLabel={viewModel.copy.incomeLabel}
-                expenseLabel={viewModel.copy.expenseLabel}
-                balanceLabel={viewModel.copy.balanceLabel}
-              />
+
+            {/* 2. Calendar */}
+            <MonthMap
+              month={viewMonth}
+              locale={locale}
+              events={viewModel.calendar.events}
+              highlightRange={viewModel.calendar.highlightRange}
+              selectedDate={selectedDay}
+              onSelectDate={handleSelectDay}
+            />
+
+            {viewModel.calendar.events.length === 0 && (
+              <Text style={styles.emptyText}>{viewModel.copy.monthEmpty}</Text>
             )}
           </View>
 
+          {/* 3. Income - Expenses */}
           <View style={styles.heroSection}>
-            <Text style={styles.sectionTitle}>{viewModel.copy.balanceLabel}</Text>
-            <View style={styles.balanceCard}>
-              <View style={styles.balanceRow}>
-                <Text style={styles.balanceLabel}>
-                  {viewModel.copy.balanceTodayLabel}
-                </Text>
-                <SummaryValueWithPendingChip
-                  value={formatSignedBalance(viewModel.monthOverview.balanceTodayMinor)}
-                  pendingMinor={viewModel.monthOverview.expensePendingMinor}
-                  pendingText={balancePendingText}
-                  triggerLabel={t(dictionary, "home.pendingTriggerLabel")}
-                  valueStyle={styles.balanceValue}
-                  pendingToneColor={colors.state.negative}
-                  align="compact"
-                />
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.heroSection}>
-            <View style={styles.monthHeader}>
-              <View>
-                <Text style={styles.sectionTitle}>
-                  {t(dictionary, "mobile.home.monthTitle")}
-                </Text>
-                <Text style={styles.monthMeta}>
-                  {today.toLocaleDateString(locale, {
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </Text>
-              </View>
-            </View>
-
             <View style={styles.monthBreakdown}>
               <View style={styles.monthBreakdownCard}>
                 <Text style={styles.summaryCardTitle}>
@@ -724,19 +714,6 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            <MonthMap
-              month={today}
-              locale={locale}
-              events={viewModel.calendar.events}
-              highlightRange={viewModel.calendar.highlightRange}
-              selectedDate={selectedDay}
-              onSelectDate={handleSelectDay}
-            />
-
-            {viewModel.calendar.events.length === 0 && (
-              <Text style={styles.emptyText}>{viewModel.copy.monthEmpty}</Text>
-            )}
-
             {!viewModel.monthOverview.hasActivity && (
               <View style={styles.heroActivityEmpty}>
                 <Text style={styles.heroEmptyText}>
@@ -751,6 +728,69 @@ export default function HomeScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
+            )}
+          </View>
+
+          {/* 4. Balance */}
+          <View style={styles.heroSection}>
+            <Text style={styles.sectionTitle}>{viewModel.copy.balanceLabel}</Text>
+            <View style={styles.balanceCard}>
+              <View style={styles.balanceRow}>
+                <Text style={styles.balanceLabel}>
+                  {viewModel.copy.balanceTodayLabel}
+                </Text>
+                <SummaryValueWithPendingChip
+                  value={formatSignedBalance(viewModel.monthOverview.balanceTodayMinor)}
+                  pendingMinor={viewModel.monthOverview.expensePendingMinor}
+                  pendingText={balancePendingText}
+                  triggerLabel={t(dictionary, "home.pendingTriggerLabel")}
+                  valueStyle={styles.balanceValue}
+                  pendingToneColor={colors.state.negative}
+                  align="compact"
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* 5. Próximos X días (Cashflow) */}
+          <View style={styles.heroSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{viewModel.copy.cashflowTitle}</Text>
+              <View style={styles.daySelector}>
+                {CASHFLOW_DAYS_OPTIONS.map((days) => (
+                  <TouchableOpacity
+                    key={days}
+                    style={[
+                      styles.dayOption,
+                      nextDays === days && styles.dayOptionActive,
+                    ]}
+                    onPress={() => setNextDays(days)}
+                  >
+                    <Text
+                      style={[
+                        styles.dayOptionText,
+                        nextDays === days && styles.dayOptionTextActive,
+                      ]}
+                    >
+                      {days}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            {viewModel.cashflow.items.length === 0 ? (
+              <Text style={styles.emptyText}>{viewModel.emptyStates.upcoming}</Text>
+            ) : (
+              <CashFlowArrows
+                incomeMinor={viewModel.cashflow.incomeMinor}
+                expenseMinor={viewModel.cashflow.expenseMinor}
+                netMinor={cashflowNetMinor}
+                currency={mainAccount.base_currency}
+                currencySymbol={currencySymbol}
+                incomeLabel={viewModel.copy.incomeLabel}
+                expenseLabel={viewModel.copy.expenseLabel}
+                balanceLabel={viewModel.copy.balanceLabel}
+              />
             )}
           </View>
 
@@ -974,6 +1014,19 @@ const styles = StyleSheet.create({
   monthMeta: {
     ...typography.meta,
     color: colors.text.secondary,
+  },
+  monthNavRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+  },
+  monthNavButton: {
+    padding: tokens.spacing.xs,
+  },
+  monthNavLabel: {
+    ...typography.body,
+    color: colors.text.primary,
+    textTransform: "capitalize",
   },
   balanceCard: {
     borderRadius: tokens.radii.lg,
