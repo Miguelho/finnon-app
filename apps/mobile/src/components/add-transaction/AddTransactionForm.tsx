@@ -249,10 +249,10 @@ export function AddTransactionForm({
 
         if (obligationError) throw obligationError;
 
+        onSuccess?.();
         Alert.alert(
           t(dictionary, "common.success"),
-          t(dictionary, "addTransaction.successToast"),
-          [{ text: t(dictionary, "common.ok"), onPress: () => onSuccess?.() }]
+          t(dictionary, "addTransaction.successToast")
         );
         return;
       }
@@ -279,10 +279,10 @@ export function AddTransactionForm({
 
       // TODO: Handle photo uploads here if draft.photos.length > 0
 
+      onSuccess?.();
       Alert.alert(
         t(dictionary, "common.success"),
-        t(dictionary, "addTransaction.successToast"),
-        [{ text: t(dictionary, "common.ok"), onPress: () => onSuccess?.() }]
+        t(dictionary, "addTransaction.successToast")
       );
     } catch (error: any) {
       console.error("Failed to create transaction:", error);

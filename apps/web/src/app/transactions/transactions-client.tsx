@@ -318,6 +318,14 @@ export function TransactionsClient({
       }, {}),
     [profiles]
   );
+  const categoriesById = useMemo(
+    () =>
+      categories.reduce<Record<string, Category>>((acc, category) => {
+        acc[category.id] = category;
+        return acc;
+      }, {}),
+    [categories]
+  );
 
   // Form state
   const [formData, setFormData] = useState<{
@@ -1113,7 +1121,11 @@ export function TransactionsClient({
             {mergedItems.map((item, index) => {
               if (item.kind === "transaction") {
                 const transaction = item.transaction;
-                const category = transaction.category;
+                const category =
+                  transaction.category ??
+                  (transaction.category_id
+                    ? categoriesById[transaction.category_id]
+                    : undefined);
                 const profile = profilesById[transaction.created_by];
                 const creatorName =
                   profile?.display_name ??

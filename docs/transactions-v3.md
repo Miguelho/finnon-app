@@ -1,0 +1,1 @@
+Web y Móvil: Al añadir un movimiento, la lista de movimientos debe actualizarse y no para verlas tener que refrescar
