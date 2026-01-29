@@ -59,6 +59,7 @@ import {
   themeTokens,
   withAlpha,
   isFutureDay,
+  ConfirmationModal,
   type AvatarColorToken,
   type TopCategory,
   type MerchantSuggestion,
@@ -274,6 +275,10 @@ export function TransactionsClient({
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isCreateSuccessOpen, setIsCreateSuccessOpen] = useState(false);
+  const [createSuccessMessage, setCreateSuccessMessage] = useState<string | null>(
+    null
+  );
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -282,6 +287,16 @@ export function TransactionsClient({
     "transaction" | "recurring" | "obligation"
   >("transaction");
   const canEdit = role !== "viewer";
+
+  const openCreateSuccess = (message: string) => {
+    setCreateSuccessMessage(message);
+    setIsCreateSuccessOpen(true);
+  };
+
+  const closeCreateSuccess = () => {
+    setIsCreateSuccessOpen(false);
+    setCreateSuccessMessage(null);
+  };
 
   // Top categories state - initialized from server-fetched data
   const [topCategories, setTopCategories] = useState<TopCategory[]>(
@@ -661,6 +676,7 @@ export function TransactionsClient({
             status: "pending",
           });
           router.replace("/transactions");
+          openCreateSuccess(tObligations("create.success"));
         } else {
           alert(
             result.error
@@ -739,6 +755,9 @@ export function TransactionsClient({
           endDate: "",
         });
         router.refresh();
+        openCreateSuccess(
+          repeatConfig.enabled ? t("repeat.createSuccess") : t("createSuccess")
+        );
       } else {
         alert(
           result.error
@@ -2131,6 +2150,14 @@ export function TransactionsClient({
           </AlertDialogContent>
         </AlertDialog>
       )}
+      <ConfirmationModal
+        open={isCreateSuccessOpen}
+        title={tGlobal("common.successTitle")}
+        description={createSuccessMessage ?? undefined}
+        confirmLabel={tGlobal("common.ok")}
+        onConfirm={closeCreateSuccess}
+        onCancel={closeCreateSuccess}
+      />
     </PageContainer>
   );
 }

@@ -3,19 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { signOutAndReset } from "@poleursus/shared";
+import { ConfirmationModal, signOutAndReset } from "@poleursus/shared";
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 const STORAGE_KEY = "finnon:activeAccountId";
 
@@ -24,6 +13,10 @@ export function UserSignOutRow() {
   const router = useRouter();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const closeDialog = () => {
+    if (!isSigningOut) setIsDialogOpen(false);
+  };
 
   const clearActiveAccount = async () => {
     localStorage.removeItem(STORAGE_KEY);
@@ -60,43 +53,36 @@ export function UserSignOutRow() {
 
   return (
     <div className="border-t pt-4">
-      <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <AlertDialogTrigger asChild>
-          <button
-            type="button"
-            disabled={isSigningOut}
-            className="flex w-full items-start justify-between gap-2 rounded-md px-2 py-2 text-left text-sm font-semibold text-foreground transition hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <div>
-              <p>{t("settings.signOut.label")}</p>
-              <p className="text-xs font-normal text-muted-foreground">
-                {t("settings.signOut.description")}
-              </p>
-            </div>
-            <span className="text-muted-foreground">›</span>
-          </button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("settings.signOut.confirmTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("settings.signOut.confirmDescription")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSigningOut}>
-              {t("settings.signOut.confirmCancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={handleSignOut}
-              disabled={isSigningOut}
-            >
-              {isSigningOut ? t("common.loading") : t("settings.signOut.confirmAction")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <button
+        type="button"
+        disabled={isSigningOut}
+        className="flex w-full items-start justify-between gap-2 rounded-md px-2 py-2 text-left text-sm font-semibold text-foreground transition hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60"
+        onClick={() => setIsDialogOpen(true)}
+      >
+        <div>
+          <p>{t("settings.signOut.label")}</p>
+          <p className="text-xs font-normal text-muted-foreground">
+            {t("settings.signOut.description")}
+          </p>
+        </div>
+        <span className="text-muted-foreground">›</span>
+      </button>
+      <ConfirmationModal
+        open={isDialogOpen}
+        title={t("settings.signOut.confirmTitle")}
+        description={t("settings.signOut.confirmDescription")}
+        confirmLabel={
+          isSigningOut ? t("common.loading") : t("settings.signOut.confirmAction")
+        }
+        cancelLabel={t("settings.signOut.confirmCancel")}
+        onConfirm={handleSignOut}
+        onCancel={closeDialog}
+        confirmLoading={isSigningOut}
+        confirmDisabled={isSigningOut}
+        cancelDisabled={isSigningOut}
+        dismissOnBackdrop={!isSigningOut}
+        tone="destructive"
+      />
     </div>
   );
 }

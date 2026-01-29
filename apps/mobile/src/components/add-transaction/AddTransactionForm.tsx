@@ -13,6 +13,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import {
   themeTokens,
+  ConfirmationModal,
   type TransactionDraft,
   type FormMode,
   type StepStatus,
@@ -109,6 +110,7 @@ export function AddTransactionForm({
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
 
   // Form mode (panels vs list)
   const [formMode, setFormModeState] = useState<FormMode>("panels");
@@ -187,6 +189,11 @@ export function AddTransactionForm({
     }
   };
 
+  const handleSuccessAcknowledge = () => {
+    setIsSuccessOpen(false);
+    onSuccess?.();
+  };
+
   // Submit handler
   const handleSubmit = async () => {
     // Validate all steps
@@ -249,11 +256,7 @@ export function AddTransactionForm({
 
         if (obligationError) throw obligationError;
 
-        onSuccess?.();
-        Alert.alert(
-          t(dictionary, "common.success"),
-          t(dictionary, "addTransaction.successToast")
-        );
+        setIsSuccessOpen(true);
         return;
       }
 
@@ -279,11 +282,7 @@ export function AddTransactionForm({
 
       // TODO: Handle photo uploads here if draft.photos.length > 0
 
-      onSuccess?.();
-      Alert.alert(
-        t(dictionary, "common.success"),
-        t(dictionary, "addTransaction.successToast")
-      );
+      setIsSuccessOpen(true);
     } catch (error: any) {
       console.error("Failed to create transaction:", error);
       Alert.alert(
@@ -409,6 +408,14 @@ export function AddTransactionForm({
             />
           )}
         </View>
+        <ConfirmationModal
+          open={isSuccessOpen}
+          title={t(dictionary, "common.successTitle")}
+          description={t(dictionary, "addTransaction.successToast")}
+          confirmLabel={t(dictionary, "common.ok")}
+          onConfirm={handleSuccessAcknowledge}
+          onCancel={handleSuccessAcknowledge}
+        />
       </View>
     );
   }
@@ -470,6 +477,14 @@ export function AddTransactionForm({
           loading={isSubmitting}
         />
       </View>
+      <ConfirmationModal
+        open={isSuccessOpen}
+        title={t(dictionary, "common.successTitle")}
+        description={t(dictionary, "addTransaction.successToast")}
+        confirmLabel={t(dictionary, "common.ok")}
+        onConfirm={handleSuccessAcknowledge}
+        onCancel={handleSuccessAcknowledge}
+      />
     </View>
   );
 }

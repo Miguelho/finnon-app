@@ -32,6 +32,7 @@ export * from "./theme/typography";
 export * from "./copy";
 export * from "./navigation";
 export * from "./ui/addMenu";
+export * from "./ui/confirmation-modal";
 export * from "./categories/defaults";
 export * from "./categories/top-categories";
 export * from "./merchants";

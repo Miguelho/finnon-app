@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,7 +14,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Card } from "./Card";
 import { useNetworkNotice } from "../contexts/NetworkNoticeContext";
 import { useCopy, t } from "../lib/i18n";
-import { signOutAndReset, themeTokens } from "@poleursus/shared";
+import { ConfirmationModal, signOutAndReset, themeTokens } from "@poleursus/shared";
 
 type Account = {
   id: string;
@@ -49,6 +47,10 @@ export function AccountDetails({ accountId, showSignOut = false }: AccountDetail
   const [error, setError] = useState<string | null>(null);
   const [isSignOutOpen, setIsSignOutOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const closeSignOutModal = () => {
+    if (!isSigningOut) setIsSignOutOpen(false);
+  };
 
   useEffect(() => {
     if (!accountId) return;
@@ -282,60 +284,22 @@ export function AccountDetails({ accountId, showSignOut = false }: AccountDetail
         )}
       </Card>
 
-      {showSignOut && (
-        <Modal
-          transparent
-          visible={isSignOutOpen}
-          animationType="fade"
-          onRequestClose={() => {
-            if (!isSigningOut) setIsSignOutOpen(false);
-          }}
-        >
-          <View style={styles.modalOverlay}>
-            <Pressable
-              style={styles.modalBackdrop}
-              onPress={() => {
-                if (!isSigningOut) setIsSignOutOpen(false);
-              }}
-            />
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>
-                {t(dictionary, "settings.signOut.confirmTitle")}
-              </Text>
-              <Text style={styles.modalDescription}>
-                {t(dictionary, "settings.signOut.confirmDescription")}
-              </Text>
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.modalCancel}
-                  onPress={() => setIsSignOutOpen(false)}
-                  disabled={isSigningOut}
-                >
-                  <Text style={styles.modalCancelText}>
-                    {t(dictionary, "settings.signOut.confirmCancel")}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.modalConfirm,
-                    isSigningOut && styles.modalConfirmDisabled,
-                  ]}
-                  onPress={handleSignOut}
-                  disabled={isSigningOut}
-                >
-                  {isSigningOut ? (
-                    <ActivityIndicator color={colors.state.negative} />
-                  ) : (
-                    <Text style={styles.modalConfirmText}>
-                      {t(dictionary, "settings.signOut.confirmAction")}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      )}
+      {showSignOut ? (
+        <ConfirmationModal
+          open={isSignOutOpen}
+          title={t(dictionary, "settings.signOut.confirmTitle")}
+          description={t(dictionary, "settings.signOut.confirmDescription")}
+          confirmLabel={t(dictionary, "settings.signOut.confirmAction")}
+          cancelLabel={t(dictionary, "settings.signOut.confirmCancel")}
+          onConfirm={handleSignOut}
+          onCancel={closeSignOutModal}
+          confirmLoading={isSigningOut}
+          confirmDisabled={isSigningOut}
+          cancelDisabled={isSigningOut}
+          dismissOnBackdrop={!isSigningOut}
+          tone="destructive"
+        />
+      ) : null}
     </ScrollView>
   );
 }
@@ -462,61 +426,5 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.xl,
     color: colors.text.muted,
     marginLeft: tokens.spacing.md,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "center",
-    padding: tokens.spacing.lg,
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  modalCard: {
-    backgroundColor: colors.bg.surface,
-    borderRadius: tokens.radii.lg,
-    padding: tokens.spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-  },
-  modalTitle: {
-    fontSize: tokens.typography.size.lg,
-    fontWeight: tokens.typography.weight.bold,
-    color: colors.text.primary,
-    marginBottom: tokens.spacing.sm,
-  },
-  modalDescription: {
-    fontSize: tokens.typography.size.sm,
-    color: colors.text.secondary,
-    marginBottom: tokens.spacing.lg,
-  },
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: tokens.spacing.sm,
-  },
-  modalCancel: {
-    paddingVertical: tokens.spacing.sm,
-    paddingHorizontal: tokens.spacing.md,
-  },
-  modalCancelText: {
-    fontSize: tokens.typography.size.sm,
-    color: colors.text.secondary,
-    fontWeight: tokens.typography.weight.medium,
-  },
-  modalConfirm: {
-    paddingVertical: tokens.spacing.sm,
-    paddingHorizontal: tokens.spacing.md,
-    borderRadius: tokens.radii.md,
-    borderWidth: 1,
-    borderColor: colors.state.negative,
-  },
-  modalConfirmDisabled: {
-    opacity: 0.6,
-  },
-  modalConfirmText: {
-    fontSize: tokens.typography.size.sm,
-    color: colors.state.negative,
-    fontWeight: tokens.typography.weight.semibold,
   },
 });
