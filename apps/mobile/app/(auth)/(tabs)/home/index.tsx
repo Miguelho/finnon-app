@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -19,14 +19,13 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "../../../../src/lib/supabase";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { Button } from "../../../../src/components/Button";
-import { AddMenuItem } from "../../../../src/components/AddMenuItem";
+import { AddActionSheet } from "../../../../src/components/AddActionSheet";
 import { AddTransactionModal } from "../../../../src/components/add-transaction";
 import { CashFlowArrows } from "../../../../src/components/home/CashFlowArrows";
 import { MonthMap } from "../../../../src/components/home/MonthMap";
 import { DayDetailPanel } from "../../../../src/components/home/DayDetailPanel";
 import { CategoryIcon } from "../../../../src/components/CategoryIcon";
 import {
-  ADD_ACTIONS,
   buildHomeViewModel,
   CURRENCIES,
   createTypographyStyles,
@@ -90,40 +89,6 @@ function formatDateShort(value: Date, locale: string) {
     day: "2-digit",
     month: "short",
   });
-}
-
-function HomeSheet({
-  visible,
-  onClose,
-  title,
-  children,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <Modal
-      transparent
-      visible={visible}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.sheetOverlay}>
-        <Pressable style={styles.sheetBackdrop} onPress={onClose} />
-        <View style={styles.sheetContainer}>
-          <View style={styles.sheetHandle} />
-          <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>{title}</Text>
-          </View>
-          <ScrollView contentContainerStyle={styles.sheetContent}>
-            {children}
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
 }
 
 type SummaryValueWithPendingChipProps = {
@@ -255,7 +220,6 @@ export default function HomeScreen() {
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [updatingObligationId, setUpdatingObligationId] = useState<string | null>(
     null
   );
@@ -590,9 +554,6 @@ export default function HomeScreen() {
   };
 
   const handleAddAction = (key: AddActionKey) => {
-    if (!viewModel.permissions.canEdit) return;
-    setIsAddSheetOpen(false);
-
     switch (key) {
       case "movement":
         setIsTransactionModalOpen(true);
@@ -783,7 +744,7 @@ export default function HomeScreen() {
                 </Text>
                 <TouchableOpacity
                   style={styles.heroEmptyCta}
-                  onPress={() => setIsAddSheetOpen(true)}
+                  onPress={() => setIsTransactionModalOpen(true)}
                 >
                   <Text style={styles.heroEmptyCtaText}>
                     {viewModel.emptyStates.activity.cta}
@@ -903,36 +864,17 @@ export default function HomeScreen() {
       />
 
       {/* Add Action */}
-      <TouchableOpacity
-        style={[
-          styles.addFab,
-          !viewModel.permissions.canEdit && styles.addFabDisabled,
-        ]}
-        onPress={() => setIsAddSheetOpen(true)}
-      >
-        <Text style={styles.addFabText}>+ {viewModel.copy.addCta}</Text>
-      </TouchableOpacity>
-
-      {/* Add Sheet */}
-      <HomeSheet
-        visible={isAddSheetOpen}
-        onClose={() => setIsAddSheetOpen(false)}
-        title={t(dictionary, "mobile.home.addTitle")}
-      >
-        {viewModel.permissions.isGuestReadOnly && (
-          <Text style={styles.sheetNotice}>{viewModel.copy.guestBlurb}</Text>
-        )}
-        <View style={styles.sheetActions}>
-          {ADD_ACTIONS.map((action) => (
-            <AddMenuItem
-              key={action.key}
-              meta={action}
-              onPress={() => handleAddAction(action.key)}
-              disabled={!viewModel.permissions.canEdit}
-            />
-          ))}
-        </View>
-      </HomeSheet>
+      <AddActionSheet
+        sheetTitle={t(dictionary, "mobile.home.addTitle")}
+        fabLabel={viewModel.copy.addCta}
+        onAction={handleAddAction}
+        disabled={!viewModel.permissions.canEdit}
+        notice={
+          viewModel.permissions.isGuestReadOnly ? (
+            <Text style={styles.sheetNotice}>{viewModel.copy.guestBlurb}</Text>
+          ) : undefined
+        }
+      />
 
       {/* Transaction Modal */}
       {mainAccount && (
@@ -1243,66 +1185,6 @@ const styles = StyleSheet.create({
   amountNegative: {
     color: colors.state.negative,
   },
-  addFab: {
-    position: "absolute",
-    right: tokens.spacing.lg,
-    bottom: tokens.spacing.xxl,
-    backgroundColor: colors.action.primary,
-    paddingHorizontal: tokens.spacing.lg,
-    paddingVertical: tokens.spacing.sm,
-    borderRadius: tokens.radii.pill,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  addFabDisabled: {
-    backgroundColor: colors.action.disabled,
-  },
-  addFabText: {
-    ...typography.body,
-    color: colors.bg.primary,
-  },
-  sheetOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "transparent",
-  },
-  sheetBackdrop: {
-    flex: 1,
-  },
-  sheetContainer: {
-    maxHeight: "80%",
-    backgroundColor: colors.bg.surface,
-    borderTopLeftRadius: tokens.radii.lg,
-    borderTopRightRadius: tokens.radii.lg,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    paddingBottom: tokens.spacing.lg,
-  },
-  sheetHandle: {
-    alignSelf: "center",
-    width: 44,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: colors.state.neutral,
-    marginTop: tokens.spacing.sm,
-  },
-  sheetHeader: {
-    paddingHorizontal: tokens.spacing.lg,
-    paddingVertical: tokens.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.state.neutral,
-  },
-  sheetTitle: {
-    ...typography.h2,
-    color: colors.text.primary,
-  },
-  sheetContent: {
-    padding: tokens.spacing.lg,
-    gap: tokens.spacing.md,
-  },
   sheetList: {
     gap: tokens.spacing.sm,
   },
@@ -1354,9 +1236,6 @@ const styles = StyleSheet.create({
   sheetNotice: {
     ...typography.body,
     color: colors.text.secondary,
-  },
-  sheetActions: {
-    gap: tokens.spacing.sm,
   },
   errorCard: {
     borderWidth: 1,
