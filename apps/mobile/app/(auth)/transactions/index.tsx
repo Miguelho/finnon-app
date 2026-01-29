@@ -235,7 +235,6 @@ export default function TransactionsScreen(): React.JSX.Element {
   const currentMonth = toMonthKey(new Date());
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
-  const [isMonthActionsOpen, setIsMonthActionsOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
   const [pickerMonthIndex, setPickerMonthIndex] = useState(new Date().getMonth());
   const insets = useSafeAreaInsets();
@@ -410,20 +409,11 @@ export default function TransactionsScreen(): React.JSX.Element {
     setSelectedMonth(addMonths(selectedMonth, 1));
   };
 
-  const openMonthActions = () => {
-    setIsMonthActionsOpen(true);
-  };
-
-  const closeMonthActions = () => {
-    setIsMonthActionsOpen(false);
-  };
-
   const openMonthPicker = () => {
     const { year, monthIndex } = parseMonthKey(selectedMonth);
     setPickerYear(year);
     setPickerMonthIndex(monthIndex);
     setIsMonthPickerOpen(true);
-    setIsMonthActionsOpen(false);
   };
 
   const applyMonthPicker = () => {
@@ -692,28 +682,6 @@ export default function TransactionsScreen(): React.JSX.Element {
           {/* Toolbar */}
           <View style={styles.toolbar}>
             <TouchableOpacity
-              onPress={openMonthActions}
-              style={styles.filterButton}
-              accessibilityRole="button"
-              accessibilityLabel={t(dictionary, "transactions.filtersButton")}
-            >
-              <View style={styles.filterIcon}>
-                <MaterialCommunityIcons
-                  name="calendar-month"
-                  size={18}
-                  color={colors.text.primary}
-                />
-              </View>
-              <View style={styles.filterText}>
-                <Text style={styles.filterLabel}>
-                  {t(dictionary, "transactions.filtersButton")}
-                </Text>
-                <Text style={styles.filterValue}>
-                  {formatMonthLabel(selectedMonth, locale)}
-                </Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity
               onPress={() => router.push("/(auth)/recurrentes")}
               style={styles.filterButton}
               accessibilityRole="button"
@@ -734,13 +702,44 @@ export default function TransactionsScreen(): React.JSX.Element {
             </TouchableOpacity>
           </View>
 
-          {/* Month Summary */}
-          <View style={styles.monthHeader}>
-            <Text style={styles.monthHeaderText}>
-              {t(dictionary, "transactions.transactionsFor", {
-                month: formatMonthLabel(selectedMonth, locale),
-              })}
+          {/* Month Navigation */}
+          <View style={styles.monthNavRow}>
+            <TouchableOpacity
+              onPress={goToPreviousMonth}
+              style={styles.monthNavButton}
+              accessibilityLabel={t(dictionary, "transactions.previousMonth")}
+            >
+              <MaterialCommunityIcons
+                name="chevron-left"
+                size={24}
+                color={colors.text.secondary}
+              />
+            </TouchableOpacity>
+            <Text style={styles.monthNavLabel}>
+              {formatMonthLabel(selectedMonth, locale)}
             </Text>
+            <TouchableOpacity
+              onPress={goToNextMonth}
+              style={styles.monthNavButton}
+              accessibilityLabel={t(dictionary, "transactions.nextMonth")}
+            >
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={24}
+                color={colors.text.secondary}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={openMonthPicker}
+              style={styles.monthNavButton}
+              accessibilityLabel={t(dictionary, "transactions.openMonthPicker")}
+            >
+              <MaterialCommunityIcons
+                name="calendar"
+                size={20}
+                color={colors.text.secondary}
+              />
+            </TouchableOpacity>
           </View>
 
           {/* Monthly Summary */}
@@ -1035,39 +1034,6 @@ export default function TransactionsScreen(): React.JSX.Element {
 
         <Modal
           transparent
-          visible={isMonthActionsOpen}
-          animationType="fade"
-          onRequestClose={closeMonthActions}
-        >
-          <View style={styles.sheetOverlay}>
-            <Pressable style={styles.sheetBackdrop} onPress={closeMonthActions} />
-            <View style={styles.actionSheet}>
-              <Button
-                title={t(dictionary, "transactions.previousMonth")}
-                onPress={() => {
-                  goToPreviousMonth();
-                  closeMonthActions();
-                }}
-                variant="secondary"
-              />
-              <Button
-                title={t(dictionary, "transactions.nextMonth")}
-                onPress={() => {
-                  goToNextMonth();
-                  closeMonthActions();
-                }}
-                variant="secondary"
-              />
-              <Button
-                title={t(dictionary, "transactions.openMonthPicker")}
-                onPress={openMonthPicker}
-              />
-            </View>
-          </View>
-        </Modal>
-
-        <Modal
-          transparent
           visible={isMonthPickerOpen}
           animationType="slide"
           onRequestClose={() => setIsMonthPickerOpen(false)}
@@ -1206,6 +1172,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.state.neutral,
     backgroundColor: colors.action.secondary,
+  },
+  monthNavRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  monthNavButton: {
+    padding: spacing.xs,
+  },
+  monthNavLabel: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
+    textTransform: "capitalize",
   },
   monthHeader: {
     marginTop: spacing.xs,

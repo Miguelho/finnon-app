@@ -67,7 +67,14 @@ import { MerchantAutocomplete } from "@/components/ui/merchant-autocomplete";
 import { CategoryIcon } from "@/components/category-icon";
 import { TopCategorySelector } from "@/components/categories/top-category-selector";
 import { TransactionTile } from "@/components/transactions/transaction-tile";
-import { ArrowDownLeft, ArrowUpRight, PlusCircle } from "lucide-react";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  PlusCircle,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   createTransaction,
@@ -286,7 +293,6 @@ export function TransactionsClient({
   // Month filter state (format: YYYY-MM)
   const currentMonth = toMonthKey(new Date());
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
   const [pickerMonthIndex, setPickerMonthIndex] = useState(new Date().getMonth());
@@ -905,20 +911,12 @@ export function TransactionsClient({
             <h1 className="text-3xl font-bold tracking-tight">{t("pageTitle")}</h1>
             <p className="text-muted-foreground">{t("pageDescription")}</p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => router.push("/recurrentes")}
-            >
-              {tGlobal("recurrentes.title")}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setIsFiltersOpen(true)}
-            >
-              {t("filtersButton")}
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            onClick={() => router.push("/recurrentes")}
+          >
+            {tGlobal("recurrentes.title")}
+          </Button>
         </div>
         {!canEdit && (
           <p className="text-sm text-muted-foreground">
@@ -927,106 +925,90 @@ export function TransactionsClient({
         )}
       </div>
 
-      <SlidePanel open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
-        <SlidePanelContent>
-          <SlidePanelHeader>
-            <SlidePanelTitle>{t("filtersButton")}</SlidePanelTitle>
-            <SlidePanelDescription>{t("filterByMonth")}</SlidePanelDescription>
-          </SlidePanelHeader>
-          <SlidePanelBody className="space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <Button
-                variant="outline"
-                onClick={goToPreviousMonth}
-                aria-label={t("previousMonth")}
+      {/* Month Navigation */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={goToPreviousMonth}
+          className="p-1 hover:opacity-70 text-muted-foreground"
+          aria-label={t("previousMonth")}
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <span className="text-sm font-semibold capitalize">
+          {formatMonthLabel(selectedMonth, locale)}
+        </span>
+        <button
+          type="button"
+          onClick={goToNextMonth}
+          className="p-1 hover:opacity-70 text-muted-foreground"
+          aria-label={t("nextMonth")}
+        >
+          <ChevronRight size={20} />
+        </button>
+        <button
+          type="button"
+          onClick={openMonthPicker}
+          className="p-1 hover:opacity-70 text-muted-foreground"
+          aria-label={t("openMonthPicker")}
+        >
+          <Calendar size={18} />
+        </button>
+      </div>
+
+      {/* Month Picker Dialog */}
+      <AlertDialog open={isMonthPickerOpen} onOpenChange={setIsMonthPickerOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("openMonthPicker")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("filterByMonth")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="grid gap-4 sm:grid-cols-2 py-4">
+            <div className="space-y-2">
+              <Label>{t("monthPickerLabel")}</Label>
+              <Select
+                value={String(pickerMonthIndex)}
+                onValueChange={(value) => setPickerMonthIndex(Number(value))}
               >
-                {t("previousMonth")}
-              </Button>
-              <div className="flex flex-col items-center gap-1 text-center">
-                <span className="text-lg font-semibold">
-                  {formatMonthLabel(selectedMonth, locale)}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={openMonthPicker}
-                  aria-label={t("openMonthPicker")}
-                >
-                  {t("openMonthPicker")}
-                </Button>
-              </div>
-              <Button
-                variant="outline"
-                onClick={goToNextMonth}
-                aria-label={t("nextMonth")}
-              >
-                {t("nextMonth")}
-              </Button>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthOptions.map((label, index) => (
+                    <SelectItem key={label} value={String(index)}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            {isMonthPickerOpen && (
-              <div className="space-y-4 rounded-lg border p-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>{t("monthPickerLabel")}</Label>
-                    <Select
-                      value={String(pickerMonthIndex)}
-                      onValueChange={(value) =>
-                        setPickerMonthIndex(Number(value))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {monthOptions.map((label, index) => (
-                          <SelectItem key={label} value={String(index)}>
-                            {label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t("yearPickerLabel")}</Label>
-                    <Select
-                      value={String(pickerYear)}
-                      onValueChange={(value) => setPickerYear(Number(value))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {yearOptions.map((year) => (
-                          <SelectItem key={year} value={String(year)}>
-                            {year}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsMonthPickerOpen(false)}
-                  >
-                    {tGlobal("common.cancel")}
-                  </Button>
-                  <Button onClick={applyMonthPicker}>
-                    {t("applyMonthPicker")}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </SlidePanelBody>
-        </SlidePanelContent>
-      </SlidePanel>
-      
-      <p className="text-sm font-semibold text-muted-foreground">
-        {t("transactionsFor", {
-          month: formatMonthLabel(selectedMonth, locale),
-        })}
-      </p>
+            <div className="space-y-2">
+              <Label>{t("yearPickerLabel")}</Label>
+              <Select
+                value={String(pickerYear)}
+                onValueChange={(value) => setPickerYear(Number(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {yearOptions.map((year) => (
+                    <SelectItem key={year} value={String(year)}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tGlobal("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={applyMonthPicker}>
+              {t("applyMonthPicker")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Monthly Summary */}
       <div className="grid grid-cols-3 gap-2">
