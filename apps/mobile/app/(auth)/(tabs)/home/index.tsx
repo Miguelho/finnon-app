@@ -999,9 +999,11 @@ const styles = StyleSheet.create({
     fontWeight: tokens.typography.weight.semibold,
   },
   monthBreakdown: {
+    flexDirection: "row",
     gap: tokens.spacing.md,
   },
   monthBreakdownCard: {
+    flex: 1,
     borderRadius: tokens.radii.lg,
     borderWidth: 1,
     borderColor: colors.state.neutral,

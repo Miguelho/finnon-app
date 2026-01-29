@@ -1,0 +1,1 @@
+Mobile>home: poner ingresos y gastos en una sola linea
