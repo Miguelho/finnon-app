@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabaseClient";
-import { humanizeRole, isExpired, themeTokens } from "@poleursus/shared";
+import { humanizeRole, isExpired, themeTokens, ConfirmationModal } from "@poleursus/shared";
 
 const colors = themeTokens.light.colors;
 
@@ -47,10 +47,13 @@ export default function InvitationsClient({ userId }: { userId: string }) {
   const [selectedRole, setSelectedRole] = useState<
     "viewer" | "contributor" | "admin"
   >("viewer");
-  const [generateCode, setGenerateCode] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
+  const [errorModal, setErrorModal] = useState<{ open: boolean; message: string }>({
+    open: false,
+    message: "",
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -137,17 +140,15 @@ export default function InvitationsClient({ userId }: { userId: string }) {
           accountId: selectedAccountId,
           email: trimmedEmail,
           role: selectedRole,
-          generateCode,
         }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        toast.error(
-          error.errorKey
-            ? t(error.errorKey, error.errorParams)
-            : t("invites.sendError")
-        );
+        const errorMessage = error.errorKey
+          ? t(error.errorKey, error.errorParams)
+          : t("invites.sendError");
+        setErrorModal({ open: true, message: errorMessage });
         return;
       }
 
@@ -165,7 +166,6 @@ export default function InvitationsClient({ userId }: { userId: string }) {
 
       toast.success(t("invites.sendSuccess"));
       setInviteEmail("");
-      setGenerateCode(false);
       setInviteCode(data.code ?? null);
       await loadInvites(selectedAccountId);
     } catch (error) {
@@ -268,39 +268,31 @@ export default function InvitationsClient({ userId }: { userId: string }) {
                 </Select>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  type="button"
-                  variant={generateCode ? "default" : "outline"}
-                  onClick={() => setGenerateCode((prev) => !prev)}
-                >
-                  {t("invites.generateCodeLabel")}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={sendInvite}
-                  disabled={isSending || inviteEmail.trim().length === 0}
-                >
-                  {isSending ? t("common.creating") : t("invites.createButton")}
-                </Button>
-              </div>
+              <Button
+                type="button"
+                onClick={sendInvite}
+                disabled={isSending || inviteEmail.trim().length === 0}
+              >
+                {isSending ? t("common.creating") : t("invites.createButton")}
+              </Button>
+
               {inviteCode && (
                 <div
-                  className="rounded-lg border p-4"
-                  style={{ borderColor: colors.state.neutral }}
+                  className="rounded-lg border p-4 mt-4"
+                  style={{ borderColor: colors.state.neutral, backgroundColor: colors.bg.secondary }}
                 >
-                  <p className="text-sm font-semibold">{t("invites.codeLabel")}</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className="rounded-md bg-muted px-3 py-2 font-mono text-sm">
+                  <p className="text-sm font-semibold">{t("invites.inviteSentTitle")}</p>
+                  <p className="text-xs mt-1" style={{ color: colors.text.secondary }}>
+                    {t("invites.codeFallbackHint")}
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="rounded-md bg-muted px-3 py-2 font-mono text-sm font-semibold">
                       {inviteCode}
                     </span>
-                    <Button variant="outline" onClick={() => copyCode(inviteCode)}>
+                    <Button variant="outline" size="sm" onClick={() => copyCode(inviteCode)}>
                       {t("invites.codeCopy")}
                     </Button>
                   </div>
-                  <p className="mt-2 text-xs" style={{ color: colors.text.secondary }}>
-                    {t("invites.codeHint")}
-                  </p>
                 </div>
               )}
             </>
@@ -417,6 +409,14 @@ export default function InvitationsClient({ userId }: { userId: string }) {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmationModal
+        open={errorModal.open}
+        title={t("common.errorTitle")}
+        description={errorModal.message}
+        confirmLabel={t("common.ok")}
+        onConfirm={() => setErrorModal({ open: false, message: "" })}
+      />
     </div>
   );
 }

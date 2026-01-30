@@ -6,13 +6,14 @@ import {
   hashInviteToken,
   buildInviteUrl,
 } from "@poleursus/shared/src/utils/invite";
+import { createServiceRoleClient, normalizeEmail } from "@/lib/invites";
 
 export async function POST(request: NextRequest) {
   try {
     // 1. Parse and validate request body
     const body = await request.json();
     const validatedData = createInviteSchema.parse(body);
-    const { accountId, role, expiresInHours, maxUses } = validatedData;
+    const { accountId, role, expiresInHours, maxUses, email } = validatedData;
 
     // 2. Get authenticated user (support both cookies and Authorization header)
     const authHeader = request.headers.get("authorization");
@@ -73,11 +74,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Generate token (NEVER log this plaintext token except in response)
+    // 4. Validar que el email exista en profiles
+    const normalizedEmail = normalizeEmail(email);
+    const serviceClient = createServiceRoleClient();
+
+    const { data: invitee, error: inviteeError } = await serviceClient
+      .from("profiles")
+      .select("user_id, email")
+      .ilike("email", normalizedEmail!)
+      .maybeSingle();
+
+    if (inviteeError) {
+      console.error("Error looking up invitee:", inviteeError);
+      return NextResponse.json(
+        { errorKey: "errors.profilesLoadFailed" },
+        { status: 500 }
+      );
+    }
+
+    if (!invitee) {
+      return NextResponse.json(
+        { errorKey: "errors.inviteUserNotFound" },
+        { status: 404 }
+      );
+    }
+
+    const inviteeUserId = invitee.user_id;
+    const invitedEmail = invitee.email ?? normalizedEmail;
+
+    // 5. Generate token (NEVER log this plaintext token except in response)
     const plainToken = generateInviteToken();
     const tokenHash = hashInviteToken(plainToken);
 
-    // 5. Calculate expiration
+    // 6. Calculate expiration
     let expiresAt: Date;
     if (expiresInHours !== undefined) {
       expiresAt = new Date();
@@ -88,7 +117,7 @@ export async function POST(request: NextRequest) {
       expiresAt.setFullYear(expiresAt.getFullYear() + 100);
     }
 
-    // 6. Insert invite into database
+    // 7. Insert invite into database
     const { data: invite, error: insertError } = await supabase
       .from("invites")
       .insert({
@@ -99,6 +128,8 @@ export async function POST(request: NextRequest) {
         max_uses: maxUses ?? null,
         uses_count: 0,
         created_by: user.id,
+        invited_email: invitedEmail,
+        invitee_user_id: inviteeUserId,
       })
       .select("id, expires_at, role")
       .single();
@@ -111,11 +142,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 7. Build invite URL
+    // 8. Build invite URL
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
     const inviteUrl = buildInviteUrl(baseUrl, plainToken);
 
-    // 8. Return response
+    // 9. Return response
     return NextResponse.json({
       inviteUrl,
       expiresAt: invite.expires_at,

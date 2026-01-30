@@ -4,13 +4,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/lib/supabaseClient";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { humanizeRole, isExpired, themeTokens } from "@poleursus/shared";
-
-const STORAGE_KEY = "finnon:activeAccountId";
 
 type InviteRow = {
   id: string;
@@ -42,94 +46,26 @@ export function InvitationsClient() {
   const [joinCode, setJoinCode] = useState("");
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
-
-  const syncActiveAccount = async (accountId: string) => {
-    localStorage.setItem(STORAGE_KEY, accountId);
-    await fetch("/api/active-account", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accountId }),
-    });
-  };
-
-  const maybeActivateAccount = async (accountId: string) => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return false;
-
-    const { data: memberships, error } = await supabase
-      .from("account_members")
-      .select("account_id")
-      .eq("user_id", user.id);
-
-    if (error) return false;
-
-    if ((memberships ?? []).length === 1) {
-      await syncActiveAccount(accountId);
-      router.push("/");
-      return true;
-    }
-
-    return false;
-  };
+  const [dismissedInvites, setDismissedInvites] = useState<string[]>([]);
 
   const loadInvites = useCallback(async () => {
     setLoading(true);
     setJoinError(null);
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user?.email) {
-        setLoading(false);
-        return;
-      }
-
-      const email = user.email.trim().toLowerCase();
-      const { data, error } = await supabase
-        .from("invites")
-        .select(
-          "id, account_id, role, status, expires_at, created_at, created_by, invited_email, invitee_email, accounts(name)"
-        )
-        .or(`invited_email.ilike.${email},invitee_email.ilike.${email}`)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Error loading invites:", error);
-        toast.error(t("invitations.loadError"));
-        setLoading(false);
-        return;
-      }
-
-      const inviteRows = (data || []) as InviteRow[];
-      setInvites(inviteRows);
-
-      const creatorIds = Array.from(
-        new Set(inviteRows.map((invite) => invite.created_by).filter(Boolean))
-      );
-
-      if (creatorIds.length > 0) {
-        const { data: profileRows } = await supabase
-          .from("profiles")
-          .select("user_id, email, display_name")
-          .in("user_id", creatorIds);
-
-        const profileMap = (profileRows || []).reduce<Record<string, ProfileRow>>(
-          (acc, profile) => {
-            acc[profile.user_id] = profile as ProfileRow;
-            return acc;
-          },
-          {}
+      const response = await fetch("/api/invites/list");
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        toast.error(
+          error.errorKey ? t(error.errorKey) : t("invitations.loadError")
         );
-
-        setProfiles(profileMap);
-      } else {
-        setProfiles({});
+        setLoading(false);
+        return;
       }
+
+      const payload = await response.json().catch(() => ({}));
+      const inviteRows = (payload.invites || []) as InviteRow[];
+      setInvites(inviteRows);
+      setProfiles((payload.profiles || {}) as Record<string, ProfileRow>);
     } catch (error) {
       console.error("Error loading invites:", error);
       toast.error(t("invitations.loadError"));
@@ -150,8 +86,9 @@ export function InvitationsClient() {
         const normalizedStatus = status === "pending" && expired ? "expired" : status;
         return { ...invite, status: normalizedStatus, expired };
       })
-      .filter((invite) => invite.status === "pending" || invite.status === "expired");
-  }, [invites]);
+      .filter((invite) => invite.status === "pending" || invite.status === "expired")
+      .filter((invite) => !dismissedInvites.includes(invite.id));
+  }, [dismissedInvites, invites]);
 
   async function acceptInvite(inviteId: string) {
     try {
@@ -171,21 +108,18 @@ export function InvitationsClient() {
         return;
       }
 
-      const payload = await response.json().catch(() => ({}));
-      const accountId =
-        typeof payload?.accountId === "string" ? payload.accountId : null;
-
       toast.success(t("invitations.joinSuccess"));
-      if (accountId) {
-        const redirected = await maybeActivateAccount(accountId);
-        if (redirected) return;
-      }
-      router.refresh();
-      await loadInvites();
+      router.push("/select-account");
     } catch (error) {
       console.error("Accept invite error:", error);
       toast.error(t("errors.internalServer"));
     }
+  }
+
+  function cancelInvite(inviteId: string) {
+    setDismissedInvites((prev) =>
+      prev.includes(inviteId) ? prev : [...prev, inviteId]
+    );
   }
 
   async function rejectInvite(inviteId: string) {
@@ -234,18 +168,9 @@ export function InvitationsClient() {
         return;
       }
 
-      const payload = await response.json().catch(() => ({}));
-      const accountId =
-        typeof payload?.accountId === "string" ? payload.accountId : null;
-
       setJoinCode("");
       toast.success(t("invitations.joinSuccess"));
-      if (accountId) {
-        const redirected = await maybeActivateAccount(accountId);
-        if (redirected) return;
-      }
-      router.refresh();
-      await loadInvites();
+      router.push("/select-account");
     } catch (error) {
       console.error("Join by code error:", error);
       setJoinError(t("invitations.codeError"));
@@ -317,6 +242,7 @@ export function InvitationsClient() {
                     : invite.status === "expired"
                     ? t("invites.statusExpired")
                     : t("invites.statusPending");
+                const showActions = invite.status === "pending" && !invite.expired;
 
                 return (
                   <div
@@ -332,15 +258,46 @@ export function InvitationsClient() {
                         <h3 className="text-base font-semibold">
                           {invite.accounts?.name ?? t("invites.accountUnknown")}
                         </h3>
-                        <span
-                          className="rounded-full border px-3 py-1 text-xs font-semibold"
-                          style={{
-                            borderColor: colors.state.neutral,
-                            color: colors.text.secondary,
-                          }}
-                        >
-                          {statusLabel}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="rounded-full border px-3 py-1 text-xs font-semibold"
+                            style={{
+                              borderColor: colors.state.neutral,
+                              color: colors.text.secondary,
+                            }}
+                          >
+                            {statusLabel}
+                          </span>
+                          {showActions && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  aria-label={t("common.moreActions")}
+                                  className="flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-muted-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                  onClick={(event) => event.stopPropagation()}
+                                  onKeyDown={(event) => event.stopPropagation()}
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                align="end"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <DropdownMenuItem
+                                  onSelect={(event) => {
+                                    event.stopPropagation();
+                                    rejectInvite(invite.id);
+                                  }}
+                                  style={{ color: colors.state.negative }}
+                                >
+                                  {t("invitations.rejectButton")}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
                       </div>
                       <p className="text-sm" style={{ color: colors.text.secondary }}>
                         {t("invitations.pendingBadge")}
@@ -361,16 +318,13 @@ export function InvitationsClient() {
                       </div>
                     </div>
 
-                    {invite.status === "pending" && !invite.expired && (
+                    {showActions && (
                       <div className="mt-4 flex flex-wrap gap-2">
                         <Button onClick={() => acceptInvite(invite.id)}>
                           {t("invitations.acceptButton")}
                         </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => rejectInvite(invite.id)}
-                        >
-                          {t("invitations.rejectButton")}
+                        <Button variant="outline" onClick={() => cancelInvite(invite.id)}>
+                          {t("common.cancel")}
                         </Button>
                       </div>
                     )}

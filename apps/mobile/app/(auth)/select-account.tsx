@@ -40,7 +40,7 @@ export default function SelectAccountScreen() {
     if (!user) return;
     loadAccounts();
     loadInviteCount();
-  }, [user?.id]);
+  }, [user?.id, user?.email]);
 
   const loadAccounts = async () => {
     if (!user) {
@@ -74,12 +74,31 @@ export default function SelectAccountScreen() {
   };
 
   const loadInviteCount = async () => {
-    if (!user?.email) return;
+    if (!user) return;
+
+    const normalizedEmail = user.email?.trim().toLowerCase();
+    const filters = [];
+
+    if (normalizedEmail) {
+      filters.push(
+        `invited_email.ilike.${normalizedEmail}`,
+        `invitee_email.ilike.${normalizedEmail}`
+      );
+    }
+
+    if (user.id) {
+      filters.push(`invitee_user_id.eq.${user.id}`);
+    }
+
+    if (filters.length === 0) {
+      setInviteCount(0);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("invites")
-      .select("id, expires_at, status, invited_email, invitee_email")
-      .or(`invited_email.eq.${user.email},invitee_email.eq.${user.email}`)
+      .select("id, expires_at, status, invited_email, invitee_email, invitee_user_id")
+      .or(filters.join(","))
       .eq("status", "pending");
 
     if (error) {
@@ -163,22 +182,6 @@ export default function SelectAccountScreen() {
           <Text style={styles.switchingText}>{t(dictionary, "common.loading")}</Text>
         )}
         <View style={styles.accountsList}>
-          <TouchableOpacity
-            style={styles.inviteRow}
-            onPress={() => router.push("/(auth)/invitations")}
-          >
-            <View style={styles.inviteRowInfo}>
-              <Text style={styles.inviteRowTitle}>
-                {t(dictionary, "invitations.title")}
-              </Text>
-              <Text style={styles.inviteRowDescription}>
-                {t(dictionary, "invitations.subtitle")}
-              </Text>
-            </View>
-            <View style={styles.inviteBadge}>
-              <Text style={styles.inviteBadgeText}>{inviteCount}</Text>
-            </View>
-          </TouchableOpacity>
           {accounts.map((account) => (
             <TouchableOpacity
               key={account.id}
@@ -220,40 +223,6 @@ const styles = StyleSheet.create({
   },
   accountsList: {
     gap: tokens.spacing.sm,
-  },
-  inviteRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.bg.surface,
-    padding: tokens.spacing.md,
-    borderRadius: tokens.radii.md,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-  },
-  inviteRowInfo: {
-    flex: 1,
-  },
-  inviteRowTitle: {
-    fontSize: tokens.typography.size.md,
-    fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
-    marginBottom: tokens.spacing.xs,
-  },
-  inviteRowDescription: {
-    fontSize: tokens.typography.size.sm,
-    color: colors.text.secondary,
-  },
-  inviteBadge: {
-    backgroundColor: colors.action.primary,
-    paddingHorizontal: tokens.spacing.sm,
-    paddingVertical: tokens.spacing.xs,
-    borderRadius: tokens.radii.pill,
-  },
-  inviteBadgeText: {
-    fontSize: tokens.typography.size.sm,
-    color: colors.bg.primary,
-    fontWeight: tokens.typography.weight.semibold,
   },
   accountItem: {
     flexDirection: "row",

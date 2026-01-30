@@ -15,6 +15,7 @@ import { Button } from "../../../src/components/Button";
 import { Card } from "../../../src/components/Card";
 import { useCopy, t } from "../../../src/lib/i18n";
 import {
+  ConfirmationModal,
   createTypographyStyles,
   humanizeRole,
   isExpired,
@@ -53,13 +54,16 @@ export default function InvitationsSettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
   const [selectedRole, setSelectedRole] = useState<MemberRole>("viewer");
-  const [generateCode, setGenerateCode] = useState(false);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [noticeTone, setNoticeTone] = useState<"positive" | "negative" | null>(
     null
   );
+  const [errorModal, setErrorModal] = useState<{ open: boolean; message: string }>({
+    open: false,
+    message: "",
+  });
 
   useEffect(() => {
     void loadAccounts();
@@ -152,18 +156,15 @@ export default function InvitationsSettingsScreen() {
           accountId: selectedAccountId,
           email: inviteEmail.trim(),
           role: selectedRole,
-          generateCode,
         }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        setNotice(
-          error.errorKey
-            ? t(dictionary, error.errorKey, error.errorParams)
-            : t(dictionary, "invites.sendError")
-        );
-        setNoticeTone("negative");
+        const errorMessage = error.errorKey
+          ? t(dictionary, error.errorKey, error.errorParams)
+          : t(dictionary, "invites.sendError");
+        setErrorModal({ open: true, message: errorMessage });
         return;
       }
 
@@ -182,7 +183,6 @@ export default function InvitationsSettingsScreen() {
       }
 
       setInviteEmail("");
-      setGenerateCode(false);
       setInviteCode(data.code ?? null);
       setNotice(t(dictionary, "invites.sendSuccess"));
       setNoticeTone("positive");
@@ -273,28 +273,21 @@ export default function InvitationsSettingsScreen() {
               </Picker>
             </View>
 
-            <View style={styles.actionsRow}>
-              <Button
-                title={t(dictionary, "invites.generateCodeLabel")}
-                variant={generateCode ? "secondary" : "primary"}
-                onPress={() => setGenerateCode((prev) => !prev)}
-              />
-              <Button
-                title={sending ? t(dictionary, "common.creating") : t(dictionary, "invites.createButton")}
-                onPress={sendInvite}
-                disabled={sending || inviteEmail.trim().length === 0}
-              />
-            </View>
+            <Button
+              title={sending ? t(dictionary, "common.creating") : t(dictionary, "invites.createButton")}
+              onPress={sendInvite}
+              disabled={sending || inviteEmail.trim().length === 0}
+            />
 
             {inviteCode && (
               <TouchableOpacity
                 style={styles.codeCard}
                 onPress={() => shareCode(inviteCode)}
               >
-                <Text style={styles.codeTitle}>{t(dictionary, "invites.codeLabel")}</Text>
+                <Text style={styles.codeTitle}>{t(dictionary, "invites.inviteSentTitle")}</Text>
+                <Text style={styles.codeFallbackHint}>{t(dictionary, "invites.codeFallbackHint")}</Text>
                 <Text style={styles.codeValue}>{inviteCode}</Text>
                 <Text style={styles.codeCopy}>{t(dictionary, "invites.codeCopy")}</Text>
-                <Text style={styles.codeHint}>{t(dictionary, "invites.codeHint")}</Text>
               </TouchableOpacity>
             )}
           </Card>
@@ -350,6 +343,14 @@ export default function InvitationsSettingsScreen() {
           )}
         </>
       )}
+
+      <ConfirmationModal
+        open={errorModal.open}
+        title={t(dictionary, "common.errorTitle")}
+        description={errorModal.message}
+        confirmLabel={t(dictionary, "common.ok")}
+        onConfirm={() => setErrorModal({ open: false, message: "" })}
+      />
     </ScrollView>
   );
 }
@@ -397,9 +398,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg.surface,
   },
   codeTitle: {
+    ...typography.body,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.text.primary,
+    marginBottom: tokens.spacing.xs,
+  },
+  codeFallbackHint: {
     ...typography.meta,
     color: colors.text.secondary,
-    marginBottom: tokens.spacing.xs,
+    marginBottom: tokens.spacing.sm,
   },
   codeValue: {
     ...typography.h3,
@@ -409,12 +416,7 @@ const styles = StyleSheet.create({
   codeCopy: {
     ...typography.meta,
     color: colors.action.primary,
-    marginTop: tokens.spacing.xs,
-  },
-  codeHint: {
-    ...typography.meta,
-    color: colors.text.secondary,
-    marginTop: tokens.spacing.xs,
+    marginTop: tokens.spacing.sm,
   },
   inviteList: {
     gap: tokens.spacing.md,

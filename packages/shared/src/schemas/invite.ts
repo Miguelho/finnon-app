@@ -39,6 +39,7 @@ export const createInviteSchema = z.object({
   role: memberRoleSchema,
   expiresInHours: z.number().int().positive().max(8760).optional(), // Max 1 year, optional = unlimited
   maxUses: z.number().int().positive().optional(),
+  email: z.string().email(), // Email del usuario a invitar (obligatorio)
 });
 
 export const acceptInviteSchema = z.object({

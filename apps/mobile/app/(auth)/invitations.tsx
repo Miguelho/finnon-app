@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useActionSheet } from "@expo/react-native-action-sheet";
 import { Stack, useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import { supabase } from "../../src/lib/supabase";
@@ -52,6 +55,7 @@ export default function InvitationsScreen() {
   const { dictionary, locale } = useCopy();
   const isFocused = useIsFocused();
   const router = useRouter();
+  const { showActionSheetWithOptions } = useActionSheet();
   const [invites, setInvites] = useState<InviteRow[]>([]);
   const [profiles, setProfiles] = useState<Record<string, ProfileRow>>({});
   const [loading, setLoading] = useState(true);
@@ -62,6 +66,7 @@ export default function InvitationsScreen() {
   const [noticeTone, setNoticeTone] = useState<"positive" | "negative" | null>(
     null
   );
+  const [dismissedInvites, setDismissedInvites] = useState<string[]>([]);
 
   const authHeader = useMemo(() => {
     if (!session?.access_token) return undefined;
@@ -69,7 +74,7 @@ export default function InvitationsScreen() {
   }, [session?.access_token]);
 
   const loadInvites = useCallback(async () => {
-    if (!user?.email) {
+    if (!user) {
       setLoading(false);
       return;
     }
@@ -80,12 +85,32 @@ export default function InvitationsScreen() {
     setNoticeTone(null);
 
     try {
+      const normalizedEmail = user.email?.trim().toLowerCase();
+      const filters = [];
+
+      if (normalizedEmail) {
+        filters.push(
+          `invited_email.ilike.${normalizedEmail}`,
+          `invitee_email.ilike.${normalizedEmail}`
+        );
+      }
+
+      if (user.id) {
+        filters.push(`invitee_user_id.eq.${user.id}`);
+      }
+
+      if (filters.length === 0) {
+        setInvites([]);
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("invites")
         .select(
           "id, account_id, role, status, expires_at, created_at, created_by, invited_email, invitee_email, code, accounts(name)"
         )
-        .or(`invited_email.eq.${user.email},invitee_email.eq.${user.email}`)
+        .or(filters.join(","))
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -123,7 +148,7 @@ export default function InvitationsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [user?.email]);
+  }, [user?.email, user?.id]);
 
   useEffect(() => {
     if (isFocused) {
@@ -139,8 +164,9 @@ export default function InvitationsScreen() {
         const normalizedStatus = status === "pending" && expired ? "expired" : status;
         return { ...invite, status: normalizedStatus, expired };
       })
-      .filter((invite) => invite.status === "pending" || invite.status === "expired");
-  }, [invites]);
+      .filter((invite) => invite.status === "pending" || invite.status === "expired")
+      .filter((invite) => !dismissedInvites.includes(invite.id));
+  }, [dismissedInvites, invites]);
 
   async function acceptInvite(inviteId: string) {
     if (!authHeader) return;
@@ -167,12 +193,40 @@ export default function InvitationsScreen() {
 
       setNotice(t(dictionary, "invitations.joinSuccess"));
       setNoticeTone("positive");
-      await loadInvites();
+      router.replace("/(auth)/select-account");
     } catch (error) {
       console.error("Accept invite error:", error);
       setNotice(t(dictionary, "errors.internalServer"));
       setNoticeTone("negative");
     }
+  }
+
+  function cancelInvite(inviteId: string) {
+    setDismissedInvites((prev) =>
+      prev.includes(inviteId) ? prev : [...prev, inviteId]
+    );
+  }
+
+  function openInviteMenu(inviteId: string) {
+    const options = [
+      t(dictionary, "invitations.rejectButton"),
+      t(dictionary, "common.cancel"),
+    ];
+    const cancelButtonIndex = 1;
+    const destructiveButtonIndex = 0;
+
+    showActionSheetWithOptions(
+      {
+        options,
+        cancelButtonIndex,
+        destructiveButtonIndex,
+      },
+      (buttonIndex) => {
+        if (buttonIndex === destructiveButtonIndex) {
+          void rejectInvite(inviteId);
+        }
+      }
+    );
   }
 
   async function rejectInvite(inviteId: string) {
@@ -310,17 +364,33 @@ export default function InvitationsScreen() {
                       <Text style={styles.inviteAccount}>
                         {(Array.isArray(invite.accounts) ? invite.accounts[0]?.name : invite.accounts?.name) ?? t(dictionary, "invites.accountUnknown")}
                       </Text>
-                      <Text style={styles.inviteStatus}>
-                        {invite.status === "accepted"
-                          ? t(dictionary, "invites.statusAccepted")
-                          : invite.status === "rejected"
-                          ? t(dictionary, "invites.statusRejected")
-                          : invite.status === "revoked"
-                          ? t(dictionary, "invites.statusRevoked")
-                          : invite.status === "expired"
-                          ? t(dictionary, "invites.statusExpired")
-                          : t(dictionary, "invites.statusPending")}
-                      </Text>
+                      <View style={styles.inviteHeaderActions}>
+                        <Text style={styles.inviteStatus}>
+                          {invite.status === "accepted"
+                            ? t(dictionary, "invites.statusAccepted")
+                            : invite.status === "rejected"
+                            ? t(dictionary, "invites.statusRejected")
+                            : invite.status === "revoked"
+                            ? t(dictionary, "invites.statusRevoked")
+                            : invite.status === "expired"
+                            ? t(dictionary, "invites.statusExpired")
+                            : t(dictionary, "invites.statusPending")}
+                        </Text>
+                        {isPending && (
+                          <Pressable
+                            onPress={() => openInviteMenu(invite.id)}
+                            accessibilityRole="button"
+                            accessibilityLabel={t(dictionary, "common.moreActions")}
+                            style={styles.inviteMenuButton}
+                          >
+                            <MaterialCommunityIcons
+                              name="dots-horizontal"
+                              size={18}
+                              color={colors.text.muted}
+                            />
+                          </Pressable>
+                        )}
+                      </View>
                     </View>
                     <Text style={styles.inviteSubhead}>
                       {t(dictionary, "invitations.pendingBadge")}
@@ -353,9 +423,9 @@ export default function InvitationsScreen() {
                           onPress={() => acceptInvite(invite.id)}
                         />
                         <Button
-                          title={t(dictionary, "invitations.rejectButton")}
+                          title={t(dictionary, "common.cancel")}
                           variant="secondary"
-                          onPress={() => rejectInvite(invite.id)}
+                          onPress={() => cancelInvite(invite.id)}
                         />
                       </View>
                     )}
@@ -460,6 +530,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
+  inviteHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.xs,
+  },
   inviteAccount: {
     ...typography.body,
     color: colors.text.primary,
@@ -468,6 +543,9 @@ const styles = StyleSheet.create({
   inviteStatus: {
     ...typography.meta,
     color: colors.text.secondary,
+  },
+  inviteMenuButton: {
+    padding: tokens.spacing.xs,
   },
   inviteSubhead: {
     ...typography.meta,

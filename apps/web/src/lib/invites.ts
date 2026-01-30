@@ -63,16 +63,25 @@ export function normalizeEmail(email?: string | null) {
 }
 
 export function inviteMatchesUser(invite: InviteLookup, user: { id: string; email?: string | null }) {
-  if (invite.invitee_user_id && invite.invitee_user_id !== user.id) return false;
-
   const userEmail = normalizeEmail(user.email);
   const invitedEmail = normalizeEmail(invite.invited_email);
   const legacyEmail = normalizeEmail(invite.invitee_email);
 
-  if (invitedEmail && invitedEmail !== userEmail) return false;
-  if (legacyEmail && legacyEmail !== userEmail) return false;
+  // Si la invitación tiene invitee_user_id, debe coincidir
+  if (invite.invitee_user_id) {
+    return invite.invitee_user_id === user.id;
+  }
 
-  return true;
+  // Si la invitación tiene email (nuevo o legacy), debe coincidir
+  if (invitedEmail) {
+    return invitedEmail === userEmail;
+  }
+  if (legacyEmail) {
+    return legacyEmail === userEmail;
+  }
+
+  // Invitación genérica sin email: rechazar (validación estricta)
+  return false;
 }
 
 export function isInviteExpired(invite: InviteLookup, now: Date = new Date()) {

@@ -32,14 +32,30 @@ export default async function SelectAccountPage() {
     cookieStore.get("finnon:activeAccountId")?.value ?? "";
 
   const inviteEmail = user.email?.trim().toLowerCase();
-  const { data: inviteRows } = inviteEmail
-    ? await supabase
-        .from("invites")
-        .select("id, expires_at, status, invited_email, invitee_email")
-        .or(
-          `invited_email.ilike.${inviteEmail},invitee_email.ilike.${inviteEmail}`
-        )
-        .eq("status", "pending")
+  const inviteFilters = [];
+
+  if (inviteEmail) {
+    inviteFilters.push(
+      `invited_email.ilike.${inviteEmail}`,
+      `invitee_email.ilike.${inviteEmail}`
+    );
+  }
+
+  if (user.id) {
+    inviteFilters.push(`invitee_user_id.eq.${user.id}`);
+  }
+
+  let inviteQuery = supabase
+    .from("invites")
+    .select("id, expires_at, status, invited_email, invitee_email")
+    .eq("status", "pending");
+
+  if (inviteFilters.length > 0) {
+    inviteQuery = inviteQuery.or(inviteFilters.join(","));
+  }
+
+  const { data: inviteRows } = inviteFilters.length
+    ? await inviteQuery
     : { data: [] as { expires_at: string; status: string | null }[] };
 
   const pendingInviteCount = (inviteRows ?? []).filter(

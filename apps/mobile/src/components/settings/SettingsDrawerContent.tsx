@@ -153,15 +153,34 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
     }
 
     async function loadInviteCount() {
-      if (!user?.email) {
+      if (!user) {
+        if (!cancelled) setInviteCount(0);
+        return;
+      }
+
+      const normalizedEmail = user.email?.trim().toLowerCase();
+      const filters = [];
+
+      if (normalizedEmail) {
+        filters.push(
+          `invited_email.ilike.${normalizedEmail}`,
+          `invitee_email.ilike.${normalizedEmail}`
+        );
+      }
+
+      if (user.id) {
+        filters.push(`invitee_user_id.eq.${user.id}`);
+      }
+
+      if (filters.length === 0) {
         if (!cancelled) setInviteCount(0);
         return;
       }
 
       const { data, error } = await supabase
         .from("invites")
-        .select("id, expires_at, status, invited_email, invitee_email")
-        .or(`invited_email.eq.${user.email},invitee_email.eq.${user.email}`)
+        .select("id, expires_at, status, invited_email, invitee_email, invitee_user_id")
+        .or(filters.join(","))
         .eq("status", "pending");
 
       if (cancelled) return;

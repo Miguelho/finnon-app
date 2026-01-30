@@ -111,21 +111,35 @@ export function ActiveAccountSelector({
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user?.email) {
+      if (!user) {
         if (!cancelled) setInviteCount(0);
         return;
       }
 
       const inviteEmail = user.email?.trim().toLowerCase();
-      const { data, error } = inviteEmail
-        ? await supabase
-            .from("invites")
-            .select("id, expires_at, status, invited_email, invitee_email")
-            .or(
-              `invited_email.ilike.${inviteEmail},invitee_email.ilike.${inviteEmail}`
-            )
-            .eq("status", "pending")
-        : { data: [], error: null };
+      const filters = [];
+
+      if (inviteEmail) {
+        filters.push(
+          `invited_email.ilike.${inviteEmail}`,
+          `invitee_email.ilike.${inviteEmail}`
+        );
+      }
+
+      if (user.id) {
+        filters.push(`invitee_user_id.eq.${user.id}`);
+      }
+
+      if (filters.length === 0) {
+        if (!cancelled) setInviteCount(0);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("invites")
+        .select("id, expires_at, status, invited_email, invitee_email, invitee_user_id")
+        .or(filters.join(","))
+        .eq("status", "pending");
 
       if (error) {
         if (!cancelled) setInviteCount(0);

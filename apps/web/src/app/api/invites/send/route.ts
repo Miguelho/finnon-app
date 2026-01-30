@@ -8,14 +8,13 @@ const sendInviteSchema = z.object({
   email: z.string().email(),
   role: z.enum(["viewer", "contributor", "admin"]),
   expiresInDays: z.number().int().positive().max(365).optional(),
-  generateCode: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const validated = sendInviteSchema.parse(body);
-    const { accountId, email, role, expiresInDays, generateCode } = validated;
+    const { accountId, email, role, expiresInDays } = validated;
 
     const { user } = await getAuthenticatedUser(request);
 
@@ -57,23 +56,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: invitee } = await serviceClient
+    const { data: invitee, error: inviteeError } = await serviceClient
       .from("profiles")
       .select("user_id, email")
       .ilike("email", normalizedEmail)
       .maybeSingle();
 
-    if (invitee?.user_id) {
-      const { data: existingMember } = await serviceClient
-        .from("account_members")
-        .select("user_id")
-        .eq("account_id", accountId)
-        .eq("user_id", invitee.user_id)
-        .maybeSingle();
+    if (inviteeError) {
+      console.error("Error looking up invitee:", inviteeError);
+      return NextResponse.json(
+        { errorKey: "errors.profilesLoadFailed" },
+        { status: 500 }
+      );
+    }
 
-      if (existingMember) {
-        return NextResponse.json({ status: "already_member" });
-      }
+    if (!invitee) {
+      return NextResponse.json(
+        { errorKey: "errors.inviteUserNotFound" },
+        { status: 404 }
+      );
+    }
+
+    const { data: existingMember } = await serviceClient
+      .from("account_members")
+      .select("user_id")
+      .eq("account_id", accountId)
+      .eq("user_id", invitee.user_id)
+      .maybeSingle();
+
+    if (existingMember) {
+      return NextResponse.json({ status: "already_member" });
     }
 
     const { data: pendingInvite } = await serviceClient
@@ -96,31 +108,30 @@ export async function POST(request: NextRequest) {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + (expiresInDays ?? 14));
 
+    // Generar código siempre (fallback si no llega la invitación)
     let inviteCode: string | null = null;
     let codeHash: string | null = null;
+    let attempts = 0;
 
-    if (generateCode) {
-      let attempts = 0;
-      while (attempts < 5) {
-        const candidate = generateInviteCode();
-        const candidateHash = hashInviteToken(candidate);
-        const { data: existingCode } = await serviceClient
-          .from("invites")
-          .select("id")
-          .eq("code_hash", candidateHash)
-          .maybeSingle();
+    while (attempts < 5) {
+      const candidate = generateInviteCode();
+      const candidateHash = hashInviteToken(candidate);
+      const { data: existingCode } = await serviceClient
+        .from("invites")
+        .select("id")
+        .eq("code_hash", candidateHash)
+        .maybeSingle();
 
-        if (!existingCode) {
-          inviteCode = candidate;
-          codeHash = candidateHash;
-          break;
-        }
-
-        attempts += 1;
+      if (!existingCode) {
+        inviteCode = candidate;
+        codeHash = candidateHash;
+        break;
       }
+
+      attempts += 1;
     }
 
-    if (generateCode && !inviteCode) {
+    if (!inviteCode) {
       return NextResponse.json(
         { errorKey: "errors.inviteCreateFailed" },
         { status: 500 }
@@ -133,7 +144,7 @@ export async function POST(request: NextRequest) {
         account_id: accountId,
         invited_email: normalizedEmail,
         invitee_email: normalizedEmail,
-        invitee_user_id: invitee?.user_id ?? null,
+        invitee_user_id: invitee.user_id,
         role,
         status: "pending",
         expires_at: expiresAt.toISOString(),
