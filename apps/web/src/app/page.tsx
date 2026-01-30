@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AddAction } from "@/components/home/add-action";
 import { HomeHero } from "@/components/home/home-hero";
 import { TopNav } from "@/components/navigation/top-nav";
+import { BottomNavWrapper } from "@/components/navigation/bottom-nav-wrapper";
 import { PageContainer } from "@/components/layout/page-container";
 import {
   buildHomeViewModel,
@@ -328,6 +329,9 @@ export default async function DashboardPage() {
           )}
         </section>
       </PageContainer>
+      {/* Bottom padding for mobile nav */}
+      <div className="h-16 md:hidden" />
+      <BottomNavWrapper />
     </div>
   );
 }

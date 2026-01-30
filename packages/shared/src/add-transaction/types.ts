@@ -99,13 +99,15 @@ export type StepValidationResult = {
  */
 export function createInitialDraft(
   type: TransactionType = "expense",
-  currency: string
+  currency: string,
+  date?: string
 ): TransactionDraft {
   const today = new Date().toISOString().slice(0, 10);
+  const initialDate = date ?? today;
   return {
     type,
     name: "",
-    date: today,
+    date: initialDate,
     amount: "",
     currency,
     categoryId: null,

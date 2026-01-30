@@ -17,6 +17,10 @@ export const createTypographyStyles = (tokens: ThemeTokens) => ({
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.medium,
   },
+  caption: {
+    fontSize: tokens.typography.size.xs,
+    fontWeight: tokens.typography.weight.medium,
+  },
   meta: {
     fontSize: tokens.typography.size.xs,
     fontWeight: tokens.typography.weight.medium,

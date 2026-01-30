@@ -17,7 +17,18 @@ type ProfileRow = {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body: unknown = null;
+    const rawBody = await request.text();
+    if (rawBody.trim().length > 0) {
+      try {
+        body = JSON.parse(rawBody);
+      } catch {
+        return NextResponse.json(
+          { errorKey: "errors.invalidRequest" },
+          { status: 400 }
+        );
+      }
+    }
     const accountId = typeof body?.accountId === "string" ? body.accountId : null;
 
     if (!accountId) {

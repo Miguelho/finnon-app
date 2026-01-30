@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { TransactionsClient } from "./transactions-client";
 import { cookies } from "next/headers";
 import { TopNav } from "@/components/navigation/top-nav";
+import { BottomNavWrapper } from "@/components/navigation/bottom-nav-wrapper";
 import { AddAction } from "@/components/home/add-action";
 
 export default async function TransactionsPage() {
@@ -145,6 +146,9 @@ export default async function TransactionsPage() {
         initialTopCategories={initialTopCategories}
         initialMerchantSuggestions={initialMerchantSuggestions}
       />
+      {/* Bottom padding for mobile nav */}
+      <div className="h-16 md:hidden" />
+      <BottomNavWrapper />
     </div>
   );
 }

@@ -16,12 +16,16 @@ import {
   getFlowForRange,
   getUpcomingItems,
   getRecentActivity,
+  getWeekStrip,
+  getUpcomingTopEvents,
   type AccountGlobalState,
   type CashflowItem,
   type CalendarEvent,
   type DateRange,
   type RecentActivityItem,
   type UpcomingItem,
+  type WeekStripData,
+  type UpcomingEvent,
 } from "./home.compute";
 
 export type HomeViewModel = {
@@ -55,6 +59,8 @@ export type HomeViewModel = {
   recentActivity: {
     items: RecentActivityItem[];
   };
+  weekStrip: WeekStripData;
+  upcomingEvents: UpcomingEvent[];
   emptyStates: {
     obligations: {
       title: string;
@@ -96,6 +102,13 @@ export type HomeViewModel = {
     dayTransactionsTitle: string;
     dayEmpty: string;
     monthEmpty: string;
+    weekTitle: string;
+    viewMonthCta: string;
+    upcomingTitle: string;
+    monthSummaryTitle: string;
+    addForDayCta: string;
+    dotsLegend: string;
+    includesPending: string;
   };
 };
 
@@ -109,10 +122,15 @@ export type BuildHomeViewModelInput = {
   upcomingTransactions?: Transaction[];
   recentTransactions?: Transaction[];
   balanceTransactions?: Transaction[];
+  weekTransactions?: Transaction[];
+  weekObligations?: Obligation[];
   month?: Date;
   nextDays?: number;
   recentLimit?: number;
+  upcomingEventsLimit?: number;
+  locale?: string;
   now?: Date;
+  weekReference?: Date;
   /** Optional expanded date range for calendar events (to show adjacent month days) */
   calendarEventRange?: { start: Date; end: Date };
 };
@@ -138,10 +156,15 @@ export function buildHomeViewModel({
   upcomingTransactions,
   recentTransactions,
   balanceTransactions,
+  weekTransactions,
+  weekObligations,
   month,
   nextDays = 7,
   recentLimit = 6,
+  upcomingEventsLimit = 3,
+  locale = "es",
   now,
+  weekReference,
   calendarEventRange,
 }: BuildHomeViewModelInput): HomeViewModel {
   const nowDate = now ?? new Date();
@@ -187,6 +210,26 @@ export function buildHomeViewModel({
     t(dictionary, "home.recentFallbackTitle")
   );
 
+  // WeekStrip data
+  const weekStripData = getWeekStrip(
+    weekObligations ?? obligations,
+    weekTransactions ?? monthlyTransactions,
+    nowDate,
+    weekReference
+  );
+
+  // Upcoming top events (2-3 next events with day labels)
+  const upcomingEventsData = getUpcomingTopEvents(
+    obligations,
+    cashflowTransactions,
+    nextDays,
+    upcomingEventsLimit,
+    account.base_currency,
+    t(dictionary, "home.recentFallbackTitle"),
+    locale,
+    nowDate
+  );
+
   const hasActivity = monthlyTransactions.length > 0;
   const isGuestReadOnly = role === "viewer";
 
@@ -224,6 +267,8 @@ export function buildHomeViewModel({
     recentActivity: {
       items: recentItems,
     },
+    weekStrip: weekStripData,
+    upcomingEvents: upcomingEventsData,
     emptyStates: {
       obligations: {
         title: t(dictionary, "home.emptyObligationsTitle"),
@@ -265,6 +310,13 @@ export function buildHomeViewModel({
       dayTransactionsTitle: t(dictionary, "home.dayTransactionsTitle"),
       dayEmpty: t(dictionary, "home.dayEmpty"),
       monthEmpty: t(dictionary, "home.monthEmpty"),
+      weekTitle: t(dictionary, "home.weekTitle"),
+      viewMonthCta: t(dictionary, "home.viewMonthCta"),
+      upcomingTitle: t(dictionary, "home.upcomingTitle"),
+      monthSummaryTitle: t(dictionary, "home.monthSummaryTitle"),
+      addForDayCta: t(dictionary, "home.addForDayCta"),
+      dotsLegend: t(dictionary, "home.dotsLegend"),
+      includesPending: t(dictionary, "home.includesPending"),
     },
   };
 }

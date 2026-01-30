@@ -459,6 +459,21 @@ export function TransactionsClient({
         category_id: undefined,
       }));
     }
+    const dateParam = searchParams.get("date");
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      setFormData((prev) => ({
+        ...prev,
+        date: dateParam,
+      }));
+      setRepeatConfig((prev) => ({
+        ...prev,
+        startDate: dateParam,
+      }));
+      setObligationForm((prev) => ({
+        ...prev,
+        due_date: dateParam,
+      }));
+    }
     if (nextKind === "recurring") {
       setRepeatConfig((prev) => ({
         ...prev,

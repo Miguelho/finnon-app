@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { type AccountSummaryData } from "@poleursus/shared";
 import { TopNav } from "@/components/navigation/top-nav";
+import { BottomNavWrapper } from "@/components/navigation/bottom-nav-wrapper";
 import { PageContainer } from "@/components/layout/page-container";
 import { AccountSummaryClient } from "@/components/account/account-summary-client";
 
@@ -75,6 +76,9 @@ export default async function AccountPage() {
           activeAccountId={activeAccountId}
         />
       </PageContainer>
+      {/* Bottom padding for mobile nav */}
+      <div className="h-16 md:hidden" />
+      <BottomNavWrapper />
     </div>
   );
 }

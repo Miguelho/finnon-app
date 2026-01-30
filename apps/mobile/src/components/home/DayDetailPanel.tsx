@@ -25,6 +25,8 @@ type DayDetailPanelProps = {
   canEdit: boolean;
   onClose: () => void;
   onToggleObligation: (item: { id: string; status: "pending" | "paid" }) => void;
+  onAddForDay?: (date: Date) => void;
+  onViewMonth?: () => void;
   copy: {
     balanceLabel: string;
     incomeLabel: string;
@@ -39,6 +41,8 @@ type DayDetailPanelProps = {
     closeLabel: string;
     statusPaidLabel: string;
     statusPendingLabel: string;
+    addForDayCta?: string;
+    viewMonthCta?: string;
   };
 };
 
@@ -55,6 +59,8 @@ export function DayDetailPanel({
   canEdit,
   onClose,
   onToggleObligation,
+  onAddForDay,
+  onViewMonth,
   copy,
 }: DayDetailPanelProps) {
   const [expanded, setExpanded] = useState(false);
@@ -275,6 +281,26 @@ export function DayDetailPanel({
                 ))}
               </View>
             )}
+
+            {/* Action buttons */}
+            <View style={styles.actionsSection}>
+              {canEdit && onAddForDay && copy.addForDayCta && (
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={() => onAddForDay(summary.date)}
+                >
+                  <Text style={styles.addButtonText}>{copy.addForDayCta}</Text>
+                </TouchableOpacity>
+              )}
+              {onViewMonth && copy.viewMonthCta && (
+                <TouchableOpacity
+                  style={styles.viewMonthLink}
+                  onPress={onViewMonth}
+                >
+                  <Text style={styles.viewMonthText}>{copy.viewMonthCta}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </ScrollView>
         </View>
       </View>
@@ -421,5 +447,31 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.6,
+  },
+  actionsSection: {
+    gap: tokens.spacing.md,
+    paddingTop: tokens.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.state.neutral,
+  },
+  addButton: {
+    backgroundColor: colors.action.primary,
+    borderRadius: tokens.radii.md,
+    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.md,
+    alignItems: "center",
+  },
+  addButtonText: {
+    ...typography.body,
+    fontWeight: "600",
+    color: colors.bg.primary,
+  },
+  viewMonthLink: {
+    alignItems: "center",
+    paddingVertical: tokens.spacing.xs,
+  },
+  viewMonthText: {
+    ...typography.meta,
+    color: colors.action.primary,
   },
 });

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { TopNav } from "@/components/navigation/top-nav";
+import { BottomNavWrapper } from "@/components/navigation/bottom-nav-wrapper";
 import { GoalClient } from "./goal-client";
 import {
   addMonths,
@@ -103,6 +104,9 @@ export default async function GoalPage() {
         initialTransactions={transactions ?? []}
         initialPreviousExpenseTotalMinor={previousExpenseTotalMinor.toString()}
       />
+      {/* Bottom padding for mobile nav */}
+      <div className="h-16 md:hidden" />
+      <BottomNavWrapper />
     </div>
   );
 }

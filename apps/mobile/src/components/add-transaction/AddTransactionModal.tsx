@@ -24,6 +24,7 @@ interface AddTransactionModalProps {
   type?: "income" | "expense";
   accountId: string;
   currency: string;
+  defaultDate?: string;
   onClose: () => void;
   onSuccess?: () => void;
 }
@@ -33,6 +34,7 @@ export function AddTransactionModal({
   type = "expense",
   accountId,
   currency,
+  defaultDate,
   onClose,
   onSuccess,
 }: AddTransactionModalProps) {
@@ -162,12 +164,14 @@ export function AddTransactionModal({
           </View>
         ) : (
           <AddTransactionForm
+            key={`${accountId}-${type}-${defaultDate ?? "new"}`}
             type={type}
             accountId={accountId}
             currency={currency}
             categories={categories}
             topCategories={topCategories}
             merchantSuggestions={merchantSuggestions}
+            defaultDate={defaultDate}
             onSuccess={handleSuccess}
             onCancel={onClose}
           />

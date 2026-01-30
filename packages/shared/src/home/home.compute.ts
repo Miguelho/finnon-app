@@ -115,6 +115,39 @@ export type DaySummary = {
   hasActivity: boolean;
 };
 
+// WeekStrip types
+export type DotColorKey = "positive" | "negative" | "warning";
+
+export type DotInfo = {
+  type: "income" | "expense" | "pending";
+  color: DotColorKey;
+};
+
+export type WeekDay = {
+  date: Date;
+  dayKey: string;
+  dayOfMonth: number;
+  dayOfWeek: number; // 0=Monday, 6=Sunday
+  isToday: boolean;
+  dots: DotInfo[];
+  overflowCount: number;
+};
+
+export type WeekStripData = {
+  days: WeekDay[];
+  weekRange: DateRange;
+};
+
+export type UpcomingEvent = {
+  id: string;
+  dayLabel: string; // "Vie", "Lun", etc.
+  title: string;
+  amountMinor: bigint;
+  currency: string;
+  type: "income" | "expense";
+  isPending: boolean;
+};
+
 const toDate = (value: string | Date | null | undefined): Date | null => {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
@@ -630,4 +663,243 @@ export function getSummaryForDay(
     hasActivity:
       dayObligations.length > 0 || recurring.length > 0 || oneOff.length > 0,
   };
+}
+
+/**
+ * Returns the Monday of the week containing the given date.
+ * Week starts on Monday (ISO week).
+ */
+export function getStartOfWeek(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  // Convert Sunday (0) to 7, then subtract to get Monday
+  const diff = day === 0 ? 6 : day - 1;
+  d.setDate(d.getDate() - diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/**
+ * Returns the ISO week number for a given date (1-53).
+ * Week 1 is the week containing the first Thursday of the year.
+ */
+export function getISOWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  // Set to nearest Thursday: current date + 4 - current day number
+  // Make Sunday's day number 7
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  // Get first day of year
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  // Calculate full weeks to nearest Thursday
+  const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return weekNo;
+}
+
+/**
+ * Returns the week info for a given date: week number and month names it spans.
+ */
+export function getWeekInfo(date: Date, locale: string = "es"): { weekNumber: number; monthLabel: string } {
+  const weekStart = getStartOfWeek(date);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+
+  const weekNumber = getISOWeekNumber(date);
+
+  const startMonth = weekStart.toLocaleDateString(locale, { month: "short" });
+  const endMonth = weekEnd.toLocaleDateString(locale, { month: "short" });
+
+  // If week spans two months, show both
+  const monthLabel = weekStart.getMonth() === weekEnd.getMonth()
+    ? startMonth
+    : `${startMonth} - ${endMonth}`;
+
+  return { weekNumber, monthLabel };
+}
+
+/**
+ * Returns a WeekStripData with 7 days (Monday to Sunday) containing dots for events.
+ * Dots represent: income (positive/green), expense (negative/red), pending (warning/yellow).
+ * Maximum 3 dots shown per day, rest counted in overflowCount.
+ * @param referenceWeek - The Monday of the week to display (defaults to current week)
+ * @param now - The current date for determining "today" styling
+ */
+export function getWeekStrip(
+  obligations: Obligation[],
+  transactions: Transaction[],
+  now?: Date,
+  referenceWeek?: Date
+): WeekStripData {
+  const today = now ?? new Date();
+  const weekStart = referenceWeek ? getStartOfWeek(referenceWeek) : getStartOfWeek(today);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+
+  const todayKey = toDayKey(today);
+  const MAX_DOTS = 3;
+
+  const days: WeekDay[] = [];
+
+  for (let i = 0; i < 7; i++) {
+    const dayDate = new Date(weekStart);
+    dayDate.setDate(weekStart.getDate() + i);
+    const dayKey = toDayKey(dayDate);
+
+    const allDots: DotInfo[] = [];
+
+    // Collect dots from obligations
+    obligations.forEach((obligation) => {
+      const dueDate = toDate(obligation.due_date);
+      if (!dueDate || toDayKey(dueDate) !== dayKey) return;
+
+      const isPending = obligation.status !== "paid";
+      allDots.push({
+        type: isPending ? "pending" : "expense",
+        color: isPending ? "warning" : "negative",
+      });
+    });
+
+    // Collect dots from transactions
+    transactions.forEach((transaction) => {
+      const txDate = toDate(transaction.date);
+      if (!txDate || toDayKey(txDate) !== dayKey) return;
+
+      const isFuture = startOfDay(txDate).getTime() > startOfDay(today).getTime();
+
+      if (isFuture) {
+        // Future transactions shown as pending
+        allDots.push({
+          type: "pending",
+          color: "warning",
+        });
+      } else {
+        allDots.push({
+          type: transaction.type,
+          color: transaction.type === "income" ? "positive" : "negative",
+        });
+      }
+    });
+
+    // Limit to MAX_DOTS and calculate overflow
+    const visibleDots = allDots.slice(0, MAX_DOTS);
+    const overflowCount = Math.max(0, allDots.length - MAX_DOTS);
+
+    days.push({
+      date: dayDate,
+      dayKey,
+      dayOfMonth: dayDate.getDate(),
+      dayOfWeek: i, // 0=Monday, 6=Sunday
+      isToday: dayKey === todayKey,
+      dots: visibleDots,
+      overflowCount,
+    });
+  }
+
+  return {
+    days,
+    weekRange: { start: weekStart, end: weekEnd },
+  };
+}
+
+const DAY_LABELS_SHORT = {
+  es: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"] as const,
+  en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const,
+} as const;
+
+type SupportedLocale = keyof typeof DAY_LABELS_SHORT;
+
+const getDayLabel = (locale: string, mondayIndex: number): string => {
+  const labels = DAY_LABELS_SHORT[locale as SupportedLocale] ?? DAY_LABELS_SHORT.es;
+  return labels[mondayIndex] ?? labels[0];
+};
+
+/**
+ * Returns the top N upcoming events (obligations + transactions) within a date range.
+ * Events are formatted with short day labels (e.g., "Vie", "Lun").
+ */
+export function getUpcomingTopEvents(
+  obligations: Obligation[],
+  transactions: Transaction[],
+  rangeDays: number,
+  limit: number,
+  baseCurrency: string | undefined,
+  fallbackTitle: string,
+  locale: string = "es",
+  now?: Date
+): UpcomingEvent[] {
+  const reference = now ?? new Date();
+  const start = startOfDay(reference);
+  const end = new Date(start);
+  end.setDate(end.getDate() + rangeDays);
+  end.setHours(23, 59, 59, 999);
+
+  const range: DateRange = { start, end };
+  const events: UpcomingEvent[] = [];
+
+  // Collect from obligations (pending only)
+  obligations.forEach((obligation) => {
+    if (obligation.status === "paid") return;
+    const dueDate = toDate(obligation.due_date);
+    if (!dueDate || !isWithinRange(dueDate, range)) return;
+
+    // Skip today's obligations
+    if (isSameDay(dueDate, reference)) return;
+
+    const dayOfWeek = dueDate.getDay();
+    // Convert to Monday-based index (0=Mon, 6=Sun)
+    const mondayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+    events.push({
+      id: obligation.id,
+      dayLabel: getDayLabel(locale, mondayIndex),
+      title: obligation.name,
+      amountMinor: toMinor(obligation.amount_base_minor ?? obligation.amount_minor),
+      currency: baseCurrency || obligation.currency,
+      type: "expense",
+      isPending: true,
+    });
+  });
+
+  // Collect from future transactions
+  transactions.forEach((transaction) => {
+    const txDate = toDate(transaction.date);
+    if (!txDate || !isWithinRange(txDate, range)) return;
+
+    // Skip past and today's transactions
+    if (txDate.getTime() <= start.getTime()) return;
+
+    const dayOfWeek = txDate.getDay();
+    const mondayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const categoryName = transaction.category?.name ?? null;
+
+    events.push({
+      id: transaction.id,
+      dayLabel: getDayLabel(locale, mondayIndex),
+      title: transaction.merchant || categoryName || fallbackTitle,
+      amountMinor: toMinor(transaction.amount_base_minor ?? transaction.amount_minor),
+      currency: baseCurrency || transaction.currency,
+      type: transaction.type,
+      isPending: true,
+    });
+  });
+
+  // Sort by date (using dayLabel order isn't reliable, so we need to track dates)
+  // For simplicity, re-collect with dates for sorting
+  const eventsWithDates = events.map((event) => {
+    // Find the original date
+    const obligation = obligations.find((o) => o.id === event.id);
+    const transaction = transactions.find((t) => t.id === event.id);
+    const date = obligation
+      ? toDate(obligation.due_date)
+      : transaction
+        ? toDate(transaction.date)
+        : new Date();
+    return { ...event, date: date ?? new Date() };
+  });
+
+  eventsWithDates.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  // Return limited results without the temporary date field
+  return eventsWithDates.slice(0, limit).map(({ date, ...rest }) => rest);
 }

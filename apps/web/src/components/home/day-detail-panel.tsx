@@ -17,6 +17,8 @@ type DayDetailPanelProps = {
   onClose: () => void;
   onToggleExpand?: () => void;
   onToggleObligation: (item: { id: string; status: "pending" | "paid" }) => void;
+  onAddForDay?: (date: Date) => void;
+  onViewMonth?: () => void;
   copy: {
     balanceLabel: string;
     incomeLabel: string;
@@ -31,6 +33,8 @@ type DayDetailPanelProps = {
     closeLabel: string;
     statusPaidLabel: string;
     statusPendingLabel: string;
+    addForDayCta?: string;
+    viewMonthCta?: string;
   };
 };
 
@@ -50,6 +54,8 @@ export function DayDetailPanel({
   onClose,
   onToggleExpand,
   onToggleObligation,
+  onAddForDay,
+  onViewMonth,
   copy,
 }: DayDetailPanelProps) {
   if (variant === "sheet" && (!isOpen || !summary)) return null;
@@ -353,6 +359,37 @@ export function DayDetailPanel({
           ))}
         </div>
       )}
+
+      {(onAddForDay || onViewMonth) && (
+        <div
+          className="space-y-3 border-t pt-4"
+          style={{ borderColor: colors.state.neutral }}
+        >
+          {canEdit && onAddForDay && copy.addForDayCta && (
+            <button
+              type="button"
+              onClick={() => onAddForDay(summary.date)}
+              className="w-full rounded-lg px-4 py-2 text-sm font-semibold"
+              style={{
+                backgroundColor: colors.action.primary,
+                color: colors.bg.primary,
+              }}
+            >
+              {copy.addForDayCta}
+            </button>
+          )}
+          {onViewMonth && copy.viewMonthCta && (
+            <button
+              type="button"
+              onClick={onViewMonth}
+              className="text-sm"
+              style={{ color: colors.action.primary }}
+            >
+              {copy.viewMonthCta}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   ) : (
     <p style={{ color: colors.text.secondary }}>{copy.dayEmpty}</p>
@@ -420,7 +457,14 @@ export function DayDetailPanel({
             {copy.closeLabel}
           </button>
         </div>
-        <div className="max-h-[72vh] overflow-y-auto px-5 pb-6 pt-4">
+        <div
+          className="max-h-[72vh] overflow-y-auto px-5 pb-6 pt-4"
+          style={{
+            overscrollBehavior: "contain",
+            WebkitOverflowScrolling: "touch",
+            touchAction: "pan-y",
+          }}
+        >
           {panelContent}
         </div>
       </div>

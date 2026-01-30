@@ -22,7 +22,8 @@ import { Button } from "../../../../src/components/Button";
 import { AddActionSheet } from "../../../../src/components/AddActionSheet";
 import { AddTransactionModal } from "../../../../src/components/add-transaction";
 import { CashFlowArrows } from "../../../../src/components/home/CashFlowArrows";
-import { MonthMap } from "../../../../src/components/home/MonthMap";
+import { WeekStrip } from "../../../../src/components/home/WeekStrip";
+import { MonthViewModal } from "../../../../src/components/home/MonthViewModal";
 import { DayDetailPanel } from "../../../../src/components/home/DayDetailPanel";
 import { CategoryIcon } from "../../../../src/components/CategoryIcon";
 import {
@@ -31,7 +32,7 @@ import {
   createTypographyStyles,
   formatMoneyWithSymbol,
   getExpandedMonthRange,
-  getMonthRange,
+  getWeekInfo,
   getSummaryForDay,
   markObligationPaid,
   themeTokens,
@@ -227,22 +228,14 @@ export default function HomeScreen() {
   const [inviteCount, setInviteCount] = useState(0);
   const [nextDays, setNextDays] = useState<number>(CASHFLOW_DAYS_OPTIONS[0]);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [isMonthViewOpen, setIsMonthViewOpen] = useState(false);
   const [isDayPanelOpen, setIsDayPanelOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState<Date>(new Date());
-
-  const handlePrevMonth = () => {
-    setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
-  };
-
-  const handleNextMonth = () => {
-    setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
-  };
-
-  const viewMonthLabel = viewMonth.toLocaleDateString(locale, {
-    month: "long",
-    year: "numeric",
-  });
+  const [weekReference, setWeekReference] = useState<Date>(new Date());
+  const [transactionDefaultDate, setTransactionDefaultDate] = useState<
+    string | null
+  >(null);
 
   const mainAccount = useMemo(() => {
     if (!accounts || accounts.length === 0) return null;
@@ -335,6 +328,13 @@ export default function HomeScreen() {
       setSelectedAccountId(accounts[0]?.id ?? null);
     }
   }, [accounts, selectedAccountId, setSelectedAccountId]);
+
+  useEffect(() => {
+    if (loadingAccounts || loadingTransactions) return;
+    if (accounts && accounts.length === 0) {
+      router.replace("/(auth)/select-account");
+    }
+  }, [accounts, loadingAccounts, loadingTransactions, router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -431,19 +431,27 @@ export default function HomeScreen() {
     };
   }, [mainAccount?.id, isFocused, viewMonth]);
 
+  const calendarTransactions = useMemo(() => {
+    const map = new Map<string, Transaction>();
+    [...monthlyTransactions, ...upcomingTransactions].forEach((item) => {
+      map.set(item.id, item);
+    });
+    return Array.from(map.values());
+  }, [monthlyTransactions, upcomingTransactions]);
+
   const daySummary = useMemo(() => {
     if (!selectedDay || !mainAccount) return null;
     return getSummaryForDay(
       selectedDay,
       obligations,
-      monthlyTransactions,
+      calendarTransactions,
       mainAccount.base_currency,
       t(dictionary, "home.recentFallbackTitle")
     );
   }, [
     selectedDay,
     obligations,
-    monthlyTransactions,
+    calendarTransactions,
     mainAccount,
     dictionary,
   ]);
@@ -484,7 +492,6 @@ export default function HomeScreen() {
   }
 
   if (!accounts || accounts.length === 0) {
-    router.replace("/(auth)/select-account");
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" />
@@ -517,9 +524,16 @@ export default function HomeScreen() {
     month: viewMonth,
     nextDays,
     recentLimit: 6,
+    upcomingEventsLimit: 3,
+    locale,
     now: today,
     calendarEventRange,
+    weekReference,
+    weekTransactions: calendarTransactions,
+    weekObligations: obligations,
   });
+  const weekInfo = getWeekInfo(weekReference, locale);
+  const weekLabel = `${weekInfo.weekNumber} · ${weekInfo.monthLabel}`;
   const cashflowNetMinor =
     viewModel.cashflow.incomeMinor - viewModel.cashflow.expenseMinor;
   const formatSignedBalance = (amountMinor: bigint) => {
@@ -533,6 +547,18 @@ export default function HomeScreen() {
   };
   const balancePendingText = t(dictionary, "home.pendingChipLabel", {
     amount: formatSignedBalance(-viewModel.monthOverview.expensePendingMinor),
+  });
+  const monthNetMinor = viewModel.monthOverview.balanceEomMinor;
+  const monthNetFormatted = formatSignedBalance(monthNetMinor);
+  const pendingTotalMinor =
+    viewModel.monthOverview.incomePendingMinor +
+    viewModel.monthOverview.expensePendingMinor;
+  const pendingTotalText = t(dictionary, "home.includesPending", {
+    amount: formatMoneyWithSymbol(
+      pendingTotalMinor,
+      mainAccount.base_currency,
+      currencySymbol
+    ),
   });
 
   const handleToggleObligationStatus = async (item: {
@@ -571,9 +597,20 @@ export default function HomeScreen() {
     setIsDayPanelOpen(true);
   };
 
+  const shiftWeek = (delta: number) => {
+    setWeekReference((prev) => {
+      const next = new Date(prev);
+      next.setDate(next.getDate() + delta);
+      return next;
+    });
+    setSelectedDay(null);
+    setIsDayPanelOpen(false);
+  };
+
   const handleAddAction = (key: AddActionKey) => {
     switch (key) {
       case "movement":
+        setTransactionDefaultDate(null);
         setIsTransactionModalOpen(true);
         return;
       case "recurring":
@@ -587,6 +624,7 @@ export default function HomeScreen() {
   const handleTransactionSuccess = () => {
     // Reload transactions after successful creation
     setIsTransactionModalOpen(false);
+    setTransactionDefaultDate(null);
   };
 
   return (
@@ -616,50 +654,19 @@ export default function HomeScreen() {
         )}
         {/* Hero */}
         <View style={styles.heroCard}>
-          {/* 1. Este mes - Month Header with Navigation */}
+          {/* 1. Resumen del mes */}
           <View style={[styles.heroSection, styles.heroSectionFirst]}>
             <Text style={styles.sectionTitle}>
-              {t(dictionary, "mobile.home.monthTitle")}
+              {viewModel.copy.monthSummaryTitle}
             </Text>
-            <View style={styles.monthNavRow}>
-              <TouchableOpacity
-                onPress={handlePrevMonth}
-                style={styles.monthNavButton}
-                accessibilityLabel={t(dictionary, "transactions.previousMonth")}
-              >
-                <MaterialCommunityIcons
-                  name="chevron-left"
-                  size={24}
-                  color={colors.text.secondary}
-                />
-              </TouchableOpacity>
-              <Text style={styles.monthNavLabel}>{viewMonthLabel}</Text>
-              <TouchableOpacity
-                onPress={handleNextMonth}
-                style={styles.monthNavButton}
-                accessibilityLabel={t(dictionary, "transactions.nextMonth")}
-              >
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={24}
-                  color={colors.text.secondary}
-                />
-              </TouchableOpacity>
+            <View style={styles.monthNetRow}>
+              <Text style={styles.monthNetValue}>{monthNetFormatted}</Text>
+              {pendingTotalMinor > 0n && (
+                <View style={styles.pendingChipInline}>
+                  <Text style={styles.pendingChipInlineText}>{pendingTotalText}</Text>
+                </View>
+              )}
             </View>
-
-            {/* 2. Calendar */}
-            <MonthMap
-              month={viewMonth}
-              locale={locale}
-              events={viewModel.calendar.events}
-              highlightRange={viewModel.calendar.highlightRange}
-              selectedDate={selectedDay}
-              onSelectDate={handleSelectDay}
-            />
-
-            {viewModel.calendar.events.length === 0 && (
-              <Text style={styles.emptyText}>{viewModel.copy.monthEmpty}</Text>
-            )}
           </View>
 
           {/* 3. Income - Expenses */}
@@ -752,10 +759,10 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* 5. Próximos X días (Cashflow) */}
+          {/* 4. Próximos X días (Cashflow) */}
           <View style={styles.heroSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{viewModel.copy.cashflowTitle}</Text>
+              <Text style={styles.sectionTitle}>{viewModel.copy.upcomingTitle}</Text>
               <View style={styles.daySelector}>
                 {CASHFLOW_DAYS_OPTIONS.map((days) => (
                   <TouchableOpacity
@@ -781,17 +788,70 @@ export default function HomeScreen() {
             {viewModel.cashflow.items.length === 0 ? (
               <Text style={styles.emptyText}>{viewModel.emptyStates.upcoming}</Text>
             ) : (
-              <CashFlowArrows
-                incomeMinor={viewModel.cashflow.incomeMinor}
-                expenseMinor={viewModel.cashflow.expenseMinor}
-                netMinor={cashflowNetMinor}
-                currency={mainAccount.base_currency}
-                currencySymbol={currencySymbol}
-                incomeLabel={viewModel.copy.incomeLabel}
-                expenseLabel={viewModel.copy.expenseLabel}
-                balanceLabel={viewModel.copy.balanceLabel}
-              />
+              <>
+                <CashFlowArrows
+                  incomeMinor={viewModel.cashflow.incomeMinor}
+                  expenseMinor={viewModel.cashflow.expenseMinor}
+                  netMinor={cashflowNetMinor}
+                  currency={mainAccount.base_currency}
+                  currencySymbol={currencySymbol}
+                  incomeLabel={viewModel.copy.incomeLabel}
+                  expenseLabel={viewModel.copy.expenseLabel}
+                  balanceLabel={viewModel.copy.balanceLabel}
+                />
+                <View style={styles.upcomingEventsList}>
+                  {viewModel.cashflow.items.slice(0, 10).map((item) => {
+                    const dayLabel = item.date.toLocaleDateString(locale, {
+                      weekday: "short",
+                    });
+                    return (
+                      <View key={item.id} style={styles.upcomingEventRow}>
+                        <Text style={styles.upcomingEventLabel}>
+                          {dayLabel}: {item.title}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.upcomingEventAmount,
+                            item.type === "income"
+                              ? styles.amountPositive
+                              : styles.amountNegative,
+                          ]}
+                        >
+                          {item.type === "expense" ? "-" : "+"}
+                          {formatMoneyWithSymbol(
+                            item.amountMinor,
+                            mainAccount.base_currency,
+                            currencySymbol
+                          )}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                  {viewModel.cashflow.items.length > 10 && (
+                    <Text style={styles.upcomingMoreText}>
+                      {t(dictionary, "home.upcomingMoreMessage")}
+                    </Text>
+                  )}
+                </View>
+              </>
             )}
+          </View>
+
+          {/* 5. Semana */}
+          <View style={styles.heroSection}>
+            <WeekStrip
+              days={viewModel.weekStrip.days}
+              locale={locale}
+              selectedDate={selectedDay}
+              onSelectDate={handleSelectDay}
+              onViewMonth={() => setIsMonthViewOpen(true)}
+              onPrevWeek={() => shiftWeek(-7)}
+              onNextWeek={() => shiftWeek(7)}
+              weekTitle={viewModel.copy.weekTitle}
+              weekLabel={weekLabel}
+              viewMonthCta={viewModel.copy.viewMonthCta}
+              dotsLegend={viewModel.copy.dotsLegend}
+            />
           </View>
 
           {viewModel.permissions.isGuestReadOnly && (
@@ -886,6 +946,15 @@ export default function HomeScreen() {
           setSelectedDay(null);
         }}
         onToggleObligation={handleToggleObligationStatus}
+        onAddForDay={(date) => {
+          setIsDayPanelOpen(false);
+          setTransactionDefaultDate(date.toISOString().slice(0, 10));
+          setIsTransactionModalOpen(true);
+        }}
+        onViewMonth={() => {
+          setIsDayPanelOpen(false);
+          setIsMonthViewOpen(true);
+        }}
         copy={{
           balanceLabel: viewModel.copy.balanceLabel,
           incomeLabel: viewModel.copy.incomeLabel,
@@ -900,6 +969,8 @@ export default function HomeScreen() {
           closeLabel: t(dictionary, "common.close"),
           statusPaidLabel: t(dictionary, "obligations.create.statusPaid"),
           statusPendingLabel: t(dictionary, "obligations.create.statusPending"),
+          addForDayCta: viewModel.copy.addForDayCta,
+          viewMonthCta: viewModel.copy.viewMonthCta,
         }}
       />
 
@@ -922,8 +993,31 @@ export default function HomeScreen() {
           visible={isTransactionModalOpen}
           accountId={mainAccount.id}
           currency={mainAccount.base_currency}
-          onClose={() => setIsTransactionModalOpen(false)}
+          defaultDate={transactionDefaultDate ?? undefined}
+          onClose={() => {
+            setIsTransactionModalOpen(false);
+            setTransactionDefaultDate(null);
+          }}
           onSuccess={handleTransactionSuccess}
+        />
+      )}
+
+      {/* Month View Modal */}
+      {mainAccount && (
+        <MonthViewModal
+          visible={isMonthViewOpen}
+          onClose={() => setIsMonthViewOpen(false)}
+          accountId={mainAccount.id}
+          locale={locale}
+          baseCurrency={mainAccount.base_currency}
+          fallbackTitle={t(dictionary, "home.recentFallbackTitle")}
+          obligations={obligations}
+          transactions={monthlyTransactions}
+          initialMonth={selectedDay ?? weekReference ?? new Date()}
+          onSelectDate={(date) => {
+            handleSelectDay(date);
+            // Modal stays open so user can browse days without reopening
+          }}
         />
       )}
     </View>
@@ -1006,27 +1100,28 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     paddingTop: 0,
   },
-  monthHeader: {
+  monthNetRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-  },
-  monthMeta: {
-    ...typography.meta,
-    color: colors.text.secondary,
-  },
-  monthNavRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexWrap: "wrap",
     gap: tokens.spacing.sm,
   },
-  monthNavButton: {
-    padding: tokens.spacing.xs,
-  },
-  monthNavLabel: {
-    ...typography.body,
+  monthNetValue: {
+    fontSize: typography.display.fontSize,
+    fontWeight: typography.display.fontWeight as "700",
     color: colors.text.primary,
-    textTransform: "capitalize",
+  },
+  pendingChipInline: {
+    borderRadius: tokens.radii.pill,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: 4,
+    backgroundColor: colors.bg.secondary,
+  },
+  pendingChipInlineText: {
+    ...typography.meta,
+    color: colors.text.secondary,
   },
   balanceCard: {
     borderRadius: tokens.radii.lg,
@@ -1233,6 +1328,28 @@ const styles = StyleSheet.create({
   listRowAmount: {
     ...typography.body,
     color: colors.text.primary,
+  },
+  upcomingEventsList: {
+    marginTop: tokens.spacing.sm,
+    gap: tokens.spacing.xs,
+  },
+  upcomingEventRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  upcomingEventLabel: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    flex: 1,
+  },
+  upcomingEventAmount: {
+    ...typography.caption,
+    fontWeight: "500",
+  },
+  upcomingMoreText: {
+    ...typography.caption,
+    color: colors.text.secondary,
   },
   amountPositive: {
     color: colors.state.positive,

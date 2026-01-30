@@ -82,6 +82,7 @@ interface AddTransactionFormProps {
     expense: MerchantSuggestion[];
     income: MerchantSuggestion[];
   };
+  defaultDate?: string;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
@@ -93,6 +94,7 @@ export function AddTransactionForm({
   categories,
   topCategories,
   merchantSuggestions,
+  defaultDate,
   onSuccess,
   onCancel,
 }: AddTransactionFormProps) {
@@ -101,7 +103,7 @@ export function AddTransactionForm({
 
   // Form state
   const [draft, setDraft] = useState<TransactionDraft>(() =>
-    createInitialDraft(type, currency)
+    createInitialDraft(type, currency, defaultDate)
   );
 
   // Get current top categories and merchant suggestions based on draft type
