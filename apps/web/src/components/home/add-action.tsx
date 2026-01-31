@@ -84,14 +84,18 @@ export function AddAction({
     <>
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 rounded-full px-5 py-6 shadow-lg"
+        className="fixed right-6 z-50 rounded-full px-5 py-6 shadow-lg bottom-[calc(1.5rem+env(safe-area-inset-bottom)+4rem)] md:bottom-6"
       >
         + {t("home.addCta")}
       </Button>
 
       {/* Action menu */}
       <SlidePanel open={isOpen} onOpenChange={setIsOpen}>
-        <SlidePanelContent>
+        <SlidePanelContent className="h-auto max-h-[80vh] md:h-screen md:max-h-none">
+          <div
+            className="mx-auto mt-3 h-1 w-11 rounded-full bg-border"
+            aria-hidden
+          />
           <SlidePanelHeader>
             <SlidePanelTitle>{t("home.addCta")}</SlidePanelTitle>
           </SlidePanelHeader>
