@@ -11,6 +11,7 @@ import { Info, CaretLeft, CaretRight } from "phosphor-react-native";
 import {
   createTypographyStyles,
   themeTokens,
+  isSameDay,
   type WeekDay,
   type DotColorKey,
 } from "@poleursus/shared";
@@ -45,15 +46,6 @@ const DOT_COLORS: Record<DotColorKey, string> = {
   positive: colors.state.positive,
   negative: colors.state.negative,
   warning: colors.state.warning,
-};
-
-const isSameDay = (date1: Date | null, date2: Date): boolean => {
-  if (!date1) return false;
-  return (
-    date1.getFullYear() === date2.getFullYear() &&
-    date1.getMonth() === date2.getMonth() &&
-    date1.getDate() === date2.getDate()
-  );
 };
 
 export function WeekStrip({

@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 import {
   createTypographyStyles,
   themeTokens,
+  isSameDay,
   type WeekDay,
   type DotColorKey,
 } from "@poleursus/shared";
@@ -54,15 +55,6 @@ export function WeekStrip({
   const colors = themeTokens.light.colors;
   const typography = createTypographyStyles(themeTokens.light);
   const dayNames = getDayNames(locale);
-
-  const isSameDay = (date1: Date | null, date2: Date): boolean => {
-    if (!date1) return false;
-    return (
-      date1.getFullYear() === date2.getFullYear() &&
-      date1.getMonth() === date2.getMonth() &&
-      date1.getDate() === date2.getDate()
-    );
-  };
 
   return (
     <div className="space-y-3">

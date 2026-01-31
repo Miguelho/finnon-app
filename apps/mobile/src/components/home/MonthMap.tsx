@@ -3,8 +3,13 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import {
   createTypographyStyles,
   themeTokens,
-  withAlpha,
+  startOfMonth,
+  endOfMonth,
+  toDayKey,
+  isSameDay,
+  toMondayIndex,
   isFutureDay,
+  getCalendarMarkerStyle,
   type CalendarEvent,
   type DateRange,
 } from "@poleursus/shared";
@@ -21,44 +26,6 @@ type MonthMapProps = {
 const tokens = themeTokens.light;
 const colors = tokens.colors;
 const typography = createTypographyStyles(tokens);
-
-const buildDayKey = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const startOfMonth = (date: Date) =>
-  new Date(date.getFullYear(), date.getMonth(), 1);
-
-const endOfMonth = (date: Date) =>
-  new Date(date.getFullYear(), date.getMonth() + 1, 0);
-
-const isSameDay = (a: Date, b: Date) =>
-  a.getFullYear() === b.getFullYear() &&
-  a.getMonth() === b.getMonth() &&
-  a.getDate() === b.getDate();
-
-const toMondayIndex = (weekday: number) => (weekday + 6) % 7;
-
-const getMarkerStyle = (type: CalendarEvent["type"]) => {
-  switch (type) {
-    case "obligation_paid":
-      return { color: colors.action.primary, shape: "square" as const };
-    case "obligation_pending":
-      return { color: colors.state.warning, shape: "square" as const };
-    case "recurring_income":
-      return { color: colors.state.positive, shape: "ring" as const };
-    case "recurring_expense":
-      return { color: colors.state.negative, shape: "ring" as const };
-    case "one_off_income":
-      return { color: colors.state.positive, shape: "dot" as const };
-    case "one_off_expense":
-    default:
-      return { color: colors.state.negative, shape: "dot" as const };
-  }
-};
 
 export function MonthMap({
   month,
@@ -131,7 +98,7 @@ export function MonthMap({
           >
             {week.map((date, dayIndex) => {
               const isCurrentMonth = date >= monthStart && date <= monthEnd;
-              const dayKey = buildDayKey(date);
+              const dayKey = toDayKey(date);
               const dayEvents = eventsByDay.get(dayKey) ?? [];
               const markers = dayEvents.slice(0, 3);
               const overflowCount = dayEvents.length - markers.length;
@@ -140,9 +107,7 @@ export function MonthMap({
                 highlightRange &&
                 date >= highlightRange.start &&
                 date <= highlightRange.end;
-              const isSelected = selectedDate
-                ? isSameDay(date, selectedDate)
-                : false;
+              const isSelected = isSameDay(date, selectedDate);
 
               return (
                 <TouchableOpacity
@@ -166,11 +131,12 @@ export function MonthMap({
                   </Text>
                   <View style={styles.markerRow}>
                     {markers.map((event) => {
-                      const marker = getMarkerStyle(event.type);
                       const isPending = isFutureDay(event.date);
-                      const markerColor = isPending
-                        ? withAlpha(marker.color, 0.5)
-                        : marker.color;
+                      const marker = getCalendarMarkerStyle(event.type, {
+                        isPending,
+                        colors,
+                      });
+                      const markerColor = marker.color;
                       const markerStyle =
                         marker.shape === "square"
                           ? styles.markerSquare

@@ -7,7 +7,7 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from "react-native";
-import { themeTokens } from "@poleursus/shared";
+import { themeTokens, startOfMonth } from "@poleursus/shared";
 import { MonthMap } from "./home/MonthMap";
 import { useCopy, t } from "../lib/i18n";
 
@@ -26,9 +26,6 @@ const formatIsoDate = (date: Date) => {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 };
-
-const startOfMonth = (date: Date) =>
-  new Date(date.getFullYear(), date.getMonth(), 1);
 
 type DatePickerFieldProps = {
   label: string;
