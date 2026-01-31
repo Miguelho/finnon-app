@@ -22,8 +22,7 @@ import { Button } from "../../../../src/components/Button";
 import { AddActionSheet } from "../../../../src/components/AddActionSheet";
 import { AddTransactionModal } from "../../../../src/components/add-transaction";
 import { CashFlowArrows } from "../../../../src/components/home/CashFlowArrows";
-import { WeekStrip } from "../../../../src/components/home/WeekStrip";
-import { MonthViewModal } from "../../../../src/components/home/MonthViewModal";
+import { CalendarCard } from "../../../../src/components/home/CalendarCard";
 import { DayDetailPanel } from "../../../../src/components/home/DayDetailPanel";
 import { CategoryIcon } from "../../../../src/components/CategoryIcon";
 import {
@@ -228,7 +227,6 @@ export default function HomeScreen() {
   const [inviteCount, setInviteCount] = useState(0);
   const [nextDays, setNextDays] = useState<number>(CASHFLOW_DAYS_OPTIONS[0]);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  const [isMonthViewOpen, setIsMonthViewOpen] = useState(false);
   const [isDayPanelOpen, setIsDayPanelOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState<Date>(new Date());
@@ -858,18 +856,19 @@ export default function HomeScreen() {
 
           {/* 5. Semana */}
           <View style={styles.heroSection}>
-            <WeekStrip
-              days={viewModel.weekStrip.days}
+            <CalendarCard
               locale={locale}
+              days={viewModel.weekStrip.days}
+              obligations={obligations}
+              transactions={calendarTransactions}
+              calendarEvents={viewModel.calendar.events}
               selectedDate={selectedDay}
               onSelectDate={handleSelectDay}
-              onViewMonth={() => setIsMonthViewOpen(true)}
               onPrevWeek={() => shiftWeek(-7)}
               onNextWeek={() => shiftWeek(7)}
               weekTitle={viewModel.copy.weekTitle}
-              weekLabel={weekLabel}
               viewMonthCta={viewModel.copy.viewMonthCta}
-              dotsLegend={viewModel.copy.dotsLegend}
+              viewWeekCta={t(dictionary, "home.viewWeekCta")}
             />
           </View>
 
@@ -970,10 +969,6 @@ export default function HomeScreen() {
           setTransactionDefaultDate(date.toISOString().slice(0, 10));
           setIsTransactionModalOpen(true);
         }}
-        onViewMonth={() => {
-          setIsDayPanelOpen(false);
-          setIsMonthViewOpen(true);
-        }}
         copy={{
           balanceLabel: viewModel.copy.balanceLabel,
           incomeLabel: viewModel.copy.incomeLabel,
@@ -1018,25 +1013,6 @@ export default function HomeScreen() {
             setTransactionDefaultDate(null);
           }}
           onSuccess={handleTransactionSuccess}
-        />
-      )}
-
-      {/* Month View Modal */}
-      {mainAccount && (
-        <MonthViewModal
-          visible={isMonthViewOpen}
-          onClose={() => setIsMonthViewOpen(false)}
-          accountId={mainAccount.id}
-          locale={locale}
-          baseCurrency={mainAccount.base_currency}
-          fallbackTitle={t(dictionary, "home.recentFallbackTitle")}
-          obligations={obligations}
-          transactions={monthlyTransactions}
-          initialMonth={selectedDay ?? weekReference ?? new Date()}
-          onSelectDate={(date) => {
-            handleSelectDay(date);
-            // Modal stays open so user can browse days without reopening
-          }}
         />
       )}
     </View>

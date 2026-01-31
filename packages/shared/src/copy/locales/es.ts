@@ -654,6 +654,7 @@ export const es = {
     monthEmpty: "Aún no hay movimientos este mes.",
     weekTitle: "Semana",
     viewMonthCta: "Ver mes",
+    viewWeekCta: "Ver semana",
     upcomingTitle: "Próximos",
     monthSummaryTitle: "Resumen del mes",
     addForDayCta: "Añadir para este día",

@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import {
   createTypographyStyles,
   themeTokens,
@@ -11,7 +11,17 @@ import {
   getCalendarMarkerStyle,
   type CalendarEvent,
   type DateRange,
+  type DayMarkerData,
 } from "@poleursus/shared";
+
+type DayRenderContext = {
+  date: Date;
+  dayKey: string;
+  isCurrentMonth: boolean;
+  isSelected: boolean;
+  isToday: boolean;
+  markerData: DayMarkerData | undefined;
+};
 
 type MonthMapProps = {
   month: Date;
@@ -20,6 +30,10 @@ type MonthMapProps = {
   highlightRange: DateRange;
   selectedDate?: Date | null;
   onSelectDate: (date: Date) => void;
+  /** Optional marker data for DayMarker rendering */
+  markerData?: Map<string, DayMarkerData>;
+  /** Optional custom day content renderer */
+  renderDayContent?: (context: DayRenderContext) => ReactNode;
 };
 
 const tokens = themeTokens.light;
@@ -33,12 +47,16 @@ export function MonthMap({
   highlightRange,
   selectedDate,
   onSelectDate,
+  markerData,
+  renderDayContent,
 }: MonthMapProps) {
   const monthStart = startOfMonth(month);
   const monthEnd = endOfMonth(month);
   const weekdayStart = toMondayIndex(monthStart.getDay());
   const totalDays = monthEnd.getDate();
   const totalCells = Math.ceil((weekdayStart + totalDays) / 7) * 7;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   const eventsByDay = new Map<string, CalendarEvent[]>();
   events.forEach((event) => {
@@ -82,6 +100,20 @@ export function MonthMap({
             date >= highlightRange.start &&
             date <= highlightRange.end;
           const isSelected = isSameDay(date, selectedDate);
+          const isToday = isSameDay(date, today);
+          const dayMarkerData = markerData?.get(dayKey);
+
+          // Custom render content if provided
+          const customContent = renderDayContent
+            ? renderDayContent({
+                date,
+                dayKey,
+                isCurrentMonth,
+                isSelected,
+                isToday,
+                markerData: dayMarkerData,
+              })
+            : null;
 
           return (
             <button
@@ -111,44 +143,46 @@ export function MonthMap({
               >
                 {date.getDate()}
               </span>
-              <span className="flex items-center gap-1">
-                {markers.map((event) => {
-                  const isPending = isFutureDay(event.date);
-                  const marker = getCalendarMarkerStyle(event.type, {
-                    isPending,
-                    colors,
-                  });
-                  const markerColor = marker.color;
-                  const baseStyle: CSSProperties = {
-                    width: 6,
-                    height: 6,
-                  };
-                  if (marker.shape === "ring") {
-                    baseStyle.borderRadius = 999;
-                    baseStyle.border = `1px solid ${markerColor}`;
-                  } else {
-                    baseStyle.borderRadius = marker.shape === "square" ? 2 : 999;
-                    baseStyle.backgroundColor = markerColor;
-                  }
-                  return (
+              {customContent ?? (
+                <span className="flex items-center gap-1">
+                  {markers.map((event) => {
+                    const isPending = isFutureDay(event.date);
+                    const marker = getCalendarMarkerStyle(event.type, {
+                      isPending,
+                      colors,
+                    });
+                    const markerColor = marker.color;
+                    const baseStyle: CSSProperties = {
+                      width: 6,
+                      height: 6,
+                    };
+                    if (marker.shape === "ring") {
+                      baseStyle.borderRadius = 999;
+                      baseStyle.border = `1px solid ${markerColor}`;
+                    } else {
+                      baseStyle.borderRadius = marker.shape === "square" ? 2 : 999;
+                      baseStyle.backgroundColor = markerColor;
+                    }
+                    return (
+                      <span
+                        key={`${event.id}-${event.type}`}
+                        style={baseStyle}
+                      />
+                    );
+                  })}
+                  {overflowCount > 0 && (
                     <span
-                      key={`${event.id}-${event.type}`}
-                      style={baseStyle}
-                    />
-                  );
-                })}
-                {overflowCount > 0 && (
-                  <span
-                    style={{
-                      fontSize: typography.meta.fontSize,
-                      fontWeight: typography.meta.fontWeight,
-                      color: colors.text.muted,
-                    }}
-                  >
-                    +{overflowCount}
-                  </span>
-                )}
-              </span>
+                      style={{
+                        fontSize: typography.meta.fontSize,
+                        fontWeight: typography.meta.fontWeight,
+                        color: colors.text.muted,
+                      }}
+                    >
+                      +{overflowCount}
+                    </span>
+                  )}
+                </span>
+              )}
             </button>
           );
         })}

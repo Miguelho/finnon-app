@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { CashFlowArrows } from "@/components/home/cash-flow-arrows";
 import { DayDetailPanel } from "@/components/home/day-detail-panel";
-import { WeekStrip } from "@/components/home/week-strip";
-import { MonthViewPanel } from "@/components/home/month-view-panel";
+import { CalendarCard } from "@/components/home/calendar-card";
 import {
   buildHomeViewModel,
   CURRENCIES,
@@ -291,7 +290,6 @@ export function HomeHero({
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [isDayPanelOpen, setIsDayPanelOpen] = useState(false);
   const [sheetExpanded, setSheetExpanded] = useState(false);
-  const [isMonthViewOpen, setIsMonthViewOpen] = useState(false);
 
   const daySummary = useMemo(() => {
     if (!selectedDay) return null;
@@ -322,6 +320,13 @@ export function HomeHero({
       next.setDate(next.getDate() + delta);
       return next;
     });
+    setSelectedDay(null);
+    setIsDayPanelOpen(false);
+    setSheetExpanded(false);
+  };
+
+  const resetToToday = () => {
+    setWeekReference(new Date());
     setSelectedDay(null);
     setIsDayPanelOpen(false);
     setSheetExpanded(false);
@@ -648,18 +653,20 @@ export function HomeHero({
               className="md:hidden border-t pt-4"
               style={{ borderColor: colors.state.neutral }}
             >
-              <WeekStrip
-                days={viewModel.weekStrip.days}
+              <CalendarCard
                 locale={locale}
+                days={viewModel.weekStrip.days}
+                obligations={obligationItems}
+                transactions={calendarTransactions}
+                calendarEvents={viewModel.calendar.events}
                 selectedDate={selectedDay}
                 onSelectDate={handleSelectDay}
-                onViewMonth={() => setIsMonthViewOpen(true)}
                 onPrevWeek={() => shiftWeek(-7)}
                 onNextWeek={() => shiftWeek(7)}
                 weekTitle={viewModel.copy.weekTitle}
-                weekLabel={weekLabel}
                 viewMonthCta={viewModel.copy.viewMonthCta}
-                dotsLegend={viewModel.copy.dotsLegend}
+                viewWeekCta={t(dictionary, "home.viewWeekCta")}
+                onResetToToday={resetToToday}
               />
             </div>
 
@@ -685,21 +692,23 @@ export function HomeHero({
             )}
           </div>
 
-          {/* RIGHT COLUMN: WeekStrip + DayDetail (40% on desktop) */}
+          {/* RIGHT COLUMN: CalendarCard + DayDetail (40% on desktop) */}
           <div className="hidden md:flex md:w-2/5 md:flex-col md:gap-6">
-            {/* WeekStrip - desktop only */}
-            <WeekStrip
-              days={viewModel.weekStrip.days}
+            {/* CalendarCard - desktop only */}
+            <CalendarCard
               locale={locale}
+              days={viewModel.weekStrip.days}
+              obligations={obligationItems}
+              transactions={calendarTransactions}
+              calendarEvents={viewModel.calendar.events}
               selectedDate={selectedDay}
               onSelectDate={handleSelectDay}
-              onViewMonth={() => setIsMonthViewOpen(true)}
               onPrevWeek={() => shiftWeek(-7)}
               onNextWeek={() => shiftWeek(7)}
               weekTitle={viewModel.copy.weekTitle}
-              weekLabel={weekLabel}
               viewMonthCta={viewModel.copy.viewMonthCta}
-              dotsLegend={viewModel.copy.dotsLegend}
+              viewWeekCta={t(dictionary, "home.viewWeekCta")}
+              onResetToToday={resetToToday}
             />
             <DayDetailPanel
               variant="panel"
@@ -749,7 +758,6 @@ export function HomeHero({
         currencySymbol={currencySymbol}
         canEdit={viewModel.permissions.canEdit && !updatingId}
         onAddForDay={handleAddForDay}
-        onViewMonth={() => setIsMonthViewOpen(true)}
         onClose={() => {
           setIsDayPanelOpen(false);
           setSelectedDay(null);
@@ -776,24 +784,6 @@ export function HomeHero({
           addForDayCta: viewModel.copy.addForDayCta,
           viewMonthCta: viewModel.copy.viewMonthCta,
         }}
-      />
-
-      {/* Month View Panel */}
-      <MonthViewPanel
-        open={isMonthViewOpen}
-        onOpenChange={setIsMonthViewOpen}
-        accountId={account.id}
-        locale={locale}
-        dictionary={dictionary}
-        baseCurrency={account.base_currency}
-        currencySymbol={currencySymbol}
-        fallbackTitle={t(dictionary, "home.recentFallbackTitle")}
-        obligations={obligationItems}
-        transactions={monthlyTxItems}
-        initialMonth={selectedDay ?? weekReference ?? now}
-        canEdit={viewModel.permissions.canEdit}
-        updatingId={updatingId}
-        onToggleObligation={handleToggleObligation}
       />
     </>
   );

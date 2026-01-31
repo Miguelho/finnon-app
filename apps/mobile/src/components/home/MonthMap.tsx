@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import {
   createTypographyStyles,
@@ -12,7 +12,17 @@ import {
   getCalendarMarkerStyle,
   type CalendarEvent,
   type DateRange,
+  type DayMarkerData,
 } from "@poleursus/shared";
+
+type DayRenderContext = {
+  date: Date;
+  dayKey: string;
+  isCurrentMonth: boolean;
+  isSelected: boolean;
+  isToday: boolean;
+  markerData: DayMarkerData | undefined;
+};
 
 type MonthMapProps = {
   month: Date;
@@ -21,6 +31,10 @@ type MonthMapProps = {
   highlightRange?: DateRange;
   selectedDate?: Date | null;
   onSelectDate: (date: Date) => void;
+  /** Optional marker data for DayMarker rendering */
+  markerData?: Map<string, DayMarkerData>;
+  /** Optional custom day content renderer */
+  renderDayContent?: (context: DayRenderContext) => ReactNode;
 };
 
 const tokens = themeTokens.light;
@@ -34,12 +48,19 @@ export function MonthMap({
   highlightRange,
   selectedDate,
   onSelectDate,
+  markerData,
+  renderDayContent,
 }: MonthMapProps) {
   const monthStart = startOfMonth(month);
   const monthEnd = endOfMonth(month);
   const weekdayStart = toMondayIndex(monthStart.getDay());
   const totalDays = monthEnd.getDate();
   const totalCells = Math.ceil((weekdayStart + totalDays) / 7) * 7;
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
@@ -108,6 +129,20 @@ export function MonthMap({
                 date >= highlightRange.start &&
                 date <= highlightRange.end;
               const isSelected = isSameDay(date, selectedDate);
+              const isToday = isSameDay(date, today);
+              const dayMarkerData = markerData?.get(dayKey);
+
+              // Custom render content if provided
+              const customContent = renderDayContent
+                ? renderDayContent({
+                    date,
+                    dayKey,
+                    isCurrentMonth,
+                    isSelected,
+                    isToday,
+                    markerData: dayMarkerData,
+                  })
+                : null;
 
               return (
                 <TouchableOpacity
@@ -129,36 +164,38 @@ export function MonthMap({
                   >
                     {date.getDate()}
                   </Text>
-                  <View style={styles.markerRow}>
-                    {markers.map((event) => {
-                      const isPending = isFutureDay(event.date);
-                      const marker = getCalendarMarkerStyle(event.type, {
-                        isPending,
-                        colors,
-                      });
-                      const markerColor = marker.color;
-                      const markerStyle =
-                        marker.shape === "square"
-                          ? styles.markerSquare
-                          : marker.shape === "ring"
-                            ? styles.markerRing
-                            : styles.markerDot;
-                      return (
-                        <View
-                          key={`${event.id}-${event.type}`}
-                          style={[
-                            markerStyle,
-                            marker.shape === "ring"
-                              ? { borderColor: markerColor }
-                              : { backgroundColor: markerColor },
-                          ]}
-                        />
-                      );
-                    })}
-                    {overflowCount > 0 && (
-                      <Text style={styles.overflowText}>+{overflowCount}</Text>
-                    )}
-                  </View>
+                  {customContent ?? (
+                    <View style={styles.markerRow}>
+                      {markers.map((event) => {
+                        const isPending = isFutureDay(event.date);
+                        const marker = getCalendarMarkerStyle(event.type, {
+                          isPending,
+                          colors,
+                        });
+                        const markerColor = marker.color;
+                        const markerStyle =
+                          marker.shape === "square"
+                            ? styles.markerSquare
+                            : marker.shape === "ring"
+                              ? styles.markerRing
+                              : styles.markerDot;
+                        return (
+                          <View
+                            key={`${event.id}-${event.type}`}
+                            style={[
+                              markerStyle,
+                              marker.shape === "ring"
+                                ? { borderColor: markerColor }
+                                : { backgroundColor: markerColor },
+                            ]}
+                          />
+                        );
+                      })}
+                      {overflowCount > 0 && (
+                        <Text style={styles.overflowText}>+{overflowCount}</Text>
+                      )}
+                    </View>
+                  )}
                 </TouchableOpacity>
               );
             })}

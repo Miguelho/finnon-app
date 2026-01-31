@@ -25,6 +25,7 @@ export * from "./home/calendar";
 export * from "./home/home.compute";
 export * from "./home/home.actions";
 export * from "./home/home.viewmodel";
+export * from "./home/calendar-marker";
 export * from "./goals";
 export * from "./account/account.viewmodel";
 export * from "./recurring";
