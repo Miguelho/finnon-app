@@ -17,6 +17,7 @@ type CashFlowArrowsProps = {
   incomeLabel: string;
   expenseLabel: string;
   balanceLabel: string;
+  balanceColumnWidth?: number;
   /** Arrow style variant (default: "chevron") */
   arrowStyle?: ArrowStyle;
   /** Show directional accent on arrow tips (default: true) */
@@ -36,6 +37,7 @@ export function CashFlowArrows({
   incomeLabel,
   expenseLabel,
   balanceLabel,
+  balanceColumnWidth,
   arrowStyle = "chevron",
   showDirectionalAccent = true,
 }: CashFlowArrowsProps) {
@@ -67,7 +69,9 @@ export function CashFlowArrows({
     <View style={styles.container}>
       {/* Left Column: Stacked Arrows (40%) */}
       {showLeftColumn && (
-        <View style={styles.leftColumn}>
+        <View
+          style={balanceColumnWidth ? styles.leftColumnFlexible : styles.leftColumn}
+        >
           {/* Income Row */}
           {showIncome && (
             <View
@@ -141,7 +145,15 @@ export function CashFlowArrows({
       )}
 
       {/* Right Column: Balance (60%) */}
-      <View style={[styles.balanceColumn, !showLeftColumn && styles.balanceColumnFull]}>
+      <View
+        style={[
+          styles.balanceColumn,
+          !showLeftColumn && styles.balanceColumnFull,
+          balanceColumnWidth && showLeftColumn
+            ? { width: balanceColumnWidth, flex: 0 }
+            : null,
+        ]}
+      >
         <Text style={styles.meta}>{balanceLabel}</Text>
         <Text style={[styles.netValue, { color: netColor }]}>
           {netMinor < 0n ? "-" : "+"}
@@ -164,6 +176,10 @@ const styles = StyleSheet.create({
   },
   leftColumn: {
     flex: 0.4,
+    gap: tokens.spacing.lg,
+  },
+  leftColumnFlexible: {
+    flex: 1,
     gap: tokens.spacing.lg,
   },
   arrowSection: {
@@ -192,9 +208,10 @@ const styles = StyleSheet.create({
   },
   balanceColumn: {
     flex: 0.6,
-    alignItems: "center",
+    alignItems: "flex-end",
     justifyContent: "center",
     gap: tokens.spacing.xs,
+    paddingRight: tokens.spacing.sm,
   },
   balanceColumnFull: {
     flex: 1,

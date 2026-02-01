@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -6,22 +6,19 @@ import {
   ActivityIndicator,
   ScrollView,
   TouchableOpacity,
-  Modal,
   Pressable,
   Alert,
   Dimensions,
-  type StyleProp,
-  type TextStyle,
 } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "../../../../src/lib/supabase";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { Button } from "../../../../src/components/Button";
 import { AddActionSheet } from "../../../../src/components/AddActionSheet";
 import { AddTransactionModal } from "../../../../src/components/add-transaction";
 import { CashFlowArrows } from "../../../../src/components/home/CashFlowArrows";
+import { BalanceHeroAccordion } from "../../../../src/components/home/BalanceHeroAccordion";
 import { CalendarCard } from "../../../../src/components/home/CalendarCard";
 import { DayDetailPanel } from "../../../../src/components/home/DayDetailPanel";
 import { CategoryIcon } from "../../../../src/components/CategoryIcon";
@@ -84,6 +81,8 @@ const tokens = themeTokens.light;
 const colors = tokens.colors;
 const typography = createTypographyStyles(tokens);
 const CASHFLOW_DAYS_OPTIONS = [7, 14, 30] as const;
+const clamp = (value: number, min: number, max: number) =>
+  Math.max(min, Math.min(max, value));
 
 function formatDateShort(value: Date, locale: string) {
   return value.toLocaleDateString(locale, {
@@ -92,116 +91,7 @@ function formatDateShort(value: Date, locale: string) {
   });
 }
 
-type SummaryValueWithPendingChipProps = {
-  value: string;
-  pendingMinor: bigint;
-  pendingText: string;
-  triggerLabel: string;
-  valueStyle?: StyleProp<TextStyle>;
-  pendingToneColor?: string;
-  align?: "apart" | "compact";
-};
 
-function SummaryValueWithPendingChip({
-  value,
-  pendingMinor,
-  pendingText,
-  triggerLabel,
-  valueStyle,
-  pendingToneColor,
-  align = "apart",
-}: SummaryValueWithPendingChipProps) {
-  const [open, setOpen] = useState(false);
-  const [anchor, setAnchor] = useState<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null>(null);
-  const triggerRef = useRef<View>(null);
-  const hasPending = pendingMinor > 0n;
-
-  const handleToggle = () => {
-    if (open) {
-      setOpen(false);
-      return;
-    }
-    if (!triggerRef.current) {
-      setOpen(true);
-      return;
-    }
-    triggerRef.current.measureInWindow((x, y, width, height) => {
-      setAnchor({ x, y, width, height });
-      setOpen(true);
-    });
-  };
-
-  const windowWidth = Dimensions.get("window").width;
-  const chipWidth = Math.min(240, windowWidth - tokens.spacing.lg * 2);
-  const leftOffset = anchor
-    ? Math.min(
-        Math.max(tokens.spacing.lg, anchor.x + anchor.width - chipWidth),
-        windowWidth - chipWidth - tokens.spacing.lg
-      )
-    : tokens.spacing.lg;
-  const topOffset = anchor
-    ? anchor.y + anchor.height + tokens.spacing.xs
-    : tokens.spacing.lg;
-
-  const pendingTextColor = pendingToneColor
-    ? withAlpha(pendingToneColor, 0.65)
-    : colors.text.secondary;
-
-  return (
-    <View
-      style={[
-        styles.summaryValueRow,
-        align === "compact" && styles.summaryValueRowCompact,
-      ]}
-    >
-      <Text style={[styles.summaryValue, valueStyle]}>{value}</Text>
-      {hasPending ? (
-        <>
-          <Pressable
-            ref={triggerRef}
-            onPress={handleToggle}
-            accessibilityRole="button"
-            accessibilityLabel={triggerLabel}
-            accessibilityState={{ expanded: open }}
-            style={styles.pendingTriggerButton}
-            hitSlop={8}
-          >
-            <MaterialCommunityIcons
-              name="plus-circle-outline"
-              size={16}
-              color={colors.text.muted}
-            />
-          </Pressable>
-          <Modal
-            transparent
-            visible={open}
-            animationType="fade"
-            onRequestClose={() => setOpen(false)}
-          >
-            <Pressable style={styles.pendingOverlay} onPress={() => setOpen(false)}>
-              <Pressable
-                style={[
-                  styles.pendingChip,
-                  { top: topOffset, left: leftOffset, width: chipWidth },
-                ]}
-                onPress={() => {}}
-              >
-                <Text style={[styles.pendingChipText, { color: pendingTextColor }]}>
-                  {pendingText}
-                </Text>
-              </Pressable>
-            </Pressable>
-          </Modal>
-        </>
-      ) : null}
-    </View>
-  );
-}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -414,7 +304,7 @@ export default function HomeScreen() {
 
         if (upcomingError) throw upcomingError;
 
-        const { data: obligationsData, error: obligationsError } = await supabase
+        const { data: obligationsRange, error: obligationsError } = await supabase
           .from("obligations")
           .select(
             "id, account_id, name, amount_minor, amount_base_minor, currency, due_date, status, paid_at"
@@ -426,11 +316,25 @@ export default function HomeScreen() {
 
         if (obligationsError) throw obligationsError;
 
+        const { data: obligationsNoDate, error: noDateError } = await supabase
+          .from("obligations")
+          .select(
+            "id, account_id, name, amount_minor, amount_base_minor, currency, due_date, status, paid_at"
+          )
+          .eq("account_id", mainAccount.id)
+          .is("due_date", null);
+
+        if (noDateError) throw noDateError;
+
         if (!cancelled) {
           setMonthlyTransactions((monthData as Transaction[]) ?? []);
           setRecentTransactions((recentData as Transaction[]) ?? []);
           setUpcomingTransactions((upcomingData as Transaction[]) ?? []);
-          setObligations((obligationsData as Obligation[]) ?? []);
+          const combinedObligations = [
+            ...((obligationsRange as Obligation[]) ?? []),
+            ...((obligationsNoDate as Obligation[]) ?? []),
+          ];
+          setObligations(combinedObligations);
         }
       } catch (e: any) {
         console.error("[Home] Error loading transactions:", e);
@@ -551,36 +455,25 @@ export default function HomeScreen() {
   });
   const weekInfo = getWeekInfo(weekReference, locale);
   const weekLabel = `${weekInfo.weekNumber} · ${weekInfo.monthLabel}`;
+  const monthLabel = viewMonth.toLocaleDateString(locale, { month: "long" });
+  const balanceColumnWidth = clamp(
+    Math.round(Dimensions.get("window").width * 0.32),
+    160,
+    240
+  );
   const cashflowNetMinor =
     viewModel.cashflow.incomeMinor - viewModel.cashflow.expenseMinor;
-  const formatSignedBalance = (amountMinor: bigint) => {
-    const absoluteMinor = amountMinor < 0n ? -amountMinor : amountMinor;
-    const sign = amountMinor < 0n ? "-" : "";
-    return `${sign}${formatMoneyWithSymbol(
-      absoluteMinor,
-      mainAccount.base_currency,
-      currencySymbol
-    )}`;
-  };
-  const balancePendingText = t(dictionary, "home.pendingChipLabel", {
-    amount: formatSignedBalance(-viewModel.monthOverview.expensePendingMinor),
-  });
-  const monthNetMinor = viewModel.monthOverview.balanceEomMinor;
-  const monthNetFormatted = formatSignedBalance(monthNetMinor);
-  const pendingTotalMinor =
-    viewModel.monthOverview.incomePendingMinor +
-    viewModel.monthOverview.expensePendingMinor;
-  const pendingTotalText = t(dictionary, "home.includesPending", {
-    amount: formatMoneyWithSymbol(
-      pendingTotalMinor,
-      mainAccount.base_currency,
-      currencySymbol
-    ),
-  });
+  const balanceEndOfMonthEstimatedMinor =
+    viewModel.monthOverview.balanceTodayMinor +
+    viewModel.balanceHero.scheduledMonthRemaining.netMinor;
+  const exposureTotalMinor =
+    viewModel.monthOverview.balanceTodayMinor +
+    viewModel.balanceHero.scheduledRange.netMinor +
+    viewModel.balanceHero.noDate.netMinor;
 
   const handleToggleObligationStatus = async (item: {
     id: string;
-    status?: "pending" | "paid";
+    status?: "pending" | "paid" | null;
   }) => {
     if (!viewModel.permissions.canEdit) return;
     setUpdatingObligationId(item.id);
@@ -671,113 +564,46 @@ export default function HomeScreen() {
         )}
         {/* Hero */}
         <View style={styles.heroCard}>
-          {/* 1. Resumen del mes */}
           <View style={[styles.heroSection, styles.heroSectionFirst]}>
-            <Text style={styles.sectionTitle}>
-              {viewModel.copy.monthSummaryTitle}
-            </Text>
-            <View style={styles.monthNetRow}>
-              <Text style={styles.monthNetValue}>{monthNetFormatted}</Text>
-              {pendingTotalMinor > 0n && (
-                <View style={styles.pendingChipInline}>
-                  <Text style={styles.pendingChipInlineText}>{pendingTotalText}</Text>
-                </View>
-              )}
-            </View>
+            <BalanceHeroAccordion
+              balanceTodayMinor={viewModel.monthOverview.balanceTodayMinor}
+              real={viewModel.balanceHero.real}
+              scheduledRange={viewModel.balanceHero.scheduledRange}
+              scheduledItems={viewModel.cashflow.items}
+              noDate={viewModel.balanceHero.noDate}
+              balanceEndOfMonthEstimatedMinor={balanceEndOfMonthEstimatedMinor}
+              exposureTotalMinor={exposureTotalMinor}
+              currency={mainAccount.base_currency}
+              currencySymbol={currencySymbol}
+              locale={locale}
+              monthLabel={monthLabel}
+              balanceColumnWidth={balanceColumnWidth}
+              copy={viewModel.copy}
+              canEdit={viewModel.permissions.canEdit && !updatingObligationId}
+              onViewAllScheduled={() => router.push("/(auth)/(tabs)/transactions")}
+              onAssignNoDate={(item) => router.push(`/(auth)/obligations/${item.id}`)}
+              onMarkNoDateSettled={handleToggleObligationStatus}
+            />
           </View>
 
-          {/* 3. Income - Expenses */}
-          <View style={styles.heroSection}>
-            <View style={styles.monthBreakdown}>
-              <View style={styles.monthBreakdownCard}>
-                <Text style={styles.summaryCardTitle}>
-                  {viewModel.copy.incomeLabel}
+          {!viewModel.monthOverview.hasActivity && (
+            <View style={styles.heroActivityEmpty}>
+              <Text style={styles.heroEmptyText}>
+                {viewModel.emptyStates.activity.title}
+              </Text>
+              <TouchableOpacity
+                style={styles.heroEmptyCta}
+                onPress={() => setIsTransactionModalOpen(true)}
+              >
+                <Text style={styles.heroEmptyCtaText}>
+                  {viewModel.emptyStates.activity.cta}
                 </Text>
-                <SummaryValueWithPendingChip
-                  value={formatMoneyWithSymbol(
-                    viewModel.monthOverview.incomeRealMinor,
-                    mainAccount.base_currency,
-                    currencySymbol
-                  )}
-                  pendingMinor={viewModel.monthOverview.incomePendingMinor}
-                  pendingText={t(dictionary, "home.pendingChipLabel", {
-                    amount: formatMoneyWithSymbol(
-                      viewModel.monthOverview.incomePendingMinor,
-                      mainAccount.base_currency,
-                      currencySymbol
-                    ),
-                  })}
-                  triggerLabel={t(dictionary, "home.pendingTriggerLabel")}
-                  valueStyle={styles.amountPositive}
-                  pendingToneColor={colors.state.positive}
-                />
-              </View>
-
-              <View style={styles.monthBreakdownCard}>
-                <Text style={styles.summaryCardTitle}>
-                  {viewModel.copy.expenseLabel}
-                </Text>
-                <SummaryValueWithPendingChip
-                  value={formatMoneyWithSymbol(
-                    viewModel.monthOverview.expenseRealMinor,
-                    mainAccount.base_currency,
-                    currencySymbol
-                  )}
-                  pendingMinor={viewModel.monthOverview.expensePendingMinor}
-                  pendingText={t(dictionary, "home.pendingChipLabel", {
-                    amount: formatMoneyWithSymbol(
-                      viewModel.monthOverview.expensePendingMinor,
-                      mainAccount.base_currency,
-                      currencySymbol
-                    ),
-                  })}
-                  triggerLabel={t(dictionary, "home.pendingTriggerLabel")}
-                  valueStyle={styles.amountNegative}
-                  pendingToneColor={colors.state.negative}
-                />
-              </View>
+              </TouchableOpacity>
             </View>
-
-            {!viewModel.monthOverview.hasActivity && (
-              <View style={styles.heroActivityEmpty}>
-                <Text style={styles.heroEmptyText}>
-                  {viewModel.emptyStates.activity.title}
-                </Text>
-                <TouchableOpacity
-                  style={styles.heroEmptyCta}
-                  onPress={() => setIsTransactionModalOpen(true)}
-                >
-                  <Text style={styles.heroEmptyCtaText}>
-                    {viewModel.emptyStates.activity.cta}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-
-          {/* 4. Balance */}
-          <View style={styles.heroSection}>
-            <Text style={styles.sectionTitle}>{viewModel.copy.balanceLabel}</Text>
-            <View style={styles.balanceCard}>
-              <View style={styles.balanceRow}>
-                <Text style={styles.balanceLabel}>
-                  {viewModel.copy.balanceTodayLabel}
-                </Text>
-                <SummaryValueWithPendingChip
-                  value={formatSignedBalance(viewModel.monthOverview.balanceTodayMinor)}
-                  pendingMinor={viewModel.monthOverview.expensePendingMinor}
-                  pendingText={balancePendingText}
-                  triggerLabel={t(dictionary, "home.pendingTriggerLabel")}
-                  valueStyle={styles.balanceValue}
-                  pendingToneColor={colors.state.negative}
-                  align="compact"
-                />
-              </View>
-            </View>
-          </View>
+          )}
 
           {/* 4. Próximos X días (Cashflow) */}
-          <View style={styles.heroSection}>
+          <View style={[styles.heroSection, styles.heroSectionSpaced]}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{viewModel.copy.upcomingTitle}</Text>
               <View style={styles.daySelector}>
@@ -815,6 +641,7 @@ export default function HomeScreen() {
                   incomeLabel={viewModel.copy.incomeLabel}
                   expenseLabel={viewModel.copy.expenseLabel}
                   balanceLabel={viewModel.copy.balanceLabel}
+                  balanceColumnWidth={balanceColumnWidth}
                 />
                 <View style={styles.upcomingEventsList}>
                   {viewModel.cashflow.items.slice(0, 10).map((item) => {
@@ -832,6 +659,7 @@ export default function HomeScreen() {
                             item.type === "income"
                               ? styles.amountPositive
                               : styles.amountNegative,
+                            { width: balanceColumnWidth, textAlign: "right" },
                           ]}
                         >
                           {item.type === "expense" ? "-" : "+"}
@@ -1095,102 +923,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     paddingTop: 0,
   },
-  monthNetRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: tokens.spacing.sm,
-  },
-  monthNetValue: {
-    fontSize: typography.display.fontSize,
-    fontWeight: typography.display.fontWeight as "700",
-    color: colors.text.primary,
-  },
-  pendingChipInline: {
-    borderRadius: tokens.radii.pill,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    paddingHorizontal: tokens.spacing.sm,
-    paddingVertical: 4,
-    backgroundColor: colors.bg.secondary,
-  },
-  pendingChipInlineText: {
-    ...typography.meta,
-    color: colors.text.secondary,
-  },
-  balanceCard: {
-    borderRadius: tokens.radii.lg,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    padding: tokens.spacing.md,
-    backgroundColor: colors.bg.secondary,
-    gap: tokens.spacing.sm,
-  },
-  balanceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: tokens.spacing.md,
-  },
-  balanceLabel: {
-    ...typography.meta,
-    color: colors.text.secondary,
-  },
-  balanceValue: {
-    ...typography.body,
-    color: colors.text.primary,
-    fontWeight: tokens.typography.weight.semibold,
-  },
-  monthBreakdown: {
-    flexDirection: "row",
-    gap: tokens.spacing.md,
-  },
-  monthBreakdownCard: {
-    flex: 1,
-    borderRadius: tokens.radii.lg,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    padding: tokens.spacing.md,
-    backgroundColor: colors.bg.secondary,
-    gap: tokens.spacing.sm,
-  },
-  summaryCardTitle: {
-    ...typography.body,
-    color: colors.text.primary,
-    fontWeight: tokens.typography.weight.semibold,
-  },
-  summaryValueRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: tokens.spacing.md,
-  },
-  summaryValueRowCompact: {
-    justifyContent: "flex-end",
-  },
-  summaryValue: {
-    ...typography.body,
-    color: colors.text.primary,
-  },
-  pendingTriggerButton: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pendingOverlay: {
-    flex: 1,
-  },
-  pendingChip: {
-    position: "absolute",
-    backgroundColor: colors.bg.surface,
-    borderRadius: tokens.radii.pill,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    paddingHorizontal: tokens.spacing.md,
-    paddingVertical: 6,
-  },
-  pendingChipText: {
-    ...typography.meta,
-    color: colors.text.secondary,
+  heroSectionSpaced: {
+    marginTop: tokens.spacing.sm,
   },
   heroActivityEmpty: {
     borderTopWidth: 1,

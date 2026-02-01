@@ -139,7 +139,7 @@ export default async function DashboardPage() {
     .lte("date", upcomingEndDate)
     .order("date", { ascending: true });
 
-  const { data: obligations } = await supabase
+  const { data: obligationsRange } = await supabase
     .from("obligations")
     .select(
       "id, account_id, name, amount_minor, amount_base_minor, currency, due_date, status, paid_at"
@@ -148,6 +148,16 @@ export default async function DashboardPage() {
     .gte("due_date", startDate)
     .lte("due_date", obligationsEndDate)
     .order("due_date", { ascending: true });
+
+  const { data: obligationsNoDate } = await supabase
+    .from("obligations")
+    .select(
+      "id, account_id, name, amount_minor, amount_base_minor, currency, due_date, status, paid_at"
+    )
+    .eq("account_id", mainAccount.id)
+    .is("due_date", null);
+
+  const obligations = [...(obligationsRange ?? []), ...(obligationsNoDate ?? [])];
 
   // Fetch categories for the transaction form
   const { data: categories } = await supabase
@@ -184,7 +194,7 @@ export default async function DashboardPage() {
     },
     role: mainAccountRole,
     dictionary,
-    obligations: obligations ?? [],
+    obligations,
     monthlyTransactions: monthlyTransactions ?? [],
     upcomingTransactions: upcomingTransactions ?? [],
     recentTransactions: recentTransactions ?? [],
@@ -269,7 +279,7 @@ export default async function DashboardPage() {
           role={mainAccountRole}
           dictionary={dictionary}
           locale={locale}
-          obligations={obligations ?? []}
+          obligations={obligations}
           monthlyTransactions={monthlyTransactions ?? []}
           upcomingTransactions={upcomingTransactions ?? []}
         />

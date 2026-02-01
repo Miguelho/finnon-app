@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { CashFlowArrows } from "@/components/home/cash-flow-arrows";
 import { DayDetailPanel } from "@/components/home/day-detail-panel";
 import { CalendarCard } from "@/components/home/calendar-card";
+import { BalanceHeroAccordion } from "@/components/home/BalanceHeroAccordion";
 import {
   buildHomeViewModel,
   CURRENCIES,
@@ -20,7 +20,6 @@ import {
   markObligationPaid,
   t,
   themeTokens,
-  withAlpha,
   type CopyDictionary,
   type Obligation,
   type Transaction,
@@ -42,132 +41,6 @@ type HomeHeroProps = {
 };
 
 const CASHFLOW_DAYS_OPTIONS = [7, 14, 30] as const;
-
-type SummaryValueWithPendingChipProps = {
-  value: string;
-  pendingMinor: bigint;
-  pendingText: string;
-  triggerLabel: string;
-  valueColor: string;
-  pendingToneColor?: string;
-  colors: typeof themeTokens.light.colors;
-  typography: ReturnType<typeof createTypographyStyles>;
-  id?: string;
-  align?: "apart" | "compact";
-};
-
-function SummaryValueWithPendingChip({
-  value,
-  pendingMinor,
-  pendingText,
-  triggerLabel,
-  valueColor,
-  pendingToneColor,
-  colors,
-  typography,
-  id,
-  align = "apart",
-}: SummaryValueWithPendingChipProps) {
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const chipRef = useRef<HTMLDivElement | null>(null);
-  const generatedId = useId();
-  const chipId = id ?? generatedId;
-  const hasPending = pendingMinor > 0n;
-
-  useEffect(() => {
-    if (!open) return;
-
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (
-        chipRef.current?.contains(target) ||
-        triggerRef.current?.contains(target)
-      ) {
-        return;
-      }
-      setOpen(false);
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [open]);
-
-  const containerClassName =
-    align === "compact"
-      ? "flex items-center gap-2"
-      : "flex items-center justify-between gap-3";
-
-  const pendingTextColor = pendingToneColor
-    ? withAlpha(pendingToneColor, 0.65)
-    : colors.text.secondary;
-
-  return (
-    <div className={containerClassName}>
-      <p
-        style={{
-          fontSize: typography.body.fontSize,
-          fontWeight: typography.body.fontWeight,
-          color: valueColor,
-        }}
-      >
-        {value}
-      </p>
-      {hasPending ? (
-        <div className="relative">
-          <button
-            type="button"
-            ref={triggerRef}
-            onClick={() => setOpen((prev) => !prev)}
-            aria-expanded={open}
-            aria-controls={chipId}
-            aria-label={triggerLabel}
-            className="inline-flex items-center"
-            style={{
-              fontSize: typography.meta.fontSize,
-              fontWeight: typography.meta.fontWeight,
-              color: colors.text.muted,
-              background: "transparent",
-              border: "none",
-              padding: 0,
-              lineHeight: 0,
-              cursor: "pointer",
-            }}
-          >
-            <PlusCircle size={16} aria-hidden="true" />
-          </button>
-          {open ? (
-            <div
-              id={chipId}
-              ref={chipRef}
-              role="status"
-              className="absolute right-0 top-full z-10 mt-2 rounded-full border px-3 py-1 text-xs shadow-sm"
-              style={{
-                backgroundColor: colors.bg.surface,
-                borderColor: colors.state.neutral,
-                color: pendingTextColor,
-                maxWidth: 220,
-                whiteSpace: "normal",
-              }}
-            >
-              {pendingText}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 export function HomeHero({
   account,
@@ -228,6 +101,7 @@ export function HomeHero({
 
   const weekInfo = getWeekInfo(weekReference, locale);
   const weekLabel = `${weekInfo.weekNumber} · ${weekInfo.monthLabel}`;
+  const monthLabel = now.toLocaleDateString(locale, { month: "long" });
 
   const colors = themeTokens.light.colors;
   const typography = createTypographyStyles(themeTokens.light);
@@ -236,57 +110,13 @@ export function HomeHero({
       ?.symbol ?? account.base_currency;
   const cashflowNetMinor =
     viewModel.cashflow.incomeMinor - viewModel.cashflow.expenseMinor;
-  const formatSignedBalance = (amountMinor: bigint) => {
-    const absoluteMinor = amountMinor < 0n ? -amountMinor : amountMinor;
-    const sign = amountMinor < 0n ? "-" : "";
-    return `${sign}${formatMoneyWithSymbol(
-      absoluteMinor,
-      account.base_currency,
-      currencySymbol
-    )}`;
-  };
-  const pendingTriggerLabel = t(dictionary, "home.pendingTriggerLabel");
-  const incomeRealFormatted = formatMoneyWithSymbol(
-    viewModel.monthOverview.incomeRealMinor,
-    account.base_currency,
-    currencySymbol
-  );
-  const incomePendingFormatted = formatMoneyWithSymbol(
-    viewModel.monthOverview.incomePendingMinor,
-    account.base_currency,
-    currencySymbol
-  );
-  const expenseRealFormatted = formatMoneyWithSymbol(
-    viewModel.monthOverview.expenseRealMinor,
-    account.base_currency,
-    currencySymbol
-  );
-  const expensePendingFormatted = formatMoneyWithSymbol(
-    viewModel.monthOverview.expensePendingMinor,
-    account.base_currency,
-    currencySymbol
-  );
-  const incomePendingText = t(dictionary, "home.pendingChipLabel", {
-    amount: incomePendingFormatted,
-  });
-  const expensePendingText = t(dictionary, "home.pendingChipLabel", {
-    amount: expensePendingFormatted,
-  });
-  const balancePendingText = t(dictionary, "home.pendingChipLabel", {
-    amount: formatSignedBalance(-viewModel.monthOverview.expensePendingMinor),
-  });
-  const monthNetMinor = viewModel.monthOverview.balanceEomMinor;
-  const monthNetFormatted = formatSignedBalance(monthNetMinor);
-  const pendingTotalMinor =
-    viewModel.monthOverview.incomePendingMinor +
-    viewModel.monthOverview.expensePendingMinor;
-  const pendingTotalText = t(dictionary, "home.includesPending", {
-    amount: formatMoneyWithSymbol(
-      pendingTotalMinor,
-      account.base_currency,
-      currencySymbol
-    ),
-  });
+  const balanceEndOfMonthEstimatedMinor =
+    viewModel.monthOverview.balanceTodayMinor +
+    viewModel.balanceHero.scheduledMonthRemaining.netMinor;
+  const exposureTotalMinor =
+    viewModel.monthOverview.balanceTodayMinor +
+    viewModel.balanceHero.scheduledRange.netMinor +
+    viewModel.balanceHero.noDate.netMinor;
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [isDayPanelOpen, setIsDayPanelOpen] = useState(false);
   const [sheetExpanded, setSheetExpanded] = useState(false);
@@ -334,7 +164,7 @@ export function HomeHero({
 
   const handleToggleObligation = async (item: {
     id: string;
-    status?: "pending" | "paid";
+    status?: "pending" | "paid" | null;
   }) => {
     if (!viewModel.permissions.canEdit) return;
 
@@ -364,6 +194,39 @@ export function HomeHero({
     }
   };
 
+  const handleAssignNoDate = async (item: Obligation) => {
+    if (!viewModel.permissions.canEdit) return;
+    const defaultDate = new Date().toISOString().slice(0, 10);
+    const nextDate = window.prompt(viewModel.copy.setDatePrompt, defaultDate);
+    if (!nextDate) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) {
+      window.alert(viewModel.copy.invalidDateMessage);
+      return;
+    }
+
+    setUpdatingId(item.id);
+    try {
+      const { error } = await supabase
+        .from("obligations")
+        .update({ due_date: nextDate })
+        .eq("id", item.id);
+      if (error) throw error;
+
+      setObligationItems((prev) =>
+        prev.map((obligation) =>
+          obligation.id === item.id
+            ? { ...obligation, due_date: nextDate }
+            : obligation
+        )
+      );
+    } catch (error) {
+      console.error("[Home] Error updating obligation date:", error);
+      window.alert(t(dictionary, "errors.internalServer"));
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const handleAddForDay = (date: Date) => {
     const isoDate = date.toISOString().slice(0, 10);
     setIsDayPanelOpen(false);
@@ -382,178 +245,71 @@ export function HomeHero({
       >
         <div className="flex flex-col gap-6 md:flex-row">
           {/* LEFT COLUMN: Hero, Próximos (60% on desktop) */}
-          <div className="flex-1 space-y-6 md:w-3/5">
-            {/* 1. Resumen del mes */}
-            <div className="space-y-2">
-              <h2
-                style={{
-                  fontSize: typography.h2.fontSize,
-                  fontWeight: typography.h2.fontWeight,
-                  color: colors.text.primary,
-                }}
+          <div
+            className="flex-1 space-y-6 md:w-2/3"
+            style={
+              {
+                "--balance-right-gutter": "20px",
+                "--balance-col-min": "160px",
+                "--balance-col-max": "240px",
+              } as CSSProperties
+            }
+          >
+            <BalanceHeroAccordion
+              balanceTodayMinor={viewModel.monthOverview.balanceTodayMinor}
+              real={viewModel.balanceHero.real}
+              scheduledRange={viewModel.balanceHero.scheduledRange}
+              scheduledItems={viewModel.cashflow.items}
+              noDate={viewModel.balanceHero.noDate}
+              balanceEndOfMonthEstimatedMinor={balanceEndOfMonthEstimatedMinor}
+              exposureTotalMinor={exposureTotalMinor}
+              currency={account.base_currency}
+              currencySymbol={currencySymbol}
+              locale={locale}
+              monthLabel={monthLabel}
+              copy={viewModel.copy}
+              canEdit={viewModel.permissions.canEdit && !updatingId}
+              onViewAllScheduled={() => router.push("/transactions")}
+              onAssignNoDate={handleAssignNoDate}
+              onMarkNoDateSettled={handleToggleObligation}
+            />
+
+            {!viewModel.monthOverview.hasActivity && (
+              <div
+                className="space-y-2 border-t pt-4"
+                style={{ borderColor: colors.state.neutral }}
               >
-                {viewModel.copy.monthSummaryTitle}
-              </h2>
-              <div className="flex flex-wrap items-center gap-3">
-                <p
+                <p className="text-sm" style={{ color: colors.text.secondary }}>
+                  {viewModel.emptyStates.activity.title}
+                </p>
+                <Button
+                  variant="outline"
+                  asChild
                   style={{
-                    fontSize: typography.display.fontSize,
-                    fontWeight: typography.display.fontWeight,
+                    borderColor: colors.state.neutral,
+                    backgroundColor: colors.bg.surface,
                     color: colors.text.primary,
                   }}
                 >
-                  {monthNetFormatted}
-                </p>
-                {pendingTotalMinor > 0n && (
-                  <span
-                    className="rounded-full border px-3 py-1 text-xs"
-                    style={{
-                      borderColor: colors.state.neutral,
-                      backgroundColor: colors.bg.secondary,
-                      color: colors.text.secondary,
-                    }}
-                  >
-                    {pendingTotalText}
-                  </span>
-                )}
+                  <Link href="/transactions?new=1&type=expense">
+                    {viewModel.emptyStates.activity.cta}
+                  </Link>
+                </Button>
               </div>
-            </div>
-
-            {/* 2. Income - Expenses */}
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-4">
-                <div
-                  className="rounded-xl border p-4"
-                  style={{
-                    borderColor: colors.state.neutral,
-                    backgroundColor: colors.bg.secondary,
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: typography.h3.fontSize,
-                      fontWeight: typography.h3.fontWeight,
-                      color: colors.text.primary,
-                    }}
-                  >
-                    {viewModel.copy.incomeLabel}
-                  </p>
-                  <div className="mt-3">
-                    <SummaryValueWithPendingChip
-                      value={incomeRealFormatted}
-                      pendingMinor={viewModel.monthOverview.incomePendingMinor}
-                      pendingText={incomePendingText}
-                      triggerLabel={pendingTriggerLabel}
-                      valueColor={colors.state.positive}
-                      pendingToneColor={colors.state.positive}
-                      colors={colors}
-                      typography={typography}
-                    />
-                  </div>
-                </div>
-
-                <div
-                  className="rounded-xl border p-4"
-                  style={{
-                    borderColor: colors.state.neutral,
-                    backgroundColor: colors.bg.secondary,
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: typography.h3.fontSize,
-                      fontWeight: typography.h3.fontWeight,
-                      color: colors.text.primary,
-                    }}
-                  >
-                    {viewModel.copy.expenseLabel}
-                  </p>
-                  <div className="mt-3">
-                    <SummaryValueWithPendingChip
-                      value={expenseRealFormatted}
-                      pendingMinor={viewModel.monthOverview.expensePendingMinor}
-                      pendingText={expensePendingText}
-                      triggerLabel={pendingTriggerLabel}
-                      valueColor={colors.state.negative}
-                      pendingToneColor={colors.state.negative}
-                      colors={colors}
-                      typography={typography}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {!viewModel.monthOverview.hasActivity && (
-                <div
-                  className="space-y-2 border-t pt-4"
-                  style={{ borderColor: colors.state.neutral }}
-                >
-                  <p className="text-sm" style={{ color: colors.text.secondary }}>
-                    {viewModel.emptyStates.activity.title}
-                  </p>
-                  <Button
-                    variant="outline"
-                    asChild
-                    style={{
-                      borderColor: colors.state.neutral,
-                      backgroundColor: colors.bg.surface,
-                      color: colors.text.primary,
-                    }}
-                  >
-                    <Link href="/transactions?new=1&type=expense">
-                      {viewModel.emptyStates.activity.cta}
-                    </Link>
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* 4. Balance */}
-            <div
-              className="space-y-2 border-t pt-4"
-              style={{ borderColor: colors.state.neutral }}
-            >
-              <h3
-                style={{
-                  fontSize: typography.h3.fontSize,
-                  fontWeight: typography.h3.fontWeight,
-                  color: colors.text.primary,
-                }}
-              >
-                {viewModel.copy.balanceLabel}
-              </h3>
-              <div
-                className="space-y-3 rounded-xl border p-4"
-                style={{
-                  borderColor: colors.state.neutral,
-                  backgroundColor: colors.bg.secondary,
-                }}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs" style={{ color: colors.text.secondary }}>
-                    {viewModel.copy.balanceTodayLabel}
-                  </p>
-                  <SummaryValueWithPendingChip
-                    value={formatSignedBalance(viewModel.monthOverview.balanceTodayMinor)}
-                    pendingMinor={viewModel.monthOverview.expensePendingMinor}
-                    pendingText={balancePendingText}
-                    triggerLabel={pendingTriggerLabel}
-                    valueColor={colors.text.primary}
-                    pendingToneColor={colors.state.negative}
-                    colors={colors}
-                    typography={typography}
-                    align="compact"
-                  />
-                </div>
-              </div>
-            </div>
+            )}
 
             {/* 4. Próximos X días (Cashflow) */}
             <div
-              className="space-y-3 border-t pt-4"
+              className="border-t px-5 pt-4"
               style={{ borderColor: colors.state.neutral }}
             >
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div
+                className="grid gap-3"
+                style={{
+                  gridTemplateColumns:
+                    "1fr minmax(var(--balance-col-min), var(--balance-col-max))",
+                }}
+              >
                 <h2
                   style={{
                     fontSize: typography.h2.fontSize,
@@ -563,7 +319,7 @@ export function HomeHero({
                 >
                   {viewModel.copy.upcomingTitle}
                 </h2>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center justify-end gap-2">
                   {CASHFLOW_DAYS_OPTIONS.map((days) => (
                     <button
                       key={days}
@@ -589,85 +345,108 @@ export function HomeHero({
                     </button>
                   ))}
                 </div>
-              </div>
-              {viewModel.cashflow.items.length === 0 ? (
-                <p className="text-sm" style={{ color: colors.text.secondary }}>
-                  {viewModel.emptyStates.upcoming}
-                </p>
-              ) : (
-                <>
-                  <CashFlowArrows
-                    incomeMinor={viewModel.cashflow.incomeMinor}
-                    expenseMinor={viewModel.cashflow.expenseMinor}
-                    netMinor={cashflowNetMinor}
-                    currency={account.base_currency}
-                    currencySymbol={currencySymbol}
-                    incomeLabel={viewModel.copy.incomeLabel}
-                    expenseLabel={viewModel.copy.expenseLabel}
-                    balanceLabel={viewModel.copy.balanceLabel}
-                  />
-                  <div className="mt-3 space-y-2">
-                    {viewModel.cashflow.items.slice(0, 10).map((item) => {
-                      const dayLabel = item.date.toLocaleDateString(locale, {
-                        weekday: "short",
-                      });
-                      return (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between text-sm"
-                        >
-                          <span style={{ color: colors.text.secondary }}>
-                            {dayLabel}: {item.title}
-                          </span>
-                          <span
+                {viewModel.cashflow.items.length === 0 ? (
+                  <p
+                    className="col-span-2 text-sm"
+                    style={{ color: colors.text.secondary }}
+                  >
+                    {viewModel.emptyStates.upcoming}
+                  </p>
+                ) : (
+                  <>
+                    <div className="col-span-2">
+                      <CashFlowArrows
+                        incomeMinor={viewModel.cashflow.incomeMinor}
+                        expenseMinor={viewModel.cashflow.expenseMinor}
+                        netMinor={cashflowNetMinor}
+                        currency={account.base_currency}
+                        currencySymbol={currencySymbol}
+                        incomeLabel={viewModel.copy.incomeLabel}
+                        expenseLabel={viewModel.copy.expenseLabel}
+                        balanceLabel={viewModel.copy.balanceLabel}
+                      />
+                    </div>
+                    <div className="col-span-2 mt-3 space-y-2">
+                      {viewModel.cashflow.items.slice(0, 10).map((item) => {
+                        const dayLabel = item.date.toLocaleDateString(locale, {
+                          weekday: "short",
+                        });
+                        return (
+                          <div
+                            key={item.id}
+                            className="grid items-center gap-2 text-sm"
                             style={{
-                              color:
-                                item.type === "income"
-                                  ? colors.state.positive
-                                  : colors.state.negative,
-                              fontWeight: 500,
+                              gridTemplateColumns:
+                                "1fr minmax(var(--balance-col-min), var(--balance-col-max))",
                             }}
                           >
-                            {item.type === "expense" ? "-" : "+"}
-                            {formatMoneyWithSymbol(
-                              item.amountMinor,
-                              account.base_currency,
-                              currencySymbol
-                            )}
-                          </span>
-                        </div>
-                      );
-                    })}
-                    {viewModel.cashflow.items.length > 10 && (
-                      <p className="text-xs" style={{ color: colors.text.secondary }}>
-                        {t(dictionary, "home.upcomingMoreMessage")}
-                      </p>
-                    )}
-                  </div>
-                </>
-              )}
+                            <span style={{ color: colors.text.secondary }}>
+                              {dayLabel}: {item.title}
+                            </span>
+                            <span
+                              className="justify-self-end text-right"
+                              style={{
+                                color:
+                                  item.type === "income"
+                                    ? colors.state.positive
+                                    : colors.state.negative,
+                                fontWeight: 500,
+                              }}
+                            >
+                              {item.type === "expense" ? "-" : "+"}
+                              {formatMoneyWithSymbol(
+                                item.amountMinor,
+                                account.base_currency,
+                                currencySymbol
+                              )}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {viewModel.cashflow.items.length > 10 && (
+                        <p
+                          className="text-xs"
+                          style={{ color: colors.text.secondary }}
+                        >
+                          {t(dictionary, "home.upcomingMoreMessage")}
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Semana - visible on mobile only, desktop shows in right column */}
             <div
-              className="md:hidden border-t pt-4"
+              className="md:hidden border-t px-5 pt-4"
               style={{ borderColor: colors.state.neutral }}
             >
-              <CalendarCard
-                locale={locale}
-                days={viewModel.weekStrip.days}
-                obligations={obligationItems}
-                transactions={calendarTransactions}
-                calendarEvents={viewModel.calendar.events}
-                selectedDate={selectedDay}
-                onSelectDate={handleSelectDay}
-                onPrevWeek={() => shiftWeek(-7)}
-                onNextWeek={() => shiftWeek(7)}
-                weekTitle={viewModel.copy.weekTitle}
-                viewMonthCta={viewModel.copy.viewMonthCta}
-                viewWeekCta={t(dictionary, "home.viewWeekCta")}
-                onResetToToday={resetToToday}
-              />
+              <div
+                className="grid gap-3"
+                style={{
+                  gridTemplateColumns:
+                    "1fr minmax(var(--balance-col-min), var(--balance-col-max))",
+                }}
+              >
+                <div className="col-span-2">
+                  <CalendarCard
+                    locale={locale}
+                    days={viewModel.weekStrip.days}
+                    obligations={obligationItems}
+                    transactions={calendarTransactions}
+                    calendarEvents={viewModel.calendar.events}
+                    selectedDate={selectedDay}
+                    onSelectDate={handleSelectDay}
+                    onPrevWeek={() => shiftWeek(-7)}
+                    onNextWeek={() => shiftWeek(7)}
+                    weekTitle={viewModel.copy.weekTitle}
+                    viewMonthCta={viewModel.copy.viewMonthCta}
+                    viewWeekCta={t(dictionary, "home.viewWeekCta")}
+                    onResetToToday={resetToToday}
+                  />
+                </div>
+              </div>
             </div>
 
             {viewModel.permissions.isGuestReadOnly && (

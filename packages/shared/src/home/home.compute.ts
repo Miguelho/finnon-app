@@ -23,6 +23,16 @@ export type RealPendingSummary = {
   balanceEomMinor: bigint;
 };
 
+export type BalanceHeroSectionSummary = {
+  receivableMinor: bigint;
+  payableMinor: bigint;
+  netMinor: bigint;
+};
+
+export type BalanceHeroNoDateSummary = BalanceHeroSectionSummary & {
+  items: Obligation[];
+};
+
 export type UpcomingItem = {
   id: string;
   name: string;
@@ -351,14 +361,83 @@ export function computeRealPendingSummary(
   };
 }
 
+export function computeScheduledSummaryForMonthRemaining(
+  obligations: Obligation[],
+  transactions: Transaction[],
+  monthRange: DateRange,
+  today: Date
+): BalanceHeroSectionSummary {
+  let receivableMinor = 0n;
+  let payableMinor = 0n;
+
+  const todayStart = startOfDay(today).getTime();
+
+  obligations.forEach((obligation) => {
+    if (obligation.status === "paid") return;
+    const dueDate = toDate(obligation.due_date);
+    if (!dueDate || !isWithinRange(dueDate, monthRange)) return;
+    if (startOfDay(dueDate).getTime() <= todayStart) return;
+
+    const amount = toMinor(obligation.amount_base_minor ?? obligation.amount_minor);
+    payableMinor += amount;
+  });
+
+  transactions.forEach((transaction) => {
+    const date = toDate(transaction.date);
+    if (!date || !isWithinRange(date, monthRange)) return;
+    if (startOfDay(date).getTime() <= todayStart) return;
+
+    const amount = toMinor(
+      transaction.amount_base_minor ?? transaction.amount_minor
+    );
+
+    if (transaction.type === "income") {
+      receivableMinor += amount;
+    } else {
+      payableMinor += amount;
+    }
+  });
+
+  return {
+    receivableMinor,
+    payableMinor,
+    netMinor: receivableMinor - payableMinor,
+  };
+}
+
+export function computeNoDateSummary(
+  obligations: Obligation[]
+): BalanceHeroNoDateSummary {
+  let payableMinor = 0n;
+  const items = obligations.filter((obligation) => {
+    if (obligation.status === "paid") return false;
+    const dueDate = toDate(obligation.due_date);
+    return !dueDate;
+  });
+
+  items.forEach((obligation) => {
+    const amount = toMinor(obligation.amount_base_minor ?? obligation.amount_minor);
+    payableMinor += amount;
+  });
+
+  return {
+    receivableMinor: 0n,
+    payableMinor,
+    netMinor: 0n - payableMinor,
+    items,
+  };
+}
+
 export function getUpcomingItems(
   obligations: Obligation[],
   range: DateRange
 ): UpcomingItem[] {
+  const rangeStart = startOfDay(range.start).getTime();
   return obligations
     .map((obligation) => {
       const dueDate = toDate(obligation.due_date);
       if (!dueDate || !isWithinRange(dueDate, range)) return null;
+      if (startOfDay(dueDate).getTime() <= rangeStart) return null;
 
       return {
         id: obligation.id,
@@ -447,11 +526,13 @@ export function getUpcomingCashflowWindow(
   let incomeMinor = 0n;
   let expenseMinor = 0n;
   const items: CashflowItem[] = [];
+  const rangeStart = startOfDay(range.start).getTime();
 
   obligations.forEach((obligation) => {
     if (obligation.status === "paid") return;
     const dueDate = toDate(obligation.due_date);
     if (!dueDate || !isWithinRange(dueDate, range)) return;
+    if (startOfDay(dueDate).getTime() <= rangeStart) return;
 
     const amount = toMinor(obligation.amount_base_minor ?? obligation.amount_minor);
     expenseMinor += amount;
@@ -469,6 +550,7 @@ export function getUpcomingCashflowWindow(
   transactions.forEach((transaction) => {
     const date = toDate(transaction.date);
     if (!date || !isWithinRange(date, range)) return;
+    if (startOfDay(date).getTime() <= rangeStart) return;
 
     const amount = toMinor(
       transaction.amount_base_minor ?? transaction.amount_minor

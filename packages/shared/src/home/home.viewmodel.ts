@@ -11,6 +11,8 @@ import {
   getAccountGlobalState,
   computeRealPendingSummary,
   computeScheduledExpenseMinor,
+  computeScheduledSummaryForMonthRemaining,
+  computeNoDateSummary,
   getMonthRange,
   getEventsForMonth,
   getFlowForRange,
@@ -26,12 +28,20 @@ import {
   type UpcomingItem,
   type WeekStripData,
   type UpcomingEvent,
+  type BalanceHeroSectionSummary,
+  type BalanceHeroNoDateSummary,
 } from "./home.compute";
 
 export type HomeViewModel = {
   account: Account;
   monthKey: string;
   accountSummary: AccountGlobalState;
+  balanceHero: {
+    real: BalanceHeroSectionSummary;
+    scheduledRange: BalanceHeroSectionSummary;
+    scheduledMonthRemaining: BalanceHeroSectionSummary;
+    noDate: BalanceHeroNoDateSummary;
+  };
   monthOverview: {
     incomeRealMinor: bigint;
     incomePendingMinor: bigint;
@@ -109,6 +119,26 @@ export type HomeViewModel = {
     addForDayCta: string;
     dotsLegend: string;
     includesPending: string;
+    balanceBreakdownCta: string;
+    balanceBreakdownCloseCta: string;
+    balanceHeroRealChip: string;
+    balanceHeroScheduledChip: string;
+    balanceHeroNoDateChip: string;
+    scheduledLabel: string;
+    noDateLabel: string;
+    receivableLabel: string;
+    payableLabel: string;
+    realReceivedLabel: string;
+    realPaidLabel: string;
+    netLabel: string;
+    endOfMonthEstimateLabel: string;
+    exposureTotalLabel: string;
+    includesNoDate: string;
+    viewAllCta: string;
+    setDateCta: string;
+    markSettledCta: string;
+    setDatePrompt: string;
+    invalidDateMessage: string;
   };
 };
 
@@ -203,6 +233,13 @@ export function buildHomeViewModel({
     t(dictionary, "home.recentFallbackTitle"),
     nowDate
   );
+  const scheduledMonthRemaining = computeScheduledSummaryForMonthRemaining(
+    obligations,
+    monthlyTransactions,
+    monthRange,
+    nowDate
+  );
+  const noDateSummary = computeNoDateSummary(obligations);
   const recentItems = getRecentActivity(
     recentTransactions ?? monthlyTransactions,
     recentLimit,
@@ -237,6 +274,20 @@ export function buildHomeViewModel({
     account,
     monthKey: toMonthKey(activeMonth),
     accountSummary,
+    balanceHero: {
+      real: {
+        receivableMinor: monthOverview.incomeRealMinor,
+        payableMinor: monthOverview.expenseRealMinor,
+        netMinor: monthOverview.balanceTodayMinor,
+      },
+      scheduledRange: {
+        receivableMinor: cashflowWindow.incomeMinor,
+        payableMinor: cashflowWindow.expenseMinor,
+        netMinor: cashflowWindow.incomeMinor - cashflowWindow.expenseMinor,
+      },
+      scheduledMonthRemaining,
+      noDate: noDateSummary,
+    },
     monthOverview: {
       ...monthOverview,
       expensePendingMinor: monthOverview.expensePendingMinor + scheduledExpenseMinor,
@@ -317,6 +368,28 @@ export function buildHomeViewModel({
       addForDayCta: t(dictionary, "home.addForDayCta"),
       dotsLegend: t(dictionary, "home.dotsLegend"),
       includesPending: t(dictionary, "home.includesPending"),
+      balanceBreakdownCta: t(dictionary, "home.balanceBreakdownCta"),
+      balanceBreakdownCloseCta: t(dictionary, "home.balanceBreakdownCloseCta"),
+      balanceHeroRealChip: t(dictionary, "home.balanceHeroRealChip"),
+      balanceHeroScheduledChip: t(dictionary, "home.balanceHeroScheduledChip", {
+        days: nextDays,
+      }),
+      balanceHeroNoDateChip: t(dictionary, "home.balanceHeroNoDateChip"),
+      scheduledLabel: t(dictionary, "home.scheduledLabel"),
+      noDateLabel: t(dictionary, "home.noDateLabel"),
+      receivableLabel: t(dictionary, "home.receivableLabel"),
+      payableLabel: t(dictionary, "home.payableLabel"),
+      realReceivedLabel: t(dictionary, "home.realReceivedLabel"),
+      realPaidLabel: t(dictionary, "home.realPaidLabel"),
+      netLabel: t(dictionary, "home.netLabel"),
+      endOfMonthEstimateLabel: t(dictionary, "home.endOfMonthEstimateLabel"),
+      exposureTotalLabel: t(dictionary, "home.exposureTotalLabel"),
+      includesNoDate: t(dictionary, "home.includesNoDate"),
+      viewAllCta: t(dictionary, "home.viewAllCta"),
+      setDateCta: t(dictionary, "home.setDateCta"),
+      markSettledCta: t(dictionary, "home.markSettledCta"),
+      setDatePrompt: t(dictionary, "home.setDatePrompt"),
+      invalidDateMessage: t(dictionary, "home.invalidDateMessage"),
     },
   };
 }

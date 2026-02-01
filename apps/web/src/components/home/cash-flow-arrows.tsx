@@ -54,11 +54,18 @@ export function CashFlowArrows({
   const netColor =
     netMinor < 0n ? colors.state.negative : colors.text.primary;
 
+  const gridColumns = showLeftColumn
+    ? "1fr minmax(var(--balance-col-min), var(--balance-col-max))"
+    : "1fr";
+
   return (
-    <div className="flex items-center gap-6">
+    <div
+      className="grid items-center gap-6"
+      style={{ gridTemplateColumns: gridColumns }}
+    >
       {/* Left Column: Stacked Arrows (40%) */}
       {showLeftColumn && (
-        <div className="flex w-[40%] flex-col gap-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
           {/* Income Row */}
           {showIncome && (
             <div
@@ -152,15 +159,14 @@ export function CashFlowArrows({
       )}
 
       {/* Right Column: Balance (60%) */}
-      <div
-        className="flex flex-1 flex-col items-center justify-center gap-1"
-        style={{ minWidth: showLeftColumn ? "60%" : "100%" }}
-      >
+      <div className="flex flex-col items-end justify-center gap-1">
         <p
           style={{
             fontSize: typography.meta.fontSize,
             fontWeight: typography.meta.fontWeight,
             color: colors.text.secondary,
+            textAlign: "right",
+            width: "100%",
           }}
         >
           {balanceLabel}
@@ -170,6 +176,8 @@ export function CashFlowArrows({
             fontSize: typography.display.fontSize,
             fontWeight: typography.display.fontWeight,
             color: netColor,
+            textAlign: "right",
+            width: "100%",
           }}
         >
           {netMinor < 0n ? "-" : "+"}
