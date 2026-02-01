@@ -20,6 +20,38 @@ const interpolate = (template: string, params?: CopyParams) => {
   });
 };
 
+const resolveIcuPlural = (template: string, params?: CopyParams) => {
+  const match = template.match(
+    /^\{\s*(\w+)\s*,\s*plural\s*,([\s\S]+)\}$/
+  );
+  if (!match) return null;
+
+  const countKey = match[1];
+  const body = match[2];
+  const forms: Record<string, string> = {};
+  const tokenRegex = /(=\d+|zero|one|two|few|many|other)\s*\{([^}]*)\}/g;
+  let tokenMatch: RegExpExecArray | null = null;
+  while ((tokenMatch = tokenRegex.exec(body))) {
+    forms[tokenMatch[1]] = tokenMatch[2].trim();
+  }
+
+  if (!Object.keys(forms).length) return null;
+
+  const rawCount = params?.[countKey];
+  const count = Number.isFinite(Number(rawCount)) ? Number(rawCount) : 0;
+  const exactKey = `=${count}`;
+  let choice =
+    forms[exactKey] ??
+    (count === 0 ? forms.zero : undefined) ??
+    (count === 1 ? forms.one : undefined) ??
+    forms.other;
+
+  if (!choice) return null;
+
+  const withCount = choice.replace(/#/g, String(count));
+  return interpolate(withCount, { ...params, [countKey]: count });
+};
+
 export function getDictionary(locale: string) {
   const normalized = (locale || "").toLowerCase();
   const base = normalized.split("-")[0] || fallbackLocale;
@@ -46,6 +78,8 @@ export function t<D extends CopyRecord, K extends LeafKeys<D>>(
     }, dict as unknown);
 
   if (typeof value === "string") {
+    const resolvedPlural = resolveIcuPlural(value, params);
+    if (resolvedPlural) return resolvedPlural;
     return interpolate(value, params);
   }
 

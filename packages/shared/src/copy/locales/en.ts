@@ -165,6 +165,12 @@ export const en = {
     filterByMonth: "Filter by month",
     income: "Income",
     expenses: "Expenses",
+    incomeCount:
+      "{count, plural, =0 {0 income} =1 {1 income} other {# incomes}}",
+    expenseCount:
+      "{count, plural, =0 {0 expenses} =1 {1 expense} other {# expenses}}",
+    pendingCount:
+      "{count, plural, =0 {0 pending} =1 {1 pending} other {# pending}}",
     balance: "Balance",
     transactionsFor: "Transactions for {month}",
     movimientos: "Transactions",
@@ -233,7 +239,7 @@ export const en = {
     },
     recurring: {
       pendingLabel: "Recurring",
-      confirmAction: "Mark as registered",
+      confirmAction: "Register",
       confirming: "Registering...",
       confirmError: "Failed to confirm recurring item",
     },

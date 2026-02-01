@@ -74,6 +74,7 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  Info,
   PlusCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -248,6 +249,93 @@ function SummaryValueWithPendingChip({
             </div>
           ) : null}
         </>
+      ) : null}
+    </div>
+  );
+}
+
+type MovementsLegendTooltipProps = {
+  legendText: string;
+  incomeLabel: string;
+  expenseLabel: string;
+  triggerLabel: string;
+};
+
+function MovementsLegendTooltip({
+  legendText,
+  incomeLabel,
+  expenseLabel,
+  triggerLabel,
+}: MovementsLegendTooltipProps) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        popoverRef.current?.contains(target) ||
+        triggerRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setOpen(false);
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative inline-flex items-center">
+      <button
+        type="button"
+        ref={triggerRef}
+        aria-label={triggerLabel}
+        aria-expanded={open}
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition hover:text-foreground"
+      >
+        <Info className="h-4 w-4" />
+      </button>
+      {open ? (
+        <div
+          ref={popoverRef}
+          className="absolute right-0 top-full z-20 mt-2 w-64 rounded-lg border px-3 py-2 text-xs shadow-sm"
+          style={{
+            backgroundColor: colors.bg.surface,
+            borderColor: colors.state.neutral,
+            color: colors.text.secondary,
+          }}
+        >
+          <p className="text-xs">{legendText}</p>
+          <div className="mt-2 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: withAlpha(colors.state.positive, 0.45) }}
+              />
+              <span>{incomeLabel}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: withAlpha(colors.state.negative, 0.45) }}
+              />
+              <span>{expenseLabel}</span>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );
@@ -584,6 +672,27 @@ export function TransactionsClient({
       return a.kind === "transaction" ? -1 : 1;
     });
   }, [filteredTransactions, pendingOccurrences]);
+
+  const movementCounts = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+    let pending = 0;
+
+    mergedItems.forEach((item) => {
+      const type =
+        item.kind === "transaction" ? item.transaction.type : item.recurring.item.type;
+      if (type === "income") {
+        income += 1;
+      } else {
+        expense += 1;
+      }
+      if (isFutureDay(item.date)) {
+        pending += 1;
+      }
+    });
+
+    return { income, expense, pending };
+  }, [mergedItems]);
 
   // Calculate monthly summary
   const monthlySummary = useMemo(() => {
@@ -1112,30 +1221,48 @@ export function TransactionsClient({
         </Card>
       </div>
 
-      <h2 className="text-lg font-bold">
-        {t("movimientosCount", { count: mergedItems.length })}
-      </h2>
-      <p className="text-xs" style={{ color: colors.text.secondary }}>
-        {t("futureLegend")}
-      </p>
-      <div
-        className="mb-4 flex flex-wrap items-center gap-4 text-xs"
-        style={{ color: colors.text.secondary }}
-      >
-        <div className="flex items-center gap-2">
-          <span
-            className="h-2 w-2 rounded-full"
-            style={{ backgroundColor: withAlpha(colors.state.positive, 0.45) }}
-          />
-          <span>{t("futureIncomeLegend")}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span
-            className="h-2 w-2 rounded-full"
-            style={{ backgroundColor: withAlpha(colors.state.negative, 0.45) }}
-          />
-          <span>{t("futureExpenseLegend")}</span>
-        </div>
+      <div className="flex items-center gap-2">
+        <h2 className="text-lg font-bold">
+          {t("movimientosCount", { count: mergedItems.length })}
+        </h2>
+        <MovementsLegendTooltip
+          legendText={t("futureLegend")}
+          incomeLabel={t("futureIncomeLegend")}
+          expenseLabel={t("futureExpenseLegend")}
+          triggerLabel={t("futureLegend")}
+        />
+      </div>
+      <div className="mb-4 mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <span
+          className="inline-flex items-center rounded-full border px-2 py-1"
+          style={{
+            borderColor: colors.state.neutral,
+            backgroundColor: colors.bg.secondary,
+            color: colors.state.positive,
+          }}
+        >
+          {t("incomeCount", { count: movementCounts.income })}
+        </span>
+        <span
+          className="inline-flex items-center rounded-full border px-2 py-1"
+          style={{
+            borderColor: colors.state.neutral,
+            backgroundColor: colors.bg.secondary,
+            color: colors.state.negative,
+          }}
+        >
+          {t("expenseCount", { count: movementCounts.expense })}
+        </span>
+        <span
+          className="inline-flex items-center rounded-full border px-2 py-1"
+          style={{
+            borderColor: colors.state.neutral,
+            backgroundColor: colors.bg.secondary,
+            color: colors.state.warning,
+          }}
+        >
+          {t("pendingCount", { count: movementCounts.pending })}
+        </span>
       </div>
 
       {/* Transactions List */}
@@ -1321,6 +1448,12 @@ export function TransactionsClient({
                           size="sm"
                           onClick={() => handleConfirmRecurring(recurring)}
                           disabled={confirmingKey === confirmKey}
+                          className="h-7 px-3 text-xs font-semibold"
+                          style={{
+                            backgroundColor: colors.bg.secondary,
+                            borderColor: colors.state.neutral,
+                            color: colors.text.primary,
+                          }}
                         >
                           {confirmingKey === confirmKey
                             ? t("recurring.confirming")

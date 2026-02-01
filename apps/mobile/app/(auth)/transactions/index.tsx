@@ -214,6 +214,112 @@ function SummaryValueWithPendingChip({
   );
 }
 
+type MovementsLegendTooltipProps = {
+  legendText: string;
+  incomeLabel: string;
+  expenseLabel: string;
+  triggerLabel: string;
+};
+
+function MovementsLegendTooltip({
+  legendText,
+  incomeLabel,
+  expenseLabel,
+  triggerLabel,
+}: MovementsLegendTooltipProps) {
+  const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const triggerRef = useRef<View>(null);
+
+  const handleToggle = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    if (!triggerRef.current) {
+      setOpen(true);
+      return;
+    }
+    triggerRef.current.measureInWindow((x, y, width, height) => {
+      setAnchor({ x, y, width, height });
+      setOpen(true);
+    });
+  };
+
+  const windowWidth = Dimensions.get("window").width;
+  const tooltipWidth = Math.min(260, windowWidth - spacing.lg * 2);
+  const leftOffset = anchor
+    ? Math.min(
+        Math.max(spacing.lg, anchor.x + anchor.width - tooltipWidth),
+        windowWidth - tooltipWidth - spacing.lg
+      )
+    : spacing.lg;
+  const topOffset = anchor
+    ? anchor.y + anchor.height + spacing.xs
+    : spacing.lg;
+
+  return (
+    <>
+      <Pressable
+        ref={triggerRef}
+        onPress={handleToggle}
+        accessibilityRole="button"
+        accessibilityLabel={triggerLabel}
+        accessibilityState={{ expanded: open }}
+        style={styles.legendTrigger}
+        hitSlop={8}
+      >
+        <MaterialCommunityIcons
+          name="information-outline"
+          size={18}
+          color={colors.text.muted}
+        />
+      </Pressable>
+      <Modal
+        transparent
+        visible={open}
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <Pressable style={styles.legendOverlay} onPress={() => setOpen(false)}>
+          <Pressable
+            style={[
+              styles.legendPopover,
+              { top: topOffset, left: leftOffset, width: tooltipWidth },
+            ]}
+            onPress={() => {}}
+          >
+            <Text style={styles.legendText}>{legendText}</Text>
+            <View style={styles.legendRow}>
+              <View
+                style={[
+                  styles.legendSwatch,
+                  { backgroundColor: withAlpha(colors.state.positive, 0.45) },
+                ]}
+              />
+              <Text style={styles.legendLabel}>{incomeLabel}</Text>
+            </View>
+            <View style={styles.legendRow}>
+              <View
+                style={[
+                  styles.legendSwatch,
+                  { backgroundColor: withAlpha(colors.state.negative, 0.45) },
+                ]}
+              />
+              <Text style={styles.legendLabel}>{expenseLabel}</Text>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
+  );
+}
+
 export default function TransactionsScreen(): React.JSX.Element {
   const router = useRouter();
   const isFocused = useIsFocused();
@@ -476,6 +582,27 @@ export default function TransactionsScreen(): React.JSX.Element {
       return a.kind === "transaction" ? -1 : 1;
     });
   }, [filteredTransactions, pendingOccurrences]);
+
+  const movementCounts = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+    let pending = 0;
+
+    mergedItems.forEach((item) => {
+      const type =
+        item.kind === "transaction" ? item.transaction.type : item.recurring.item.type;
+      if (type === "income") {
+        income += 1;
+      } else {
+        expense += 1;
+      }
+      if (isFutureDay(item.date)) {
+        pending += 1;
+      }
+    });
+
+    return { income, expense, pending };
+  }, [mergedItems]);
 
   const categoriesById = useMemo(() => {
     return categories.reduce<Record<string, Category>>((acc, category) => {
@@ -800,35 +927,39 @@ export default function TransactionsScreen(): React.JSX.Element {
 
           {/* Transactions List */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {t(dictionary, "transactions.listTitle", {
-                count: mergedItems.length,
-              })}
-            </Text>
-            <Text style={styles.sectionHint}>
-              {t(dictionary, "transactions.futureLegend")}
-            </Text>
-            <View style={styles.futureLegendRow}>
-              <View style={styles.futureLegendItem}>
-                <View
-                  style={[
-                    styles.futureLegendSwatch,
-                    { backgroundColor: withAlpha(colors.state.positive, 0.45) },
-                  ]}
-                />
-                <Text style={styles.futureLegendText}>
-                  {t(dictionary, "transactions.futureIncomeLegend")}
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>
+                {t(dictionary, "transactions.listTitle", {
+                  count: mergedItems.length,
+                })}
+              </Text>
+              <MovementsLegendTooltip
+                legendText={t(dictionary, "transactions.futureLegend")}
+                incomeLabel={t(dictionary, "transactions.futureIncomeLegend")}
+                expenseLabel={t(dictionary, "transactions.futureExpenseLegend")}
+                triggerLabel={t(dictionary, "transactions.futureLegend")}
+              />
+            </View>
+            <View style={styles.badgeRow}>
+              <View style={styles.badge}>
+                <Text style={[styles.badgeText, styles.badgeIncomeText]}>
+                  {t(dictionary, "transactions.incomeCount", {
+                    count: movementCounts.income,
+                  })}
                 </Text>
               </View>
-              <View style={styles.futureLegendItem}>
-                <View
-                  style={[
-                    styles.futureLegendSwatch,
-                    { backgroundColor: withAlpha(colors.state.negative, 0.45) },
-                  ]}
-                />
-                <Text style={styles.futureLegendText}>
-                  {t(dictionary, "transactions.futureExpenseLegend")}
+              <View style={styles.badge}>
+                <Text style={[styles.badgeText, styles.badgeExpenseText]}>
+                  {t(dictionary, "transactions.expenseCount", {
+                    count: movementCounts.expense,
+                  })}
+                </Text>
+              </View>
+              <View style={styles.badge}>
+                <Text style={[styles.badgeText, styles.badgePendingText]}>
+                  {t(dictionary, "transactions.pendingCount", {
+                    count: movementCounts.pending,
+                  })}
                 </Text>
               </View>
             </View>
@@ -947,7 +1078,7 @@ export default function TransactionsScreen(): React.JSX.Element {
                           <View style={styles.pendingLeading}>
                             <View style={styles.pendingBadge}>
                               <CategoryIcon
-                                iconId={category?.icon_id}
+                                iconKey={category?.icon_id}
                                 size={18}
                                 tone="muted"
                                 accessibilityLabel={category?.name}
@@ -1203,7 +1334,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: spacing.md,
     borderRadius: radii.md,
-    backgroundColor: colors.bg.secondary,
+    backgroundColor: colors.bg.primary,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
   },
   summaryLabel: {
     fontSize: typography.size.xs,
@@ -1250,36 +1383,79 @@ const styles = StyleSheet.create({
   section: {
     marginTop: spacing.sm,
   },
-  sectionTitle: {
-    fontSize: typography.size.lg,
-    fontWeight: typography.weight.bold,
-    marginBottom: spacing.md,
-    color: colors.text.primary,
-  },
-  sectionHint: {
-    fontSize: typography.size.xs,
-    color: colors.text.secondary,
-    marginTop: -spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  futureLegendRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: spacing.md,
-    marginBottom: spacing.md,
-  },
-  futureLegendItem: {
+  sectionTitleRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
+    marginBottom: spacing.sm,
   },
-  futureLegendSwatch: {
+  sectionTitle: {
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
+  },
+  badgeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  badge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    backgroundColor: colors.bg.secondary,
+  },
+  badgeText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
+  },
+  badgeIncomeText: {
+    color: colors.state.positive,
+  },
+  badgeExpenseText: {
+    color: colors.state.negative,
+  },
+  badgePendingText: {
+    color: colors.state.warning,
+  },
+  legendTrigger: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  legendOverlay: {
+    flex: 1,
+  },
+  legendPopover: {
+    position: "absolute",
+    backgroundColor: colors.bg.surface,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  legendText: {
+    fontSize: typography.size.xs,
+    color: colors.text.secondary,
+    marginBottom: spacing.sm,
+  },
+  legendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  legendSwatch: {
     width: 10,
     height: 10,
     borderRadius: 999,
   },
-  futureLegendText: {
+  legendLabel: {
     fontSize: typography.size.xs,
     color: colors.text.secondary,
   },
