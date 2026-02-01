@@ -456,11 +456,13 @@ export default function HomeScreen() {
   const weekInfo = getWeekInfo(weekReference, locale);
   const weekLabel = `${weekInfo.weekNumber} · ${weekInfo.monthLabel}`;
   const monthLabel = viewMonth.toLocaleDateString(locale, { month: "long" });
-  const balanceColumnWidth = clamp(
-    Math.round(Dimensions.get("window").width * 0.32),
-    160,
-    240
-  );
+  const screenWidth = Dimensions.get("window").width;
+  const balanceColumnWidth =
+    screenWidth >= 768
+      ? clamp(Math.round(screenWidth * 0.26), 200, 280)
+      : screenWidth >= 420
+        ? clamp(Math.round(screenWidth * 0.3), 160, 240)
+        : clamp(Math.round(screenWidth * 0.28), 140, 210);
   const cashflowNetMinor =
     viewModel.cashflow.incomeMinor - viewModel.cashflow.expenseMinor;
   const balanceEndOfMonthEstimatedMinor =

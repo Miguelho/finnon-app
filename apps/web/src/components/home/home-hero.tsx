@@ -237,7 +237,7 @@ export function HomeHero({
   return (
     <>
       <section
-        className="rounded-2xl border p-6"
+        className="rounded-2xl border p-4 md:p-6"
         style={{
           borderColor: colors.state.neutral,
           backgroundColor: colors.bg.surface,
@@ -246,14 +246,8 @@ export function HomeHero({
         <div className="flex flex-col gap-6 md:flex-row">
           {/* LEFT COLUMN: Hero, Próximos (60% on desktop) */}
           <div
-            className="flex-1 space-y-6 md:w-2/3"
-            style={
-              {
-                "--balance-right-gutter": "20px",
-                "--balance-col-min": "160px",
-                "--balance-col-max": "240px",
-              } as CSSProperties
-            }
+            className="flex-1 space-y-5 md:space-y-6 md:w-2/3 [--balance-col-min:120px] [--balance-col-max:clamp(150px,34vw,200px)] md:[--balance-col-min:180px] md:[--balance-col-max:clamp(220px,26vw,300px)]"
+            style={{ "--balance-right-gutter": "20px" } as CSSProperties}
           >
             <BalanceHeroAccordion
               balanceTodayMinor={viewModel.monthOverview.balanceTodayMinor}
@@ -300,7 +294,7 @@ export function HomeHero({
 
             {/* 4. Próximos X días (Cashflow) */}
             <div
-              className="border-t px-5 pt-4"
+              className="border-t px-4 pt-4 md:px-5"
               style={{ borderColor: colors.state.neutral }}
             >
               <div
@@ -380,7 +374,10 @@ export function HomeHero({
                                 "1fr minmax(var(--balance-col-min), var(--balance-col-max))",
                             }}
                           >
-                            <span style={{ color: colors.text.secondary }}>
+                            <span
+                              className="truncate"
+                              style={{ color: colors.text.secondary }}
+                            >
                               {dayLabel}: {item.title}
                             </span>
                             <span
@@ -419,7 +416,7 @@ export function HomeHero({
 
             {/* Semana - visible on mobile only, desktop shows in right column */}
             <div
-              className="md:hidden border-t px-5 pt-4"
+              className="md:hidden border-t px-4 pt-4 md:px-5"
               style={{ borderColor: colors.state.neutral }}
             >
               <div

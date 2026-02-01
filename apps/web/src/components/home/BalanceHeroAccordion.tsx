@@ -114,7 +114,7 @@ export function BalanceHeroAccordion({
     >
       <button
         type="button"
-        className="w-full px-5 py-4 text-left"
+        className="w-full px-4 py-4 text-left md:px-5"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-expanded={isOpen}
         aria-controls={contentId}
@@ -196,7 +196,7 @@ export function BalanceHeroAccordion({
         <div
           id={contentId}
           ref={contentRef}
-          className="space-y-4 border-t px-5 pb-5 pt-4"
+          className="space-y-4 border-t px-4 pb-5 pt-4 md:px-5"
           style={{ pointerEvents: isOpen ? "auto" : "none" }}
         >
           <div
