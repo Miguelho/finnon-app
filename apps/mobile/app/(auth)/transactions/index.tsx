@@ -15,7 +15,7 @@ import {
   type TextStyle,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -63,6 +63,7 @@ type Transaction = {
   category_id: string | null;
   date: string;
   merchant: string | null;
+  merchant_norm?: string | null;
   notes: string | null;
   created_by: string;
   created_at: string;
@@ -100,6 +101,21 @@ const parseMonthKey = (monthKey: string) => {
     monthIndex: Number.isFinite(monthIndex) ? monthIndex : new Date().getMonth(),
   };
 };
+
+const isValidMonthKey = (value?: string | null) =>
+  Boolean(value && /^\d{4}-\d{2}$/.test(value));
+
+const normalizeMerchantLite = (value?: string | null) =>
+  (value ?? "").trim().toLowerCase();
+
+const formatMerchantLabel = (value: string) =>
+  value
+    .split(" ")
+    .filter(Boolean)
+    .map((part) =>
+      part.length > 0 ? `${part[0].toUpperCase()}${part.slice(1)}` : part
+    )
+    .join(" ");
 
 const getMonthRangeFromKey = (monthKey: string) => {
   const { year, monthIndex } = parseMonthKey(monthKey);
@@ -322,6 +338,12 @@ function MovementsLegendTooltip({
 
 export default function TransactionsScreen(): React.JSX.Element {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const modeParam = Array.isArray(params?.mode) ? params.mode[0] : params?.mode;
+  const monthParam = Array.isArray(params?.month) ? params.month[0] : params?.month;
+  const merchantParam = Array.isArray(params?.merchant)
+    ? params.merchant[0]
+    : params?.merchant;
   const isFocused = useIsFocused();
   const { selectedAccountId, user } = useAuth();
   const { dictionary, locale } = useCopy();
@@ -339,7 +361,8 @@ export default function TransactionsScreen(): React.JSX.Element {
 
   // Month filter (format: YYYY-MM)
   const currentMonth = toMonthKey(new Date());
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const initialMonth = isValidMonthKey(monthParam) ? (monthParam as string) : currentMonth;
+  const [selectedMonth, setSelectedMonth] = useState(initialMonth);
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
   const [pickerMonthIndex, setPickerMonthIndex] = useState(new Date().getMonth());
@@ -363,6 +386,11 @@ export default function TransactionsScreen(): React.JSX.Element {
     const startYear = currentYear - 5;
     return Array.from({ length: 11 }, (_, index) => startYear + index);
   }, []);
+
+  useEffect(() => {
+    if (!isValidMonthKey(monthParam)) return;
+    setSelectedMonth(monthParam as string);
+  }, [monthParam]);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -529,14 +557,14 @@ export default function TransactionsScreen(): React.JSX.Element {
   };
 
   // Filter transactions by selected month
-  const filteredTransactions = useMemo(() => {
+  const monthTransactions = useMemo(() => {
     return transactions.filter((t) => t.date.startsWith(selectedMonth));
   }, [transactions, selectedMonth]);
 
   const pendingOccurrences = useMemo<RecurringOccurrenceItem[]>(() => {
     if (!recurringItems.length) return [];
     const existingKeys = new Set(
-      filteredTransactions
+      monthTransactions
         .filter(
           (transaction) =>
             transaction.recurring_item_id && transaction.recurring_occurrence_date
@@ -559,10 +587,10 @@ export default function TransactionsScreen(): React.JSX.Element {
             item,
           }))
       );
-  }, [filteredTransactions, monthRange.end, monthRange.start, recurringItems]);
+  }, [monthRange.end, monthRange.start, monthTransactions, recurringItems]);
 
   const mergedItems = useMemo(() => {
-    const mappedTransactions = filteredTransactions.map((transaction) => ({
+    const mappedTransactions = monthTransactions.map((transaction) => ({
       kind: "transaction" as const,
       date: transaction.date,
       transaction,
@@ -581,7 +609,7 @@ export default function TransactionsScreen(): React.JSX.Element {
       if (a.kind === b.kind) return 0;
       return a.kind === "transaction" ? -1 : 1;
     });
-  }, [filteredTransactions, pendingOccurrences]);
+  }, [monthTransactions, pendingOccurrences]);
 
   const movementCounts = useMemo(() => {
     let income = 0;
@@ -611,12 +639,17 @@ export default function TransactionsScreen(): React.JSX.Element {
     }, {});
   }, [categories]);
 
+  const transactionsById = useMemo(
+    () => new Map(transactions.map((transaction) => [transaction.id, transaction])),
+    [transactions]
+  );
+
   // Calculate monthly summary
   const monthlySummary = useMemo(() => {
     let income = 0n;
     let expense = 0n;
 
-    filteredTransactions.forEach((t) => {
+    monthTransactions.forEach((t) => {
       const amount = BigInt(t.amount_base_minor);
       if (t.type === "income") {
         income += amount;
@@ -628,7 +661,7 @@ export default function TransactionsScreen(): React.JSX.Element {
     const balance = income - expense;
 
     return { income, expense, balance };
-  }, [filteredTransactions]);
+  }, [monthTransactions]);
 
   const pendingSummary = useMemo(() => {
     let income = 0n;
@@ -641,7 +674,7 @@ export default function TransactionsScreen(): React.JSX.Element {
       }
     };
 
-    filteredTransactions.forEach((transaction) => {
+    monthTransactions.forEach((transaction) => {
       if (!isFutureDay(transaction.date)) return;
       const amount = BigInt(transaction.amount_base_minor);
       if (transaction.type === "income") {
@@ -663,7 +696,7 @@ export default function TransactionsScreen(): React.JSX.Element {
     });
 
     return { income, expense };
-  }, [baseCurrency, filteredTransactions, pendingOccurrences]);
+  }, [baseCurrency, monthTransactions, pendingOccurrences]);
 
   // Get currency symbol
   const currencySymbol =
@@ -683,6 +716,19 @@ export default function TransactionsScreen(): React.JSX.Element {
       currencySymbol
     ),
   });
+
+  const formatSignedMinor = useCallback(
+    (value: bigint) => {
+      const absolute = value < 0n ? -value : value;
+      const formatted = formatMoneyWithSymbol(
+        absolute,
+        baseCurrency,
+        currencySymbol
+      );
+      return value < 0n ? `-${formatted}` : formatted;
+    },
+    [baseCurrency, currencySymbol]
+  );
 
   const handleConfirmRecurring = async (pending: RecurringOccurrenceItem) => {
     if (!selectedAccountId) return;
@@ -871,59 +917,59 @@ export default function TransactionsScreen(): React.JSX.Element {
 
           {/* Monthly Summary */}
           <View style={styles.summaryContainer}>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryLabel}>{t(dictionary, "transactions.income")}</Text>
-              <SummaryValueWithPendingChip
-                value={formatMoneyWithSymbol(
-                  monthlySummary.income,
-                  baseCurrency,
-                  currencySymbol
-                )}
-                pendingMinor={pendingSummary.income}
-                pendingText={pendingIncomeText}
-                triggerLabel={t(dictionary, "transactions.pendingTriggerLabel")}
-                valueStyle={styles.incomeText}
-                pendingToneColor={colors.state.positive}
-              />
-            </View>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryLabel}>{t(dictionary, "transactions.income")}</Text>
+                <SummaryValueWithPendingChip
+                  value={formatMoneyWithSymbol(
+                    monthlySummary.income,
+                    baseCurrency,
+                    currencySymbol
+                  )}
+                  pendingMinor={pendingSummary.income}
+                  pendingText={pendingIncomeText}
+                  triggerLabel={t(dictionary, "transactions.pendingTriggerLabel")}
+                  valueStyle={styles.incomeText}
+                  pendingToneColor={colors.state.positive}
+                />
+              </View>
 
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryLabel}>{t(dictionary, "transactions.expenses")}</Text>
-              <SummaryValueWithPendingChip
-                value={formatMoneyWithSymbol(
-                  monthlySummary.expense,
-                  baseCurrency,
-                  currencySymbol
-                )}
-                pendingMinor={pendingSummary.expense}
-                pendingText={pendingExpenseText}
-                triggerLabel={t(dictionary, "transactions.pendingTriggerLabel")}
-                valueStyle={styles.expenseText}
-                pendingToneColor={colors.state.negative}
-              />
-            </View>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryLabel}>{t(dictionary, "transactions.expenses")}</Text>
+                <SummaryValueWithPendingChip
+                  value={formatMoneyWithSymbol(
+                    monthlySummary.expense,
+                    baseCurrency,
+                    currencySymbol
+                  )}
+                  pendingMinor={pendingSummary.expense}
+                  pendingText={pendingExpenseText}
+                  triggerLabel={t(dictionary, "transactions.pendingTriggerLabel")}
+                  valueStyle={styles.expenseText}
+                  pendingToneColor={colors.state.negative}
+                />
+              </View>
 
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryLabel}>{t(dictionary, "transactions.balance")}</Text>
-              <Text
-                style={[
-                  styles.summaryValue,
-                  monthlySummary.balance >= 0n
-                    ? styles.incomeText
-                    : styles.expenseText,
-                ]}
-              >
-                {monthlySummary.balance >= 0n ? "+" : "-"}
-                {formatMoneyWithSymbol(
-                  monthlySummary.balance >= 0n
-                    ? monthlySummary.balance
-                    : -monthlySummary.balance,
-                  baseCurrency,
-                  currencySymbol
-                )}
-              </Text>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryLabel}>{t(dictionary, "transactions.balance")}</Text>
+                <Text
+                  style={[
+                    styles.summaryValue,
+                    monthlySummary.balance >= 0n
+                      ? styles.incomeText
+                      : styles.expenseText,
+                  ]}
+                >
+                  {monthlySummary.balance >= 0n ? "+" : "-"}
+                  {formatMoneyWithSymbol(
+                    monthlySummary.balance >= 0n
+                      ? monthlySummary.balance
+                      : -monthlySummary.balance,
+                    baseCurrency,
+                    currencySymbol
+                  )}
+                </Text>
+              </View>
             </View>
-          </View>
 
           {/* Transactions List */}
           <View style={styles.section}>

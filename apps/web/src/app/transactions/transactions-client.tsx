@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/layout/page-container";
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -106,6 +107,7 @@ type Transaction = {
   category_id: string | null;
   date: string;
   merchant: string | null;
+  merchant_norm?: string | null;
   notes: string | null;
   created_by: string;
   created_at: string;
@@ -155,6 +157,21 @@ const parseMonthKey = (monthKey: string) => {
     monthIndex: Number.isFinite(monthIndex) ? monthIndex : new Date().getMonth(),
   };
 };
+
+const isValidMonthKey = (value?: string | null) =>
+  Boolean(value && /^\d{4}-\d{2}$/.test(value));
+
+const normalizeMerchantLite = (value?: string | null) =>
+  (value ?? "").trim().toLowerCase();
+
+const formatMerchantLabel = (value: string) =>
+  value
+    .split(" ")
+    .filter(Boolean)
+    .map((part) =>
+      part.length > 0 ? `${part[0].toUpperCase()}${part.slice(1)}` : part
+    )
+    .join(" ");
 
 const getMonthRangeFromKey = (monthKey: string) => {
   const { year, monthIndex } = parseMonthKey(monthKey);
@@ -358,6 +375,7 @@ export function TransactionsClient({
   const t = useTranslations("transactions");
   const tObligations = useTranslations("obligations");
   const locale = useLocale();
+  const monthParam = searchParams?.get("month");
   const [transactions, setTransactions] = useState(initialTransactions);
   const [recurringItems, setRecurringItems] = useState(initialRecurringItems);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -395,7 +413,8 @@ export function TransactionsClient({
 
   // Month filter state (format: YYYY-MM)
   const currentMonth = toMonthKey(new Date());
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const initialMonth = isValidMonthKey(monthParam) ? monthParam! : currentMonth;
+  const [selectedMonth, setSelectedMonth] = useState(initialMonth);
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
   const [pickerMonthIndex, setPickerMonthIndex] = useState(new Date().getMonth());
@@ -428,6 +447,10 @@ export function TransactionsClient({
         return acc;
       }, {}),
     [categories]
+  );
+  const transactionsById = useMemo(
+    () => new Map(transactions.map((transaction) => [transaction.id, transaction])),
+    [transactions]
   );
 
   // Form state
@@ -573,6 +596,11 @@ export function TransactionsClient({
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    if (!isValidMonthKey(monthParam)) return;
+    setSelectedMonth(monthParam!);
+  }, [monthParam]);
+
   // Update top categories when transaction type changes
   useEffect(() => {
     setTopCategories(initialTopCategories[formData.type]);
@@ -614,7 +642,7 @@ export function TransactionsClient({
   };
 
   // Filter transactions by selected month
-  const filteredTransactions = useMemo(() => {
+  const monthTransactions = useMemo(() => {
     return transactions.filter((t) => t.date.startsWith(selectedMonth));
   }, [transactions, selectedMonth]);
 
@@ -626,7 +654,7 @@ export function TransactionsClient({
   const pendingOccurrences = useMemo<RecurringOccurrenceItem[]>(() => {
     if (!recurringItems.length) return [];
     const existingKeys = new Set(
-      filteredTransactions
+      monthTransactions
         .filter(
           (transaction) =>
             transaction.recurring_item_id && transaction.recurring_occurrence_date
@@ -649,10 +677,10 @@ export function TransactionsClient({
             item,
           }))
       );
-  }, [filteredTransactions, monthRange.end, monthRange.start, recurringItems]);
+  }, [monthTransactions, monthRange.end, monthRange.start, recurringItems]);
 
   const mergedItems = useMemo(() => {
-    const mappedTransactions = filteredTransactions.map((transaction) => ({
+    const mappedTransactions = monthTransactions.map((transaction) => ({
       kind: "transaction" as const,
       date: transaction.date,
       transaction,
@@ -671,7 +699,7 @@ export function TransactionsClient({
       if (a.kind === b.kind) return 0;
       return a.kind === "transaction" ? -1 : 1;
     });
-  }, [filteredTransactions, pendingOccurrences]);
+  }, [monthTransactions, pendingOccurrences]);
 
   const movementCounts = useMemo(() => {
     let income = 0;
@@ -699,7 +727,7 @@ export function TransactionsClient({
     let income = 0n;
     let expense = 0n;
 
-    filteredTransactions.forEach((t) => {
+    monthTransactions.forEach((t) => {
       const amount = BigInt(t.amount_base_minor);
       if (t.type === "income") {
         income += amount;
@@ -711,7 +739,7 @@ export function TransactionsClient({
     const balance = income - expense;
 
     return { income, expense, balance };
-  }, [filteredTransactions]);
+  }, [monthTransactions]);
 
   const pendingSummary = useMemo(() => {
     let income = 0n;
@@ -724,7 +752,7 @@ export function TransactionsClient({
       }
     };
 
-    filteredTransactions.forEach((transaction) => {
+    monthTransactions.forEach((transaction) => {
       if (!isFutureDay(transaction.date)) return;
       const amount = BigInt(transaction.amount_base_minor);
       if (transaction.type === "income") {
@@ -746,7 +774,7 @@ export function TransactionsClient({
     });
 
     return { income, expense };
-  }, [baseCurrency, filteredTransactions, pendingOccurrences]);
+  }, [baseCurrency, monthTransactions, pendingOccurrences]);
 
   // Get currency symbol
   const currencySymbol =
@@ -758,6 +786,19 @@ export function TransactionsClient({
   const pendingExpenseText = t("pendingChipLabel", {
     amount: formatMoneyWithSymbol(pendingSummary.expense, baseCurrency, currencySymbol),
   });
+
+  const formatSignedMinor = useCallback(
+    (value: bigint) => {
+      const absolute = value < 0n ? -value : value;
+      const formatted = formatMoneyWithSymbol(
+        absolute,
+        baseCurrency,
+        currencySymbol
+      );
+      return value < 0n ? `-${formatted}` : formatted;
+    },
+    [baseCurrency, currencySymbol]
+  );
 
   const handleCreate = async () => {
     if (!canEdit) return;
@@ -1163,63 +1204,63 @@ export function TransactionsClient({
 
       {/* Monthly Summary */}
       <div className="grid grid-cols-3 gap-2">
-        <Card>
-          <CardHeader className="p-3">
-            <CardDescription className="text-xs">{t("income")}</CardDescription>
-            <SummaryValueWithPendingChip
-              value={formatMoneyWithSymbol(
-                monthlySummary.income,
-                baseCurrency,
-                currencySymbol
-              )}
-              pendingMinor={pendingSummary.income}
-              pendingText={pendingIncomeText}
-              triggerLabel={t("pendingTriggerLabel")}
-              valueColor={colors.state.positive}
-              pendingToneColor={colors.state.positive}
-            />
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="p-3">
-            <CardDescription className="text-xs">{t("expenses")}</CardDescription>
-            <SummaryValueWithPendingChip
-              value={formatMoneyWithSymbol(
-                monthlySummary.expense,
-                baseCurrency,
-                currencySymbol
-              )}
-              pendingMinor={pendingSummary.expense}
-              pendingText={pendingExpenseText}
-              triggerLabel={t("pendingTriggerLabel")}
-              valueColor={colors.state.negative}
-              pendingToneColor={colors.state.negative}
-            />
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="p-3">
-            <CardDescription className="text-xs">{t("balance")}</CardDescription>
-            <CardTitle
-              className="text-lg md:text-2xl"
-              style={{
-                color:
+          <Card>
+            <CardHeader className="p-3">
+              <CardDescription className="text-xs">{t("income")}</CardDescription>
+              <SummaryValueWithPendingChip
+                value={formatMoneyWithSymbol(
+                  monthlySummary.income,
+                  baseCurrency,
+                  currencySymbol
+                )}
+                pendingMinor={pendingSummary.income}
+                pendingText={pendingIncomeText}
+                triggerLabel={t("pendingTriggerLabel")}
+                valueColor={colors.state.positive}
+                pendingToneColor={colors.state.positive}
+              />
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="p-3">
+              <CardDescription className="text-xs">{t("expenses")}</CardDescription>
+              <SummaryValueWithPendingChip
+                value={formatMoneyWithSymbol(
+                  monthlySummary.expense,
+                  baseCurrency,
+                  currencySymbol
+                )}
+                pendingMinor={pendingSummary.expense}
+                pendingText={pendingExpenseText}
+                triggerLabel={t("pendingTriggerLabel")}
+                valueColor={colors.state.negative}
+                pendingToneColor={colors.state.negative}
+              />
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="p-3">
+              <CardDescription className="text-xs">{t("balance")}</CardDescription>
+              <CardTitle
+                className="text-lg md:text-2xl"
+                style={{
+                  color:
+                    monthlySummary.balance >= 0n
+                      ? colors.state.positive
+                      : colors.state.negative,
+                }}
+              >
+                {formatMoneyWithSymbol(
                   monthlySummary.balance >= 0n
-                    ? colors.state.positive
-                    : colors.state.negative,
-              }}
-            >
-              {formatMoneyWithSymbol(
-                monthlySummary.balance >= 0n
-                  ? monthlySummary.balance
-                  : -monthlySummary.balance,
-                baseCurrency,
-                monthlySummary.balance >= 0n ? currencySymbol : `-${currencySymbol}`
-              )}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
+                    ? monthlySummary.balance
+                    : -monthlySummary.balance,
+                  baseCurrency,
+                  monthlySummary.balance >= 0n ? currencySymbol : `-${currencySymbol}`
+                )}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
 
       <div className="flex items-center gap-2">
         <h2 className="text-lg font-bold">

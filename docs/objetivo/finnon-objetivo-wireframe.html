@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Finnon - Pantalla Objetivo (Wireframe)</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #f5f5f7;
+      color: #1a1a2e;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #1a1a2e;
+    }
+
+    .subtitle {
+      color: #6b7280;
+      font-size: 0.9rem;
+      margin-bottom: 32px;
+    }
+
+    /* State Selector */
+    .state-selector {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 40px;
+      flex-wrap: wrap;
+    }
+
+    .state-btn {
+      padding: 12px 24px;
+      border: 2px solid #e5e7eb;
+      background: white;
+      border-radius: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .state-btn:hover {
+      border-color: #1a1a2e;
+    }
+
+    .state-btn.active {
+      background: #1a1a2e;
+      color: white;
+      border-color: #1a1a2e;
+    }
+
+    .state-btn.adelantado.active {
+      background: #059669;
+      border-color: #059669;
+    }
+
+    .state-btn.en_riesgo.active {
+      background: #d97706;
+      border-color: #d97706;
+    }
+
+    .state-btn.retrasado.active {
+      background: #dc2626;
+      border-color: #dc2626;
+    }
+
+    /* Phone Frame */
+    .phone-frame {
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+      max-width: 420px;
+      margin: 0 auto;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: #1a1a2e;
+      border-radius: 6px;
+    }
+
+    .nav {
+      display: flex;
+      gap: 20px;
+      font-size: 0.85rem;
+      color: #6b7280;
+    }
+
+    .nav span.active {
+      color: #1a1a2e;
+      font-weight: 600;
+    }
+
+    /* Content */
+    .content {
+      padding: 24px;
+    }
+
+    .page-title {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .page-date {
+      color: #6b7280;
+      font-size: 0.85rem;
+      margin-bottom: 24px;
+    }
+
+    /* Goal Card */
+    .goal-card {
+      background: #fafafa;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .goal-label {
+      font-size: 0.75rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .goal-hero {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .goal-status {
+      font-size: 0.85rem;
+      margin-bottom: 16px;
+    }
+
+    .goal-status.adelantado { color: #059669; }
+    .goal-status.en_riesgo { color: #d97706; }
+    .goal-status.retrasado { color: #dc2626; }
+
+    /* Progress Bar */
+    .progress-container {
+      margin-bottom: 16px;
+    }
+
+    .progress-bar {
+      height: 8px;
+      background: #e5e7eb;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s ease, background 0.3s ease;
+    }
+
+    .progress-fill.adelantado { background: #059669; }
+    .progress-fill.en_riesgo { background: #d97706; }
+    .progress-fill.retrasado { background: #dc2626; }
+
+    /* Progress Stats */
+    .progress-stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+    }
+
+    .progress-amount {
+      font-weight: 600;
+    }
+
+    .progress-remaining {
+      color: #6b7280;
+    }
+
+    /* Simulator Card */
+    .simulator-card {
+      background: #fafafa;
+      border-radius: 16px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .simulator-card.retrasado {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+    }
+
+    .simulator-card.en_riesgo {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+    }
+
+    /* Simulator Header */
+    .simulator-header {
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .simulator-header:hover {
+      background: rgba(0,0,0,0.02);
+    }
+
+    .simulator-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .simulator-subtitle {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: 2px;
+    }
+
+    .simulator-card.retrasado .simulator-subtitle {
+      color: #dc2626;
+    }
+
+    .simulator-card.en_riesgo .simulator-subtitle {
+      color: #d97706;
+    }
+
+    .simulator-toggle {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: white;
+      border-radius: 8px;
+      transition: transform 0.3s ease;
+    }
+
+    .simulator-toggle.open {
+      transform: rotate(180deg);
+    }
+
+    /* Simulator Content */
+    .simulator-content {
+      padding: 0 20px 20px;
+      display: none;
+    }
+
+    .simulator-content.open {
+      display: block;
+    }
+
+    /* Impact Preview */
+    .impact-preview {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .impact-label {
+      font-size: 0.75rem;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+
+    .impact-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #059669;
+    }
+
+    .impact-detail {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+
+    /* Recurrent List */
+    .recurrent-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .recurrent-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: white;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+    }
+
+    .recurrent-item.disabled {
+      opacity: 0.5;
+    }
+
+    .recurrent-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .recurrent-icon {
+      width: 36px;
+      height: 36px;
+      background: #f3f4f6;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+    }
+
+    .recurrent-name {
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+
+    .recurrent-amount {
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    .recurrent-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .recurrent-impact {
+      font-size: 0.75rem;
+      color: #059669;
+      text-align: right;
+    }
+
+    /* Toggle Switch */
+    .toggle-switch {
+      width: 44px;
+      height: 24px;
+      background: #e5e7eb;
+      border-radius: 12px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .toggle-switch.active {
+      background: #1a1a2e;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      background: white;
+      border-radius: 50%;
+      top: 3px;
+      left: 3px;
+      transition: transform 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .toggle-switch.active::after {
+      transform: translateX(20px);
+    }
+
+    /* Discrete Link (Adelantado State) */
+    .simulator-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 16px;
+      color: #6b7280;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: color 0.2s ease;
+    }
+
+    .simulator-link:hover {
+      color: #1a1a2e;
+    }
+
+    .simulator-link svg {
+      transition: transform 0.2s ease;
+    }
+
+    .simulator-link:hover svg {
+      transform: translateX(4px);
+    }
+
+    /* Notes Section */
+    .design-notes {
+      margin-top: 48px;
+      padding: 24px;
+      background: white;
+      border-radius: 16px;
+      border-left: 4px solid #1a1a2e;
+    }
+
+    .design-notes h3 {
+      font-size: 1rem;
+      margin-bottom: 16px;
+    }
+
+    .design-notes ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .design-notes li {
+      font-size: 0.9rem;
+      color: #4b5563;
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .design-notes li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: #1a1a2e;
+    }
+
+    .state-label {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-right: 8px;
+    }
+
+    .state-label.adelantado { background: #d1fae5; color: #059669; }
+    .state-label.en_riesgo { background: #fef3c7; color: #d97706; }
+    .state-label.retrasado { background: #fee2e2; color: #dc2626; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Pantalla Objetivo - Wireframe Interactivo</h1>
+    <p class="subtitle">Selecciona un estado para ver cómo cambia el comportamiento del simulador</p>
+
+    <div class="state-selector">
+      <button class="state-btn adelantado active" onclick="setState('adelantado')">Adelantado</button>
+      <button class="state-btn en_riesgo" onclick="setState('en_riesgo')">En riesgo</button>
+      <button class="state-btn retrasado" onclick="setState('retrasado')">Retrasado</button>
+    </div>
+
+    <div class="phone-frame">
+      <div class="app-header">
+        <div class="logo">
+          <div class="logo-icon"></div>
+          <span>Finnon</span>
+        </div>
+        <div class="nav">
+          <span>Inicio</span>
+          <span>Movimientos</span>
+          <span class="active">Objetivo</span>
+        </div>
+      </div>
+
+      <div class="content">
+        <h2 class="page-title">Objetivo</h2>
+        <p class="page-date">febrero de 2026</p>
+
+        <!-- Goal Card -->
+        <div class="goal-card">
+          <div class="goal-label">Objetivo del mes</div>
+          <div class="goal-hero" id="goalHero">A este ritmo, cumplirás el día 15</div>
+          <div class="goal-status adelantado" id="goalStatus">Vas por delante</div>
+          
+          <div class="progress-container">
+            <div class="progress-bar">
+              <div class="progress-fill adelantado" id="progressFill" style="width: 85%"></div>
+            </div>
+          </div>
+          
+          <div class="progress-stats">
+            <div>
+              <span class="progress-amount" id="progressAmount">€1,700</span>
+              <span class="progress-remaining"> / €2,000</span>
+            </div>
+            <div class="progress-remaining" id="progressRemaining">Faltan €300</div>
+          </div>
+        </div>
+
+        <!-- Simulator (changes based on state) -->
+        <div id="simulatorContainer"></div>
+      </div>
+    </div>
+
+    <!-- Design Notes -->
+    <div class="design-notes">
+      <h3>Notas de diseño</h3>
+      <ul>
+        <li><span class="state-label adelantado">Adelantado</span> Simulador discreto como enlace. No compite con el mensaje positivo.</li>
+        <li><span class="state-label en_riesgo">En riesgo</span> Simulador visible pero colapsado. Card con mensaje que invita a explorar sin ser agresivo.</li>
+        <li><span class="state-label retrasado">Retrasado</span> Simulador expandido por defecto. El usuario tiene un problema y la herramienta es la solución.</li>
+        <li>Las métricas son absolutas: "5 días antes", "€90/mes". Sin porcentajes abstractos.</li>
+        <li>Los toggles permiten "jugar" con escenarios sin afectar datos reales.</li>
+        <li>El impacto se recalcula en tiempo real al activar/desactivar gastos.</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    const states = {
+      adelantado: {
+        hero: 'A este ritmo, cumplirás el día 15',
+        status: 'Vas por delante',
+        statusClass: 'adelantado',
+        progress: 85,
+        amount: '€1,700',
+        remaining: 'Faltan €300',
+        simulator: 'link'
+      },
+      en_riesgo: {
+        hero: 'A este ritmo, cumplirás el día 28',
+        status: 'Vas justo',
+        statusClass: 'en_riesgo',
+        progress: 65,
+        amount: '€1,300',
+        remaining: 'Faltan €700',
+        simulator: 'collapsed'
+      },
+      retrasado: {
+        hero: 'Con lo previsto, no llegas al objetivo este mes',
+        status: 'Te estás desviando',
+        statusClass: 'retrasado',
+        progress: 40,
+        amount: '€800',
+        remaining: 'Faltan €1,200',
+        simulator: 'expanded'
+      }
+    };
+
+    const recurrents = [
+      { name: 'Netflix', amount: '€17.99/mes', icon: '🎬', impact: '2 días antes' },
+      { name: 'Gym', amount: '€45/mes', icon: '💪', impact: '4 días antes' },
+      { name: 'Spotify', amount: '€10.99/mes', icon: '🎵', impact: '1 día antes' },
+      { name: 'Café diario', amount: '€90/mes', icon: '☕', impact: '8 días antes' }
+    ];
+
+    let currentState = 'adelantado';
+    let toggleStates = [true, true, true, true];
+
+    function setState(state) {
+      currentState = state;
+      toggleStates = [true, true, true, true];
+      
+      // Update buttons
+      document.querySelectorAll('.state-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.querySelector(`.state-btn.${state}`).classList.add('active');
+
+      // Update goal card
+      const s = states[state];
+      document.getElementById('goalHero').textContent = s.hero;
+      document.getElementById('goalStatus').textContent = s.status;
+      document.getElementById('goalStatus').className = `goal-status ${s.statusClass}`;
+      document.getElementById('progressFill').style.width = `${s.progress}%`;
+      document.getElementById('progressFill').className = `progress-fill ${s.statusClass}`;
+      document.getElementById('progressAmount').textContent = s.amount;
+      document.getElementById('progressRemaining').textContent = s.remaining;
+
+      // Update simulator
+      renderSimulator(state, s.simulator);
+    }
+
+    function renderSimulator(state, type) {
+      const container = document.getElementById('simulatorContainer');
+      
+      if (type === 'link') {
+        container.innerHTML = `
+          <div class="simulator-link" onclick="expandFromLink()">
+            <span>Explorar escenarios de ahorro</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </div>
+        `;
+      } else {
+        const isExpanded = type === 'expanded';
+        container.innerHTML = `
+          <div class="simulator-card ${state}">
+            <div class="simulator-header" onclick="toggleSimulator()">
+              <div>
+                <div class="simulator-title">Simulador de ahorro</div>
+                <div class="simulator-subtitle">${getSubtitle(state)}</div>
+              </div>
+              <div class="simulator-toggle ${isExpanded ? 'open' : ''}" id="toggleIcon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </div>
+            </div>
+            <div class="simulator-content ${isExpanded ? 'open' : ''}" id="simulatorContent">
+              <div class="impact-preview">
+                <div class="impact-label">Si desactivas los gastos seleccionados</div>
+                <div class="impact-value" id="impactValue">Cumples 15 días antes</div>
+                <div class="impact-detail" id="impactDetail">Ahorras €163.98 al mes</div>
+              </div>
+              <div class="recurrent-list">
+                ${recurrents.map((r, i) => `
+                  <div class="recurrent-item ${toggleStates[i] ? '' : 'disabled'}" id="recurrent-${i}">
+                    <div class="recurrent-info">
+                      <div class="recurrent-icon">${r.icon}</div>
+                      <div>
+                        <div class="recurrent-name">${r.name}</div>
+                        <div class="recurrent-amount">${r.amount}</div>
+                      </div>
+                    </div>
+                    <div class="recurrent-right">
+                      <div class="recurrent-impact">${r.impact}</div>
+                      <div class="toggle-switch ${toggleStates[i] ? 'active' : ''}" onclick="toggleRecurrent(${i}, event)"></div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function getSubtitle(state) {
+      if (state === 'retrasado') return 'Ajusta gastos para llegar a tu objetivo';
+      if (state === 'en_riesgo') return '¿Quieres asegurar tu objetivo?';
+      return 'Explora cómo ahorrar más';
+    }
+
+    function toggleSimulator() {
+      const content = document.getElementById('simulatorContent');
+      const icon = document.getElementById('toggleIcon');
+      content.classList.toggle('open');
+      icon.classList.toggle('open');
+    }
+
+    function expandFromLink() {
+      const s = states[currentState];
+      renderSimulator(currentState, 'collapsed');
+      setTimeout(() => toggleSimulator(), 100);
+    }
+
+    function toggleRecurrent(index, event) {
+      event.stopPropagation();
+      toggleStates[index] = !toggleStates[index];
+      
+      const item = document.getElementById(`recurrent-${index}`);
+      const toggle = item.querySelector('.toggle-switch');
+      
+      item.classList.toggle('disabled');
+      toggle.classList.toggle('active');
+      
+      updateImpact();
+    }
+
+    function updateImpact() {
+      const activeCount = toggleStates.filter(t => !t).length;
+      const daysMap = [2, 4, 1, 8];
+      const amountMap = [17.99, 45, 10.99, 90];
+      
+      let totalDays = 0;
+      let totalAmount = 0;
+      
+      toggleStates.forEach((active, i) => {
+        if (!active) {
+          totalDays += daysMap[i];
+          totalAmount += amountMap[i];
+        }
+      });
+      
+      const impactValue = document.getElementById('impactValue');
+      const impactDetail = document.getElementById('impactDetail');
+      
+      if (totalDays === 0) {
+        impactValue.textContent = 'Selecciona gastos a desactivar';
+        impactDetail.textContent = 'Verás el impacto aquí';
+      } else {
+        impactValue.textContent = `Cumples ${totalDays} días antes`;
+        impactDetail.textContent = `Ahorras €${totalAmount.toFixed(2)} al mes`;
+      }
+    }
+
+    // Initialize
+    setState('adelantado');
+  </script>
+</body>
+</html>

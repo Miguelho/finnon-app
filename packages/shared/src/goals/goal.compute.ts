@@ -6,6 +6,7 @@ import type {
   GoalTotals,
   InsightViewModel,
 } from "./types";
+import type { SavingsSummary } from "./saving-mode";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -262,3 +263,49 @@ export const computeGoalInsights = ({
 
   return insights.slice(0, maxInsights);
 };
+
+export type GoalSummaryView = {
+  targetMinor: bigint;
+  savedMinor: bigint;
+  remainingMinor: bigint;
+  progressRatio: number;
+  expectedSavedMinor: bigint;
+  deltaVsExpectedMinor: bigint;
+  requiredDailyFromTodayMinor: bigint;
+  status: GoalProgress["status"];
+};
+
+export const computeGoalSummaryView = (
+  summary: SavingsSummary | null
+): GoalSummaryView | null => {
+  if (!summary) return null;
+
+  const targetMinor = summary.targetMinor;
+  const savedMinor = summary.savedMinor;
+  const remainingMinor = summary.gapToGoalMinor;
+  const progressRatio =
+    targetMinor > 0n
+      ? clampNumber(Number(savedMinor) / Number(targetMinor), 0, 1)
+      : 0;
+  const hasActivity =
+    summary.incomeMinor !== 0n || summary.expenseMinor !== 0n;
+  const status: GoalProgress["status"] = !hasActivity
+    ? "neutral"
+    : summary.deltaVsExpectedMinor >= 0n
+      ? "positive"
+      : "negative";
+
+  return {
+    targetMinor,
+    savedMinor,
+    remainingMinor,
+    progressRatio,
+    expectedSavedMinor: summary.expectedSavedByTodayMinor,
+    deltaVsExpectedMinor: summary.deltaVsExpectedMinor,
+    requiredDailyFromTodayMinor: summary.requiredDailyFromTodayMinor,
+    status,
+  };
+};
+
+export const computeGoalSummary = (summary: SavingsSummary | null) =>
+  computeGoalSummaryView(summary);

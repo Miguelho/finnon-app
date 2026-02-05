@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Finnon - Hero Simplificado</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #f5f5f7;
+      color: #1a1a2e;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: #6b7280;
+      font-size: 0.9rem;
+      margin-bottom: 32px;
+    }
+
+    .comparison {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      margin-bottom: 40px;
+    }
+
+    @media (max-width: 800px) {
+      .comparison {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .version-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #6b7280;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .version-label.new {
+      color: #059669;
+    }
+
+    /* Phone Frame */
+    .phone-frame {
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+
+    /* Header */
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .logo-icon {
+      width: 24px;
+      height: 24px;
+      background: #1a1a2e;
+      border-radius: 6px;
+    }
+
+    .nav {
+      display: flex;
+      gap: 16px;
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    .nav span.active {
+      color: #1a1a2e;
+      font-weight: 600;
+    }
+
+    /* Content */
+    .content {
+      padding: 20px;
+    }
+
+    .page-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .page-date {
+      color: #6b7280;
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+    }
+
+    /* OLD Hero */
+    .hero-old {
+      background: #fafafa;
+      border-radius: 16px;
+      padding: 20px;
+    }
+
+    .hero-old-label {
+      font-size: 0.7rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .hero-old-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hero-old-status {
+      font-size: 0.85rem;
+      color: #d97706;
+      margin-bottom: 16px;
+    }
+
+    .hero-old-bar {
+      height: 8px;
+      background: #e5e7eb;
+      border-radius: 4px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+
+    .hero-old-fill {
+      height: 100%;
+      width: 75%;
+      background: #d97706;
+      border-radius: 4px;
+    }
+
+    .hero-old-stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+    }
+
+    .hero-old-progress {
+      display: flex;
+      gap: 4px;
+    }
+
+    .hero-old-progress strong {
+      font-weight: 600;
+    }
+
+    .hero-old-remaining {
+      color: #6b7280;
+    }
+
+    .hero-old-btn {
+      float: right;
+      margin-top: -60px;
+      padding: 8px 16px;
+      border: 1px solid #e5e7eb;
+      background: white;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      color: #1a1a2e;
+    }
+
+    /* NEW Hero */
+    .hero-new {
+      background: #fafafa;
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      position: relative;
+    }
+
+    .hero-new-edit {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      padding: 8px 14px;
+      border: 1px solid #e5e7eb;
+      background: white;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      color: #1a1a2e;
+      cursor: pointer;
+    }
+
+    .hero-new-amount {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #1a1a2e;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .hero-new-target {
+      font-size: 1rem;
+      color: #6b7280;
+      margin-bottom: 20px;
+    }
+
+    .hero-new-bar-container {
+      max-width: 280px;
+      margin: 0 auto 16px;
+    }
+
+    .hero-new-bar {
+      height: 10px;
+      background: #e5e7eb;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .hero-new-fill {
+      height: 100%;
+      border-radius: 5px;
+      transition: width 0.5s ease;
+    }
+
+    .hero-new-fill.positive { background: #059669; }
+    .hero-new-fill.neutral { background: #d97706; }
+    .hero-new-fill.negative { background: #dc2626; }
+
+    .hero-new-detail {
+      font-size: 0.85rem;
+      color: #6b7280;
+    }
+
+    .hero-new-detail span {
+      color: #1a1a2e;
+      font-weight: 500;
+    }
+
+    .hero-new-projection {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: #6b7280;
+      background: #f0fdf4;
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-top: 4px;
+    }
+
+    .hero-new-projection svg {
+      color: #059669;
+      transform: rotate(180deg);
+    }
+
+    .hero-new-projection span {
+      color: #059669;
+      font-weight: 600;
+    }
+
+    /* Strikethrough effect for removed elements */
+    .removed {
+      text-decoration: line-through;
+      opacity: 0.4;
+    }
+
+    /* Notes */
+    .design-notes {
+      margin-top: 40px;
+      padding: 24px;
+      background: white;
+      border-radius: 16px;
+      border-left: 4px solid #059669;
+    }
+
+    .design-notes h3 {
+      font-size: 1rem;
+      margin-bottom: 16px;
+      color: #059669;
+    }
+
+    .design-notes p {
+      font-size: 0.9rem;
+      color: #4b5563;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    .design-notes ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .design-notes li {
+      font-size: 0.85rem;
+      color: #4b5563;
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .design-notes li::before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      color: #059669;
+      font-weight: bold;
+    }
+
+    .removed-list {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .removed-list h4 {
+      font-size: 0.85rem;
+      color: #dc2626;
+      margin-bottom: 12px;
+    }
+
+    .removed-list li::before {
+      content: '✕';
+      color: #dc2626;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Hero Simplificado - Comparativa</h1>
+    <p class="subtitle">Foco en el dato principal: cuánto lleva ahorrado</p>
+
+    <div class="comparison">
+      <!-- VERSIÓN ACTUAL -->
+      <div>
+        <div class="version-label">Versión actual</div>
+        <div class="phone-frame">
+          <div class="app-header">
+            <div class="logo">
+              <div class="logo-icon"></div>
+              <span>Finnon</span>
+            </div>
+            <div class="nav">
+              <span>Inicio</span>
+              <span>Movimientos</span>
+              <span class="active">Objetivo</span>
+            </div>
+          </div>
+          <div class="content">
+            <h2 class="page-title">Objetivo</h2>
+            <p class="page-date">febrero de 2026</p>
+            
+            <div class="hero-old">
+              <div class="hero-old-btn">Editar objetivo</div>
+              <div class="hero-old-label removed">Objetivo del mes</div>
+              <div class="hero-old-title">
+                A este ritmo, cumplirás el día 28
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M12 16v-4M12 8h.01"/>
+                </svg>
+              </div>
+              <div class="hero-old-status removed">Vas justo</div>
+              
+              <div class="hero-old-bar">
+                <div class="hero-old-fill"></div>
+              </div>
+              
+              <div class="hero-old-stats">
+                <div class="hero-old-progress">
+                  <span>Progreso</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 16v-4M12 8h.01"/>
+                  </svg>
+                </div>
+                <div class="hero-old-remaining removed">
+                  Restante: Objetivo alcanzado
+                </div>
+              </div>
+              <div class="hero-old-stats" style="margin-top: 4px;">
+                <strong>€3244.99 / €3000.00</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VERSIÓN NUEVA -->
+      <div>
+        <div class="version-label new">Versión simplificada</div>
+        <div class="phone-frame">
+          <div class="app-header">
+            <div class="logo">
+              <div class="logo-icon"></div>
+              <span>Finnon</span>
+            </div>
+            <div class="nav">
+              <span>Inicio</span>
+              <span>Movimientos</span>
+              <span class="active">Objetivo</span>
+            </div>
+          </div>
+          <div class="content">
+            <h2 class="page-title">Objetivo</h2>
+            <p class="page-date">febrero de 2026</p>
+            
+            <div class="hero-new">
+              <button class="hero-new-edit">Editar</button>
+              
+              <div class="hero-new-amount">€1.244,99</div>
+              <div class="hero-new-target">de €3.000 este mes</div>
+              
+              <div class="hero-new-bar-container">
+                <div class="hero-new-bar">
+                  <div class="hero-new-fill neutral" style="width: 41%"></div>
+                </div>
+              </div>
+              
+              <div class="hero-new-projection">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 5v14M5 12l7 7 7-7"/>
+                </svg>
+                Con tus ingresos del día 28, llegarás a <span>€3.244,99</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="design-notes">
+      <h3>Cambios aplicados</h3>
+      <p>El número de ahorro real (hoy) es el dato principal. La proyección con ingresos pendientes aparece como contexto secundario, dejando claro que depende de movimientos futuros.</p>
+      
+      <ul>
+        <li>Ahorro real grande y centrado (lo que tiene HOY)</li>
+        <li>Barra de progreso basada en el ahorro real</li>
+        <li>Proyección en chip verde: "Con tus ingresos del día X, llegarás a Y"</li>
+        <li>El usuario entiende la diferencia entre lo que tiene y lo que tendrá</li>
+        <li>Amarillo en la barra tiene sentido: el objetivo real aún está pendiente</li>
+      </ul>
+
+      <div class="removed-list">
+        <h4>Elementos eliminados</h4>
+        <ul>
+          <li>"Objetivo del mes" - redundante con el título de página</li>
+          <li>"Vas justo" - el usuario puede juzgar con la barra</li>
+          <li>"Restante: Objetivo alcanzado" - confuso y redundante</li>
+          <li>Labels "Progreso" con iconos de info - ruido visual</li>
+          <li>Sección "Claves" completa - redundante con simulador</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

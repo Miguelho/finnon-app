@@ -47,9 +47,15 @@ export default async function GoalPage() {
 
   const activeRole = activeAccount?.account_members?.[0]?.role ?? "viewer";
   const monthKey = toMonthKey(new Date());
-  const { start, end } = getMonthRangeFromKey(monthKey);
+  const { start } = getMonthRangeFromKey(monthKey);
   const previousMonthKey = addMonths(monthKey, -1);
   const previousMonthRange = getMonthRangeFromKey(previousMonthKey);
+  const todayKey = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 
   const { data: goal } = await supabase
     .from("financial_goals")
@@ -64,7 +70,7 @@ export default async function GoalPage() {
     .select("type, amount_minor, amount_base_minor, category:categories(id, name, icon_id)")
     .eq("account_id", activeAccount.id)
     .gte("date", start)
-    .lte("date", end);
+    .lte("date", todayKey);
 
   const { data: previousExpenses } = await supabase
     .from("transactions")

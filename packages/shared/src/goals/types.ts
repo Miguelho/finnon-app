@@ -33,6 +33,35 @@ export type GoalProgress = {
   status: GoalProgressStatus;
 };
 
+// V2 Types - Explicabilidad
+export type CompletionStatus =
+  | "completed_today"
+  | "completion_date"
+  | "not_achievable";
+
+export type MonthStatus = "adelantado" | "en_riesgo" | "retrasado";
+
+export type GoalProgressV2 = {
+  // Métricas principales
+  targetMinor: bigint;
+  savedTotalMinor: bigint; // Real + pendiente
+  remainingMinor: bigint;
+  progressRatio: number; // 0-1
+
+  // Fecha estimada (métrica estrella)
+  completionStatus: CompletionStatus;
+  estimatedCompletionDate: string | null; // YYYY-MM-DD o día del mes
+
+  // Estado del mes
+  monthStatus: MonthStatus;
+
+  // Desglose
+  incomeRealMinor: bigint;
+  expenseRealMinor: bigint;
+  incomePendingMinor: bigint;
+  expensePendingMinor: bigint;
+};
+
 export type GoalTransaction = {
   type: "income" | "expense";
   amount_minor?: bigint | number | string | null;

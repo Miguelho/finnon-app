@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Finnon - Objetivo con Histórico y Gamificación</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #f5f5f7;
+      color: #1a1a2e;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: #6b7280;
+      font-size: 0.9rem;
+      margin-bottom: 24px;
+    }
+
+    /* View Toggle */
+    .view-toggle {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .view-btn {
+      padding: 10px 20px;
+      border: 2px solid #e5e7eb;
+      background: white;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .view-btn:hover {
+      border-color: #1a1a2e;
+    }
+
+    .view-btn.active {
+      background: #1a1a2e;
+      color: white;
+      border-color: #1a1a2e;
+    }
+
+    /* Phone Frame */
+    .phone-frame {
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+      overflow: hidden;
+    }
+
+    /* Header */
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .logo-icon {
+      width: 24px;
+      height: 24px;
+      background: #1a1a2e;
+      border-radius: 6px;
+    }
+
+    .nav {
+      display: flex;
+      gap: 16px;
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+
+    .nav span.active {
+      color: #1a1a2e;
+      font-weight: 600;
+    }
+
+    /* Content */
+    .content {
+      padding: 20px;
+    }
+
+    /* Page Header with Navigation */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .page-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .month-nav {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .month-nav-btn {
+      width: 32px;
+      height: 32px;
+      border: 1px solid #e5e7eb;
+      background: white;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .month-nav-btn:hover {
+      border-color: #1a1a2e;
+      background: #fafafa;
+    }
+
+    .month-nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .month-nav-btn svg {
+      width: 16px;
+      height: 16px;
+      stroke: #1a1a2e;
+    }
+
+    .month-label {
+      font-size: 0.9rem;
+      font-weight: 500;
+      min-width: 120px;
+      text-align: center;
+    }
+
+    /* Hero Current Month */
+    .hero {
+      background: #fafafa;
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .hero-edit {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      padding: 8px 14px;
+      border: 1px solid #e5e7eb;
+      background: white;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      color: #1a1a2e;
+      cursor: pointer;
+    }
+
+    .hero-amount {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #1a1a2e;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .hero-target {
+      font-size: 1rem;
+      color: #6b7280;
+      margin-bottom: 20px;
+    }
+
+    .hero-bar-container {
+      max-width: 280px;
+      margin: 0 auto 16px;
+    }
+
+    .hero-bar {
+      height: 10px;
+      background: #e5e7eb;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .hero-fill {
+      height: 100%;
+      border-radius: 5px;
+      transition: width 0.5s ease;
+    }
+
+    .hero-fill.positive { background: #059669; }
+    .hero-fill.neutral { background: #d97706; }
+    .hero-fill.negative { background: #dc2626; }
+
+    .hero-projection {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: #6b7280;
+      background: #f0fdf4;
+      padding: 8px 12px;
+      border-radius: 8px;
+    }
+
+    .hero-projection svg {
+      color: #059669;
+    }
+
+    .hero-projection span {
+      color: #059669;
+      font-weight: 600;
+    }
+
+    /* Hero Past Month */
+    .hero-past {
+      background: #fafafa;
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .hero-status-badge {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hero-status-badge.completed {
+      background: #d1fae5;
+    }
+
+    .hero-status-badge.completed svg {
+      stroke: #059669;
+    }
+
+    .hero-status-badge.failed {
+      background: #fee2e2;
+    }
+
+    .hero-status-badge.failed svg {
+      stroke: #dc2626;
+    }
+
+    .hero-past-label {
+      font-size: 0.75rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .hero-past-amount {
+      font-size: 2.2rem;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .hero-past-amount.completed { color: #059669; }
+    .hero-past-amount.failed { color: #dc2626; }
+
+    .hero-past-target {
+      font-size: 1rem;
+      color: #6b7280;
+      margin-bottom: 20px;
+    }
+
+    .hero-past-detail {
+      font-size: 0.85rem;
+      color: #6b7280;
+      padding: 12px 16px;
+      background: white;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hero-past-detail.completed {
+      background: #f0fdf4;
+      color: #059669;
+    }
+
+    .hero-past-detail.failed {
+      background: #fef2f2;
+      color: #dc2626;
+    }
+
+    /* Gamification Section */
+    .gamification {
+      background: #fafafa;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .gamification-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .gamification-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .gamification-card {
+      background: white;
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .gamification-card-label {
+      font-size: 0.7rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .gamification-card-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .gamification-card-value.streak {
+      color: #d97706;
+    }
+
+    .gamification-card-value .fire {
+      font-size: 1.2rem;
+    }
+
+    .gamification-comparison {
+      background: white;
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .gamification-comparison-title {
+      font-size: 0.7rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+
+    .gamification-comparison-items {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .comparison-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+
+    .comparison-item-label {
+      color: #6b7280;
+    }
+
+    .comparison-item-value {
+      font-weight: 600;
+      color: #059669;
+    }
+
+    .comparison-item-value.negative {
+      color: #dc2626;
+    }
+
+    /* Simulator Placeholder */
+    .simulator-placeholder {
+      background: #fafafa;
+      border-radius: 16px;
+      padding: 20px;
+      border: 2px dashed #e5e7eb;
+      text-align: center;
+      color: #9ca3af;
+      font-size: 0.85rem;
+    }
+
+    /* Notes */
+    .design-notes {
+      margin-top: 32px;
+      padding: 20px;
+      background: white;
+      border-radius: 16px;
+      border-left: 4px solid #1a1a2e;
+    }
+
+    .design-notes h3 {
+      font-size: 0.95rem;
+      margin-bottom: 12px;
+    }
+
+    .design-notes ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .design-notes li {
+      font-size: 0.8rem;
+      color: #4b5563;
+      padding-left: 16px;
+      position: relative;
+    }
+
+    .design-notes li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: #1a1a2e;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Objetivo con Histórico</h1>
+    <p class="subtitle">Navega entre meses y ve tu progreso histórico</p>
+
+    <div class="view-toggle">
+      <button class="view-btn active" onclick="showView('current')">Mes actual</button>
+      <button class="view-btn" onclick="showView('past-completed')">Mes pasado ✓</button>
+      <button class="view-btn" onclick="showView('past-failed')">Mes pasado ✗</button>
+    </div>
+
+    <div class="phone-frame">
+      <div class="app-header">
+        <div class="logo">
+          <div class="logo-icon"></div>
+          <span>Finnon</span>
+        </div>
+        <div class="nav">
+          <span>Inicio</span>
+          <span>Movimientos</span>
+          <span class="active">Objetivo</span>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="page-header">
+          <h2 class="page-title">Objetivo</h2>
+          <div class="month-nav">
+            <button class="month-nav-btn" id="prevBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 18l-6-6 6-6"/>
+              </svg>
+            </button>
+            <span class="month-label" id="monthLabel">febrero 2026</span>
+            <button class="month-nav-btn" id="nextBtn" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18l6-6-6-6"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Current Month View -->
+        <div id="currentView">
+          <div class="hero">
+            <button class="hero-edit">Editar</button>
+            <div class="hero-amount">€1.244,99</div>
+            <div class="hero-target">de €3.000 este mes</div>
+            <div class="hero-bar-container">
+              <div class="hero-bar">
+                <div class="hero-fill neutral" style="width: 41%"></div>
+              </div>
+            </div>
+            <div class="hero-projection">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M7 17L17 7M17 7H7M17 7V17"/>
+              </svg>
+              Con tus ingresos del día 28, llegarás a <span>€3.244,99</span>
+            </div>
+          </div>
+
+          <div class="gamification">
+            <div class="gamification-title">Tu progreso histórico</div>
+            <div class="gamification-grid">
+              <div class="gamification-card">
+                <div class="gamification-card-label">Racha actual</div>
+                <div class="gamification-card-value streak">
+                  <span class="fire">🔥</span> 3 meses
+                </div>
+              </div>
+              <div class="gamification-card">
+                <div class="gamification-card-label">Histórico</div>
+                <div class="gamification-card-value">8 de 12</div>
+              </div>
+            </div>
+            <div class="gamification-comparison">
+              <div class="gamification-comparison-title">Este mes vs tu media</div>
+              <div class="gamification-comparison-items">
+                <div class="comparison-item">
+                  <span class="comparison-item-label">Ahorro</span>
+                  <span class="comparison-item-value">+€320</span>
+                </div>
+                <div class="comparison-item">
+                  <span class="comparison-item-label">Velocidad</span>
+                  <span class="comparison-item-value">5 días antes</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="simulator-placeholder">
+            Simulador de ahorro (ya implementado)
+          </div>
+        </div>
+
+        <!-- Past Month Completed View -->
+        <div id="pastCompletedView" style="display: none;">
+          <div class="hero-past">
+            <div class="hero-status-badge completed">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+            </div>
+            <div class="hero-past-label">Objetivo cumplido</div>
+            <div class="hero-past-amount completed">€3.156,00</div>
+            <div class="hero-past-target">de €3.000</div>
+            <div class="hero-past-detail completed">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 8v4l3 3"/>
+                <circle cx="12" cy="12" r="10"/>
+              </svg>
+              Cumpliste el día 24 (4 días antes)
+            </div>
+          </div>
+        </div>
+
+        <!-- Past Month Failed View -->
+        <div id="pastFailedView" style="display: none;">
+          <div class="hero-past">
+            <div class="hero-status-badge failed">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </div>
+            <div class="hero-past-label">Objetivo no alcanzado</div>
+            <div class="hero-past-amount failed">€2.340,00</div>
+            <div class="hero-past-target">de €3.000</div>
+            <div class="hero-past-detail failed">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 8v4M12 16h.01"/>
+                <circle cx="12" cy="12" r="10"/>
+              </svg>
+              Faltaron €660 para el objetivo
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="design-notes">
+      <h3>Comportamiento</h3>
+      <ul>
+        <li><strong>Mes actual:</strong> Hero editable + gamificación + simulador</li>
+        <li><strong>Mes pasado:</strong> Hero en modo lectura con badge ✓/✗, sin editar, sin simulador</li>
+        <li><strong>Navegación:</strong> Solo retrospectiva (no se puede ir a meses futuros)</li>
+        <li><strong>Racha:</strong> Meses consecutivos cumplidos. Se rompe si un mes no se cumple.</li>
+        <li><strong>Histórico:</strong> X de Y meses con objetivo definido que se cumplieron.</li>
+        <li><strong>Comparativa:</strong> Ahorro actual vs media de meses anteriores. Velocidad = día de cumplimiento vs media.</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    function showView(view) {
+      // Update buttons
+      document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+
+      // Hide all views
+      document.getElementById('currentView').style.display = 'none';
+      document.getElementById('pastCompletedView').style.display = 'none';
+      document.getElementById('pastFailedView').style.display = 'none';
+
+      // Show selected view and update nav
+      const monthLabel = document.getElementById('monthLabel');
+      const nextBtn = document.getElementById('nextBtn');
+
+      if (view === 'current') {
+        document.getElementById('currentView').style.display = 'block';
+        monthLabel.textContent = 'febrero 2026';
+        nextBtn.disabled = true;
+      } else if (view === 'past-completed') {
+        document.getElementById('pastCompletedView').style.display = 'block';
+        monthLabel.textContent = 'enero 2026';
+        nextBtn.disabled = false;
+      } else if (view === 'past-failed') {
+        document.getElementById('pastFailedView').style.display = 'block';
+        monthLabel.textContent = 'diciembre 2025';
+        nextBtn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
