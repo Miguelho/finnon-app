@@ -1,0 +1,372 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { Search, Settings } from "lucide-react";
+import { CURRENCIES, getMinorUnits } from "@poleursus/shared";
+import { CategoryIcon } from "@/components/category-icon";
+import type { AccountRedesignData, AccountRedesignPeriod } from "@/components/account/account-redesign-types";
+import { formatCurrency, formatDelta } from "@/components/account/account-redesign-utils";
+import styles from "@/components/account/account-redesign.module.css";
+
+const PERIODS: { key: AccountRedesignPeriod; label: string }[] = [
+  { key: "week", label: "Semana" },
+  { key: "month", label: "Mes" },
+  { key: "quarter", label: "Trimestre" },
+  { key: "year", label: "Año" },
+];
+
+type ChartMode = "both" | "expenses" | "net";
+
+const CHART_HEIGHT = 80;
+
+type AccountRedesignClientProps = {
+  dataByPeriod: Record<AccountRedesignPeriod, AccountRedesignData>;
+};
+
+export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientProps) {
+  const [period, setPeriod] = useState<AccountRedesignPeriod>("month");
+  const [chartMode, setChartMode] = useState<ChartMode>("both");
+
+  const data = dataByPeriod[period];
+
+  const currencySymbol = useMemo(() => {
+    const code = data.account.currency;
+    return CURRENCIES.find((currency) => currency.code === code)?.symbol ?? code;
+  }, [data.account.currency]);
+
+  const currencyDecimals = useMemo(() => getMinorUnits(data.account.currency), [
+    data.account.currency,
+  ]);
+
+  const balance = formatCurrency(data.account.balance, {
+    currency: currencySymbol,
+    decimals: currencyDecimals,
+  });
+
+  const income = formatCurrency(data.flow.totalIncome, {
+    currency: currencySymbol,
+    decimals: currencyDecimals,
+  });
+  const expense = formatCurrency(data.flow.totalExpense, {
+    currency: currencySymbol,
+    decimals: currencyDecimals,
+  });
+
+  const incomeDelta = formatDelta(data.flow.incomeDelta);
+  const expenseDelta = formatDelta(data.flow.expenseDelta);
+
+  const chartMax = useMemo(() => {
+    return data.monthlyHistory.reduce((max, point) => {
+      if (chartMode === "both") {
+        return Math.max(max, point.income, point.expense);
+      }
+      if (chartMode === "expenses") {
+        return Math.max(max, point.expense);
+      }
+      return Math.max(max, Math.abs(point.income - point.expense));
+    }, 0);
+  }, [data.monthlyHistory, chartMode]);
+
+  const getBarHeight = (value: number) => {
+    if (chartMax === 0) return 3;
+    return Math.max(3, (value / chartMax) * CHART_HEIGHT);
+  };
+
+  const maxCategoryAmount = useMemo(() => {
+    return data.categories.reduce((max, category) => Math.max(max, category.amount), 0);
+  }, [data.categories]);
+
+  return (
+    <div className={styles.root}>
+      <div className={styles.screen}>
+        <div className={styles.header}>
+          <div className={styles.headerLeft}>
+            <div className={styles.accountIcon}>{data.account.icon}</div>
+            <div>
+              <div className={styles.accountName}>{data.account.name}</div>
+              <div className={styles.accountType}>
+                {data.account.type} · {data.account.currency}
+              </div>
+            </div>
+          </div>
+          <div className={styles.headerActions}>
+            <Link href="/transactions" className={styles.iconBtn} aria-label="Buscar">
+              <Search size={16} />
+            </Link>
+            <Link href="/settings/account" className={styles.iconBtn} aria-label="Ajustes">
+              <Settings size={16} />
+            </Link>
+          </div>
+        </div>
+
+        <div className={styles.balanceHero}>
+          <div className={styles.balanceLabel}>Balance total</div>
+          <div className={styles.balanceAmount}>
+            {currencySymbol}
+            {balance.whole}
+            <span className={styles.balanceCents}>{balance.cents}</span>
+          </div>
+        </div>
+
+        <div className={styles.periodSelector}>
+          {PERIODS.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={`${styles.periodChip} ${
+                period === item.key ? styles.periodChipActive : ""
+              }`}
+              onClick={() => setPeriod(item.key)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        <div className={styles.flowRow}>
+          <div className={`${styles.flowCard} ${styles.flowCardIncome}`}>
+            <div className={styles.flowCardHeader}>
+              <span className={`${styles.flowArrow} ${styles.flowArrowUp}`}>↑</span>
+              <span className={`${styles.flowLabel} ${styles.flowLabelIncome}`}>Ingresos</span>
+            </div>
+            <div className={`${styles.flowAmount} ${styles.flowAmountIncome}`}>
+              {currencySymbol}
+              {income.whole}
+            </div>
+            {incomeDelta ? (
+              <div className={`${styles.flowDelta} ${styles.flowLabelIncome}`}>
+                {incomeDelta} vs mes anterior
+              </div>
+            ) : null}
+          </div>
+          <div className={`${styles.flowCard} ${styles.flowCardExpense}`}>
+            <div className={styles.flowCardHeader}>
+              <span className={`${styles.flowArrow} ${styles.flowArrowDown}`}>↓</span>
+              <span className={`${styles.flowLabel} ${styles.flowLabelExpense}`}>Gastos</span>
+            </div>
+            <div className={`${styles.flowAmount} ${styles.flowAmountExpense}`}>
+              {currencySymbol}
+              {expense.whole}
+            </div>
+            {expenseDelta ? (
+              <div className={`${styles.flowDelta} ${styles.flowLabelExpense}`}>
+                {expenseDelta} vs mes anterior
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className={styles.chartSection}>
+          <div className={styles.chartContainer}>
+            <div className={styles.chartHeader}>
+              <span className={styles.chartTitle}>Evolución mensual</span>
+              <div className={styles.chartToggle}>
+                {(
+                  [
+                    { key: "both", label: "Ambos" },
+                    { key: "expenses", label: "Gastos" },
+                    { key: "net", label: "Neto" },
+                  ] as const
+                ).map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className={`${styles.chartToggleBtn} ${
+                      chartMode === item.key ? styles.chartToggleBtnActive : ""
+                    }`}
+                    onClick={() => setChartMode(item.key)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {data.monthlyHistory.length === 0 ? (
+              <div className={styles.chartEmptyState}>
+                <span className={styles.chartEmptyIcon}>📊</span>
+                <span className={styles.chartEmptyText}>
+                  Aparecerá aquí cuando tengas datos de al menos un mes
+                </span>
+              </div>
+            ) : (
+              <div className={styles.chartArea}>
+                {data.monthlyHistory.map((point) => (
+                  <div key={point.label} className={styles.chartBarGroup}>
+                    <div className={styles.chartBars}>
+                      {chartMode === "both" ? (
+                        <>
+                          <div
+                            className={`${styles.chartBar} ${styles.incomeBar} ${
+                              point.isCurrent ? styles.chartBarCurrent : ""
+                            }`}
+                            style={{ height: `${getBarHeight(point.income)}px` }}
+                          />
+                          <div
+                            className={`${styles.chartBar} ${styles.expenseBar} ${
+                              point.isCurrent ? styles.chartBarCurrent : ""
+                            }`}
+                            style={{ height: `${getBarHeight(point.expense)}px` }}
+                          />
+                        </>
+                      ) : null}
+                      {chartMode === "expenses" ? (
+                        <div
+                          className={`${styles.chartBar} ${styles.expenseBar} ${
+                            point.isCurrent ? styles.chartBarCurrent : ""
+                          }`}
+                          style={{ height: `${getBarHeight(point.expense)}px` }}
+                        />
+                      ) : null}
+                      {chartMode === "net" ? (
+                        <div
+                          className={`${styles.chartBar} ${
+                            point.income - point.expense >= 0
+                              ? styles.incomeBar
+                              : styles.expenseBar
+                          } ${point.isCurrent ? styles.chartBarCurrent : ""}`}
+                          style={{
+                            height: `${getBarHeight(
+                              Math.abs(point.income - point.expense)
+                            )}px`,
+                          }}
+                        />
+                      ) : null}
+                    </div>
+                    <span
+                      className={`${styles.chartBarLabel} ${
+                        point.isCurrent ? styles.chartBarLabelCurrent : ""
+                      }`}
+                    >
+                      {point.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <section className={styles.categoriesSection}>
+          <div className={styles.sectionHeader}>
+            <span className={styles.sectionTitle}>Gastos por categoría</span>
+            <Link href="/categories" className={styles.sectionAction}>
+              Ver todas →
+            </Link>
+          </div>
+
+          <div className={styles.categoryList}>
+            {data.categories.slice(0, 4).map((category) => {
+              const formatted = formatCurrency(category.amount, {
+                currency: currencySymbol,
+                decimals: currencyDecimals,
+              });
+              const barWidth = maxCategoryAmount
+                ? (category.amount / maxCategoryAmount) * 100
+                : 0;
+              const isLink = category.id !== "uncategorized";
+              const content = (
+                <>
+                  <div
+                    className={styles.categoryIcon}
+                    style={{ backgroundColor: `var(--category-${category.colorKey})` }}
+                  >
+                    <CategoryIcon iconId={category.iconId ?? "Tag"} size={16} tone="primary" />
+                  </div>
+                  <div className={styles.categoryInfo}>
+                    <div className={styles.categoryName}>{category.name}</div>
+                    <div className={styles.categoryCount}>
+                      {category.transactionCount} movimiento{category.transactionCount !== 1 ? "s" : ""}
+                    </div>
+                  </div>
+                  <div className={styles.categoryRight}>
+                    <div className={styles.categoryAmount}>
+                      {currencySymbol}
+                      {formatted.whole}
+                      {formatted.cents}
+                    </div>
+                    <div className={styles.categoryBarTrack}>
+                      <div
+                        className={styles.categoryBarFill}
+                        style={{ width: `${barWidth}%` }}
+                      />
+                    </div>
+                  </div>
+                  {isLink ? <span className={styles.categoryChevron}>›</span> : null}
+                </>
+              );
+
+              return isLink ? (
+                <Link
+                  key={category.id}
+                  href={`/categories/${category.id}`}
+                  className={styles.categoryItem}
+                >
+                  {content}
+                </Link>
+              ) : (
+                <div key={category.id} className={styles.categoryItem}>
+                  {content}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className={styles.transactionsSection}>
+          <div className={styles.sectionHeader}>
+            <span className={styles.sectionTitle}>Últimos movimientos</span>
+            <Link href="/transactions" className={styles.sectionAction}>
+              Ver todos →
+            </Link>
+          </div>
+
+          <div className={styles.transactionList}>
+            {data.recentTransactions.slice(0, 4).map((tx) => {
+              const formatted = formatCurrency(Math.abs(tx.amount), {
+                currency: currencySymbol,
+                decimals: currencyDecimals,
+              });
+              const isIncome = tx.amount > 0;
+              return (
+                <div key={tx.id} className={styles.transactionItem}>
+                  <div className={styles.txIcon}>
+                    <CategoryIcon iconId={tx.categoryIconId ?? "Tag"} size={14} tone="primary" />
+                  </div>
+                  <div className={styles.txInfo}>
+                    <div className={styles.txName}>{tx.description}</div>
+                    <div className={styles.txMeta}>
+                      {tx.categoryName} · {formatDate(tx.date)}
+                    </div>
+                  </div>
+                  <div
+                    className={`${styles.txAmount} ${
+                      isIncome ? styles.txAmountPositive : styles.txAmountNegative
+                    }`}
+                  >
+                    {isIncome ? "+" : "-"}
+                    {currencySymbol}
+                    {formatted.whole}
+                    {formatted.cents}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function formatDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, (month ?? 1) - 1, day ?? 1);
+  const labels = MONTH_LABELS.es;
+  return `${date.getDate()} ${labels[date.getMonth()]}`;
+}
+
+const MONTH_LABELS = {
+  es: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
+};

@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon — Rediseño Cuenta</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FAFAF8;
+    --surface: #FFFFFF;
+    --surface-alt: #F5F4F0;
+    --border: #E8E6E1;
+    --border-light: #F0EEE9;
+    --text-primary: #1A1A18;
+    --text-secondary: #6B6B65;
+    --text-tertiary: #9C9C95;
+    --income: #1B7A4A;
+    --income-bg: #E8F5EE;
+    --income-light: #D0EBDD;
+    --expense: #C4441A;
+    --expense-bg: #FDF0EB;
+    --expense-light: #F9DDD2;
+    --accent: #2563EB;
+    --accent-bg: #EFF4FF;
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 2px 8px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .layout {
+    display: flex;
+    gap: 48px;
+    max-width: 1200px;
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  /* ====== ANNOTATION PANEL ====== */
+  .annotations {
+    position: sticky;
+    top: 20px;
+    width: 320px;
+    flex-shrink: 0;
+  }
+
+  .annotation-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-tertiary);
+    margin-bottom: 16px;
+  }
+
+  .annotation-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: all 0.2s;
+  }
+
+  .annotation-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-bg);
+  }
+
+  .annotation-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background: var(--accent);
+    color: white;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .annotation-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .annotation-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* ====== PHONE FRAME ====== */
+  .phone-wrapper {
+    flex-shrink: 0;
+  }
+
+  .phone {
+    width: 375px;
+    height: 812px;
+    background: var(--bg);
+    border-radius: 44px;
+    border: 8px solid #1A1A18;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  .phone::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 150px;
+    height: 28px;
+    background: #1A1A18;
+    border-radius: 0 0 20px 20px;
+    z-index: 10;
+  }
+
+  .screen {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--bg);
+    scrollbar-width: none;
+  }
+
+  .screen::-webkit-scrollbar { display: none; }
+
+  /* ====== STATUS BAR ====== */
+  .status-bar {
+    height: 48px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 24px 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .status-bar-icons {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  /* ====== HEADER ====== */
+  .header {
+    padding: 12px 20px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .account-icon {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, #F0EEE9, #E8E6E1);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .account-name {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+
+  .account-type {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    font-weight: 500;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 14px;
+    transition: all 0.15s;
+  }
+
+  .icon-btn:hover { border-color: var(--text-secondary); }
+
+  /* ====== BALANCE HERO ====== */
+  .balance-hero {
+    padding: 8px 20px 20px;
+    text-align: center;
+    position: relative;
+  }
+
+  .balance-label {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .balance-amount {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 36px;
+    font-weight: 500;
+    letter-spacing: -1.5px;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+
+  .balance-cents {
+    font-size: 20px;
+    color: var(--text-tertiary);
+    font-weight: 400;
+  }
+
+  /* ====== PERIOD SELECTOR ====== */
+  .period-selector {
+    display: flex;
+    gap: 4px;
+    padding: 0 20px;
+    margin-bottom: 20px;
+    justify-content: center;
+  }
+
+  .period-chip {
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    background: none;
+  }
+
+  .period-chip:hover { color: var(--text-primary); }
+
+  .period-chip.active {
+    background: var(--text-primary);
+    color: white;
+  }
+
+  /* ====== FLOW CARDS (Income / Expense) ====== */
+  .flow-row {
+    display: flex;
+    gap: 10px;
+    padding: 0 20px;
+    margin-bottom: 16px;
+  }
+
+  .flow-card {
+    flex: 1;
+    padding: 14px;
+    border-radius: var(--radius-md);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .flow-card.income {
+    background: var(--income-bg);
+    border: 1px solid var(--income-light);
+  }
+
+  .flow-card.expense {
+    background: var(--expense-bg);
+    border: 1px solid var(--expense-light);
+  }
+
+  .flow-card-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .flow-arrow {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .flow-arrow.up {
+    background: var(--income);
+    color: white;
+  }
+
+  .flow-arrow.down {
+    background: var(--expense);
+    color: white;
+  }
+
+  .flow-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .flow-label.income-text { color: var(--income); }
+  .flow-label.expense-text { color: var(--expense); }
+
+  .flow-amount {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.5px;
+  }
+
+  .flow-amount.income-text { color: var(--income); }
+  .flow-amount.expense-text { color: var(--expense); }
+
+  .flow-delta {
+    font-size: 10px;
+    font-weight: 500;
+    margin-top: 4px;
+    opacity: 0.7;
+  }
+
+  /* ====== MINI CHART ====== */
+  .chart-section {
+    padding: 0 20px;
+    margin-bottom: 20px;
+  }
+
+  .chart-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    position: relative;
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .chart-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .chart-toggle {
+    display: flex;
+    gap: 2px;
+    background: var(--surface-alt);
+    border-radius: 8px;
+    padding: 2px;
+  }
+
+  .chart-toggle-btn {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    border: none;
+    background: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .chart-toggle-btn.active {
+    background: var(--surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .chart-area {
+    height: 100px;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    padding-bottom: 20px;
+  }
+
+  .chart-bar-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .chart-bars {
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .chart-bar {
+    width: 8px;
+    border-radius: 3px 3px 1px 1px;
+    min-height: 3px;
+    transition: all 0.3s;
+  }
+
+  .chart-bar.income-bar { background: var(--income); opacity: 0.7; }
+  .chart-bar.expense-bar { background: var(--expense); opacity: 0.7; }
+  .chart-bar.current { opacity: 1; }
+
+  .chart-bar-label {
+    font-size: 9px;
+    color: var(--text-tertiary);
+    font-weight: 500;
+    margin-top: 4px;
+  }
+
+  .chart-empty-state {
+    height: 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+    font-size: 12px;
+    gap: 6px;
+  }
+
+  .chart-empty-icon {
+    font-size: 20px;
+    opacity: 0.4;
+  }
+
+  /* ====== SECTION DIVIDER ====== */
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    margin-bottom: 10px;
+    margin-top: 4px;
+  }
+
+  .section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.2px;
+  }
+
+  .section-action {
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: none;
+  }
+
+  /* ====== CATEGORY LIST ====== */
+  .category-list {
+    padding: 0 20px;
+    margin-bottom: 24px;
+  }
+
+  .category-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-light);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .category-item:last-child { border-bottom: none; }
+
+  .category-item:hover .category-name { color: var(--accent); }
+
+  .category-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+
+  .category-icon.casa { background: #FEF3C7; }
+  .category-icon.familia { background: #FCE7F3; }
+  .category-icon.ocio { background: #E0E7FF; }
+  .category-icon.restaurantes { background: #FFEDD5; }
+  .category-icon.interests { background: #D1FAE5; }
+  .category-icon.lottery { background: #EDE9FE; }
+
+  .category-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .category-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    transition: color 0.15s;
+  }
+
+  .category-count {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 1px;
+  }
+
+  .category-right {
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .category-amount {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--expense);
+  }
+
+  .category-bar-track {
+    width: 64px;
+    height: 3px;
+    background: var(--border-light);
+    border-radius: 2px;
+    margin-top: 6px;
+    margin-left: auto;
+    overflow: hidden;
+  }
+
+  .category-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--expense);
+    opacity: 0.5;
+    transition: width 0.4s ease;
+  }
+
+  .category-chevron {
+    color: var(--text-tertiary);
+    font-size: 12px;
+    margin-left: 4px;
+    opacity: 0.4;
+  }
+
+  /* ====== RECENT TRANSACTIONS ====== */
+  .transaction-list {
+    padding: 0 20px;
+    margin-bottom: 32px;
+  }
+
+  .transaction-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .transaction-item:last-child { border-bottom: none; }
+
+  .tx-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--surface-alt);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .tx-info { flex: 1; }
+
+  .tx-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .tx-meta {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 1px;
+  }
+
+  .tx-amount {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .tx-amount.negative { color: var(--expense); }
+  .tx-amount.positive { color: var(--income); }
+
+  /* ====== BOTTOM NAV ====== */
+  .bottom-nav {
+    position: sticky;
+    bottom: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding: 8px 20px 28px;
+    justify-content: space-around;
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+
+  .nav-item.active { color: var(--text-primary); }
+  .nav-item:hover { color: var(--text-primary); }
+
+  .nav-icon {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .nav-label {
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+
+  /* ====== WIREFRAME MARKERS ====== */
+  .marker {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    background: var(--accent);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    z-index: 5;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3); }
+    50% { box-shadow: 0 2px 12px rgba(37, 99, 235, 0.5); }
+  }
+
+  .marker-1 { top: 62px; right: -4px; }
+  .marker-2 { top: 170px; left: -4px; }
+  .marker-3 { top: 242px; right: -4px; }
+  .marker-4 { top: 350px; left: -4px; }
+  .marker-5 { top: 490px; right: -4px; }
+  .marker-6 { top: 680px; left: -4px; }
+
+  /* ====== COMPARISON VIEW (second phone) ====== */
+  .comparison {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+  }
+
+  .comparison-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-tertiary);
+    text-align: center;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+  }
+
+  /* ====== RESPONSIVE ====== */
+  @media (max-width: 1100px) {
+    .layout {
+      flex-direction: column;
+      align-items: center;
+    }
+    .annotations {
+      position: static;
+      width: 100%;
+      max-width: 500px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .annotation-title {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (max-width: 500px) {
+    body { padding: 8px; }
+    .phone {
+      width: 100%;
+      height: auto;
+      min-height: 100vh;
+      border-radius: 0;
+      border: none;
+    }
+    .phone::before { display: none; }
+    .annotations { display: none; }
+  }
+
+  /* ====== PAGE HEADER ====== */
+  .page-header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding-top: 20px;
+  }
+
+  .page-header h1 {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+  }
+
+  .page-header p {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  /* ====== DRILL DOWN PREVIEW ====== */
+  .drill-preview {
+    margin-top: 32px;
+    width: 375px;
+  }
+
+  .drill-preview-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-tertiary);
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  .drill-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: var(--shadow-md);
+  }
+
+  .drill-back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 16px;
+    cursor: pointer;
+  }
+
+  .drill-cat-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .drill-cat-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #FEF3C7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+
+  .drill-cat-name {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .drill-cat-total {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--expense);
+    font-weight: 500;
+  }
+
+  .drill-mini-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 50px;
+    margin-bottom: 16px;
+    padding: 0 4px;
+  }
+
+  .drill-bar {
+    flex: 1;
+    background: var(--expense-bg);
+    border-radius: 3px 3px 1px 1px;
+    min-height: 4px;
+    position: relative;
+  }
+
+  .drill-bar.current-month {
+    background: var(--expense);
+    opacity: 0.7;
+  }
+
+  .drill-tx {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .drill-tx:last-child { border-bottom: none; }
+
+  .drill-tx-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--expense);
+    opacity: 0.5;
+    flex-shrink: 0;
+  }
+
+  .drill-tx-info { flex: 1; }
+
+  .drill-tx-name {
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .drill-tx-date {
+    font-size: 10px;
+    color: var(--text-tertiary);
+  }
+
+  .drill-tx-amount {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--expense);
+  }
+</style>
+</head>
+<body>
+
+<div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+
+  <div class="page-header">
+    <h1>Finnon — Rediseño de Cuenta</h1>
+    <p>Propuesta de arquitectura de información · Vista móvil 375px</p>
+  </div>
+
+  <div class="layout">
+
+    <!-- ANNOTATION PANEL -->
+    <div class="annotations">
+      <div class="annotation-title">Decisiones de diseño</div>
+
+      <div class="annotation-card">
+        <div class="annotation-num">1</div>
+        <div class="annotation-label">Header contextual</div>
+        <div class="annotation-desc">Icono de cuenta + nombre + tipo. El botón de ajustes y filtro se mueven aquí. Menos ruido visual que el header actual con las letras T/B/M/T/A sueltas.</div>
+      </div>
+
+      <div class="annotation-card">
+        <div class="annotation-num">2</div>
+        <div class="annotation-label">Balance como hero</div>
+        <div class="annotation-desc">El balance pasa a ser el elemento dominante, centrado y con tipografía mono. Es el dato que el usuario busca primero — todo lo demás es contexto.</div>
+      </div>
+
+      <div class="annotation-card">
+        <div class="annotation-num">3</div>
+        <div class="annotation-label">Ingresos / Gastos separados</div>
+        <div class="annotation-desc">Dos cards con color semántico (verde/rojo) en lugar de mezclarlos en la misma lista. Elimina la ambigüedad actual donde "Paycheck" convive con "Restaurantes".</div>
+      </div>
+
+      <div class="annotation-card">
+        <div class="annotation-num">4</div>
+        <div class="annotation-label">Gráfico de evolución</div>
+        <div class="annotation-desc">Barras de ingresos vs gastos por mes. Con pocos datos (1-2 meses) solo se ven 1-2 barras — no queda vacío. Toggle para ver solo gastos o el neto. Estado vacío graceful incluido.</div>
+      </div>
+
+      <div class="annotation-card">
+        <div class="annotation-num">5</div>
+        <div class="annotation-label">Categorías solo de gasto</div>
+        <div class="annotation-desc">La lista solo muestra gastos, con barra proporcional al total. Cada item es tocable → drill-down. Los ingresos se consultan desde su card dedicada.</div>
+      </div>
+
+      <div class="annotation-card">
+        <div class="annotation-num">6</div>
+        <div class="annotation-label">Últimos movimientos</div>
+        <div class="annotation-desc">Preview de los 3-4 movimientos más recientes como acceso rápido. "Ver todos" lleva a la vista completa de movimientos con filtros.</div>
+      </div>
+    </div>
+
+    <!-- PHONE -->
+    <div class="phone-wrapper">
+      <div class="phone">
+        <div class="screen">
+
+          <!-- Status Bar -->
+          <div class="status-bar">
+            <span>9:41</span>
+            <div class="status-bar-icons">
+              <svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="4" width="3" height="8" rx="1" fill="#1A1A18"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="1" fill="#1A1A18"/><rect x="9" y="0.5" width="3" height="11.5" rx="1" fill="#1A1A18"/><rect x="13.5" y="3" width="2.5" height="9" rx="1" fill="#1A1A18" opacity="0.3"/></svg>
+              <svg width="24" height="12" viewBox="0 0 24 12"><rect x="0" y="0" width="21" height="12" rx="3" stroke="#1A1A18" stroke-width="1" fill="none"/><rect x="21.5" y="3.5" width="2" height="5" rx="1" fill="#1A1A18" opacity="0.4"/><rect x="1.5" y="1.5" width="15" height="9" rx="1.5" fill="#1A1A18"/></svg>
+            </div>
+          </div>
+
+          <!-- Markers -->
+          <div style="position: relative;">
+            <div class="marker marker-1">1</div>
+            <div class="marker marker-2">2</div>
+            <div class="marker marker-3">3</div>
+            <div class="marker marker-4">4</div>
+            <div class="marker marker-5">5</div>
+            <div class="marker marker-6">6</div>
+          </div>
+
+          <!-- Header -->
+          <div class="header">
+            <div class="header-left">
+              <div class="account-icon">🏠</div>
+              <div>
+                <div class="account-name">Casa</div>
+                <div class="account-type">Cuenta personal · EUR</div>
+              </div>
+            </div>
+            <div class="header-actions">
+              <div class="icon-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </div>
+              <div class="icon-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Balance Hero -->
+          <div class="balance-hero">
+            <div class="balance-label">Balance total</div>
+            <div class="balance-amount">€14.334<span class="balance-cents">.48</span></div>
+          </div>
+
+          <!-- Period Selector -->
+          <div class="period-selector">
+            <button class="period-chip">Semana</button>
+            <button class="period-chip active">Mes</button>
+            <button class="period-chip">Trimestre</button>
+            <button class="period-chip">Año</button>
+          </div>
+
+          <!-- Flow Cards -->
+          <div class="flow-row">
+            <div class="flow-card income">
+              <div class="flow-card-header">
+                <div class="flow-arrow up">↑</div>
+                <span class="flow-label income-text">Ingresos</span>
+              </div>
+              <div class="flow-amount income-text">€19.443</div>
+              <div class="flow-delta income-text">+2,3% vs mes anterior</div>
+            </div>
+            <div class="flow-card expense">
+              <div class="flow-card-header">
+                <div class="flow-arrow down">↓</div>
+                <span class="flow-label expense-text">Gastos</span>
+              </div>
+              <div class="flow-amount expense-text">€5.109</div>
+              <div class="flow-delta expense-text">-8,1% vs mes anterior</div>
+            </div>
+          </div>
+
+          <!-- Chart -->
+          <div class="chart-section">
+            <div class="chart-container">
+              <div class="chart-header">
+                <span class="chart-title">Evolución mensual</span>
+                <div class="chart-toggle">
+                  <button class="chart-toggle-btn active">Ambos</button>
+                  <button class="chart-toggle-btn">Gastos</button>
+                  <button class="chart-toggle-btn">Neto</button>
+                </div>
+              </div>
+              <div class="chart-area">
+                <div class="chart-bar-group">
+                  <div class="chart-bars">
+                    <div class="chart-bar income-bar" style="height: 45px;"></div>
+                    <div class="chart-bar expense-bar" style="height: 32px;"></div>
+                  </div>
+                  <span class="chart-bar-label">Sep</span>
+                </div>
+                <div class="chart-bar-group">
+                  <div class="chart-bars">
+                    <div class="chart-bar income-bar" style="height: 50px;"></div>
+                    <div class="chart-bar expense-bar" style="height: 28px;"></div>
+                  </div>
+                  <span class="chart-bar-label">Oct</span>
+                </div>
+                <div class="chart-bar-group">
+                  <div class="chart-bars">
+                    <div class="chart-bar income-bar" style="height: 48px;"></div>
+                    <div class="chart-bar expense-bar" style="height: 35px;"></div>
+                  </div>
+                  <span class="chart-bar-label">Nov</span>
+                </div>
+                <div class="chart-bar-group">
+                  <div class="chart-bars">
+                    <div class="chart-bar income-bar" style="height: 52px;"></div>
+                    <div class="chart-bar expense-bar" style="height: 30px;"></div>
+                  </div>
+                  <span class="chart-bar-label">Dic</span>
+                </div>
+                <div class="chart-bar-group">
+                  <div class="chart-bars">
+                    <div class="chart-bar income-bar current" style="height: 55px;"></div>
+                    <div class="chart-bar expense-bar current" style="height: 25px;"></div>
+                  </div>
+                  <span class="chart-bar-label" style="font-weight: 700; color: var(--text-primary);">Ene</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Categories (gastos only) -->
+          <div class="section-header">
+            <span class="section-title">Gastos por categoría</span>
+            <button class="section-action">Ver todas →</button>
+          </div>
+
+          <div class="category-list">
+            <div class="category-item">
+              <div class="category-icon casa">🏠</div>
+              <div class="category-info">
+                <div class="category-name">Casa</div>
+                <div class="category-count">12 movimientos</div>
+              </div>
+              <div class="category-right">
+                <div class="category-amount">€4.651,54</div>
+                <div class="category-bar-track">
+                  <div class="category-bar-fill" style="width: 91%;"></div>
+                </div>
+              </div>
+              <span class="category-chevron">›</span>
+            </div>
+
+            <div class="category-item">
+              <div class="category-icon familia">👨‍👩‍👧</div>
+              <div class="category-info">
+                <div class="category-name">Familia</div>
+                <div class="category-count">4 movimientos</div>
+              </div>
+              <div class="category-right">
+                <div class="category-amount">€340,45</div>
+                <div class="category-bar-track">
+                  <div class="category-bar-fill" style="width: 7%;"></div>
+                </div>
+              </div>
+              <span class="category-chevron">›</span>
+            </div>
+
+            <div class="category-item">
+              <div class="category-icon ocio">🎮</div>
+              <div class="category-info">
+                <div class="category-name">Ocio</div>
+                <div class="category-count">3 movimientos</div>
+              </div>
+              <div class="category-right">
+                <div class="category-amount">€82,87</div>
+                <div class="category-bar-track">
+                  <div class="category-bar-fill" style="width: 2%;"></div>
+                </div>
+              </div>
+              <span class="category-chevron">›</span>
+            </div>
+
+            <div class="category-item">
+              <div class="category-icon restaurantes">🍽️</div>
+              <div class="category-info">
+                <div class="category-name">Restaurantes</div>
+                <div class="category-count">2 movimientos</div>
+              </div>
+              <div class="category-right">
+                <div class="category-amount">€34,15</div>
+                <div class="category-bar-track">
+                  <div class="category-bar-fill" style="width: 1%;"></div>
+                </div>
+              </div>
+              <span class="category-chevron">›</span>
+            </div>
+          </div>
+
+          <!-- Recent Transactions -->
+          <div class="section-header">
+            <span class="section-title">Últimos movimientos</span>
+            <button class="section-action">Ver todos →</button>
+          </div>
+
+          <div class="transaction-list">
+            <div class="transaction-item">
+              <div class="tx-icon">🏠</div>
+              <div class="tx-info">
+                <div class="tx-name">Alquiler enero</div>
+                <div class="tx-meta">Casa · 1 feb</div>
+              </div>
+              <div class="tx-amount negative">-€850,00</div>
+            </div>
+            <div class="transaction-item">
+              <div class="tx-icon">💼</div>
+              <div class="tx-info">
+                <div class="tx-name">Nómina enero</div>
+                <div class="tx-meta">Paycheck · 31 ene</div>
+              </div>
+              <div class="tx-amount positive">+€2.450,00</div>
+            </div>
+            <div class="transaction-item">
+              <div class="tx-icon">🍽️</div>
+              <div class="tx-info">
+                <div class="tx-name">La Barraca</div>
+                <div class="tx-meta">Restaurantes · 28 ene</div>
+              </div>
+              <div class="tx-amount negative">-€22,50</div>
+            </div>
+            <div class="transaction-item">
+              <div class="tx-icon">⚡</div>
+              <div class="tx-info">
+                <div class="tx-name">Iberdrola</div>
+                <div class="tx-meta">Casa · 25 ene</div>
+              </div>
+              <div class="tx-amount negative">-€67,30</div>
+            </div>
+          </div>
+
+          <!-- Bottom Nav -->
+          <div class="bottom-nav">
+            <div class="nav-item">
+              <span class="nav-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              </span>
+              <span class="nav-label">Inicio</span>
+            </div>
+            <div class="nav-item">
+              <span class="nav-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </span>
+              <span class="nav-label">Movimientos</span>
+            </div>
+            <div class="nav-item active">
+              <span class="nav-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
+              </span>
+              <span class="nav-label">Cuenta</span>
+            </div>
+            <div class="nav-item">
+              <span class="nav-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              </span>
+              <span class="nav-label">Objetivo</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- DRILL DOWN PREVIEW -->
+      <div class="drill-preview">
+        <div class="drill-preview-title">Vista de drill-down al tocar categoría</div>
+        <div class="drill-card">
+          <div class="drill-back">← Volver a cuenta</div>
+
+          <div class="drill-cat-header">
+            <div class="drill-cat-icon">🏠</div>
+            <div>
+              <div class="drill-cat-name">Casa</div>
+              <div class="drill-cat-total">€4.651,54 este mes</div>
+            </div>
+          </div>
+
+          <div class="drill-mini-chart">
+            <div class="drill-bar" style="height: 30px;"></div>
+            <div class="drill-bar" style="height: 38px;"></div>
+            <div class="drill-bar" style="height: 25px;"></div>
+            <div class="drill-bar" style="height: 42px;"></div>
+            <div class="drill-bar current-month" style="height: 35px;"></div>
+          </div>
+
+          <div class="drill-tx">
+            <div class="drill-tx-dot"></div>
+            <div class="drill-tx-info">
+              <div class="drill-tx-name">Alquiler enero</div>
+              <div class="drill-tx-date">1 feb 2026</div>
+            </div>
+            <div class="drill-tx-amount">-€850,00</div>
+          </div>
+          <div class="drill-tx">
+            <div class="drill-tx-dot"></div>
+            <div class="drill-tx-info">
+              <div class="drill-tx-name">Iberdrola</div>
+              <div class="drill-tx-date">25 ene 2026</div>
+            </div>
+            <div class="drill-tx-amount">-€67,30</div>
+          </div>
+          <div class="drill-tx">
+            <div class="drill-tx-dot"></div>
+            <div class="drill-tx-info">
+              <div class="drill-tx-name">Agua - Canal Isabel II</div>
+              <div class="drill-tx-date">20 ene 2026</div>
+            </div>
+            <div class="drill-tx-amount">-€32,15</div>
+          </div>
+          <div class="drill-tx">
+            <div class="drill-tx-dot"></div>
+            <div class="drill-tx-info">
+              <div class="drill-tx-name">Seguro hogar Mapfre</div>
+              <div class="drill-tx-date">15 ene 2026</div>
+            </div>
+            <div class="drill-tx-amount">-€45,80</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+</body>
+</html>

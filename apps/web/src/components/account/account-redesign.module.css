@@ -1,0 +1,605 @@
+.root {
+  --bg: #FAFAF8;
+  --surface: #FFFFFF;
+  --surface-alt: #F5F4F0;
+  --border: #E8E6E1;
+  --border-light: #F0EEE9;
+  --text-primary: #1A1A18;
+  --text-secondary: #6B6B65;
+  --text-tertiary: #9C9C95;
+  --income: #1B7A4A;
+  --income-bg: #E8F5EE;
+  --income-light: #D0EBDD;
+  --expense: #C4441A;
+  --expense-bg: #FDF0EB;
+  --expense-light: #F9DDD2;
+  --accent: #2563EB;
+  --accent-bg: #EFF4FF;
+  --category-casa: #FEF3C7;
+  --category-familia: #FCE7F3;
+  --category-ocio: #E0E7FF;
+  --category-restaurantes: #FFEDD5;
+  --category-interests: #D1FAE5;
+  --category-lottery: #EDE9FE;
+  --category-default: #F3F4F6;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+
+  font-family: var(--font-dm-sans, "DM Sans", sans-serif);
+  color: var(--text-primary);
+}
+
+.screen {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  background: var(--bg);
+}
+
+.header {
+  padding: 12px 20px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.accountIcon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #F0EEE9, #E8E6E1);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.accountName {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.accountType {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.headerActions {
+  display: flex;
+  gap: 8px;
+}
+
+.iconBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.iconBtn:hover {
+  border-color: var(--text-secondary);
+}
+
+.balanceHero {
+  padding: 8px 20px 20px;
+  text-align: center;
+}
+
+.balanceLabel {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.balanceAmount {
+  font-family: var(--font-jetbrains-mono, "JetBrains Mono", monospace);
+  font-size: 36px;
+  font-weight: 500;
+  letter-spacing: -1.5px;
+  line-height: 1;
+}
+
+.balanceCents {
+  font-size: 20px;
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+.periodSelector {
+  display: flex;
+  gap: 4px;
+  padding: 0 20px;
+  margin-bottom: 20px;
+  justify-content: center;
+}
+
+.periodChip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.periodChip:hover {
+  color: var(--text-primary);
+}
+
+.periodChipActive {
+  background: var(--text-primary);
+  color: #fff;
+}
+
+.flowRow {
+  display: flex;
+  gap: 10px;
+  padding: 0 20px;
+  margin-bottom: 16px;
+}
+
+.flowCard {
+  flex: 1;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid transparent;
+}
+
+.flowCardIncome {
+  background: var(--income-bg);
+  border-color: var(--income-light);
+}
+
+.flowCardExpense {
+  background: var(--expense-bg);
+  border-color: var(--expense-light);
+}
+
+.flowCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.flowArrow {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.flowArrowUp {
+  background: var(--income);
+}
+
+.flowArrowDown {
+  background: var(--expense);
+}
+
+.flowLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.flowLabelIncome {
+  color: var(--income);
+}
+
+.flowLabelExpense {
+  color: var(--expense);
+}
+
+.flowAmount {
+  font-family: var(--font-jetbrains-mono, "JetBrains Mono", monospace);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+}
+
+.flowAmountIncome {
+  color: var(--income);
+}
+
+.flowAmountExpense {
+  color: var(--expense);
+}
+
+.flowDelta {
+  font-size: 10px;
+  font-weight: 500;
+  margin-top: 4px;
+  opacity: 0.7;
+}
+
+.chartSection {
+  padding: 0 20px;
+  margin-bottom: 20px;
+}
+
+.chartContainer {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  position: relative;
+}
+
+.chartHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.chartTitle {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chartToggle {
+  display: flex;
+  gap: 2px;
+  background: var(--surface-alt);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.chartToggleBtn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.chartToggleBtnActive {
+  background: var(--surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.chartArea {
+  height: 100px;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding-bottom: 20px;
+}
+
+.chartBarGroup {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.chartBars {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  width: 100%;
+  justify-content: center;
+}
+
+.chartBar {
+  width: 8px;
+  border-radius: 3px 3px 1px 1px;
+  min-height: 3px;
+  transition: all 0.3s ease;
+  opacity: 0.7;
+}
+
+.incomeBar {
+  background: var(--income);
+}
+
+.expenseBar {
+  background: var(--expense);
+}
+
+.chartBarCurrent {
+  opacity: 1;
+}
+
+.chartBarLabel {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.chartBarLabelCurrent {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.chartEmptyState {
+  height: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  gap: 6px;
+}
+
+.chartEmptyIcon {
+  font-size: 20px;
+  opacity: 0.4;
+}
+
+.chartEmptyText {
+  text-align: center;
+  max-width: 240px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  margin-bottom: 10px;
+  margin-top: 4px;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.sectionAction {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.categoryList {
+  padding: 0 20px;
+  margin-bottom: 24px;
+}
+
+.categoryItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-light);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.categoryItem:last-child {
+  border-bottom: none;
+}
+
+.categoryItem:hover .categoryName {
+  color: var(--accent);
+}
+
+.categoryIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.categoryInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.categoryName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.categoryCount {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+}
+
+.categoryRight {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.categoryAmount {
+  font-family: var(--font-jetbrains-mono, "JetBrains Mono", monospace);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--expense);
+}
+
+.categoryBarTrack {
+  width: 64px;
+  height: 3px;
+  background: var(--border-light);
+  border-radius: 2px;
+  margin-top: 6px;
+  margin-left: auto;
+  overflow: hidden;
+}
+
+.categoryBarFill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--expense);
+  opacity: 0.5;
+}
+
+.categoryChevron {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  margin-left: 4px;
+  opacity: 0.4;
+}
+
+.transactionList {
+  padding: 0 20px;
+  margin-bottom: 32px;
+}
+
+.transactionItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.transactionItem:last-child {
+  border-bottom: none;
+}
+
+.txIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--surface-alt);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.txInfo {
+  flex: 1;
+}
+
+.txName {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.txMeta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+}
+
+.txAmount {
+  font-family: var(--font-jetbrains-mono, "JetBrains Mono", monospace);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.txAmountNegative {
+  color: var(--expense);
+}
+
+.txAmountPositive {
+  color: var(--income);
+}
+
+@media (max-width: 640px) {
+  .screen {
+    max-width: 100%;
+  }
+}
+
+@media (min-width: 768px) {
+  .screen {
+    max-width: 1080px;
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    column-gap: 32px;
+    row-gap: 24px;
+    align-items: start;
+    grid-template-areas:
+      "header header"
+      "period period"
+      "balance categories"
+      "flow categories"
+      "chart transactions";
+  }
+
+  .header {
+    grid-area: header;
+  }
+
+  .periodSelector {
+    grid-area: period;
+  }
+
+  .balanceHero {
+    grid-area: balance;
+  }
+
+  .flowRow {
+    grid-area: flow;
+    margin-bottom: 0;
+  }
+
+  .chartSection {
+    grid-area: chart;
+    margin-bottom: 0;
+  }
+
+  .categoriesSection {
+    grid-area: categories;
+  }
+
+  .transactionsSection {
+    grid-area: transactions;
+  }
+
+  .categoryList,
+  .transactionList {
+    margin-bottom: 0;
+  }
+}
