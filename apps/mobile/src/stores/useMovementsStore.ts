@@ -1,10 +1,13 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
 import {
-  getMonthRangeFromKey,
+  formatDateISO,
+  getPeriodEnd,
+  getPeriodRange,
   isFutureDay,
   getOccurrenceKey,
   getOccurrencesBetween,
+  type Period,
   type RecurringItem,
 } from "@poleursus/shared";
 import type {
@@ -17,26 +20,26 @@ import type {
 } from "../types/movements";
 
 type MovementsStore = {
-  selectedMonth: { month: number; year: number };
+  selectedPeriod: Period;
   filters: MovementFilter;
   isSearchMode: boolean;
   isRecurrentSectionCollapsed: boolean;
 
-  monthMovements: Movement[];
+  periodMovements: Movement[];
   searchMovements: Movement[];
   categories: Category[];
   recurringItems: RecurringItem[];
   profilesById: Record<string, UserProfile>;
   baseCurrency: string;
 
-  setMonth: (month: number, year: number) => void;
+  setPeriod: (period: Period) => void;
   toggleTypeFilter: (type: "income" | "expense") => void;
   setCategoryFilter: (categoryIds: string[]) => void;
   setMerchantFilter: (merchantNames: string[]) => void;
   setSearchQuery: (query: string) => void;
   clearFilters: () => void;
 
-  setMonthMovements: (movements: Movement[]) => void;
+  setPeriodMovements: (movements: Movement[]) => void;
   setSearchMovements: (movements: Movement[]) => void;
   setCategories: (categories: Category[]) => void;
   setRecurringItems: (items: RecurringItem[]) => void;
@@ -46,6 +49,7 @@ type MovementsStore = {
 
   registerRecurrent: (templateId: string) => Promise<void>;
   registerAllRecurrents: () => Promise<void>;
+  setRecurrentSectionCollapsed: (collapsed: boolean) => void;
   toggleRecurrentCollapse: () => void;
 };
 
@@ -54,11 +58,6 @@ const defaultFilters: MovementFilter = {
   categoryIds: [],
   merchantNames: [],
   searchQuery: "",
-};
-
-const toMonthKeyFromState = (month: number, year: number) => {
-  const normalized = String(month).padStart(2, "0");
-  return `${year}-${normalized}`;
 };
 
 const toBigInt = (value: unknown) => {
@@ -123,17 +122,19 @@ const sortByDateDesc = (items: Movement[]) =>
   });
 
 const buildUnregisteredRecurrents = (state: {
-  selectedMonth: { month: number; year: number };
-  monthMovements: Movement[];
+  selectedPeriod: Period;
+  periodMovements: Movement[];
   recurringItems: RecurringItem[];
   categories: Category[];
   baseCurrency: string;
 }): RecurringTemplate[] => {
-  const { selectedMonth, monthMovements, recurringItems, categories } = state;
+  const { selectedPeriod, periodMovements, recurringItems, categories } = state;
   if (!recurringItems.length) return [];
 
-  const monthKey = toMonthKeyFromState(selectedMonth.month, selectedMonth.year);
-  const monthRange = getMonthRangeFromKey(monthKey);
+  const now = new Date();
+  const range = getPeriodRange(selectedPeriod, now);
+  const rangeStart = formatDateISO(range.start);
+  const rangeEnd = formatDateISO(getPeriodEnd(selectedPeriod, now));
   const categoriesById = categories.reduce<Record<string, Category>>(
     (acc, category) => {
       acc[category.id] = category;
@@ -143,7 +144,7 @@ const buildUnregisteredRecurrents = (state: {
   );
 
   const existingKeys = new Set(
-    monthMovements
+    periodMovements
       .filter((movement) => movement.recurringItemId && movement.recurringOccurrenceDate)
       .map((movement) =>
         getOccurrenceKey(
@@ -156,7 +157,7 @@ const buildUnregisteredRecurrents = (state: {
   return recurringItems
     .filter((item) => !item.is_paused)
     .flatMap((item) =>
-      getOccurrencesBetween(item, monthRange.start, monthRange.end)
+      getOccurrencesBetween(item, rangeStart, rangeEnd)
         .filter((occurrence) => !existingKeys.has(occurrence.key))
         .map((occurrence) => {
           const category = item.category_id
@@ -193,26 +194,21 @@ const matchesSearchQuery = (movement: Movement, query: string) => {
 };
 
 export const useMovementsStore = create<MovementsStore>((set, get) => {
-  const now = new Date();
-
   return {
-    selectedMonth: {
-      month: now.getMonth() + 1,
-      year: now.getFullYear(),
-    },
+    selectedPeriod: "month",
     filters: defaultFilters,
     isSearchMode: false,
     isRecurrentSectionCollapsed: true,
 
-    monthMovements: [],
+    periodMovements: [],
     searchMovements: [],
     categories: [],
     recurringItems: [],
     profilesById: {},
     baseCurrency: "EUR",
 
-    setMonth: (month, year) => {
-      set({ selectedMonth: { month, year } });
+    setPeriod: (period) => {
+      set({ selectedPeriod: period });
     },
     toggleTypeFilter: (type) => {
       const current = get().filters.types;
@@ -242,8 +238,8 @@ export const useMovementsStore = create<MovementsStore>((set, get) => {
       });
     },
 
-    setMonthMovements: (movements) => {
-      set({ monthMovements: sortByDateDesc(movements) });
+    setPeriodMovements: (movements) => {
+      set({ periodMovements: sortByDateDesc(movements) });
     },
     setSearchMovements: (movements) => {
       set({ searchMovements: sortByDateDesc(movements) });
@@ -317,9 +313,9 @@ export const useMovementsStore = create<MovementsStore>((set, get) => {
       if (!data) return;
 
       const movement = mapTransactionToMovement(data as TransactionRow);
-      const updatedMonthMovements = sortByDateDesc([
+      const updatedPeriodMovements = sortByDateDesc([
         movement,
-        ...state.monthMovements,
+        ...state.periodMovements,
       ]);
 
       const searchQuery = state.filters.searchQuery.trim();
@@ -330,7 +326,7 @@ export const useMovementsStore = create<MovementsStore>((set, get) => {
         : state.searchMovements;
 
       set({
-        monthMovements: updatedMonthMovements,
+        periodMovements: updatedPeriodMovements,
         searchMovements: updatedSearchMovements,
       });
     },
@@ -340,6 +336,9 @@ export const useMovementsStore = create<MovementsStore>((set, get) => {
       for (const recurrent of recurrents) {
         await get().registerRecurrent(recurrent.id);
       }
+    },
+    setRecurrentSectionCollapsed: (collapsed) => {
+      set({ isRecurrentSectionCollapsed: collapsed });
     },
     toggleRecurrentCollapse: () => {
       set({ isRecurrentSectionCollapsed: !get().isRecurrentSectionCollapsed });

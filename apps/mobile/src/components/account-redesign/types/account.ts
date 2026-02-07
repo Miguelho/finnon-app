@@ -1,3 +1,5 @@
+import type { Period as SharedPeriod } from "@poleursus/shared";
+
 /**
  * Tipos de datos para la pantalla de cuenta.
  *
@@ -48,7 +50,7 @@ export interface MonthlyDataPoint {
   isCurrent: boolean;
 }
 
-export type Period = 'week' | 'month' | 'quarter' | 'year';
+export type Period = SharedPeriod;
 
 export interface AccountScreenData {
   account: Account;

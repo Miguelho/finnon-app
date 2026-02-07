@@ -1,18 +1,11 @@
-import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { colors, typography, spacing, radii } from '../../theme/tokens';
-import type { Period } from '../../types/account';
+import { View, Text, StyleSheet, Pressable } from "react-native";
+import { PERIODS, type Period } from "@poleursus/shared";
+import { colors, typography, spacing, radii } from "../../theme/tokens";
 
 interface PeriodSelectorProps {
   selected: Period;
   onSelect: (period: Period) => void;
 }
-
-const PERIODS: { key: Period; label: string }[] = [
-  { key: 'week', label: 'Semana' },
-  { key: 'month', label: 'Mes' },
-  { key: 'quarter', label: 'Trimestre' },
-  { key: 'year', label: 'Año' },
-];
 
 export function PeriodSelector({ selected, onSelect }: PeriodSelectorProps) {
   return (

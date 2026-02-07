@@ -302,7 +302,7 @@ export function CategoriesClient({
                     <CategoryTile
                       key={category.id}
                       category={category}
-                      onPress={() => router.push(`/categories/${category.id}`)}
+                      onPress={() => router.push(`/transactions?category=${category.id}`)}
                       onEdit={canEdit ? () => openEditDialog(category) : undefined}
                       onDelete={canEdit ? () => openDeleteDialog(category) : undefined}
                     />
@@ -333,7 +333,7 @@ export function CategoriesClient({
                     <CategoryTile
                       key={category.id}
                       category={category}
-                      onPress={() => router.push(`/categories/${category.id}`)}
+                      onPress={() => router.push(`/transactions?category=${category.id}`)}
                       onEdit={canEdit ? () => openEditDialog(category) : undefined}
                       onDelete={canEdit ? () => openDeleteDialog(category) : undefined}
                     />

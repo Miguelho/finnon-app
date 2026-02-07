@@ -43,7 +43,7 @@ export function SearchBar({ value, onChange, onClear }: SearchBarProps) {
         />
         {showBadge && (
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>Búsqueda global</Text>
+            <Text style={styles.badgeText}>Búsqueda en periodo</Text>
           </View>
         )}
         {value.trim().length > 0 && (

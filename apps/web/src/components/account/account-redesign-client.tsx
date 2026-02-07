@@ -3,18 +3,12 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Search, Settings } from "lucide-react";
-import { CURRENCIES, getMinorUnits } from "@poleursus/shared";
+import { CURRENCIES, getMinorUnits, type Period } from "@poleursus/shared";
 import { CategoryIcon } from "@/components/category-icon";
 import type { AccountRedesignData, AccountRedesignPeriod } from "@/components/account/account-redesign-types";
 import { formatCurrency, formatDelta } from "@/components/account/account-redesign-utils";
+import { PeriodSelector } from "@/components/shared/PeriodSelector";
 import styles from "@/components/account/account-redesign.module.css";
-
-const PERIODS: { key: AccountRedesignPeriod; label: string }[] = [
-  { key: "week", label: "Semana" },
-  { key: "month", label: "Mes" },
-  { key: "quarter", label: "Trimestre" },
-  { key: "year", label: "Año" },
-];
 
 type ChartMode = "both" | "expenses" | "net";
 
@@ -25,10 +19,10 @@ type AccountRedesignClientProps = {
 };
 
 export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientProps) {
-  const [period, setPeriod] = useState<AccountRedesignPeriod>("month");
+  const [selectedPeriod, setSelectedPeriod] = useState<Period>("month");
   const [chartMode, setChartMode] = useState<ChartMode>("both");
 
-  const data = dataByPeriod[period];
+  const data = dataByPeriod[selectedPeriod];
 
   const currencySymbol = useMemo(() => {
     const code = data.account.currency;
@@ -109,20 +103,7 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
           </div>
         </div>
 
-        <div className={styles.periodSelector}>
-          {PERIODS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`${styles.periodChip} ${
-                period === item.key ? styles.periodChipActive : ""
-              }`}
-              onClick={() => setPeriod(item.key)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        <PeriodSelector selected={selectedPeriod} onChange={setSelectedPeriod} />
 
         <div className={styles.flowRow}>
           <div className={`${styles.flowCard} ${styles.flowCardIncome}`}>
@@ -251,7 +232,10 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
         <section className={styles.categoriesSection}>
           <div className={styles.sectionHeader}>
             <span className={styles.sectionTitle}>Gastos por categoría</span>
-            <Link href="/categories" className={styles.sectionAction}>
+            <Link
+              href={`/transactions?period=${selectedPeriod}`}
+              className={styles.sectionAction}
+            >
               Ver todas →
             </Link>
           </div>
@@ -300,7 +284,7 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
               return isLink ? (
                 <Link
                   key={category.id}
-                  href={`/categories/${category.id}`}
+                  href={`/transactions?period=${selectedPeriod}&category=${category.id}`}
                   className={styles.categoryItem}
                 >
                   {content}
@@ -317,7 +301,10 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
         <section className={styles.transactionsSection}>
           <div className={styles.sectionHeader}>
             <span className={styles.sectionTitle}>Últimos movimientos</span>
-            <Link href="/transactions" className={styles.sectionAction}>
+            <Link
+              href={`/transactions?period=${selectedPeriod}`}
+              className={styles.sectionAction}
+            >
               Ver todos →
             </Link>
           </div>

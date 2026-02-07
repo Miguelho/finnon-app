@@ -1,0 +1,28 @@
+.selector {
+  display: flex;
+  gap: 4px;
+  padding: 0 20px;
+  margin-bottom: 20px;
+  justify-content: center;
+}
+
+.chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--period-text-tertiary, var(--text-tertiary, #9C9C95));
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chip:hover {
+  color: var(--period-text-primary, var(--text-primary, #1A1A18));
+}
+
+.chipActive {
+  background: var(--period-active-bg, var(--text-primary, #1A1A18));
+  color: #fff;
+}

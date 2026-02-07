@@ -193,7 +193,9 @@ export default function CategoriesScreen() {
                 <CategoryTile
                   key={category.id}
                   category={category}
-                  onPress={() => router.push(`/(auth)/(tabs)/account/categories/${category.id}`)}
+                  onPress={() =>
+                    router.push(`/(auth)/(tabs)/transactions?category=${category.id}`)
+                  }
                   onEdit={() => router.push(`/(auth)/(tabs)/account/categories/${category.id}/edit`)}
                   onDelete={() => handleDelete(category)}
                 />
@@ -221,7 +223,9 @@ export default function CategoriesScreen() {
                 <CategoryTile
                   key={category.id}
                   category={category}
-                  onPress={() => router.push(`/(auth)/(tabs)/account/categories/${category.id}`)}
+                  onPress={() =>
+                    router.push(`/(auth)/(tabs)/transactions?category=${category.id}`)
+                  }
                   onEdit={() => router.push(`/(auth)/(tabs)/account/categories/${category.id}/edit`)}
                   onDelete={() => handleDelete(category)}
                 />

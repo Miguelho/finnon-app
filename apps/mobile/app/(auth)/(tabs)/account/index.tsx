@@ -12,8 +12,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
 import {
   CURRENCIES,
+  formatDateISO,
   getMinorUnits,
+  getPeriodRange,
   type AccountSummaryData,
+  type DateRange,
 } from "@poleursus/shared";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { useNetworkNotice } from "../../../../src/contexts/NetworkNoticeContext";
@@ -57,12 +60,6 @@ const endOfDay = (date: Date) =>
 const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1);
 const endOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
-const formatDateISO = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
 
 const parseISODate = (value: string) => {
   const [year, month, day] = value.split("-").map(Number);
@@ -120,7 +117,6 @@ const getCategoryColorKey = (name: string, iconId?: string | null) => {
   return "default";
 };
 
-type DateRange = { start: Date; end: Date };
 type Bucket = { label: string; start: Date; end: Date; isCurrent: boolean };
 
 const getDaySpan = (range: DateRange) => {
@@ -129,24 +125,6 @@ const getDaySpan = (range: DateRange) => {
   return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 };
 
-const getPeriodRange = (period: Period, now: Date): DateRange => {
-  const todayStart = startOfDay(now);
-  const todayEnd = endOfDay(now);
-
-  switch (period) {
-    case "week":
-      return { start: addDays(todayStart, -6), end: todayEnd };
-    case "month":
-      return { start: startOfMonth(now), end: todayEnd };
-    case "quarter": {
-      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
-      return { start: new Date(now.getFullYear(), quarterStartMonth, 1), end: todayEnd };
-    }
-    case "year":
-    default:
-      return { start: new Date(now.getFullYear(), 0, 1), end: todayEnd };
-  }
-};
 
 const getPreviousPeriodRange = (period: Period, currentRange: DateRange): DateRange => {
   const span = getDaySpan(currentRange);
@@ -548,16 +526,20 @@ export default function AccountTabScreen() {
           currencySymbol={currencySymbol}
           currencyDecimals={currencyDecimals}
           onSettingsPress={() => router.push("/(auth)/settings/account")}
-          onSearchPress={() => router.push("/(auth)/(tabs)/transactions")}
+          onSearchPress={() =>
+            router.push(`/(auth)/(tabs)/transactions?period=${period}`)
+          }
           onCategoryPress={(category) => {
             if (category.id === "uncategorized") return;
-            router.push(`/(auth)/(tabs)/account/categories/${category.id}`);
+            router.push(
+              `/(auth)/(tabs)/transactions?period=${period}&category=${category.id}`
+            );
           }}
           onViewAllCategoriesPress={() =>
-            router.push("/(auth)/(tabs)/account/categories")
+            router.push(`/(auth)/(tabs)/transactions?period=${period}`)
           }
           onViewAllTransactionsPress={() =>
-            router.push("/(auth)/(tabs)/transactions")
+            router.push(`/(auth)/(tabs)/transactions?period=${period}`)
           }
         />
       </ScrollView>

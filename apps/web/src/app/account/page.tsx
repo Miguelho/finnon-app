@@ -2,7 +2,13 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
-import { getMinorUnits, type AccountSummaryData } from "@poleursus/shared";
+import {
+  formatDateISO,
+  getMinorUnits,
+  getPeriodRange,
+  type AccountSummaryData,
+  type DateRange,
+} from "@poleursus/shared";
 import { TopNav } from "@/components/navigation/top-nav";
 import { BottomNavWrapper } from "@/components/navigation/bottom-nav-wrapper";
 import { PageContainer } from "@/components/layout/page-container";
@@ -60,12 +66,6 @@ const endOfDay = (date: Date) =>
 const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1);
 const endOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
-const formatDateISO = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
 
 const parseISODate = (value: string) => {
   const [year, month, day] = value.split("-").map(Number);
@@ -80,7 +80,6 @@ const getAmountMinor = (row: TransactionRow) => {
   return Number(raw);
 };
 
-type DateRange = { start: Date; end: Date };
 type Bucket = { label: string; start: Date; end: Date; isCurrent: boolean };
 
 const getDaySpan = (range: DateRange) => {
@@ -89,23 +88,6 @@ const getDaySpan = (range: DateRange) => {
   return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 };
 
-const getPeriodRange = (period: AccountRedesignPeriod, now: Date): DateRange => {
-  const todayStart = startOfDay(now);
-  const todayEnd = endOfDay(now);
-  switch (period) {
-    case "week":
-      return { start: addDays(todayStart, -6), end: todayEnd };
-    case "month":
-      return { start: startOfMonth(now), end: todayEnd };
-    case "quarter": {
-      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
-      return { start: new Date(now.getFullYear(), quarterStartMonth, 1), end: todayEnd };
-    }
-    case "year":
-    default:
-      return { start: new Date(now.getFullYear(), 0, 1), end: todayEnd };
-  }
-};
 
 const getPreviousPeriodRange = (
   period: AccountRedesignPeriod,

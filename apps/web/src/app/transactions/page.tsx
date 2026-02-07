@@ -5,8 +5,19 @@ import { cookies } from "next/headers";
 import { TopNav } from "@/components/navigation/top-nav";
 import { BottomNavWrapper } from "@/components/navigation/bottom-nav-wrapper";
 import { AddAction } from "@/components/home/add-action";
+import {
+  formatDateISO,
+  getPeriodEnd,
+  getPeriodRange,
+  PERIODS,
+  type Period,
+} from "@poleursus/shared";
 
-export default async function TransactionsPage() {
+export default async function TransactionsPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
   const supabase = await createClient();
 
   const {
@@ -44,6 +55,23 @@ export default async function TransactionsPage() {
     redirect("/select-account");
   }
 
+  const periodParamRaw = searchParams.period;
+  const periodParam =
+    typeof periodParamRaw === "string" &&
+    PERIODS.some((period) => period.key === periodParamRaw)
+      ? (periodParamRaw as Period)
+      : "month";
+  const categoryParamRaw = searchParams.category;
+  const categoryParam =
+    typeof categoryParamRaw === "string"
+      ? categoryParamRaw
+      : Array.isArray(categoryParamRaw)
+        ? categoryParamRaw[0]
+        : undefined;
+  const now = new Date();
+  const range = getPeriodRange(periodParam, now);
+  const rangeEnd = getPeriodEnd(periodParam, now);
+
   // Fetch transactions for the active account (ordered by date DESC)
   const { data: transactions } = await supabase
     .from("transactions")
@@ -54,6 +82,8 @@ export default async function TransactionsPage() {
     `
     )
     .eq("account_id", activeAccount.id)
+    .gte("date", formatDateISO(range.start))
+    .lte("date", formatDateISO(rangeEnd))
     .order("date", { ascending: false })
     .order("created_at", { ascending: false });
 
@@ -75,7 +105,9 @@ export default async function TransactionsPage() {
     .select(
       "id, account_id, type, amount_minor, currency, category_id, merchant, notes, start_date, frequency, interval, day_of_month, end_date, is_paused, created_by"
     )
-    .eq("account_id", activeAccount.id);
+    .eq("account_id", activeAccount.id)
+    .lte("start_date", formatDateISO(rangeEnd))
+    .or(`end_date.is.null,end_date.gte.${formatDateISO(range.start)}`);
 
   // Fetch categories for the active account (for the form dropdown)
   const { data: categories } = await supabase
@@ -142,6 +174,8 @@ export default async function TransactionsPage() {
         baseCurrency={activeAccount.base_currency}
         initialTransactions={transactions || []}
         initialRecurringItems={recurringItems || []}
+        initialPeriod={periodParam}
+        initialCategoryFilter={categoryParam ?? null}
         categories={categories || []}
         profiles={profiles || []}
         role={activeRole}

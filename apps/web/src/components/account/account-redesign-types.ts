@@ -1,4 +1,6 @@
-export type AccountRedesignPeriod = "week" | "month" | "quarter" | "year";
+import type { Period } from "@poleursus/shared";
+
+export type AccountRedesignPeriod = Period;
 
 export type AccountRedesignData = {
   account: {

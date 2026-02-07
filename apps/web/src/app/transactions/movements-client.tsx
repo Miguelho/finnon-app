@@ -1,36 +1,30 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   CURRENCIES,
+  formatDateISO,
   formatMinorToMoney,
-  formatMonthLabel,
+  getPeriodEnd,
+  getPeriodRange,
   getOccurrencesBetween,
   getOccurrenceKey,
   isFutureDay,
-  toMonthKey,
+  type Period,
   type RecurringItem,
   type AvatarColorToken,
 } from "@poleursus/shared";
-import { ChevronDown, ChevronLeft, ChevronRight, Calendar, Check, X } from "lucide-react";
+import { ChevronDown, Check, X } from "lucide-react";
 import { PageContainer } from "@/components/layout/page-container";
 import { CategoryIcon } from "@/components/category-icon";
 import { UserAvatar } from "@/components/user-avatar";
+import { PeriodSelector } from "@/components/shared/PeriodSelector";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { confirmRecurringTransaction } from "./actions";
@@ -75,6 +69,8 @@ type MovementsClientProps = {
   baseCurrency: string;
   initialTransactions: Transaction[];
   initialRecurringItems: RecurringItem[];
+  initialPeriod: Period;
+  initialCategoryFilter: string | null;
   categories: Category[];
   profiles: Profile[];
   role: "viewer" | "contributor" | "admin";
@@ -150,6 +146,14 @@ const toBigInt = (value: unknown) => {
     return 0n;
   }
 };
+
+const parseFilterParam = (value: string | null) =>
+  value
+    ? value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
 
 const mapTransactionToMovement = (row: Transaction): Movement => {
   const amountMinor = toBigInt(row.amount_base_minor ?? row.amount_minor);
@@ -650,32 +654,55 @@ export function MovementsClient({
   baseCurrency,
   initialTransactions,
   initialRecurringItems,
+  initialPeriod,
+  initialCategoryFilter,
   categories,
   profiles,
   role,
 }: MovementsClientProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const monthParam = searchParams.get("month");
-  const currentMonth = toMonthKey(new Date());
-  const initialMonth =
-    monthParam && /^\d{4}-\d{2}$/.test(monthParam) ? monthParam : currentMonth;
 
-  const [selectedMonth, setSelectedMonth] = useState(initialMonth);
+  const [selectedPeriod, setSelectedPeriod] = useState<Period>(initialPeriod);
   const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
   const [recurrents, setRecurrents] = useState<RecurringItem[]>(initialRecurringItems);
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilters, setTypeFilters] = useState<Array<"income" | "expense">>([]);
-  const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
+  const [categoryFilters, setCategoryFilters] = useState<string[]>(() =>
+    parseFilterParam(initialCategoryFilter)
+  );
   const [merchantFilters, setMerchantFilters] = useState<string[]>([]);
-  const [isRecurrentCollapsed, setIsRecurrentCollapsed] = useState(true);
-  const [isPendingCollapsed, setIsPendingCollapsed] = useState(true);
-  const [isDoneCollapsed, setIsDoneCollapsed] = useState(true);
-  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
-  const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
-  const [pickerMonthIndex, setPickerMonthIndex] = useState(new Date().getMonth());
+  const [isRecurrentCollapsed, setIsRecurrentCollapsed] = useState(
+    !initialCategoryFilter
+  );
+  const [isPendingCollapsed, setIsPendingCollapsed] = useState(
+    !initialCategoryFilter
+  );
+  const [isDoneCollapsed, setIsDoneCollapsed] = useState(!initialCategoryFilter);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+
+  useEffect(() => {
+    setTransactions(initialTransactions);
+  }, [initialTransactions]);
+
+  useEffect(() => {
+    setRecurrents(initialRecurringItems);
+  }, [initialRecurringItems]);
+
+  useEffect(() => {
+    setSelectedPeriod(initialPeriod);
+  }, [initialPeriod]);
+
+  useEffect(() => {
+    setCategoryFilters(parseFilterParam(initialCategoryFilter));
+  }, [initialCategoryFilter]);
+
+  useEffect(() => {
+    if (!initialCategoryFilter) return;
+    setIsRecurrentCollapsed(false);
+    setIsPendingCollapsed(false);
+    setIsDoneCollapsed(false);
+  }, [initialCategoryFilter]);
 
   const locale = useMemo(
     () => (typeof navigator !== "undefined" ? navigator.language : "es"),
@@ -698,19 +725,10 @@ export function MovementsClient({
     [transactions]
   );
 
-  const monthMovements = useMemo(
-    () => movements.filter((movement) => movement.date.startsWith(selectedMonth)),
-    [movements, selectedMonth]
-  );
-
   const isSearchMode = searchQuery.trim().length > 0;
-  const displayMovements = useMemo(
-    () => (isSearchMode ? movements : monthMovements),
-    [isSearchMode, movements, monthMovements]
-  );
 
   const filteredMovements = useMemo(() => {
-    let items = displayMovements;
+    let items = movements;
     const query = searchQuery.trim().toLowerCase();
     if (query) {
       items = items.filter((movement) => {
@@ -739,7 +757,7 @@ export function MovementsClient({
     }
 
     return items;
-  }, [displayMovements, searchQuery, categoryFilters, merchantFilters, typeFilters]);
+  }, [movements, searchQuery, categoryFilters, merchantFilters, typeFilters]);
 
   const groupedByStatus = useMemo(() => {
     const pending: Movement[] = [];
@@ -778,20 +796,20 @@ export function MovementsClient({
   const counts = useMemo(() => {
     let income = 0;
     let expense = 0;
-    displayMovements.forEach((movement) => {
+    movements.forEach((movement) => {
       if (movement.type === "income") income += 1;
       if (movement.type === "expense") expense += 1;
     });
     return { income, expense };
-  }, [displayMovements]);
+  }, [movements]);
 
   const merchantOptions = useMemo(() => {
     const unique = new Set<string>();
-    displayMovements.forEach((movement) => {
+    movements.forEach((movement) => {
       if (movement.merchant) unique.add(movement.merchant);
     });
     return Array.from(unique).map((name) => ({ id: name, name }));
-  }, [displayMovements]);
+  }, [movements]);
 
   const categoryOptions = useMemo(
     () => categories.map((category) => ({ id: category.id, name: category.name })),
@@ -800,14 +818,13 @@ export function MovementsClient({
 
   const unregisteredRecurrents = useMemo(() => {
     if (!recurrents.length) return [];
-    const monthRangeStart = `${selectedMonth}-01`;
-    const [year, month] = selectedMonth.split("-").map(Number);
-    const monthRangeEnd = new Date(Date.UTC(year, month, 0))
-      .toISOString()
-      .slice(0, 10);
+    const now = new Date();
+    const range = getPeriodRange(selectedPeriod, now);
+    const rangeStart = formatDateISO(range.start);
+    const rangeEnd = formatDateISO(getPeriodEnd(selectedPeriod, now));
 
     const existingKeys = new Set(
-      monthMovements
+      movements
         .filter((movement) => movement.recurringItemId && movement.recurringOccurrenceDate)
         .map((movement) =>
           getOccurrenceKey(
@@ -825,7 +842,7 @@ export function MovementsClient({
     return recurrents
       .filter((item) => !item.is_paused)
       .flatMap((item) =>
-        getOccurrencesBetween(item, monthRangeStart, monthRangeEnd)
+        getOccurrencesBetween(item, rangeStart, rangeEnd)
           .filter((occurrence) => !existingKeys.has(occurrence.key))
           .map((occurrence) => {
             const category = item.category_id ? categoriesById[item.category_id] : undefined;
@@ -846,7 +863,7 @@ export function MovementsClient({
             } as RecurringTemplate;
           })
       );
-  }, [recurrents, categories, selectedMonth, monthMovements]);
+  }, [recurrents, categories, movements, selectedPeriod]);
 
   const recurrentTotal = useMemo(
     () =>
@@ -856,8 +873,6 @@ export function MovementsClient({
       ),
     [unregisteredRecurrents]
   );
-
-  const isCurrentOrFutureMonth = selectedMonth >= currentMonth;
 
   const handleRegisterRecurrent = useCallback(
     async (id: string) => {
@@ -907,8 +922,38 @@ export function MovementsClient({
     setMerchantFilters([]);
   };
 
-  const monthLabel = formatMonthLabel(selectedMonth, locale);
-  const showPendingGroup = isCurrentOrFutureMonth && groupedByStatus.pending.length > 0;
+  const handlePeriodChange = useCallback(
+    (newPeriod: Period) => {
+      setSelectedPeriod(newPeriod);
+
+      const params = new URLSearchParams();
+      params.set("period", newPeriod);
+      if (categoryFilters.length > 0) {
+        params.set("category", categoryFilters[0]);
+      }
+
+      router.push(`/transactions?${params.toString()}`);
+    },
+    [categoryFilters, router]
+  );
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set("period", selectedPeriod);
+    if (categoryFilters.length > 0) {
+      params.set("category", categoryFilters.join(","));
+    }
+    if (merchantFilters.length > 0) {
+      params.set("merchant", merchantFilters.join(","));
+    }
+    if (typeFilters.length > 0) {
+      params.set("type", typeFilters.join(","));
+    }
+
+    router.replace(`/transactions?${params.toString()}`, { scroll: false });
+  }, [selectedPeriod, categoryFilters, merchantFilters, typeFilters, router]);
+
+  const showPendingGroup = groupedByStatus.pending.length > 0;
 
   const activeTags = useMemo(() => {
     const tags: Array<{ id: string; label: string; type: "type" | "category" | "merchant" }> = [];
@@ -939,52 +984,17 @@ export function MovementsClient({
           isSearchMode ? "max-h-0 opacity-0" : "max-h-20 opacity-100"
         )}
       >
-        <div className="flex items-center gap-2 rounded-xl border bg-white px-3 py-2">
-          <button
-            type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F5F5F5]"
-            onClick={() => {
-              const next = new Date(
-                Number(selectedMonth.slice(0, 4)),
-                Number(selectedMonth.slice(5)) - 2,
-                1
-              );
-              setSelectedMonth(toMonthKey(next));
-            }}
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <div className="flex-1 text-center text-sm font-semibold capitalize">
-            {monthLabel}
+        <div>
+          <PeriodSelector selected={selectedPeriod} onChange={handlePeriodChange} />
+          <div className="flex justify-end px-5">
+            <button
+              type="button"
+              className="text-xs font-medium text-[#0065FF]"
+              onClick={() => router.push("/recurrentes")}
+            >
+              Recurrentes →
+            </button>
           </div>
-          <button
-            type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F5F5F5]"
-            onClick={() => {
-              const next = new Date(
-                Number(selectedMonth.slice(0, 4)),
-                Number(selectedMonth.slice(5)) - 0,
-                1
-              );
-              setSelectedMonth(toMonthKey(next));
-            }}
-          >
-            <ChevronRight size={18} />
-          </button>
-          <button
-            type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F5F5F5]"
-            onClick={() => setIsMonthPickerOpen(true)}
-          >
-            <Calendar size={16} />
-          </button>
-          <button
-            type="button"
-            className="text-xs font-medium text-[#0065FF]"
-            onClick={() => router.push("/recurrentes")}
-          >
-            Recurrentes →
-          </button>
         </div>
       </div>
 
@@ -1018,7 +1028,7 @@ export function MovementsClient({
         />
       </div>
 
-      {isCurrentOrFutureMonth && unregisteredRecurrents.length > 0 ? (
+      {unregisteredRecurrents.length > 0 ? (
         <RecurrentSection
           recurrents={unregisteredRecurrents}
           currencyCode={baseCurrency}
@@ -1046,7 +1056,7 @@ export function MovementsClient({
           />
           {(isSearchFocused || searchQuery.trim().length > 0) && (
             <span className="rounded-full bg-[#E6F0FF] px-2 py-1 text-[10px] font-semibold text-[#0065FF]">
-              Búsqueda global
+              Búsqueda en periodo
             </span>
           )}
           {searchQuery.trim().length > 0 && (
@@ -1058,7 +1068,7 @@ export function MovementsClient({
 
         {isSearchMode && (
           <div className="flex items-center justify-between rounded-xl bg-[#E6F0FF] px-3 py-2 text-xs font-medium text-[#0065FF]">
-            🔍 Mostrando resultados de todos los meses
+            🔍 Mostrando resultados del periodo seleccionado
             <button type="button" onClick={() => setSearchQuery("")}>
               <X size={12} />
             </button>
@@ -1187,63 +1197,6 @@ export function MovementsClient({
         />
       </div>
 
-      <Dialog open={isMonthPickerOpen} onOpenChange={setIsMonthPickerOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Selecciona un mes</DialogTitle>
-            <DialogDescription>Filtra movimientos por mes.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">Mes</label>
-              <select
-                className="w-full rounded-md border px-3 py-2 text-sm"
-                value={pickerMonthIndex}
-                onChange={(event) => setPickerMonthIndex(Number(event.target.value))}
-              >
-                {Array.from({ length: 12 }).map((_, index) => (
-                  <option key={index} value={index}>
-                    {new Date(2000, index, 1).toLocaleDateString(locale, {
-                      month: "long",
-                    })}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">Año</label>
-              <select
-                className="w-full rounded-md border px-3 py-2 text-sm"
-                value={pickerYear}
-                onChange={(event) => setPickerYear(Number(event.target.value))}
-              >
-                {Array.from({ length: 11 }).map((_, index) => {
-                  const year = new Date().getFullYear() - 5 + index;
-                  return (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsMonthPickerOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => {
-                const nextMonth = toMonthKey(new Date(pickerYear, pickerMonthIndex, 1));
-                setSelectedMonth(nextMonth);
-                setIsMonthPickerOpen(false);
-              }}
-            >
-              Aplicar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </PageContainer>
   );
 }

@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIsFocused } from "@react-navigation/native";
 import {
   CURRENCIES,
-  getMonthRangeFromKey,
-  formatMonthLabel,
+  formatDateISO,
+  getPeriodEnd,
+  getPeriodRange,
   isFutureDay,
   type RecurringItem,
 } from "@poleursus/shared";
@@ -90,16 +91,16 @@ export function useMovements() {
   const { reportNetworkIssue } = useNetworkNotice();
 
   const {
-    selectedMonth,
+    selectedPeriod,
     filters,
     isSearchMode,
-    monthMovements,
+    periodMovements,
     searchMovements,
     categories,
     recurringItems,
     profilesById,
     baseCurrency,
-    setMonthMovements,
+    setPeriodMovements,
     setSearchMovements,
     setCategories,
     setRecurringItems,
@@ -111,20 +112,14 @@ export function useMovements() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const monthKey = useMemo(() => {
-    const month = String(selectedMonth.month).padStart(2, "0");
-    return `${selectedMonth.year}-${month}`;
-  }, [selectedMonth.month, selectedMonth.year]);
-
-  const monthRange = useMemo(
-    () => getMonthRangeFromKey(monthKey),
-    [monthKey]
-  );
-
-  const monthLabel = useMemo(
-    () => formatMonthLabel(monthKey, locale),
-    [monthKey, locale]
-  );
+  const periodRange = useMemo(() => {
+    const now = new Date();
+    const range = getPeriodRange(selectedPeriod, now);
+    return {
+      start: formatDateISO(range.start),
+      end: formatDateISO(getPeriodEnd(selectedPeriod, now)),
+    };
+  }, [selectedPeriod]);
 
   const loadProfiles = useCallback(
     async (movements: Movement[]) => {
@@ -151,7 +146,7 @@ export function useMovements() {
     [mergeProfilesById]
   );
 
-  const loadMonthData = useCallback(async () => {
+  const loadPeriodData = useCallback(async () => {
     if (!selectedAccountId) {
       setLoading(false);
       return;
@@ -171,8 +166,8 @@ export function useMovements() {
         .from("transactions")
         .select("*, category:categories(id, name, icon_id, type)")
         .eq("account_id", selectedAccountId)
-        .gte("date", monthRange.start)
-        .lte("date", monthRange.end)
+        .gte("date", periodRange.start)
+        .lte("date", periodRange.end)
         .order("date", { ascending: false })
         .order("created_at", { ascending: false });
 
@@ -186,7 +181,9 @@ export function useMovements() {
         .select(
           "id, account_id, type, amount_minor, currency, category_id, merchant, notes, start_date, frequency, interval, day_of_month, end_date, is_paused, created_by"
         )
-        .eq("account_id", selectedAccountId);
+        .eq("account_id", selectedAccountId)
+        .lte("start_date", periodRange.end)
+        .or(`end_date.is.null,end_date.gte.${periodRange.start}`);
 
       const [accountResult, transactionsResult, categoriesResult, recurringResult] =
         await Promise.all([
@@ -208,7 +205,7 @@ export function useMovements() {
       const mappedMovements = (transactionsResult.data || []).map((row) =>
         mapTransactionToMovement(row as TransactionRow)
       );
-      setMonthMovements(mappedMovements);
+      setPeriodMovements(mappedMovements);
 
       setCategories((categoriesResult.data || []) as Category[]);
       setRecurringItems((recurringResult.data || []) as RecurringItem[]);
@@ -216,19 +213,19 @@ export function useMovements() {
       await loadProfiles(mappedMovements);
     } catch (e: any) {
       setError(e?.message || "No se pudieron cargar los movimientos");
-      reportNetworkIssue({ onRetry: loadMonthData });
+      reportNetworkIssue({ onRetry: loadPeriodData });
     } finally {
       setLoading(false);
     }
   }, [
     loadProfiles,
-    monthRange.end,
-    monthRange.start,
+    periodRange.end,
+    periodRange.start,
     reportNetworkIssue,
     selectedAccountId,
     setBaseCurrency,
     setCategories,
-    setMonthMovements,
+    setPeriodMovements,
     setRecurringItems,
   ]);
 
@@ -263,6 +260,8 @@ export function useMovements() {
         .from("transactions")
         .select("*, category:categories(id, name, icon_id, type)")
         .eq("account_id", selectedAccountId)
+        .gte("date", periodRange.start)
+        .lte("date", periodRange.end)
         .or(filtersOr.join(","))
         .order("date", { ascending: false })
         .order("created_at", { ascending: false });
@@ -282,14 +281,16 @@ export function useMovements() {
   }, [
     filters.searchQuery,
     loadProfiles,
+    periodRange.end,
+    periodRange.start,
     selectedAccountId,
     setSearchMovements,
   ]);
 
   useEffect(() => {
     if (!isFocused) return;
-    loadMonthData();
-  }, [isFocused, loadMonthData]);
+    loadPeriodData();
+  }, [isFocused, loadPeriodData]);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -297,8 +298,8 @@ export function useMovements() {
   }, [isFocused, loadSearchResults]);
 
   const displayMovements = useMemo(
-    () => (isSearchMode ? searchMovements : monthMovements),
-    [isSearchMode, searchMovements, monthMovements]
+    () => (isSearchMode ? searchMovements : periodMovements),
+    [isSearchMode, searchMovements, periodMovements]
   );
 
   const filteredMovements = useMemo(() => {
@@ -353,7 +354,7 @@ export function useMovements() {
 
   const unregisteredRecurrents = useMemo(
     () => selectUnregisteredRecurrents(useMovementsStore.getState()),
-    [monthMovements, recurringItems, categories, selectedMonth]
+    [periodMovements, recurringItems, categories, selectedPeriod]
   );
 
   const counts = useMemo(() => {
@@ -383,25 +384,17 @@ export function useMovements() {
     CURRENCIES.find((currency) => currency.code === baseCurrency)?.symbol ??
     baseCurrency;
 
-  const now = new Date();
-  const selectedDate = new Date(selectedMonth.year, selectedMonth.month - 1, 1);
-  const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
-  const isCurrentOrFutureMonth = selectedDate >= currentMonthDate;
-
   const refresh = useCallback(async () => {
-    await loadMonthData();
+    await loadPeriodData();
     if (isSearchMode) {
       await loadSearchResults();
     }
-  }, [isSearchMode, loadMonthData, loadSearchResults]);
+  }, [isSearchMode, loadPeriodData, loadSearchResults]);
 
   return {
     loading,
     searchLoading,
     error,
-    monthLabel,
-    monthKey,
-    monthRange,
     displayMovements,
     filteredMovements,
     groupedByStatus,
@@ -413,7 +406,6 @@ export function useMovements() {
     currencySymbol,
     currencyCode: baseCurrency,
     profilesById,
-    isCurrentOrFutureMonth,
     refresh,
     locale,
   };

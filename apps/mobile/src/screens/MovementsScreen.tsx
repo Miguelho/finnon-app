@@ -4,7 +4,6 @@ import {
   Alert,
   Animated,
   LayoutAnimation,
-  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -14,9 +13,9 @@ import {
   UIManager,
   View,
 } from "react-native";
-import { Picker } from "@react-native-picker/picker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { PERIODS, type Period } from "@poleursus/shared";
 import { movementsDesignTokens } from "../types/movements";
 import { useMovements } from "../hooks/useMovements";
 import { useMovementsStore } from "../stores/useMovementsStore";
@@ -25,15 +24,23 @@ import { RecurrentSection } from "../components/movements/RecurrentSection";
 import { SearchBar } from "../components/movements/SearchBar";
 import { FilterRow } from "../components/movements/FilterRow";
 import { MovementGroup } from "../components/movements/MovementGroup";
+import { PeriodSelector } from "../components/movements/PeriodSelector";
 
 const colors = movementsDesignTokens.colors;
 
 export default function MovementsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    period?: string | string[];
+    category?: string | string[];
+  }>();
+  const periodParam = Array.isArray(params.period) ? params.period[0] : params.period;
+  const categoryParam = Array.isArray(params.category)
+    ? params.category[0]
+    : params.category;
   const {
     loading,
     error,
-    monthLabel,
     groupedByStatus,
     summary,
     unregisteredRecurrents,
@@ -43,17 +50,16 @@ export default function MovementsScreen() {
     currencySymbol,
     currencyCode,
     profilesById,
-    isCurrentOrFutureMonth,
     refresh,
     locale,
   } = useMovements();
 
   const {
-    selectedMonth,
+    selectedPeriod,
     filters,
     isSearchMode,
     isRecurrentSectionCollapsed,
-    setMonth,
+    setPeriod,
     toggleTypeFilter,
     setCategoryFilter,
     setMerchantFilter,
@@ -61,20 +67,16 @@ export default function MovementsScreen() {
     clearFilters,
     registerRecurrent,
     registerAllRecurrents,
+    setRecurrentSectionCollapsed,
     toggleRecurrentCollapse,
   } = useMovementsStore();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
-  const [pickerYear, setPickerYear] = useState(selectedMonth.year);
-  const [pickerMonthIndex, setPickerMonthIndex] = useState(
-    selectedMonth.month - 1
-  );
   const [isPendingCollapsed, setIsPendingCollapsed] = useState(true);
   const [isDoneCollapsed, setIsDoneCollapsed] = useState(true);
 
-  const monthVisibility = useRef(new Animated.Value(1)).current;
-  const [monthNavHeight, setMonthNavHeight] = useState(0);
+  const periodVisibility = useRef(new Animated.Value(1)).current;
+  const [periodNavHeight, setPeriodNavHeight] = useState(0);
 
   useEffect(() => {
     if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -83,12 +85,12 @@ export default function MovementsScreen() {
   }, []);
 
   useEffect(() => {
-    Animated.timing(monthVisibility, {
+    Animated.timing(periodVisibility, {
       toValue: isSearchMode ? 0 : 1,
       duration: 220,
       useNativeDriver: false,
     }).start();
-  }, [isSearchMode, monthVisibility]);
+  }, [isSearchMode, periodVisibility]);
 
   useEffect(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -99,40 +101,41 @@ export default function MovementsScreen() {
     isDoneCollapsed,
   ]);
 
+  useEffect(() => {
+    if (!periodParam) return;
+    const isValidPeriod = PERIODS.some((period) => period.key === periodParam);
+    if (isValidPeriod) {
+      setPeriod(periodParam as Period);
+    }
+  }, [periodParam, setPeriod]);
+
+  useEffect(() => {
+    if (!categoryParam) return;
+    const categoryIds = categoryParam
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (categoryIds.length > 0) {
+      setCategoryFilter(categoryIds);
+    }
+    setRecurrentSectionCollapsed(false);
+    setIsPendingCollapsed(false);
+    setIsDoneCollapsed(false);
+  }, [
+    categoryParam,
+    setCategoryFilter,
+    setRecurrentSectionCollapsed,
+    setIsPendingCollapsed,
+    setIsDoneCollapsed,
+  ]);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await refresh();
     setIsRefreshing(false);
   };
 
-  const handlePrevMonth = () => {
-    const date = new Date(selectedMonth.year, selectedMonth.month - 2, 1);
-    setMonth(date.getMonth() + 1, date.getFullYear());
-  };
-
-  const handleNextMonth = () => {
-    const date = new Date(selectedMonth.year, selectedMonth.month, 1);
-    setMonth(date.getMonth() + 1, date.getFullYear());
-  };
-
-  const openMonthPicker = () => {
-    setPickerYear(selectedMonth.year);
-    setPickerMonthIndex(selectedMonth.month - 1);
-    setIsMonthPickerOpen(true);
-  };
-
-  const applyMonthPicker = () => {
-    setMonth(pickerMonthIndex + 1, pickerYear);
-    setIsMonthPickerOpen(false);
-  };
-
-  const formattedMonthLabel = useMemo(() => {
-    if (!monthLabel) return "";
-    return monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
-  }, [monthLabel]);
-
-  const showPendingGroup =
-    isCurrentOrFutureMonth && groupedByStatus.pending.length > 0;
+  const showPendingGroup = groupedByStatus.pending.length > 0;
 
   const recurrentTotal = useMemo(
     () =>
@@ -208,35 +211,26 @@ export default function MovementsScreen() {
       >
         <Animated.View
           style={[
-            styles.monthNavWrapper,
-            monthNavHeight
+            styles.periodNavWrapper,
+            periodNavHeight
               ? {
-                  height: monthVisibility.interpolate({
+                  height: periodVisibility.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [0, monthNavHeight],
+                    outputRange: [0, periodNavHeight],
                   }),
-                  opacity: monthVisibility,
+                  opacity: periodVisibility,
                 }
-              : { opacity: monthVisibility },
+              : { opacity: periodVisibility },
           ]}
           onLayout={(event) => {
-            if (monthNavHeight === 0) {
-              setMonthNavHeight(event.nativeEvent.layout.height);
+            if (periodNavHeight === 0) {
+              setPeriodNavHeight(event.nativeEvent.layout.height);
             }
           }}
           pointerEvents={isSearchMode ? "none" : "auto"}
         >
-          <View style={styles.monthNav}>
-            <Pressable style={styles.monthNavButton} onPress={handlePrevMonth}>
-              <MaterialCommunityIcons name="chevron-left" size={22} color={colors.textPrimary} />
-            </Pressable>
-            <Text style={styles.monthLabel}>{formattedMonthLabel}</Text>
-            <Pressable style={styles.monthNavButton} onPress={handleNextMonth}>
-              <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textPrimary} />
-            </Pressable>
-            <Pressable style={styles.calendarButton} onPress={openMonthPicker}>
-              <MaterialCommunityIcons name="calendar-month" size={18} color={colors.textPrimary} />
-            </Pressable>
+          <View style={styles.periodNav}>
+            <PeriodSelector selected={selectedPeriod} onSelect={setPeriod} />
             <Pressable
               style={styles.recurrentLink}
               onPress={() => router.push("/(auth)/recurrentes")}
@@ -252,7 +246,7 @@ export default function MovementsScreen() {
           currencySymbol={currencySymbol}
         />
 
-        {isCurrentOrFutureMonth && unregisteredRecurrents.length > 0 ? (
+        {unregisteredRecurrents.length > 0 ? (
           <RecurrentSection
             recurrents={unregisteredRecurrents}
             totalAmount={recurrentTotal}
@@ -275,7 +269,7 @@ export default function MovementsScreen() {
         {isSearchMode && (
           <View style={styles.searchModeBar}>
             <Text style={styles.searchModeText}>
-              🔍 Mostrando resultados de todos los meses
+              🔍 Mostrando resultados del periodo seleccionado
             </Text>
             <Pressable onPress={() => setSearchQuery("")}>
               <MaterialCommunityIcons name="close" size={16} color={colors.accentBlue} />
@@ -379,56 +373,6 @@ export default function MovementsScreen() {
         />
       </ScrollView>
 
-      <Modal
-        transparent
-        visible={isMonthPickerOpen}
-        animationType="slide"
-        onRequestClose={() => setIsMonthPickerOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Selecciona un mes</Text>
-            <View style={styles.pickerRow}>
-              <Picker
-                selectedValue={pickerMonthIndex}
-                onValueChange={(value) => setPickerMonthIndex(value as number)}
-                style={styles.picker}
-              >
-                {Array.from({ length: 12 }).map((_, index) => (
-                  <Picker.Item
-                    key={index}
-                    label={new Date(2000, index, 1).toLocaleDateString(locale ?? "es", {
-                      month: "long",
-                    })}
-                    value={index}
-                  />
-                ))}
-              </Picker>
-              <Picker
-                selectedValue={pickerYear}
-                onValueChange={(value) => setPickerYear(value as number)}
-                style={styles.picker}
-              >
-                {Array.from({ length: 11 }).map((_, index) => {
-                  const year = new Date().getFullYear() - 5 + index;
-                  return <Picker.Item key={year} label={`${year}`} value={year} />;
-                })}
-              </Picker>
-            </View>
-            <View style={styles.modalActions}>
-              <Pressable
-                style={[styles.modalButton, styles.modalCancel]}
-                onPress={() => setIsMonthPickerOpen(false)}
-              >
-                <Text style={styles.modalCancelText}>Cancelar</Text>
-              </Pressable>
-              <Pressable style={styles.modalButton} onPress={applyMonthPicker}>
-                <Text style={styles.modalApplyText}>Aplicar</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -479,41 +423,16 @@ const styles = StyleSheet.create({
     color: colors.surface,
     fontFamily: "DMSans-SemiBold",
   },
-  monthNavWrapper: {
+  periodNavWrapper: {
     overflow: "hidden",
   },
-  monthNav: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  periodNav: {
     backgroundColor: colors.surface,
     borderRadius: movementsDesignTokens.radius.md,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 12,
-  },
-  monthNavButton: {
-    width: 32,
-    height: 32,
-    borderRadius: movementsDesignTokens.radius.full,
-    backgroundColor: colors.chipBg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  monthLabel: {
-    flex: 1,
-    textAlign: "center",
-    fontSize: movementsDesignTokens.typography.sizes.md,
-    color: colors.textPrimary,
-    fontFamily: "DMSans-SemiBold",
-  },
-  calendarButton: {
-    width: 32,
-    height: 32,
-    borderRadius: movementsDesignTokens.radius.full,
-    backgroundColor: colors.chipBg,
-    alignItems: "center",
-    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
   },
   recurrentLink: {
     paddingHorizontal: 8,
@@ -566,52 +485,5 @@ const styles = StyleSheet.create({
     fontSize: movementsDesignTokens.typography.sizes.xs,
     color: colors.textSecondary,
     fontFamily: "DMSans-Medium",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    padding: 16,
-    borderTopLeftRadius: movementsDesignTokens.radius.lg,
-    borderTopRightRadius: movementsDesignTokens.radius.lg,
-  },
-  modalTitle: {
-    fontSize: movementsDesignTokens.typography.sizes.lg,
-    fontFamily: "DMSans-SemiBold",
-    color: colors.textPrimary,
-  },
-  pickerRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 12,
-  },
-  picker: {
-    flex: 1,
-  },
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 8,
-    marginTop: 12,
-  },
-  modalButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: movementsDesignTokens.radius.md,
-    backgroundColor: colors.accentBlue,
-  },
-  modalCancel: {
-    backgroundColor: colors.chipBg,
-  },
-  modalCancelText: {
-    color: colors.textSecondary,
-    fontFamily: "DMSans-Medium",
-  },
-  modalApplyText: {
-    color: colors.surface,
-    fontFamily: "DMSans-SemiBold",
   },
 });
