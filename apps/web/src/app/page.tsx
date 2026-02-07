@@ -1,28 +1,31 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { cookies } from "next/headers";
-import { Button } from "@/components/ui/button";
-import { AddAction } from "@/components/home/add-action";
-import { HomeHero } from "@/components/home/home-hero";
+import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import { TopNav } from "@/components/navigation/top-nav";
 import { BottomNavWrapper } from "@/components/navigation/bottom-nav-wrapper";
-import { PageContainer } from "@/components/layout/page-container";
+import { HomePageClient } from "@/components/home-redesign/HomePageClient";
 import {
-  buildHomeViewModel,
   CURRENCIES,
-  formatMoneyWithSymbol,
-  getDictionary,
+  computeGoalProgress,
   getExpandedMonthRange,
-  isExpired,
-  t,
-  themeTokens,
-  withAlpha,
-  isFutureDay,
-  type UserRole,
-  type CategoryIconKey,
+  getGoalTotalsFromTransactions,
+  toMonthKey,
 } from "@poleursus/shared";
-import { CategoryIcon } from "@/components/category-icon";
+import { formatCurrencyParts, toDateKey } from "@/components/home-redesign/utils";
+import { cn } from "@/lib/utils";
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-dm-sans",
+});
+
+const jetbrains = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-jetbrains-mono",
+});
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -47,42 +50,10 @@ export default async function DashboardPage() {
   const cookieStore = await cookies();
   const cookieAccountId = cookieStore.get("finnon:activeAccountId")?.value;
   const locale = cookieStore.get("NEXT_LOCALE")?.value || "es";
-  const dictionary = getDictionary(locale);
 
   if (!cookieAccountId) {
     redirect("/select-account");
   }
-
-  const inviteEmail = user.email?.trim().toLowerCase();
-  const inviteFilters = [];
-
-  if (inviteEmail) {
-    inviteFilters.push(
-      `invited_email.ilike.${inviteEmail}`,
-      `invitee_email.ilike.${inviteEmail}`
-    );
-  }
-
-  if (user.id) {
-    inviteFilters.push(`invitee_user_id.eq.${user.id}`);
-  }
-
-  let inviteQuery = supabase
-    .from("invites")
-    .select("id, expires_at, status, invited_email, invitee_email")
-    .eq("status", "pending");
-
-  if (inviteFilters.length > 0) {
-    inviteQuery = inviteQuery.or(inviteFilters.join(","));
-  }
-
-  const { data: inviteRows } = inviteFilters.length
-    ? await inviteQuery
-    : { data: [] as { expires_at: string; status: string | null }[] };
-
-  const pendingInviteCount = (inviteRows ?? []).filter(
-    (invite) => !isExpired(invite.expires_at)
-  ).length;
 
   const mainAccount = accounts.find((account) => account.id === cookieAccountId);
 
@@ -90,12 +61,7 @@ export default async function DashboardPage() {
     redirect("/select-account");
   }
 
-  const mainAccountRole =
-    (mainAccount?.account_members?.find((member) => member.user_id === user.id)
-      ?.role as UserRole | undefined) ?? "viewer";
-
   const today = new Date();
-  // Use expanded range to include adjacent month days for calendar grid continuity
   const expandedRange = getExpandedMonthRange(today);
   const startDate = expandedRange.start.toISOString().slice(0, 10);
   const endDate = expandedRange.end.toISOString().slice(0, 10);
@@ -118,16 +84,6 @@ export default async function DashboardPage() {
     .lte("date", endDate)
     .order("date", { ascending: false })
     .order("created_at", { ascending: false });
-
-  const { data: recentTransactions } = await supabase
-    .from("transactions")
-    .select(
-      "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_at, category:categories(id, name, icon_id)"
-    )
-    .eq("account_id", mainAccount.id)
-    .order("date", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(8);
 
   const { data: upcomingTransactions } = await supabase
     .from("transactions")
@@ -159,204 +115,170 @@ export default async function DashboardPage() {
 
   const obligations = [...(obligationsRange ?? []), ...(obligationsNoDate ?? [])];
 
-  // Fetch categories for the transaction form
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("id, name, icon_id, type")
+  const monthKey = toMonthKey(today);
+  const { data: goal } = await supabase
+    .from("financial_goals")
+    .select("id, month, type, target_amount_base_minor")
     .eq("account_id", mainAccount.id)
-    .order("name");
+    .eq("month", monthKey)
+    .eq("type", "save")
+    .maybeSingle();
 
-  // Fetch top categories for expense and income
-  const { data: topExpenseCategories } = await supabase.rpc(
-    "get_top_categories",
-    { p_account_id: mainAccount.id, p_tx_type: "expense", p_limit: 3 }
-  );
-  const { data: topIncomeCategories } = await supabase.rpc(
-    "get_top_categories",
-    { p_account_id: mainAccount.id, p_tx_type: "income", p_limit: 3 }
-  );
-
-  // Fetch merchant suggestions for expense and income
-  const { data: expenseMerchantSuggestions } = await supabase.rpc(
-    "get_merchant_suggestions",
-    { p_account_id: mainAccount.id, p_tx_type: "expense", p_limit: 10 }
-  );
-  const { data: incomeMerchantSuggestions } = await supabase.rpc(
-    "get_merchant_suggestions",
-    { p_account_id: mainAccount.id, p_tx_type: "income", p_limit: 10 }
-  );
-
-  const viewModel = buildHomeViewModel({
-    account: {
-      id: mainAccount.id,
-      name: mainAccount.name,
-      base_currency: mainAccount.base_currency,
-    },
-    role: mainAccountRole,
-    dictionary,
-    obligations,
-    monthlyTransactions: monthlyTransactions ?? [],
-    upcomingTransactions: upcomingTransactions ?? [],
-    recentTransactions: recentTransactions ?? [],
-    month: today,
-    nextDays: 7,
-    recentLimit: 6,
-    now: today,
+  const { data: goalHistory } = await supabase.rpc("get_goal_history", {
+    p_account_id: mainAccount.id,
+    p_limit: 5,
   });
 
-  const colors = themeTokens.light.colors;
   const currencySymbol =
     CURRENCIES.find((currency) => currency.code === mainAccount.base_currency)
       ?.symbol ?? mainAccount.base_currency;
+
+  const monthLabel = `${[
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
+  ][today.getMonth()] ?? ""} ${today.getFullYear()}`;
+  const monthLabelCapitalized =
+    monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+
+  const todayKey = toDateKey(today);
+  const monthPrefix = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  const monthTransactionsToDate = (monthlyTransactions ?? []).filter((tx) => {
+    const dateKey = toDateKey(tx.date);
+    return Boolean(dateKey) && dateKey.startsWith(monthPrefix) && dateKey <= todayKey;
+  });
+
+  const goalTotals = getGoalTotalsFromTransactions(
+    monthTransactionsToDate.map((tx) => ({
+      type: tx.type,
+      amount_minor: tx.amount_minor,
+      amount_base_minor: tx.amount_base_minor,
+    }))
+  );
+
+  const monthlyBalanceMinor =
+    goalTotals.incomeTotalMinor - goalTotals.expenseTotalMinor;
+  const progress = computeGoalProgress({
+    goal: goal
+      ? {
+          ...goal,
+          account_id: mainAccount.id,
+          created_by: user.id,
+        }
+      : null,
+    totals: goalTotals,
+    now: today,
+  });
+
+  const objective = progress
+    ? (() => {
+        const targetMinor = progress.targetMinor;
+        const currentMinor = progress.savedMinor;
+        const progressPercent =
+          targetMinor > 0n
+            ? Math.min(
+                100,
+                Math.max(
+                  0,
+                  (Number(currentMinor) / Number(targetMinor)) * 100
+                )
+              )
+            : 0;
+        const expectedPercent =
+          targetMinor > 0n
+            ? Math.min(
+                100,
+                Math.max(
+                  0,
+                  (Number(progress.expectedSavedMinor) / Number(targetMinor)) *
+                    100
+                )
+              )
+            : 0;
+
+        let status: "on-track" | "at-risk" | "off-track" = "at-risk";
+        if (currentMinor >= targetMinor) {
+          status = "on-track";
+        } else if (progress.forecastEndMinor < targetMinor) {
+          status = "off-track";
+        } else if (currentMinor >= progress.expectedSavedMinor) {
+          status = "on-track";
+        }
+
+        const statusLabel =
+          status === "on-track"
+            ? "Vas bien"
+            : status === "off-track"
+            ? "Fuera de objetivo"
+            : "En riesgo";
+
+        const targetFormatted = formatCurrencyParts(
+          targetMinor,
+          currencySymbol
+        ).full;
+        const forecastFormatted = formatCurrencyParts(
+          progress.forecastEndMinor,
+          currencySymbol
+        ).full;
+        const remainingFormatted = formatCurrencyParts(
+          progress.remainingMinor,
+          currencySymbol
+        ).full;
+
+        let message = `Al ritmo actual, terminarás ${monthLabel} con <strong>${forecastFormatted}</strong>.`;
+        if (progress.forecastEndMinor < targetMinor) {
+          message += ` Necesitas <strong>${remainingFormatted}</strong> más para alcanzar el objetivo.`;
+        } else if (currentMinor < progress.expectedSavedMinor) {
+          message += " Acelerar tus ahorros te acercaría al objetivo.";
+        } else {
+          message += " Sigue así para cumplir el objetivo.";
+        }
+
+        return {
+          status,
+          statusLabel,
+          description: `Ahorrar ${targetFormatted} en ${monthLabel}`,
+          currentMinor: currentMinor.toString(),
+          targetMinor: targetMinor.toString(),
+          progressPercent,
+          expectedPercent,
+          messageHtml: message,
+          streak: (goalHistory ?? []).map((entry) => ({
+            hit: entry.completed === true,
+          })),
+        };
+      })()
+    : null;
+
   return (
     <div
-      className="min-h-screen"
-      style={{ backgroundColor: colors.bg.primary, color: colors.text.primary }}
+      className={cn("min-h-screen bg-[#FAFAFA]", dmSans.className)}
     >
       <TopNav />
-      <AddAction
-        canEdit={viewModel.permissions.canEdit}
-        accountId={mainAccount.id}
-        currency={mainAccount.base_currency}
+      <HomePageClient
+        account={{
+          monthlyBalanceMinor: monthlyBalanceMinor.toString(),
+          currentMonth: monthLabelCapitalized,
+          currencySymbol,
+          baseCurrency: mainAccount.base_currency,
+        }}
+        monthlyTransactions={monthlyTransactions ?? []}
+        upcomingTransactions={upcomingTransactions ?? []}
+        obligations={obligations ?? []}
+        objective={objective}
         locale={locale}
-        categories={categories ?? []}
-        topCategories={{
-          expense: topExpenseCategories ?? [],
-          income: topIncomeCategories ?? [],
-        }}
-        merchantSuggestions={{
-          expense: expenseMerchantSuggestions ?? [],
-          income: incomeMerchantSuggestions ?? [],
-        }}
+        monoClassName={jetbrains.className}
       />
-      <PageContainer className="flex flex-col gap-6">
-        {pendingInviteCount > 0 && (
-          <div
-            className="rounded-2xl border p-4"
-            style={{
-              borderColor: colors.state.neutral,
-              backgroundColor: colors.bg.secondary,
-            }}
-          >
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-semibold">
-                  {t(dictionary, "invitations.pendingBadge")}
-                </p>
-                <p className="text-sm" style={{ color: colors.text.secondary }}>
-                  {t(dictionary, "invitations.subtitle")}
-                </p>
-              </div>
-              <Button
-                asChild
-                variant="outline"
-                style={{ borderColor: colors.action.secondary }}
-              >
-                <Link href="/invitations">
-                  {t(dictionary, "invitations.viewCta")} ({pendingInviteCount})
-                </Link>
-              </Button>
-            </div>
-          </div>
-        )}
-        {viewModel.permissions.isGuestReadOnly && (
-          <div className="flex justify-end">
-            <span
-              className="rounded-full px-3 py-1 text-xs font-semibold"
-              style={{ backgroundColor: colors.action.secondary }}
-            >
-              {viewModel.copy.guestBadge}
-            </span>
-          </div>
-        )}
-
-        <HomeHero
-          account={{
-            id: mainAccount.id,
-            name: mainAccount.name,
-            base_currency: mainAccount.base_currency,
-          }}
-          role={mainAccountRole}
-          dictionary={dictionary}
-          locale={locale}
-          obligations={obligations}
-          monthlyTransactions={monthlyTransactions ?? []}
-          upcomingTransactions={upcomingTransactions ?? []}
-        />
-
-        <section className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold">
-              {t(dictionary, "dashboard.recentActivityTitle")}
-            </h2>
-            <Button variant="link" asChild style={{ color: colors.action.primary }}>
-              <Link href="/transactions">{viewModel.copy.recentCta}</Link>
-            </Button>
-          </div>
-          {viewModel.recentActivity.items.length === 0 ? (
-            <p className="text-sm" style={{ color: colors.text.secondary }}>
-              {viewModel.emptyStates.recent}
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {viewModel.recentActivity.items.map((item) => {
-                const isPending = isFutureDay(item.date);
-                const baseColor =
-                  item.type === "income"
-                    ? colors.state.positive
-                    : colors.state.negative;
-                const amountColor = isPending
-                  ? withAlpha(baseColor, 0.55)
-                  : baseColor;
-                return (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between rounded-lg border px-4 py-3"
-                    style={{
-                      borderColor: colors.state.neutral,
-                      backgroundColor: colors.bg.secondary,
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div style={{ opacity: isPending ? 0.6 : 1 }}>
-                        <CategoryIcon
-                          iconKey={item.iconId as CategoryIconKey}
-                          size={20}
-                          tone={item.type === "income" ? "positive" : "negative"}
-                        />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold">{item.title}</p>
-                        <p className="text-xs" style={{ color: colors.text.secondary }}>
-                          {item.date.toLocaleDateString(locale, {
-                            day: "2-digit",
-                            month: "short",
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                    <p
-                      className="text-sm font-semibold"
-                      style={{
-                        color: amountColor,
-                      }}
-                    >
-                      {item.type === "income" ? "+" : "-"}
-                      {formatMoneyWithSymbol(
-                        item.amountMinor,
-                        mainAccount.base_currency,
-                        currencySymbol
-                      )}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-      </PageContainer>
-      {/* Bottom padding for mobile nav */}
-      <div className="h-16 md:hidden" />
+      <div className="h-16 sm:hidden" />
       <BottomNavWrapper />
     </div>
   );

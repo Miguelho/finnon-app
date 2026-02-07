@@ -3,7 +3,9 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { FinnonMark } from "@/components/brand/finnon-mark";
 import { TopNavLinks } from "@/components/navigation/top-nav-links";
+import { NotificationDropdown } from "@/components/navigation/notification-dropdown";
 import { SettingsDrawer } from "@/components/settings/settings-drawer";
+import { AddActionTrigger } from "@/components/navigation/add-action-trigger";
 import { cn } from "@/lib/utils";
 import {
   buildSettingsMenuVM,
@@ -13,6 +15,7 @@ import {
   themeTokens,
   type AvatarColorToken,
 } from "@poleursus/shared";
+import { Plus } from "lucide-react";
 
 type TopNavProps = {
   containerClassName?: string;
@@ -28,7 +31,7 @@ export async function TopNav({ containerClassName }: TopNavProps) {
 
   const { data: accounts } = await supabase
     .from("accounts")
-    .select("id, name, base_currency, account_members!inner(user_id)")
+    .select("id, name, base_currency, account_members!inner(user_id, role)")
     .eq("account_members.user_id", user.id)
     .order("name", { ascending: true });
 
@@ -74,6 +77,12 @@ export async function TopNav({ containerClassName }: TopNavProps) {
     cookieStore.get("finnon:activeAccountId")?.value ??
     accountsWithCounts[0]?.id ??
     "";
+  const activeAccount =
+    accounts.find((account) => account.id === activeAccountId) ?? accounts[0];
+  const activeRole =
+    activeAccount?.account_members?.find((member) => member.user_id === user.id)
+      ?.role ?? "viewer";
+  const canEdit = activeRole !== "viewer";
 
   const settingsLabelKey =
     navigationItems.find((item) => item.key === "settings")?.labelKey ??
@@ -82,6 +91,31 @@ export async function TopNav({ containerClassName }: TopNavProps) {
   const openSettingsLabel = locale === "es" ? "Abrir ajustes" : "Open settings";
   const actionsLabel = locale === "es" ? "Acciones" : "Actions";
   const settingsMenu = buildSettingsMenuVM(dictionary, "web");
+
+  const formatTimeAgo = (value: Date, currentLocale: string) => {
+    const diffMs = Date.now() - value.getTime();
+    const diffMinutes = Math.round(diffMs / (1000 * 60));
+    const isEs = currentLocale.startsWith("es");
+
+    if (diffMinutes < 1) {
+      return isEs ? "Hace unos segundos" : "Just now";
+    }
+    if (diffMinutes < 60) {
+      return isEs
+        ? `Hace ${diffMinutes} min`
+        : `${diffMinutes} min ago`;
+    }
+    const diffHours = Math.round(diffMinutes / 60);
+    if (diffHours < 24) {
+      return isEs
+        ? `Hace ${diffHours} hora${diffHours === 1 ? "" : "s"}`
+        : `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+    }
+    const diffDays = Math.round(diffHours / 24);
+    return isEs
+      ? `Hace ${diffDays} día${diffDays === 1 ? "" : "s"}`
+      : `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+  };
 
   const colors = themeTokens.light.colors;
   const navItems = [
@@ -115,6 +149,83 @@ export async function TopNav({ containerClassName }: TopNavProps) {
       (profile?.avatar_fallback_bg_token as AvatarColorToken | null) ?? null,
   };
 
+  const activitySince = new Date();
+  activitySince.setDate(activitySince.getDate() - 7);
+
+  const { data: activityRows } = activeAccountId
+    ? await supabase
+        .from("transactions")
+        .select("id, created_by, created_at")
+        .eq("account_id", activeAccountId)
+        .gte("created_at", activitySince.toISOString())
+        .neq("created_by", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50)
+    : { data: [] as { id: string; created_by: string | null; created_at: string }[] };
+
+  const activityByUser = new Map<
+    string,
+    { count: number; latest: Date }
+  >();
+
+  (activityRows ?? []).forEach((row) => {
+    if (!row.created_by) return;
+    const createdAt = new Date(row.created_at);
+    const existing = activityByUser.get(row.created_by);
+    if (existing) {
+      existing.count += 1;
+      if (createdAt > existing.latest) {
+        existing.latest = createdAt;
+      }
+    } else {
+      activityByUser.set(row.created_by, { count: 1, latest: createdAt });
+    }
+  });
+
+  const activityUserIds = Array.from(activityByUser.keys());
+  const { data: activityProfiles } = activityUserIds.length
+    ? await supabase
+        .from("profiles")
+        .select("user_id, display_name, email")
+        .in("user_id", activityUserIds)
+    : { data: [] as { user_id: string; display_name: string | null; email: string | null }[] };
+
+  const profileMap = new Map(
+    (activityProfiles ?? []).map((item) => [item.user_id, item])
+  );
+
+  const notifications = activityUserIds
+    .map((userId) => {
+      const activity = activityByUser.get(userId);
+      if (!activity) return null;
+      const profileInfo = profileMap.get(userId);
+      const fallbackName =
+        profileInfo?.display_name ??
+        profileInfo?.email ??
+        (locale.startsWith("es") ? "Usuario" : "User");
+      const userName = profileInfo?.display_name ?? fallbackName;
+      const userInitial = (userName?.trim().charAt(0) || "?").toUpperCase();
+
+      return {
+        id: userId,
+        userInitial,
+        userName,
+        count: activity.count,
+        timeAgo: formatTimeAgo(activity.latest, locale),
+        sortValue: activity.latest.getTime(),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (b?.sortValue ?? 0) - (a?.sortValue ?? 0))
+    .slice(0, 5)
+    .map((item) => ({
+      id: item?.id ?? "",
+      userInitial: item?.userInitial ?? "?",
+      userName: item?.userName ?? "",
+      count: item?.count ?? 0,
+      timeAgo: item?.timeAgo ?? "",
+    }));
+
   return (
     <div
       className="sticky top-0 z-10 w-full border-b"
@@ -139,6 +250,24 @@ export async function TopNav({ containerClassName }: TopNavProps) {
         {/* Navigation */}
         <div className="flex items-center gap-3">
           <TopNavLinks items={navItems} />
+          {activeAccount ? (
+            <AddActionTrigger
+              canEdit={canEdit}
+              accountId={activeAccount.id}
+              currency={activeAccount.base_currency}
+              locale={locale}
+              variant="top-nav"
+            />
+          ) : (
+            <Link
+              href="/transactions?new=1"
+              className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-800 sm:px-4 sm:py-1.5"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Añadir</span>
+            </Link>
+          )}
+          <NotificationDropdown notifications={notifications} />
           <SettingsDrawer
             settingsLabel={settingsLabel}
             openLabel={openSettingsLabel}

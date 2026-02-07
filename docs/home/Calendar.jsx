@@ -1,0 +1,265 @@
+import React from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react"; // o tu icono preferido
+
+/**
+ * Calendar — Calendario semanal (default) con toggle a mensual
+ *
+ * Props:
+ * - view: "week" | "month"
+ * - onViewChange: callback para cambiar vista
+ * - weekData: { days: [{ date, dayLabel, dayNumber, isToday, dots: [{type: "income"|"expense"}] }], period: string, netIncome, netExpense, net }
+ * - monthData: { days: [...], period: string }
+ * - selectedDay: Date | null
+ * - onSelectDay: callback
+ *
+ * El detalle del día seleccionado se muestra debajo del calendario.
+ * Los dots (puntos de color) indican si hay ingresos (verde) o gastos (rojo) ese día.
+ */
+export default function Calendar({
+  view,
+  onViewChange,
+  weekData,
+  monthData,
+  selectedDay,
+  onSelectDay,
+  onPrevPeriod,
+  onNextPeriod,
+}) {
+  const isWeek = view === "week";
+  const data = isWeek ? weekData : monthData;
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 pt-4">
+        <h3 className="text-[15px] font-semibold text-gray-900">Calendario</h3>
+      </div>
+
+      {/* Toggle + Nav */}
+      <div className="mt-3 flex items-center gap-1.5 px-5">
+        <button
+          onClick={() => onViewChange("week")}
+          className={`rounded-2xl px-3 py-1 text-[13px] font-medium transition-all ${
+            isWeek
+              ? "bg-gray-900 text-white"
+              : "text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          Semana
+        </button>
+        <button
+          onClick={() => onViewChange("month")}
+          className={`rounded-2xl px-3 py-1 text-[13px] font-medium transition-all ${
+            !isWeek
+              ? "bg-gray-900 text-white"
+              : "text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          Mes
+        </button>
+
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={onPrevPeriod}
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-colors hover:bg-gray-50"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+          <span className="text-[13px] font-medium text-gray-500">
+            {data?.period}
+          </span>
+          <button
+            onClick={onNextPeriod}
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-colors hover:bg-gray-50"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Week grid */}
+      {isWeek && weekData && (
+        <>
+          <div className="grid grid-cols-7 gap-0.5 px-5 pb-3 pt-4">
+            {weekData.days.map((day) => (
+              <button
+                key={day.date}
+                onClick={() => onSelectDay(day.date)}
+                className={`flex flex-col items-center rounded-lg px-1 py-2 transition-all ${
+                  day.isToday
+                    ? "bg-gray-900 text-white"
+                    : day.date === selectedDay
+                    ? "bg-blue-50"
+                    : "hover:bg-gray-50"
+                }`}
+              >
+                <span
+                  className={`text-[11px] font-medium uppercase tracking-wide ${
+                    day.isToday ? "text-white/60" : "text-gray-400"
+                  }`}
+                >
+                  {day.dayLabel}
+                </span>
+                <span
+                  className={`text-lg font-semibold leading-tight ${
+                    day.isToday ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  {day.dayNumber}
+                </span>
+                <div className="mt-1.5 flex min-h-[6px] gap-[3px]">
+                  {day.dots?.map((dot, i) => (
+                    <span
+                      key={i}
+                      className={`h-[5px] w-[5px] rounded-full ${
+                        dot.type === "income" ? "bg-green-600" : "bg-red-600"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Week net summary */}
+          <div className="flex flex-wrap items-center justify-center gap-4 px-5 pb-1">
+            <span className="flex items-center gap-1 text-xs text-gray-400">
+              Ingresos{" "}
+              <span className="font-mono font-medium text-green-600">
+                +€{weekData.netIncome}
+              </span>
+            </span>
+            <span className="flex items-center gap-1 text-xs text-gray-400">
+              Gastos{" "}
+              <span className="font-mono font-medium text-red-600">
+                -€{weekData.netExpense}
+              </span>
+            </span>
+            <span className="flex items-center gap-1 text-xs text-gray-400">
+              Neto{" "}
+              <span className="font-mono font-semibold text-gray-900">
+                {weekData.net}
+              </span>
+            </span>
+          </div>
+        </>
+      )}
+
+      {/* Month grid */}
+      {!isWeek && monthData && (
+        <div className="grid grid-cols-7 gap-px px-5 pb-5 pt-3">
+          {/* Day labels */}
+          {["L", "M", "X", "J", "V", "S", "D"].map((label) => (
+            <div
+              key={label}
+              className="py-1 text-center text-[10px] font-medium uppercase tracking-wide text-gray-400"
+            >
+              {label}
+            </div>
+          ))}
+          {monthData.days.map((day, i) => (
+            <button
+              key={i}
+              onClick={() => !day.isOtherMonth && onSelectDay(day.date)}
+              className={`rounded-md px-1 py-1.5 text-center transition-all ${
+                day.isOtherMonth
+                  ? "opacity-30"
+                  : day.isToday
+                  ? "bg-gray-900"
+                  : "hover:bg-gray-50"
+              }`}
+            >
+              <span
+                className={`text-sm font-medium ${
+                  day.isToday ? "text-white" : "text-gray-900"
+                }`}
+              >
+                {day.dayNumber}
+              </span>
+              <div className="mt-0.5 flex min-h-[5px] justify-center gap-0.5">
+                {day.dots?.map((dot, j) => (
+                  <span
+                    key={j}
+                    className={`h-1 w-1 rounded-full ${
+                      dot.type === "income" ? "bg-green-600" : "bg-red-600"
+                    }`}
+                  />
+                ))}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Day detail panel */}
+      {selectedDay && (
+        <DayDetail day={selectedDay} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * DayDetail — Detalle de movimientos del día seleccionado.
+ * Este componente debería recibir los movimientos filtrados por el día.
+ * Aquí se muestra la estructura; la lógica de fetch depende de tu store.
+ */
+function DayDetail({ day }) {
+  // TODO: Conectar con store/API para obtener movimientos del día
+  // const movements = useMovementsByDay(day);
+
+  return (
+    <div className="border-t border-gray-200 px-5 py-4">
+      <p className="mb-3 text-xs font-medium uppercase tracking-wide text-gray-400">
+        {/* Formatear: "Miércoles 5 de febrero" */}
+        {day.formattedLabel ?? "Día seleccionado"}
+      </p>
+      {/* Renderizar movimientos del día aquí */}
+      {day.movements?.length > 0 ? (
+        day.movements.map((mov) => (
+          <MovementRow key={mov.id} movement={mov} />
+        ))
+      ) : (
+        <p className="text-sm text-gray-400">
+          No hay movimientos este día.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function MovementRow({ movement }) {
+  const isIncome = movement.amount > 0;
+
+  return (
+    <div className="flex items-center justify-between border-t border-gray-50 py-2.5 first:border-t-0">
+      <div className="flex items-center gap-3">
+        <div
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-base ${
+            isIncome ? "bg-green-50" : "bg-red-50"
+          }`}
+        >
+          {isIncome ? "↑" : "↓"}
+        </div>
+        <div>
+          <p className="text-sm font-medium text-gray-900">
+            {movement.name}
+            {movement.badge && (
+              <span className="ml-2 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
+                {movement.badge}
+              </span>
+            )}
+          </p>
+          <p className="text-xs text-gray-400">{movement.category}</p>
+        </div>
+      </div>
+      <span
+        className={`shrink-0 font-mono text-sm font-medium ${
+          isIncome ? "text-green-600" : "text-red-600"
+        }`}
+      >
+        {isIncome ? "+" : ""}€{Math.abs(movement.amount).toFixed(2)}
+      </span>
+    </div>
+  );
+}

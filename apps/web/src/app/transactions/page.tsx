@@ -147,7 +147,7 @@ export default async function TransactionsPage() {
         initialMerchantSuggestions={initialMerchantSuggestions}
       />
       {/* Bottom padding for mobile nav */}
-      <div className="h-16 md:hidden" />
+      <div className="h-16 sm:hidden" />
       <BottomNavWrapper />
     </div>
   );

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { getDictionary, t } from "@poleursus/shared";
 import { BottomNav } from "./bottom-nav";
+import { createClient } from "@/lib/supabase/server";
 
 export async function BottomNavWrapper() {
   const cookieStore = await cookies();
@@ -22,5 +23,42 @@ export async function BottomNavWrapper() {
     },
   ];
 
-  return <BottomNav items={navItems} />;
+  const activeAccountId =
+    cookieStore.get("finnon:activeAccountId")?.value ?? "";
+  let addActionProps: {
+    accountId: string;
+    currency: string;
+    locale: string;
+    canEdit: boolean;
+  } | null = null;
+
+  if (activeAccountId) {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      const { data: account } = await supabase
+        .from("accounts")
+        .select("id, base_currency, account_members!inner(user_id, role)")
+        .eq("id", activeAccountId)
+        .eq("account_members.user_id", user.id)
+        .maybeSingle();
+
+      if (account) {
+        const role =
+          account.account_members?.find((member) => member.user_id === user.id)
+            ?.role ?? "viewer";
+        addActionProps = {
+          accountId: account.id,
+          currency: account.base_currency,
+          locale,
+          canEdit: role !== "viewer",
+        };
+      }
+    }
+  }
+
+  return <BottomNav items={navItems} addAction={addActionProps ?? undefined} />;
 }

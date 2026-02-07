@@ -1,17 +1,6 @@
 import { Tabs } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { themeTokens } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
-import { tabBarBaseOptions } from "../../../src/lib/navigation-presets";
-
-const tokens = themeTokens.light;
-
-const tabIconMap = {
-  home: { active: "home", inactive: "home-outline" },
-  transactions: { active: "clipboard-list", inactive: "clipboard-list-outline" },
-  goal: { active: "flag", inactive: "flag-outline" },
-  account: { active: "bookmark", inactive: "bookmark-outline" },
-} as const;
+import { TabBarWithAdd } from "../../../src/components/navigation/TabBarWithAdd";
 
 const tabItems = [
   { key: "home", labelKey: "navigation.home" },
@@ -26,9 +15,10 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        ...tabBarBaseOptions,
         headerShown: false,
+        tabBar: (props) => <TabBarWithAdd {...props} />,
       }}
+      tabBar={(props) => <TabBarWithAdd {...props} />}
     >
       {tabItems.map((item) => (
         <Tabs.Screen
@@ -38,13 +28,6 @@ export default function TabsLayout() {
             title: t(dictionary, item.labelKey),
             tabBarLabel: t(dictionary, item.labelKey),
             tabBarAccessibilityLabel: t(dictionary, item.labelKey),
-            tabBarIcon: ({ focused, color }) => (
-              <MaterialCommunityIcons
-                name={focused ? tabIconMap[item.key].active : tabIconMap[item.key].inactive}
-                size={tokens.typography.size.lg}
-                color={color}
-              />
-            ),
           }}
         />
       ))}

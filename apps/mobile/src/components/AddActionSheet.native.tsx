@@ -34,6 +34,8 @@ type AddActionSheetProps = {
   notice?: ReactNode;
   /** Whether the actions are disabled */
   disabled?: boolean;
+  /** Custom trigger renderer (replaces FAB if provided) */
+  renderTrigger?: (open: () => void) => ReactNode;
 };
 
 export function AddActionSheet({
@@ -43,10 +45,12 @@ export function AddActionSheet({
   onAction,
   notice,
   disabled = false,
+  renderTrigger,
 }: AddActionSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleOpen = () => {
+    if (disabled) return;
     setIsOpen(true);
   };
 
@@ -61,19 +65,23 @@ export function AddActionSheet({
 
   return (
     <>
-      <TouchableOpacity
-        onPress={handleOpen}
-        style={[
-          styles.fab,
-          { bottom: spacing.lg + bottomOffset },
-          disabled && styles.fabDisabled,
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel={fabLabel}
-        disabled={disabled}
-      >
-        <Text style={styles.fabText}>+ {fabLabel}</Text>
-      </TouchableOpacity>
+      {renderTrigger ? (
+        renderTrigger(handleOpen)
+      ) : (
+        <TouchableOpacity
+          onPress={handleOpen}
+          style={[
+            styles.fab,
+            { bottom: spacing.lg + bottomOffset },
+            disabled && styles.fabDisabled,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={fabLabel}
+          disabled={disabled}
+        >
+          <Text style={styles.fabText}>+ {fabLabel}</Text>
+        </TouchableOpacity>
+      )}
 
       <Modal
         transparent

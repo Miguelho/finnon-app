@@ -18,11 +18,8 @@ import { Picker } from "@react-native-picker/picker";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
-import { AddActionSheet } from "../../../src/components/AddActionSheet";
-import { AddTransactionModal } from "../../../src/components/add-transaction";
 import { Button } from "../../../src/components/Button";
 import { Card } from "../../../src/components/Card";
 import { CategoryIcon } from "../../../src/components/CategoryIcon";
@@ -38,7 +35,6 @@ import {
   toMonthKey,
   withAlpha,
   isFutureDay,
-  type AddActionKey,
   type RecurringItem,
   getOccurrencesBetween,
   getOccurrenceKey,
@@ -357,7 +353,6 @@ export default function TransactionsScreen(): React.JSX.Element {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
-  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
 
   // Month filter (format: YYYY-MM)
   const currentMonth = toMonthKey(new Date());
@@ -366,7 +361,6 @@ export default function TransactionsScreen(): React.JSX.Element {
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
   const [pickerMonthIndex, setPickerMonthIndex] = useState(new Date().getMonth());
-  const insets = useSafeAreaInsets();
 
   const monthRange = useMemo(
     () => getMonthRangeFromKey(selectedMonth),
@@ -804,22 +798,6 @@ export default function TransactionsScreen(): React.JSX.Element {
     }
   };
 
-  const handleAddAction = (key: AddActionKey) => {
-    switch (key) {
-      case "movement":
-        setIsTransactionModalOpen(true);
-        return;
-      case "recurring":
-        router.push("/(auth)/(tabs)/transactions/create?type=expense&kind=recurring");
-        return;
-    }
-  };
-
-  const handleTransactionSuccess = () => {
-    setIsTransactionModalOpen(false);
-    loadData();
-  };
-
   if (loading) {
     return (
       <View style={styles.loading}>
@@ -1191,23 +1169,6 @@ export default function TransactionsScreen(): React.JSX.Element {
             </View>
           </View>
         </ScrollView>
-
-        <AddActionSheet
-          bottomOffset={insets.bottom}
-          sheetTitle={t(dictionary, "mobile.home.addTitle")}
-          fabLabel={t(dictionary, "home.addCta")}
-          onAction={handleAddAction}
-        />
-
-        {selectedAccountId && (
-          <AddTransactionModal
-            visible={isTransactionModalOpen}
-            accountId={selectedAccountId}
-            currency={baseCurrency}
-            onClose={() => setIsTransactionModalOpen(false)}
-            onSuccess={handleTransactionSuccess}
-          />
-        )}
 
         <Modal
           transparent

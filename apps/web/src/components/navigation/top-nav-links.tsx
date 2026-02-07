@@ -63,10 +63,7 @@ export function TopNavLinks({ items, className }: TopNavLinksProps) {
   return (
     <nav
       aria-label="Primary"
-      className={cn(
-        "hidden items-center gap-2 md:flex",
-        className
-      )}
+      className={cn("hidden items-center gap-2 sm:flex", className)}
     >
       {items.map((item) => renderNavLink(item))}
     </nav>

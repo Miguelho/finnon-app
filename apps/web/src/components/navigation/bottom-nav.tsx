@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale } from "next-intl";
-import { Bookmark, ClipboardList, Flag, Home } from "lucide-react";
+import { Bookmark, ClipboardList, Flag, Home, Plus } from "lucide-react";
 import { themeTokens } from "@poleursus/shared";
+import { AddActionTrigger } from "./add-action-trigger";
 
 type NavIconKey = "home" | "transactions" | "goal" | "account";
 
@@ -16,6 +17,13 @@ type NavItem = {
 
 type BottomNavProps = {
   items: NavItem[];
+  addHref?: string;
+  addAction?: {
+    accountId: string;
+    currency: string;
+    locale: string;
+    canEdit: boolean;
+  };
 };
 
 const colors = themeTokens.light.colors;
@@ -35,15 +43,21 @@ function normalizePath(pathname: string, locale: string) {
   return pathname;
 }
 
-export function BottomNav({ items }: BottomNavProps) {
+export function BottomNav({
+  items,
+  addHref = "/transactions?new=1",
+  addAction,
+}: BottomNavProps) {
   const pathname = usePathname();
   const locale = useLocale();
   const normalizedPath = normalizePath(pathname, locale);
+  const leftItems = items.slice(0, 2);
+  const rightItems = items.slice(2);
 
   return (
     <nav
       aria-label="Primary navigation"
-      className="fixed inset-x-0 bottom-0 z-40 border-t md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t sm:hidden"
       style={{
         backgroundColor: colors.bg.primary,
         borderColor: colors.state.neutral,
@@ -51,7 +65,48 @@ export function BottomNav({ items }: BottomNavProps) {
       }}
     >
       <div className="flex items-stretch justify-around">
-        {items.map((item) => {
+        {leftItems.map((item) => {
+          const isActive =
+            item.href === "/"
+              ? normalizedPath === "/"
+              : normalizedPath.startsWith(item.href);
+          const Icon = navIconMap[item.iconKey];
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive ? "page" : undefined}
+              className="flex flex-1 flex-col items-center gap-1 py-2 transition-opacity"
+              style={{
+                color: isActive ? colors.action.primary : colors.text.secondary,
+              }}
+            >
+              <Icon className="h-5 w-5" aria-hidden="true" />
+              <span className="text-[10px] font-medium">{item.label}</span>
+            </Link>
+          );
+        })}
+
+        {addAction ? (
+          <AddActionTrigger
+            canEdit={addAction.canEdit}
+            accountId={addAction.accountId}
+            currency={addAction.currency}
+            locale={addAction.locale}
+            variant="bottom-nav"
+          />
+        ) : (
+          <Link
+            href={addHref}
+            className="relative -mt-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-900 text-white shadow-lg"
+            aria-label="Añadir movimiento"
+          >
+            <Plus className="h-5 w-5" />
+          </Link>
+        )}
+
+        {rightItems.map((item) => {
           const isActive =
             item.href === "/"
               ? normalizedPath === "/"

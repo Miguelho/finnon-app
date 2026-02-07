@@ -6,41 +6,45 @@ import {
   ActivityIndicator,
   ScrollView,
   TouchableOpacity,
-  Pressable,
   Alert,
-  Dimensions,
 } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
+import {
+  CURRENCIES,
+  computeGoalProgress,
+  getExpandedMonthRange,
+  getGoalTotalsFromTransactions,
+  getWeekStrip,
+  themeTokens,
+  toMonthKey,
+  type Obligation,
+  type UserRole,
+  type Transaction as SharedTransaction,
+} from "@poleursus/shared";
 import { supabase } from "../../../../src/lib/supabase";
 import { useAuth } from "../../../../src/contexts/AuthContext";
-import { Button } from "../../../../src/components/Button";
-import { AddActionSheet } from "../../../../src/components/AddActionSheet";
-import { AddTransactionModal } from "../../../../src/components/add-transaction";
-import { CashFlowArrows } from "../../../../src/components/home/CashFlowArrows";
-import { BalanceHeroAccordion } from "../../../../src/components/home/BalanceHeroAccordion";
-import { CalendarCard } from "../../../../src/components/home/CalendarCard";
-import { DayDetailPanel } from "../../../../src/components/home/DayDetailPanel";
-import { CategoryIcon } from "../../../../src/components/CategoryIcon";
-import {
-  buildHomeViewModel,
-  CURRENCIES,
-  createTypographyStyles,
-  formatMoneyWithSymbol,
-  getExpandedMonthRange,
-  getWeekInfo,
-  getSummaryForDay,
-  markObligationPaid,
-  themeTokens,
-  withAlpha,
-  isFutureDay,
-  isExpired,
-  type AddActionKey,
-  type UserRole,
-  type Obligation,
-  type CategoryIconKey,
-} from "@poleursus/shared";
 import { useCopy, t } from "../../../../src/lib/i18n";
+import { BalanceHeader } from "../../../../src/components/home-redesign/BalanceHeader";
+import { Timeline } from "../../../../src/components/home-redesign/Timeline";
+import {
+  Calendar,
+  type DayDetailData,
+  type DayMovement,
+} from "../../../../src/components/home-redesign/Calendar";
+import { ObjectiveCard } from "../../../../src/components/home-redesign/ObjectiveCard";
+import { ProgrammedCard } from "../../../../src/components/home-redesign/ProgrammedCard";
+import { EmptyStateCard } from "../../../../src/components/home-redesign/EmptyStateCard";
+import {
+  formatCurrencyParts,
+  formatFullDate,
+  formatShortDate,
+  toDateKey,
+  toMinor,
+} from "../../../../src/components/home-redesign/utils";
+
+const tokens = themeTokens.light;
+const colors = tokens.colors;
 
 type AccountMember = {
   account_id: string;
@@ -61,37 +65,39 @@ type Category = {
   icon_id: string;
 };
 
-type Transaction = {
-  id: string;
-  account_id: string;
-  type: "income" | "expense";
-  amount_minor: string;
-  currency: string;
-  amount_base_minor: string;
-  category_id: string | null;
-  date: string;
-  merchant: string | null;
-  notes: string | null;
-  created_by: string;
-  created_at: string;
+type Transaction = SharedTransaction & {
   category?: Category | null;
 };
 
-const tokens = themeTokens.light;
-const colors = tokens.colors;
-const typography = createTypographyStyles(tokens);
-const CASHFLOW_DAYS_OPTIONS = [7, 14, 30] as const;
-const clamp = (value: number, min: number, max: number) =>
-  Math.max(min, Math.min(max, value));
-
-function formatDateShort(value: Date, locale: string) {
-  return value.toLocaleDateString(locale, {
-    day: "2-digit",
-    month: "short",
-  });
-}
-
-
+const WEEKDAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+const MONTHS_SHORT = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
+];
+const MONTHS_LONG = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -100,30 +106,20 @@ export default function HomeScreen() {
   const isFocused = useIsFocused();
 
   const [accounts, setAccounts] = useState<Account[] | null>(null);
-  const [monthlyTransactions, setMonthlyTransactions] = useState<Transaction[]>(
-    []
-  );
-  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
-  const [upcomingTransactions, setUpcomingTransactions] = useState<Transaction[]>(
-    []
-  );
+  const [monthlyTransactions, setMonthlyTransactions] = useState<Transaction[]>([]);
+  const [upcomingTransactions, setUpcomingTransactions] = useState<Transaction[]>([]);
   const [obligations, setObligations] = useState<Obligation[]>([]);
+  const [goalHistory, setGoalHistory] = useState<Array<{ completed: boolean | null }>>([]);
+  const [goalTargetMinor, setGoalTargetMinor] = useState<string | null>(null);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
-  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [updatingObligationId, setUpdatingObligationId] = useState<string | null>(
-    null
-  );
-  const [inviteCount, setInviteCount] = useState(0);
-  const [nextDays, setNextDays] = useState<number>(CASHFLOW_DAYS_OPTIONS[0]);
-  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  const [isDayPanelOpen, setIsDayPanelOpen] = useState(false);
-  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
-  const [viewMonth, setViewMonth] = useState<Date>(new Date());
+  const [calendarView, setCalendarView] = useState<"week" | "month">("week");
   const [weekReference, setWeekReference] = useState<Date>(new Date());
-  const [transactionDefaultDate, setTransactionDefaultDate] = useState<
-    string | null
-  >(null);
+  const [monthReference, setMonthReference] = useState<Date>(new Date());
+  const [selectedDayKey, setSelectedDayKey] = useState<string>(
+    toDateKey(new Date())
+  );
 
   const mainAccount = useMemo(() => {
     if (!accounts || accounts.length === 0) return null;
@@ -136,10 +132,12 @@ export default function HomeScreen() {
   const activeRole = useMemo<UserRole>(() => {
     if (!mainAccount || !user) return "viewer";
     return (
-      mainAccount.account_members?.find((member) => member.user_id === user.id)
-        ?.role ?? "viewer"
+      mainAccount.account_members?.find((member) => member.user_id === user.id)?.role ??
+      "viewer"
     );
   }, [mainAccount, user]);
+
+  const canEdit = activeRole !== "viewer";
 
   useEffect(() => {
     let cancelled = false;
@@ -183,65 +181,10 @@ export default function HomeScreen() {
   }, [session?.user?.id, user?.id, isFocused]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadInviteCount() {
-      if (!user || !isFocused) return;
-
-      const normalizedEmail = user.email?.trim().toLowerCase();
-      const filters = [];
-
-      if (normalizedEmail) {
-        filters.push(
-          `invited_email.ilike.${normalizedEmail}`,
-          `invitee_email.ilike.${normalizedEmail}`
-        );
-      }
-
-      if (user.id) {
-        filters.push(`invitee_user_id.eq.${user.id}`);
-      }
-
-      if (filters.length === 0) {
-        if (!cancelled) setInviteCount(0);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("invites")
-        .select("id, expires_at, status, invited_email, invitee_email, invitee_user_id")
-        .or(filters.join(","))
-        .eq("status", "pending");
-
-      if (error) {
-        if (!cancelled) setInviteCount(0);
-        return;
-      }
-
-      const count = (data ?? []).filter((invite) => !isExpired(invite.expires_at))
-        .length;
-      if (!cancelled) setInviteCount(count);
-    }
-
-    void loadInviteCount();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isFocused, user?.email, user?.id]);
-
-  useEffect(() => {
     if (accounts && accounts.length > 0 && !selectedAccountId) {
       setSelectedAccountId(accounts[0]?.id ?? null);
     }
   }, [accounts, selectedAccountId, setSelectedAccountId]);
-
-  useEffect(() => {
-    if (loadingAccounts || loadingTransactions) return;
-    if (accounts && accounts.length === 0) {
-      router.replace("/(auth)/select-account");
-    }
-  }, [accounts, loadingAccounts, loadingTransactions, router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -249,17 +192,15 @@ export default function HomeScreen() {
     async function loadTransactions() {
       if (!mainAccount || !isFocused) return;
 
-      setLoadingTransactions(true);
+      setLoadingData(true);
       setError(null);
 
-      // Use expanded range to include adjacent month days for calendar grid continuity
-      const expandedRange = getExpandedMonthRange(viewMonth);
+      const expandedRange = getExpandedMonthRange(monthReference);
       const startDate = expandedRange.start.toISOString().slice(0, 10);
       const endDate = expandedRange.end.toISOString().slice(0, 10);
       const today = new Date();
-      const maxUpcomingDays = Math.max(...CASHFLOW_DAYS_OPTIONS);
       const upcomingEnd = new Date(today);
-      upcomingEnd.setDate(upcomingEnd.getDate() + maxUpcomingDays);
+      upcomingEnd.setDate(upcomingEnd.getDate() + 30);
       const obligationsEnd =
         upcomingEnd > expandedRange.end ? upcomingEnd : expandedRange.end;
       const obligationsEndDate = obligationsEnd.toISOString().slice(0, 10);
@@ -270,7 +211,7 @@ export default function HomeScreen() {
         const { data: monthData, error: monthError } = await supabase
           .from("transactions")
           .select(
-            "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at"
+            "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id)"
           )
           .eq("account_id", mainAccount.id)
           .gte("date", startDate)
@@ -279,18 +220,6 @@ export default function HomeScreen() {
           .order("created_at", { ascending: false });
 
         if (monthError) throw monthError;
-
-        const { data: recentData, error: recentError } = await supabase
-          .from("transactions")
-          .select(
-            "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id)"
-          )
-          .eq("account_id", mainAccount.id)
-          .order("date", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(10);
-
-        if (recentError) throw recentError;
 
         const { data: upcomingData, error: upcomingError } = await supabase
           .from("transactions")
@@ -328,7 +257,6 @@ export default function HomeScreen() {
 
         if (!cancelled) {
           setMonthlyTransactions((monthData as Transaction[]) ?? []);
-          setRecentTransactions((recentData as Transaction[]) ?? []);
           setUpcomingTransactions((upcomingData as Transaction[]) ?? []);
           const combinedObligations = [
             ...((obligationsRange as Obligation[]) ?? []),
@@ -337,12 +265,12 @@ export default function HomeScreen() {
           setObligations(combinedObligations);
         }
       } catch (e: any) {
-        console.error("[Home] Error loading transactions:", e);
+        console.error("[Home] Error loading data:", e);
         if (!cancelled) {
           setError(e?.message ?? t(dictionary, "mobile.home.errorLoadTransactions"));
         }
       } finally {
-        if (!cancelled) setLoadingTransactions(false);
+        if (!cancelled) setLoadingData(false);
       }
     }
 
@@ -350,9 +278,55 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [mainAccount?.id, isFocused, viewMonth]);
+  }, [mainAccount?.id, isFocused, monthReference]);
 
-  const calendarTransactions = useMemo(() => {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadGoal() {
+      if (!mainAccount || !isFocused) return;
+
+      try {
+        const monthKey = toMonthKey(new Date());
+        const { data: goalRow, error: goalError } = await supabase
+          .from("financial_goals")
+          .select("id, month, type, target_amount_base_minor")
+          .eq("account_id", mainAccount.id)
+          .eq("month", monthKey)
+          .eq("type", "save")
+          .maybeSingle();
+
+        if (goalError) throw goalError;
+
+        const { data: historyData, error: historyError } = await supabase.rpc(
+          "get_goal_history",
+          {
+            p_account_id: mainAccount.id,
+            p_limit: 5,
+          }
+        );
+
+        if (historyError) throw historyError;
+
+        if (!cancelled) {
+          setGoalTargetMinor(goalRow?.target_amount_base_minor ?? null);
+          setGoalHistory((historyData as Array<{ completed: boolean | null }>) ?? []);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setGoalTargetMinor(null);
+          setGoalHistory([]);
+        }
+      }
+    }
+
+    loadGoal();
+    return () => {
+      cancelled = true;
+    };
+  }, [mainAccount?.id, isFocused]);
+
+  const allTransactions = useMemo(() => {
     const map = new Map<string, Transaction>();
     [...monthlyTransactions, ...upcomingTransactions].forEach((item) => {
       map.set(item.id, item);
@@ -360,59 +334,410 @@ export default function HomeScreen() {
     return Array.from(map.values());
   }, [monthlyTransactions, upcomingTransactions]);
 
-  const daySummary = useMemo(() => {
-    if (!selectedDay || !mainAccount) return null;
-    return getSummaryForDay(
-      selectedDay,
-      obligations,
-      calendarTransactions,
-      mainAccount.base_currency,
-      t(dictionary, "home.recentFallbackTitle")
-    );
-  }, [
-    selectedDay,
-    obligations,
-    calendarTransactions,
-    mainAccount,
-    dictionary,
-  ]);
+  const hasMovements = allTransactions.length > 0 || obligations.length > 0;
 
-  if (!session || !user) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
+  const baseCurrency = mainAccount?.base_currency ?? "EUR";
+  const currencySymbol =
+    CURRENCIES.find((c) => c.code === baseCurrency)?.symbol || baseCurrency;
 
-  if (loadingAccounts || loadingTransactions) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
+  const today = new Date();
+  const todayKey = toDateKey(today);
+  const monthLabel = `${MONTHS_LONG[today.getMonth()] ?? ""} ${today.getFullYear()}`;
+  const monthLabelCapitalized =
+    monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
-  if (error) {
+  const monthPrefix = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  const monthTransactionsToDate = monthlyTransactions.filter((tx) => {
+    const dateKey = toDateKey(tx.date as string);
+    return Boolean(dateKey) && dateKey.startsWith(monthPrefix) && dateKey <= todayKey;
+  });
+
+  const goalTotals = getGoalTotalsFromTransactions(
+    monthTransactionsToDate.map((tx) => ({
+      type: tx.type,
+      amount_minor: tx.amount_minor,
+      amount_base_minor: tx.amount_base_minor,
+    }))
+  );
+
+  const monthlyBalanceMinor =
+    goalTotals.incomeTotalMinor - goalTotals.expenseTotalMinor;
+
+  const progress =
+    goalTargetMinor && mainAccount && user
+      ? computeGoalProgress({
+          goal: {
+            id: "local",
+            account_id: mainAccount.id,
+            month: toMonthKey(today),
+            type: "save",
+            target_amount_base_minor: goalTargetMinor,
+            created_by: user.id,
+          },
+          totals: goalTotals,
+          now: today,
+        })
+      : null;
+
+  const objective = progress
+    ? (() => {
+        const targetMinor = progress.targetMinor;
+        const currentMinor = progress.savedMinor;
+        const progressPercent =
+          targetMinor > 0n
+            ? Math.min(
+                100,
+                Math.max(
+                  0,
+                  (Number(currentMinor) / Number(targetMinor)) * 100
+                )
+              )
+            : 0;
+        const expectedPercent =
+          targetMinor > 0n
+            ? Math.min(
+                100,
+                Math.max(
+                  0,
+                  (Number(progress.expectedSavedMinor) / Number(targetMinor)) *
+                    100
+                )
+              )
+            : 0;
+
+        let status: "on-track" | "at-risk" | "off-track" = "at-risk";
+        if (currentMinor >= targetMinor) {
+          status = "on-track";
+        } else if (progress.forecastEndMinor < targetMinor) {
+          status = "off-track";
+        } else if (currentMinor >= progress.expectedSavedMinor) {
+          status = "on-track";
+        }
+
+        const statusLabel =
+          status === "on-track"
+            ? "Vas bien"
+            : status === "off-track"
+            ? "Fuera de objetivo"
+            : "En riesgo";
+
+        const targetFormatted = formatCurrencyParts(targetMinor, currencySymbol).full;
+        const forecastFormatted = formatCurrencyParts(
+          progress.forecastEndMinor,
+          currencySymbol
+        ).full;
+        const remainingFormatted = formatCurrencyParts(
+          progress.remainingMinor,
+          currencySymbol
+        ).full;
+
+        let message = `Al ritmo actual, terminarás ${monthLabel} con ${forecastFormatted}.`;
+        if (progress.forecastEndMinor < targetMinor) {
+          message += ` Necesitas ${remainingFormatted} más para alcanzar el objetivo.`;
+        } else if (currentMinor < progress.expectedSavedMinor) {
+          message += " Acelerar tus ahorros te acercaría al objetivo.";
+        } else {
+          message += " Sigue así para cumplir el objetivo.";
+        }
+
+        return {
+          status,
+          statusLabel,
+          description: `Ahorrar ${targetFormatted} en ${monthLabel}`,
+          currentMinor: currentMinor.toString(),
+          targetMinor: targetMinor.toString(),
+          progressPercent,
+          expectedPercent,
+          messageHtml: message,
+          streak: (goalHistory ?? []).map((entry) => ({
+            hit: entry.completed === true,
+          })),
+        };
+      })()
+    : null;
+
+  const lastMovement = useMemo(() => {
+    const past = allTransactions
+      .filter((tx) => {
+        const dateKey = toDateKey(tx.date as string);
+        return dateKey && dateKey <= todayKey;
+      })
+      .sort((a, b) => (toDateKey(a.date as string) > toDateKey(b.date as string) ? -1 : 1));
+    const item = past[0];
+    if (!item) return null;
+    return {
+      name: item.merchant ?? item.category?.name ?? "Movimiento",
+      amountMinor: toMinor(item.amount_base_minor ?? item.amount_minor),
+      date: item.date,
+      type: item.type,
+    };
+  }, [allTransactions, todayKey]);
+
+  const nextMovement = useMemo(() => {
+    const upcoming: Array<{ dateKey: string; item: Transaction | Obligation; type: "income" | "expense" }> = [];
+
+    upcomingTransactions.forEach((tx) => {
+      const dateKey = toDateKey(tx.date as string);
+      if (dateKey && dateKey > todayKey) {
+        upcoming.push({ dateKey, item: tx, type: tx.type });
+      }
+    });
+
+    obligations.forEach((obligation) => {
+      if (!obligation.due_date || obligation.status === "paid") return;
+      const dateKey = toDateKey(obligation.due_date as string);
+      if (dateKey && dateKey > todayKey) {
+        upcoming.push({ dateKey, item: obligation, type: "expense" });
+      }
+    });
+
+    if (upcoming.length === 0) return null;
+    upcoming.sort((a, b) => (a.dateKey > b.dateKey ? 1 : -1));
+    const next = upcoming[0];
+    const name =
+      "merchant" in next.item
+        ? next.item.merchant ?? next.item.category?.name ?? "Movimiento"
+        : next.item.name;
+
+    return {
+      name,
+      amountMinor: toMinor(
+        "amount_base_minor" in next.item
+          ? next.item.amount_base_minor ?? next.item.amount_minor
+          : next.item.amount_base_minor ?? next.item.amount_minor
+      ),
+      date: "date" in next.item ? next.item.date : next.item.due_date,
+      type: next.type,
+    };
+  }, [upcomingTransactions, obligations, todayKey]);
+
+  const weekStrip = useMemo(() => {
+    const weekObligations = obligations.filter((item) => item.status !== "paid");
+    return getWeekStrip(
+      weekObligations as Obligation[],
+      allTransactions as SharedTransaction[],
+      today,
+      weekReference
+    );
+  }, [obligations, allTransactions, today, weekReference]);
+
+  const weekTotals = useMemo(() => {
+    let income = 0n;
+    let expense = 0n;
+    const startKey = toDateKey(weekStrip.weekRange.start);
+    const endKey = toDateKey(weekStrip.weekRange.end);
+
+    allTransactions.forEach((tx) => {
+      const dateKey = toDateKey(tx.date as string);
+      if (!dateKey || dateKey < startKey || dateKey > endKey) return;
+      const amount = toMinor(tx.amount_base_minor ?? tx.amount_minor);
+      if (tx.type === "income") income += amount;
+      if (tx.type === "expense") expense += amount;
+    });
+
+    return { income, expense, net: income - expense };
+  }, [allTransactions, weekStrip.weekRange]);
+
+  const weekPeriodLabel = useMemo(() => {
+    const start = weekStrip.weekRange.start;
+    const end = weekStrip.weekRange.end;
+    const startMonth = MONTHS_SHORT[start.getMonth()] ?? "";
+    const endMonth = MONTHS_SHORT[end.getMonth()] ?? "";
+    if (start.getMonth() === end.getMonth()) {
+      return `${start.getDate()} – ${end.getDate()} ${endMonth}`;
+    }
+    return `${start.getDate()} ${startMonth} – ${end.getDate()} ${endMonth}`;
+  }, [weekStrip.weekRange]);
+
+  const weekData = useMemo(() => {
+    const netIncome = formatCurrencyParts(weekTotals.income, currencySymbol).full;
+    const netExpense = formatCurrencyParts(weekTotals.expense, currencySymbol).full;
+    const net = formatCurrencyParts(weekTotals.net, currencySymbol).full;
+
+    return {
+      days: weekStrip.days.map((day) => ({
+        date: day.dayKey,
+        dayLabel: WEEKDAY_LABELS[day.dayOfWeek] ?? "",
+        dayNumber: day.dayOfMonth,
+        isToday: day.isToday,
+        dots: day.dots.map((dot) => ({
+          type: dot.type === "income" ? "income" : "expense",
+        })),
+      })),
+      period: weekPeriodLabel,
+      netIncome,
+      netExpense,
+      net,
+    };
+  }, [weekStrip.days, weekTotals, currencySymbol, weekPeriodLabel]);
+
+  const monthData = useMemo(() => {
+    const monthRange = getExpandedMonthRange(monthReference);
+    const dotsMap = new Map<string, Array<{ type: "income" | "expense" }>>();
+
+    const addDot = (dateKey: string, type: "income" | "expense") => {
+      const existing = dotsMap.get(dateKey) ?? [];
+      existing.push({ type });
+      dotsMap.set(dateKey, existing);
+    };
+
+    allTransactions.forEach((tx) => {
+      const key = toDateKey(tx.date as string);
+      if (!key) return;
+      addDot(key, tx.type === "income" ? "income" : "expense");
+    });
+
+    obligations.forEach((obligation) => {
+      if (!obligation.due_date || obligation.status === "paid") return;
+      const key = toDateKey(obligation.due_date as string);
+      if (!key) return;
+      addDot(key, "expense");
+    });
+
+    const days = [] as {
+      date: string;
+      dayNumber: number;
+      isToday: boolean;
+      isOtherMonth: boolean;
+      dots: Array<{ type: "income" | "expense" }>;
+    }[];
+
+    const cursor = new Date(monthRange.start);
+    while (cursor <= monthRange.end) {
+      const key = toDateKey(cursor);
+      const isOtherMonth = cursor.getMonth() !== monthReference.getMonth();
+      days.push({
+        date: key,
+        dayNumber: cursor.getDate(),
+        isToday: toDateKey(cursor) === todayKey,
+        isOtherMonth,
+        dots: dotsMap.get(key) ?? [],
+      });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    const monthLabel = `${MONTHS_LONG[monthReference.getMonth()] ?? ""} ${
+      monthReference.getFullYear()
+    }`;
+
+    return {
+      days,
+      period: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1),
+    };
+  }, [allTransactions, obligations, monthReference, todayKey]);
+
+  const selectedDay = useMemo<DayDetailData | null>(() => {
+    if (!selectedDayKey) return null;
+    const movements: DayMovement[] = [];
+
+    allTransactions.forEach((tx) => {
+      if (toDateKey(tx.date as string) !== selectedDayKey) return;
+      movements.push({
+        id: tx.id,
+        name: tx.merchant ?? tx.category?.name ?? "Movimiento",
+        amountMinor: toMinor(tx.amount_base_minor ?? tx.amount_minor),
+        type: tx.type,
+        category: tx.category?.name ?? null,
+        badge: null,
+      });
+    });
+
+    obligations.forEach((obligation) => {
+      if (!obligation.due_date || obligation.status === "paid") return;
+      if (toDateKey(obligation.due_date as string) !== selectedDayKey) return;
+      movements.push({
+        id: `obligation-${obligation.id}`,
+        name: obligation.name,
+        amountMinor: toMinor(
+          obligation.amount_base_minor ?? obligation.amount_minor
+        ),
+        type: "expense",
+        category: "Programado",
+        badge: "Programado",
+      });
+    });
+
+    return {
+      dateKey: selectedDayKey,
+      formattedLabel: formatFullDate(selectedDayKey, locale),
+      movements,
+    };
+  }, [selectedDayKey, allTransactions, obligations, locale]);
+
+  const programmedItems = useMemo(() => {
+    const items: {
+      id: string;
+      name: string;
+      amountMinor: bigint;
+      dateKey: string;
+      type: "income" | "expense";
+    }[] = [];
+
+    upcomingTransactions.forEach((tx) => {
+      const dateKey = toDateKey(tx.date as string);
+      if (!dateKey || dateKey <= todayKey) return;
+      items.push({
+        id: tx.id,
+        name: tx.merchant ?? tx.category?.name ?? "Movimiento",
+        amountMinor: toMinor(tx.amount_base_minor ?? tx.amount_minor),
+        dateKey,
+        type: tx.type,
+      });
+    });
+
+    obligations.forEach((obligation) => {
+      if (!obligation.due_date || obligation.status === "paid") return;
+      const dateKey = toDateKey(obligation.due_date as string);
+      if (!dateKey || dateKey <= todayKey) return;
+      items.push({
+        id: `obligation-${obligation.id}`,
+        name: obligation.name,
+        amountMinor: toMinor(
+          obligation.amount_base_minor ?? obligation.amount_minor
+        ),
+        dateKey,
+        type: "expense",
+      });
+    });
+
+    return items
+      .sort((a, b) => (a.dateKey > b.dateKey ? 1 : -1))
+      .slice(0, 3)
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        amountMinor: item.amountMinor,
+        type: item.type,
+        dateLabel: formatShortDate(item.dateKey, locale),
+      }));
+  }, [upcomingTransactions, obligations, todayKey, locale]);
+
+  const showLoading = !session || !user || loadingAccounts || loadingData;
+  const showError = Boolean(error);
+  const showAccountMissing = !accounts || accounts.length === 0 || !mainAccount;
+
+  if (showError) {
     return (
       <View style={styles.container}>
         <View style={styles.errorCard}>
           <Text style={styles.errorTitle}>{t(dictionary, "common.errorTitle")}</Text>
           <Text style={styles.errorText}>{error}</Text>
           <View style={{ height: tokens.spacing.md }} />
-          <Button
-            title={t(dictionary, "mobile.home.retry")}
+          <TouchableOpacity
+            style={styles.retryButton}
             onPress={() => {
               setError(null);
               router.replace("/(auth)/(tabs)/home");
             }}
-          />
+          >
+            <Text style={styles.retryText}>{t(dictionary, "mobile.home.retry")}</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
   }
 
-  if (!accounts || accounts.length === 0) {
+  if (showLoading || showAccountMissing) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" />
@@ -420,431 +745,114 @@ export default function HomeScreen() {
     );
   }
 
-  if (!mainAccount) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
-  const currencySymbol =
-    CURRENCIES.find((c) => c.code === mainAccount.base_currency)?.symbol ||
-    mainAccount.base_currency;
-
-  const today = new Date();
-  const calendarEventRange = getExpandedMonthRange(viewMonth);
-  const viewModel = buildHomeViewModel({
-    account: mainAccount,
-    role: activeRole,
-    dictionary,
-    obligations,
-    monthlyTransactions,
-    upcomingTransactions,
-    recentTransactions,
-    month: viewMonth,
-    nextDays,
-    recentLimit: 6,
-    upcomingEventsLimit: 3,
-    locale,
-    now: today,
-    calendarEventRange,
-    weekReference,
-    weekTransactions: calendarTransactions,
-    weekObligations: obligations,
-  });
-  const weekInfo = getWeekInfo(weekReference, locale);
-  const weekLabel = `${weekInfo.weekNumber} · ${weekInfo.monthLabel}`;
-  const monthLabel = viewMonth.toLocaleDateString(locale, { month: "long" });
-  const screenWidth = Dimensions.get("window").width;
-  const balanceColumnWidth =
-    screenWidth >= 768
-      ? clamp(Math.round(screenWidth * 0.26), 200, 280)
-      : screenWidth >= 420
-        ? clamp(Math.round(screenWidth * 0.3), 160, 240)
-        : clamp(Math.round(screenWidth * 0.28), 140, 210);
-  const cashflowNetMinor =
-    viewModel.cashflow.incomeMinor - viewModel.cashflow.expenseMinor;
-  const balanceEndOfMonthEstimatedMinor =
-    viewModel.monthOverview.balanceTodayMinor +
-    viewModel.balanceHero.scheduledMonthRemaining.netMinor;
-  const exposureTotalMinor =
-    viewModel.monthOverview.balanceTodayMinor +
-    viewModel.balanceHero.scheduledRange.netMinor +
-    viewModel.balanceHero.noDate.netMinor;
-
-  const handleToggleObligationStatus = async (item: {
-    id: string;
-    status?: "pending" | "paid" | null;
-  }) => {
-    if (!viewModel.permissions.canEdit) return;
-    setUpdatingObligationId(item.id);
-    try {
-      const update = await markObligationPaid(supabase, item.id, item.status);
-
-      setObligations((prev) =>
-        prev.map((obligation) =>
-          obligation.id === item.id
-            ? {
-                ...obligation,
-                status: update.status,
-                paid_at: update.paidAt,
-              }
-            : obligation
-        )
-      );
-    } catch (e: any) {
-      console.error("[Home] Error updating obligation:", e);
+  const handleAddMovement = () => {
+    if (!canEdit) {
       Alert.alert(
         t(dictionary, "common.errorTitle"),
-        e?.message ?? t(dictionary, "errors.internalServer")
+        t(dictionary, "home.guestBlurb")
       );
-    } finally {
-      setUpdatingObligationId(null);
+      return;
+    }
+    router.push("/(auth)/(tabs)/transactions/create");
+  };
+
+  const handleCreateObjective = () => {
+    router.push("/(auth)/(tabs)/goal");
+  };
+
+  const handlePrevPeriod = () => {
+    if (calendarView === "week") {
+      const next = new Date(weekReference);
+      next.setDate(next.getDate() - 7);
+      setWeekReference(next);
+    } else {
+      const next = new Date(monthReference);
+      next.setMonth(next.getMonth() - 1);
+      setMonthReference(next);
     }
   };
 
-  const handleSelectDay = (date: Date) => {
-    setSelectedDay(date);
-    setIsDayPanelOpen(true);
-  };
-
-  const shiftWeek = (delta: number) => {
-    setWeekReference((prev) => {
-      const next = new Date(prev);
-      next.setDate(next.getDate() + delta);
-      return next;
-    });
-    setSelectedDay(null);
-    setIsDayPanelOpen(false);
-  };
-
-  const handleAddAction = (key: AddActionKey) => {
-    switch (key) {
-      case "movement":
-        setTransactionDefaultDate(null);
-        setIsTransactionModalOpen(true);
-        return;
-      case "recurring":
-        router.push(
-          "/(auth)/(tabs)/transactions/create?type=expense&kind=recurring"
-        );
-        return;
+  const handleNextPeriod = () => {
+    if (calendarView === "week") {
+      const next = new Date(weekReference);
+      next.setDate(next.getDate() + 7);
+      setWeekReference(next);
+    } else {
+      const next = new Date(monthReference);
+      next.setMonth(next.getMonth() + 1);
+      setMonthReference(next);
     }
-  };
-
-  const handleTransactionSuccess = () => {
-    // Reload transactions after successful creation
-    setIsTransactionModalOpen(false);
-    setTransactionDefaultDate(null);
   };
 
   return (
     <View style={styles.root}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {viewModel.permissions.isGuestReadOnly && (
-          <View style={styles.readOnlyBadgeRow}>
-            <View style={styles.readOnlyBadge}>
-              <Text style={styles.readOnlyBadgeText}>
-                {viewModel.copy.guestBadge}
-              </Text>
-            </View>
-          </View>
-        )}
-        {inviteCount > 0 && (
-          <TouchableOpacity
-            style={styles.inviteCard}
-            onPress={() => router.push("/(auth)/invitations")}
-          >
-            <Text style={styles.inviteTitle}>
-              {t(dictionary, "invitations.pendingBadge")}
-            </Text>
-            <Text style={styles.inviteSubtitle}>
-              {t(dictionary, "invitations.viewCta")} ({inviteCount})
-            </Text>
-          </TouchableOpacity>
-        )}
-        {/* Hero */}
-        <View style={styles.heroCard}>
-          <View style={[styles.heroSection, styles.heroSectionFirst]}>
-            <BalanceHeroAccordion
-              balanceTodayMinor={viewModel.monthOverview.balanceTodayMinor}
-              real={viewModel.balanceHero.real}
-              scheduledRange={viewModel.balanceHero.scheduledRange}
-              scheduledItems={viewModel.cashflow.items}
-              noDate={viewModel.balanceHero.noDate}
-              balanceEndOfMonthEstimatedMinor={balanceEndOfMonthEstimatedMinor}
-              exposureTotalMinor={exposureTotalMinor}
-              currency={mainAccount.base_currency}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <BalanceHeader
+          amountMinor={monthlyBalanceMinor}
+          monthLabel={monthLabelCapitalized}
+          currencySymbol={currencySymbol}
+        />
+
+        {hasMovements ? (
+          <>
+            <Timeline
+              last={lastMovement}
+              next={nextMovement}
               currencySymbol={currencySymbol}
               locale={locale}
-              monthLabel={monthLabel}
-              balanceColumnWidth={balanceColumnWidth}
-              copy={viewModel.copy}
-              canEdit={viewModel.permissions.canEdit && !updatingObligationId}
-              onViewAllScheduled={() => router.push("/(auth)/(tabs)/transactions")}
-              onAssignNoDate={(item) => router.push(`/(auth)/obligations/${item.id}`)}
-              onMarkNoDateSettled={handleToggleObligationStatus}
             />
-          </View>
-
-          {!viewModel.monthOverview.hasActivity && (
-            <View style={styles.heroActivityEmpty}>
-              <Text style={styles.heroEmptyText}>
-                {viewModel.emptyStates.activity.title}
-              </Text>
-              <TouchableOpacity
-                style={styles.heroEmptyCta}
-                onPress={() => setIsTransactionModalOpen(true)}
-              >
-                <Text style={styles.heroEmptyCtaText}>
-                  {viewModel.emptyStates.activity.cta}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* 4. Próximos X días (Cashflow) */}
-          <View style={[styles.heroSection, styles.heroSectionSpaced]}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{viewModel.copy.upcomingTitle}</Text>
-              <View style={styles.daySelector}>
-                {CASHFLOW_DAYS_OPTIONS.map((days) => (
-                  <TouchableOpacity
-                    key={days}
-                    style={[
-                      styles.dayOption,
-                      nextDays === days && styles.dayOptionActive,
-                    ]}
-                    onPress={() => setNextDays(days)}
-                  >
-                    <Text
-                      style={[
-                        styles.dayOptionText,
-                        nextDays === days && styles.dayOptionTextActive,
-                      ]}
-                    >
-                      {days}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-            {viewModel.cashflow.items.length === 0 ? (
-              <Text style={styles.emptyText}>{viewModel.emptyStates.upcoming}</Text>
-            ) : (
-              <>
-                <CashFlowArrows
-                  incomeMinor={viewModel.cashflow.incomeMinor}
-                  expenseMinor={viewModel.cashflow.expenseMinor}
-                  netMinor={cashflowNetMinor}
-                  currency={mainAccount.base_currency}
-                  currencySymbol={currencySymbol}
-                  incomeLabel={viewModel.copy.incomeLabel}
-                  expenseLabel={viewModel.copy.expenseLabel}
-                  balanceLabel={viewModel.copy.balanceLabel}
-                  balanceColumnWidth={balanceColumnWidth}
-                />
-                <View style={styles.upcomingEventsList}>
-                  {viewModel.cashflow.items.slice(0, 10).map((item) => {
-                    const dayLabel = item.date.toLocaleDateString(locale, {
-                      weekday: "short",
-                    });
-                    return (
-                      <View key={item.id} style={styles.upcomingEventRow}>
-                        <Text style={styles.upcomingEventLabel}>
-                          {dayLabel}: {item.title}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.upcomingEventAmount,
-                            item.type === "income"
-                              ? styles.amountPositive
-                              : styles.amountNegative,
-                            { width: balanceColumnWidth, textAlign: "right" },
-                          ]}
-                        >
-                          {item.type === "expense" ? "-" : "+"}
-                          {formatMoneyWithSymbol(
-                            item.amountMinor,
-                            mainAccount.base_currency,
-                            currencySymbol
-                          )}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                  {viewModel.cashflow.items.length > 10 && (
-                    <Text style={styles.upcomingMoreText}>
-                      {t(dictionary, "home.upcomingMoreMessage")}
-                    </Text>
-                  )}
-                </View>
-              </>
-            )}
-          </View>
-
-          {/* 5. Semana */}
-          <View style={styles.heroSection}>
-            <CalendarCard
-              locale={locale}
-              days={viewModel.weekStrip.days}
-              obligations={obligations}
-              transactions={calendarTransactions}
-              calendarEvents={viewModel.calendar.events}
-              selectedDate={selectedDay}
-              onSelectDate={handleSelectDay}
-              onPrevWeek={() => shiftWeek(-7)}
-              onNextWeek={() => shiftWeek(7)}
-              weekTitle={viewModel.copy.weekTitle}
-              viewMonthCta={viewModel.copy.viewMonthCta}
-              viewWeekCta={t(dictionary, "home.viewWeekCta")}
+            <Calendar
+              view={calendarView}
+              onViewChange={setCalendarView}
+              weekData={weekData}
+              monthData={monthData}
+              selectedDay={selectedDay}
+              onSelectDay={setSelectedDayKey}
+              onPrevPeriod={handlePrevPeriod}
+              onNextPeriod={handleNextPeriod}
+              currencySymbol={currencySymbol}
             />
-          </View>
+          </>
+        ) : (
+          <EmptyStateCard
+            icon="📝"
+            title="Empieza a registrar tus movimientos"
+            description="Añade tu primer ingreso o gasto para ver tu calendario financiero y el estado de tu semana."
+            buttonLabel="Añadir movimiento"
+            onAction={handleAddMovement}
+          />
+        )}
 
-          {viewModel.permissions.isGuestReadOnly && (
-            <View style={styles.readOnlyRow}>
-              <Text style={styles.readOnlyText}>{viewModel.copy.guestBlurb}</Text>
-              <TouchableOpacity
-                style={styles.readOnlyCta}
-                onPress={() => router.push("/(auth)/onboarding")}
-              >
-                <Text style={styles.readOnlyCtaText}>
-                  {viewModel.copy.guestCta}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+        {objective ? (
+          <ObjectiveCard
+            objective={objective}
+            onNavigate={() => router.push("/(auth)/(tabs)/goal")}
+            currencySymbol={currencySymbol}
+          />
+        ) : (
+          <EmptyStateCard
+            icon="🎯"
+            title="Define tu primer objetivo"
+            description="Establece cuánto quieres ahorrar este mes y te ayudaremos a seguir tu progreso."
+            buttonLabel="Crear objetivo"
+            onAction={handleCreateObjective}
+          />
+        )}
 
-        {/* Recent Activity */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{viewModel.copy.recentActivityTitle}</Text>
-            <TouchableOpacity onPress={() => router.push("/(auth)/(tabs)/transactions")}>
-              <Text style={styles.sectionCta} numberOfLines={1}>
-                {viewModel.copy.recentCta}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          {viewModel.recentActivity.items.length === 0 ? (
-            <Text style={styles.emptyText}>{viewModel.emptyStates.recent}</Text>
-          ) : (
-            <View style={styles.list}>
-              {viewModel.recentActivity.items.map((item) => {
-                const isPending = isFutureDay(item.date);
-                const baseColor =
-                  item.type === "income" ? colors.state.positive : colors.state.negative;
-                const amountColor = isPending ? withAlpha(baseColor, 0.55) : baseColor;
-                return (
-                  <View key={item.id} style={styles.listRow}>
-                    <View style={styles.listRowInfo}>
-                      <View style={styles.listRowTitleRow}>
-                        <View
-                          style={[
-                            styles.listRowIconContainer,
-                            isPending && styles.pendingOpacity,
-                          ]}
-                        >
-                          <CategoryIcon
-                            iconKey={item.iconId as CategoryIconKey}
-                            size={16}
-                            tone={item.type === "income" ? "positive" : "negative"}
-                          />
-                        </View>
-                        <Text style={styles.listRowTitle} numberOfLines={1}>
-                          {item.title}
-                        </Text>
-                      </View>
-                      <Text style={styles.listRowMeta}>
-                        {formatDateShort(item.date, locale)}
-                      </Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.listRowAmount,
-                        item.type === "income" ? styles.amountPositive : styles.amountNegative,
-                        { color: amountColor },
-                      ]}
-                    >
-                      {item.type === "income" ? "+" : "-"}
-                      {formatMoneyWithSymbol(
-                        item.amountMinor,
-                        mainAccount.base_currency,
-                        currencySymbol
-                      )}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-        </View>
+        {hasMovements && programmedItems.length > 0 ? (
+          <ProgrammedCard
+            items={programmedItems}
+            onViewAll={() =>
+              router.push("/(auth)/(tabs)/transactions?filter=programmed")
+            }
+            currencySymbol={currencySymbol}
+          />
+        ) : null}
       </ScrollView>
 
-      <DayDetailPanel
-        visible={isDayPanelOpen}
-        summary={daySummary}
-        locale={locale}
-        currency={mainAccount.base_currency}
-        currencySymbol={currencySymbol}
-        canEdit={viewModel.permissions.canEdit && !updatingObligationId}
-        onClose={() => {
-          setIsDayPanelOpen(false);
-          setSelectedDay(null);
-        }}
-        onToggleObligation={handleToggleObligationStatus}
-        onAddForDay={(date) => {
-          setIsDayPanelOpen(false);
-          setTransactionDefaultDate(date.toISOString().slice(0, 10));
-          setIsTransactionModalOpen(true);
-        }}
-        copy={{
-          balanceLabel: viewModel.copy.balanceLabel,
-          incomeLabel: viewModel.copy.incomeLabel,
-          expenseLabel: viewModel.copy.expenseLabel,
-          markPaid: viewModel.copy.markPaid,
-          markPending: viewModel.copy.markPending,
-          daySummaryTitle: viewModel.copy.daySummaryTitle,
-          dayObligationsTitle: viewModel.copy.dayObligationsTitle,
-          dayRecurringTitle: viewModel.copy.dayRecurringTitle,
-          dayTransactionsTitle: viewModel.copy.dayTransactionsTitle,
-          dayEmpty: viewModel.copy.dayEmpty,
-          closeLabel: t(dictionary, "common.close"),
-          statusPaidLabel: t(dictionary, "obligations.create.statusPaid"),
-          statusPendingLabel: t(dictionary, "obligations.create.statusPending"),
-          addForDayCta: viewModel.copy.addForDayCta,
-          viewMonthCta: viewModel.copy.viewMonthCta,
-        }}
-      />
-
-      {/* Add Action */}
-      <AddActionSheet
-        sheetTitle={t(dictionary, "mobile.home.addTitle")}
-        fabLabel={viewModel.copy.addCta}
-        onAction={handleAddAction}
-        disabled={!viewModel.permissions.canEdit}
-        notice={
-          viewModel.permissions.isGuestReadOnly ? (
-            <Text style={styles.sheetNotice}>{viewModel.copy.guestBlurb}</Text>
-          ) : undefined
-        }
-      />
-
-      {/* Transaction Modal */}
-      {mainAccount && (
-        <AddTransactionModal
-          visible={isTransactionModalOpen}
-          accountId={mainAccount.id}
-          currency={mainAccount.base_currency}
-          defaultDate={transactionDefaultDate ?? undefined}
-          onClose={() => {
-            setIsTransactionModalOpen(false);
-            setTransactionDefaultDate(null);
-          }}
-          onSuccess={handleTransactionSuccess}
-        />
-      )}
     </View>
   );
 }
@@ -852,18 +860,18 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
+    backgroundColor: "#FAFAFA",
   },
   loading: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: colors.bg.primary,
+    backgroundColor: "#FAFAFA",
   },
   container: {
     flex: 1,
     padding: tokens.spacing.lg,
-    backgroundColor: colors.bg.primary,
+    backgroundColor: "#FAFAFA",
     justifyContent: "center",
   },
   scrollView: {
@@ -875,285 +883,36 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
     gap: tokens.spacing.lg,
   },
-  readOnlyBadgeRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-  },
-  readOnlyBadge: {
-    paddingHorizontal: tokens.spacing.sm,
-    paddingVertical: 4,
-    borderRadius: tokens.radii.pill,
-    backgroundColor: colors.action.secondary,
-  },
-  readOnlyBadgeText: {
-    ...typography.meta,
-    color: colors.text.primary,
-  },
-  heroCard: {
-    borderRadius: tokens.radii.lg,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    padding: tokens.spacing.lg,
-    gap: tokens.spacing.md,
-    backgroundColor: colors.bg.surface,
-  },
-  inviteCard: {
-    borderRadius: tokens.radii.lg,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    padding: tokens.spacing.lg,
-    marginBottom: tokens.spacing.md,
-    backgroundColor: colors.bg.surface,
-  },
-  inviteTitle: {
-    ...typography.body,
-    color: colors.text.primary,
-    fontWeight: tokens.typography.weight.semibold,
-    marginBottom: tokens.spacing.xs,
-  },
-  inviteSubtitle: {
-    ...typography.meta,
-    color: colors.text.secondary,
-  },
-  heroSection: {
-    borderTopWidth: 1,
-    borderTopColor: colors.state.neutral,
-    paddingTop: tokens.spacing.md,
-    gap: tokens.spacing.sm,
-  },
-  heroSectionFirst: {
-    borderTopWidth: 0,
-    paddingTop: 0,
-  },
-  heroSectionSpaced: {
-    marginTop: tokens.spacing.sm,
-  },
-  heroActivityEmpty: {
-    borderTopWidth: 1,
-    borderTopColor: colors.state.neutral,
-    paddingTop: tokens.spacing.md,
-    gap: 6,
-  },
-  heroEmptyText: {
-    ...typography.body,
-    color: colors.text.secondary,
-  },
-  heroEmptyCta: {
-    alignSelf: "flex-start",
-    paddingHorizontal: tokens.spacing.md,
-    paddingVertical: tokens.spacing.sm,
-    borderRadius: tokens.radii.pill,
-    borderWidth: 1,
-    borderColor: colors.action.primary,
-  },
-  heroEmptyCtaText: {
-    ...typography.body,
-    color: colors.action.primary,
-  },
-  readOnlyRow: {
-    borderTopWidth: 1,
-    borderTopColor: colors.state.neutral,
-    paddingTop: tokens.spacing.md,
-    gap: 6,
-  },
-  readOnlyText: {
-    ...typography.body,
-    color: colors.text.secondary,
-  },
-  readOnlyCta: {
-    alignSelf: "flex-start",
-    paddingHorizontal: tokens.spacing.md,
-    paddingVertical: tokens.spacing.sm,
-    borderRadius: tokens.radii.pill,
-    backgroundColor: colors.action.secondary,
-  },
-  readOnlyCtaText: {
-    ...typography.body,
-    color: colors.text.primary,
-  },
-  daySelector: {
-    flexDirection: "row",
-    gap: tokens.spacing.xs,
-  },
-  dayOption: {
-    paddingHorizontal: tokens.spacing.sm,
-    paddingVertical: 4,
-    borderRadius: tokens.radii.pill,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    backgroundColor: colors.bg.secondary,
-  },
-  dayOptionActive: {
-    backgroundColor: colors.action.secondary,
-    borderColor: colors.action.primary,
-  },
-  dayOptionText: {
-    ...typography.meta,
-    color: colors.text.secondary,
-  },
-  dayOptionTextActive: {
-    color: colors.text.primary,
-  },
-  section: {
-    gap: tokens.spacing.md,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: tokens.spacing.sm,
-  },
-  sectionTitle: {
-    ...typography.h2,
-    color: colors.text.primary,
-  },
-  sectionCta: {
-    ...typography.body,
-    color: colors.action.primary,
-  },
-  emptyText: {
-    ...typography.body,
-    color: colors.text.secondary,
-  },
-  list: {
-    gap: tokens.spacing.sm,
-  },
-  listRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: tokens.spacing.md,
-    borderRadius: tokens.radii.md,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    backgroundColor: colors.bg.secondary,
-    gap: tokens.spacing.md,
-  },
-  listRowInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  listRowTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: tokens.spacing.sm,
-  },
-  listRowIconContainer: {
-    width: 20,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  pendingOpacity: {
-    opacity: 0.6,
-  },
-  listRowTitle: {
-    ...typography.body,
-    color: colors.text.primary,
-    flexShrink: 1,
-  },
-  listRowMeta: {
-    ...typography.meta,
-    color: colors.text.secondary,
-  },
-  listRowAmount: {
-    ...typography.body,
-    color: colors.text.primary,
-  },
-  upcomingEventsList: {
-    marginTop: tokens.spacing.sm,
-    gap: tokens.spacing.xs,
-  },
-  upcomingEventRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  upcomingEventLabel: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    flex: 1,
-  },
-  upcomingEventAmount: {
-    ...typography.caption,
-    fontWeight: "500",
-  },
-  upcomingMoreText: {
-    ...typography.caption,
-    color: colors.text.secondary,
-  },
-  amountPositive: {
-    color: colors.state.positive,
-  },
-  amountNegative: {
-    color: colors.state.negative,
-  },
-  sheetList: {
-    gap: tokens.spacing.sm,
-  },
-  sheetRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    padding: tokens.spacing.md,
-    borderRadius: tokens.radii.md,
-    backgroundColor: colors.bg.secondary,
-  },
-  sheetRowActive: {
-    borderColor: colors.action.primary,
-    backgroundColor: colors.action.secondary,
-  },
-  sheetRowInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  sheetRowTitle: {
-    ...typography.body,
-    color: colors.text.primary,
-  },
-  sheetRowMeta: {
-    ...typography.meta,
-    color: colors.text.secondary,
-  },
-  sheetBadge: {
-    borderRadius: tokens.radii.pill,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    paddingHorizontal: tokens.spacing.md,
-    paddingVertical: 4,
-    backgroundColor: colors.bg.surface,
-  },
-  sheetBadgeActive: {
-    backgroundColor: colors.action.primary,
-    borderColor: colors.action.primary,
-  },
-  sheetBadgeText: {
-    ...typography.meta,
-    color: colors.text.secondary,
-  },
-  sheetBadgeTextActive: {
-    color: colors.bg.primary,
-  },
-  sheetNotice: {
-    ...typography.body,
-    color: colors.text.secondary,
-  },
   errorCard: {
+    borderRadius: tokens.radii.lg,
     borderWidth: 1,
-    borderColor: colors.state.negative,
-    borderRadius: tokens.radii.md,
+    borderColor: colors.state.neutral,
     padding: tokens.spacing.lg,
     backgroundColor: colors.bg.surface,
-    gap: tokens.spacing.sm,
   },
   errorTitle: {
-    ...typography.h2,
-    color: colors.state.negative,
+    fontSize: tokens.typography.size.lg,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.text.primary,
+    fontFamily: "DMSans-SemiBold",
   },
   errorText: {
-    ...typography.body,
+    marginTop: tokens.spacing.sm,
+    fontSize: tokens.typography.size.sm,
     color: colors.text.secondary,
+    fontFamily: "DMSans",
+  },
+  retryButton: {
+    marginTop: tokens.spacing.md,
+    alignSelf: "flex-start",
+    borderRadius: tokens.radii.md,
+    backgroundColor: colors.action.primary,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+  },
+  retryText: {
+    color: colors.bg.primary,
+    fontFamily: "DMSans-SemiBold",
+    fontSize: tokens.typography.size.sm,
   },
 });
