@@ -250,23 +250,25 @@ export async function TopNav({ containerClassName }: TopNavProps) {
         {/* Navigation */}
         <div className="flex items-center gap-3">
           <TopNavLinks items={navItems} />
-          {activeAccount ? (
-            <AddActionTrigger
-              canEdit={canEdit}
-              accountId={activeAccount.id}
-              currency={activeAccount.base_currency}
-              locale={locale}
-              variant="top-nav"
-            />
-          ) : (
-            <Link
-              href="/transactions?new=1"
-              className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-800 sm:px-4 sm:py-1.5"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Añadir</span>
-            </Link>
-          )}
+          <div className="hidden sm:flex items-center">
+            {activeAccount ? (
+              <AddActionTrigger
+                canEdit={canEdit}
+                accountId={activeAccount.id}
+                currency={activeAccount.base_currency}
+                locale={locale}
+                variant="top-nav"
+              />
+            ) : (
+              <Link
+                href="/transactions?new=1"
+                className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-800 sm:px-4 sm:py-1.5"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Añadir</span>
+              </Link>
+            )}
+          </div>
           <NotificationDropdown notifications={notifications} />
           <SettingsDrawer
             settingsLabel={settingsLabel}

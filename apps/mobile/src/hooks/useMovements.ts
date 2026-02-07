@@ -1,0 +1,420 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useIsFocused } from "@react-navigation/native";
+import {
+  CURRENCIES,
+  getMonthRangeFromKey,
+  formatMonthLabel,
+  isFutureDay,
+  type RecurringItem,
+} from "@poleursus/shared";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
+import { useCopy } from "../lib/i18n";
+import { useNetworkNotice } from "../contexts/NetworkNoticeContext";
+import {
+  selectMovementsSummary,
+  selectUnregisteredRecurrents,
+  useMovementsStore,
+} from "../stores/useMovementsStore";
+import type { Category, Movement, UserProfile } from "../types/movements";
+
+type TransactionRow = {
+  id: string;
+  account_id: string;
+  type: "income" | "expense";
+  amount_minor: string | number;
+  amount_base_minor?: string | number | null;
+  currency: string;
+  category_id: string | null;
+  date: string;
+  merchant: string | null;
+  notes: string | null;
+  created_by: string;
+  recurring_item_id?: string | null;
+  recurring_occurrence_date?: string | null;
+  category?: {
+    id: string;
+    name: string;
+    icon_id: string | null;
+    type?: "income" | "expense" | null;
+  } | null;
+};
+
+const toBigInt = (value: unknown) => {
+  try {
+    return BigInt(value as string | number | bigint);
+  } catch {
+    return 0n;
+  }
+};
+
+const mapTransactionToMovement = (row: TransactionRow): Movement => {
+  const amountMinor = toBigInt(row.amount_base_minor ?? row.amount_minor);
+  const status = isFutureDay(row.date) ? "pending" : "confirmed";
+  const categoryName = row.category?.name ?? "Sin categoría";
+  const title = row.merchant?.trim() || categoryName || "Movimiento";
+
+  return {
+    id: row.id,
+    title,
+    amountMinor,
+    date: row.date,
+    categoryId: row.category_id,
+    categoryName,
+    categoryIconId: row.category?.icon_id ?? null,
+    subcategory: row.notes?.trim() || null,
+    userId: row.created_by,
+    accountId: row.account_id,
+    status,
+    type: row.type,
+    merchant: row.merchant,
+    recurringItemId: row.recurring_item_id ?? null,
+    recurringOccurrenceDate: row.recurring_occurrence_date ?? null,
+  };
+};
+
+const matchesSearch = (movement: Movement, query: string) => {
+  const trimmed = query.trim().toLowerCase();
+  if (!trimmed) return true;
+  return (
+    movement.title.toLowerCase().includes(trimmed) ||
+    movement.categoryName.toLowerCase().includes(trimmed) ||
+    (movement.subcategory ?? "").toLowerCase().includes(trimmed)
+  );
+};
+
+export function useMovements() {
+  const isFocused = useIsFocused();
+  const { selectedAccountId } = useAuth();
+  const { locale } = useCopy();
+  const { reportNetworkIssue } = useNetworkNotice();
+
+  const {
+    selectedMonth,
+    filters,
+    isSearchMode,
+    monthMovements,
+    searchMovements,
+    categories,
+    recurringItems,
+    profilesById,
+    baseCurrency,
+    setMonthMovements,
+    setSearchMovements,
+    setCategories,
+    setRecurringItems,
+    mergeProfilesById,
+    setBaseCurrency,
+  } = useMovementsStore();
+
+  const [loading, setLoading] = useState(true);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const monthKey = useMemo(() => {
+    const month = String(selectedMonth.month).padStart(2, "0");
+    return `${selectedMonth.year}-${month}`;
+  }, [selectedMonth.month, selectedMonth.year]);
+
+  const monthRange = useMemo(
+    () => getMonthRangeFromKey(monthKey),
+    [monthKey]
+  );
+
+  const monthLabel = useMemo(
+    () => formatMonthLabel(monthKey, locale),
+    [monthKey, locale]
+  );
+
+  const loadProfiles = useCallback(
+    async (movements: Movement[]) => {
+      const userIds = Array.from(
+        new Set(movements.map((movement) => movement.userId))
+      );
+      if (userIds.length === 0) return;
+
+      const { data, error: profileError } = await supabase
+        .from("profiles")
+        .select(
+          "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token"
+        )
+        .in("user_id", userIds);
+
+      if (profileError || !data) return;
+
+      const nextProfiles: Record<string, UserProfile> = {};
+      data.forEach((profile) => {
+        nextProfiles[profile.user_id] = profile as UserProfile;
+      });
+      mergeProfilesById(nextProfiles);
+    },
+    [mergeProfilesById]
+  );
+
+  const loadMonthData = useCallback(async () => {
+    if (!selectedAccountId) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const accountPromise = supabase
+        .from("accounts")
+        .select("base_currency")
+        .eq("id", selectedAccountId)
+        .maybeSingle();
+
+      const transactionsPromise = supabase
+        .from("transactions")
+        .select("*, category:categories(id, name, icon_id, type)")
+        .eq("account_id", selectedAccountId)
+        .gte("date", monthRange.start)
+        .lte("date", monthRange.end)
+        .order("date", { ascending: false })
+        .order("created_at", { ascending: false });
+
+      const categoriesPromise = supabase
+        .from("categories")
+        .select("id, name, icon_id, type, account_id")
+        .eq("account_id", selectedAccountId);
+
+      const recurringPromise = supabase
+        .from("recurring_items")
+        .select(
+          "id, account_id, type, amount_minor, currency, category_id, merchant, notes, start_date, frequency, interval, day_of_month, end_date, is_paused, created_by"
+        )
+        .eq("account_id", selectedAccountId);
+
+      const [accountResult, transactionsResult, categoriesResult, recurringResult] =
+        await Promise.all([
+          accountPromise,
+          transactionsPromise,
+          categoriesPromise,
+          recurringPromise,
+        ]);
+
+      if (accountResult.error) throw accountResult.error;
+      if (transactionsResult.error) throw transactionsResult.error;
+      if (categoriesResult.error) throw categoriesResult.error;
+      if (recurringResult.error) throw recurringResult.error;
+
+      if (accountResult.data?.base_currency) {
+        setBaseCurrency(accountResult.data.base_currency);
+      }
+
+      const mappedMovements = (transactionsResult.data || []).map((row) =>
+        mapTransactionToMovement(row as TransactionRow)
+      );
+      setMonthMovements(mappedMovements);
+
+      setCategories((categoriesResult.data || []) as Category[]);
+      setRecurringItems((recurringResult.data || []) as RecurringItem[]);
+
+      await loadProfiles(mappedMovements);
+    } catch (e: any) {
+      setError(e?.message || "No se pudieron cargar los movimientos");
+      reportNetworkIssue({ onRetry: loadMonthData });
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    loadProfiles,
+    monthRange.end,
+    monthRange.start,
+    reportNetworkIssue,
+    selectedAccountId,
+    setBaseCurrency,
+    setCategories,
+    setMonthMovements,
+    setRecurringItems,
+  ]);
+
+  const loadSearchResults = useCallback(async () => {
+    const rawQuery = filters.searchQuery.trim();
+    const query = rawQuery.replace(/[(),]/g, " ").trim();
+    if (!selectedAccountId || !query) {
+      setSearchMovements([]);
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      const { data: categoryMatches, error: categoryError } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("account_id", selectedAccountId)
+        .ilike("name", `%${query}%`);
+
+      if (categoryError) throw categoryError;
+
+      const categoryIds = (categoryMatches || []).map((row) => row.id);
+      const filtersOr = [
+        `merchant.ilike.%${query}%`,
+        `notes.ilike.%${query}%`,
+      ];
+      if (categoryIds.length > 0) {
+        filtersOr.push(`category_id.in.(${categoryIds.join(",")})`);
+      }
+
+      const { data, error: searchError } = await supabase
+        .from("transactions")
+        .select("*, category:categories(id, name, icon_id, type)")
+        .eq("account_id", selectedAccountId)
+        .or(filtersOr.join(","))
+        .order("date", { ascending: false })
+        .order("created_at", { ascending: false });
+
+      if (searchError) throw searchError;
+
+      const mappedMovements = (data || []).map((row) =>
+        mapTransactionToMovement(row as TransactionRow)
+      );
+      setSearchMovements(mappedMovements);
+      await loadProfiles(mappedMovements);
+    } catch (e: any) {
+      setError(e?.message || "No se pudieron cargar los movimientos");
+    } finally {
+      setSearchLoading(false);
+    }
+  }, [
+    filters.searchQuery,
+    loadProfiles,
+    selectedAccountId,
+    setSearchMovements,
+  ]);
+
+  useEffect(() => {
+    if (!isFocused) return;
+    loadMonthData();
+  }, [isFocused, loadMonthData]);
+
+  useEffect(() => {
+    if (!isFocused) return;
+    loadSearchResults();
+  }, [isFocused, loadSearchResults]);
+
+  const displayMovements = useMemo(
+    () => (isSearchMode ? searchMovements : monthMovements),
+    [isSearchMode, searchMovements, monthMovements]
+  );
+
+  const filteredMovements = useMemo(() => {
+    let items = displayMovements;
+    const query = filters.searchQuery.trim();
+    if (query) {
+      items = items.filter((movement) => matchesSearch(movement, query));
+    }
+
+    if (filters.categoryIds.length > 0) {
+      items = items.filter((movement) =>
+        movement.categoryId
+          ? filters.categoryIds.includes(movement.categoryId)
+          : false
+      );
+    }
+
+    if (filters.merchantNames.length > 0) {
+      items = items.filter((movement) =>
+        movement.merchant
+          ? filters.merchantNames.includes(movement.merchant)
+          : false
+      );
+    }
+
+    const hasTypeFilter = filters.types.length > 0;
+
+    if (hasTypeFilter) {
+      items = items.filter((movement) => filters.types.includes(movement.type));
+    }
+
+    return items;
+  }, [displayMovements, filters.categoryIds, filters.merchantNames, filters.searchQuery, filters.types]);
+
+  const groupedByStatus = useMemo(() => {
+    const pending: Movement[] = [];
+    const confirmed: Movement[] = [];
+    filteredMovements.forEach((movement) => {
+      if (movement.status === "pending") {
+        pending.push(movement);
+      } else {
+        confirmed.push(movement);
+      }
+    });
+    return { pending, confirmed };
+  }, [filteredMovements]);
+
+  const summary = useMemo(
+    () => selectMovementsSummary(filteredMovements),
+    [filteredMovements]
+  );
+
+  const unregisteredRecurrents = useMemo(
+    () => selectUnregisteredRecurrents(useMovementsStore.getState()),
+    [monthMovements, recurringItems, categories, selectedMonth]
+  );
+
+  const counts = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+    displayMovements.forEach((movement) => {
+      if (movement.type === "income") income += 1;
+      if (movement.type === "expense") expense += 1;
+    });
+    return { income, expense };
+  }, [displayMovements]);
+
+  const merchantOptions = useMemo(() => {
+    const unique = new Set<string>();
+    displayMovements.forEach((movement) => {
+      if (movement.merchant) unique.add(movement.merchant);
+    });
+    return Array.from(unique).map((name) => ({ id: name, name }));
+  }, [displayMovements]);
+
+  const categoryOptions = useMemo(
+    () => categories.map((category) => ({ id: category.id, name: category.name })),
+    [categories]
+  );
+
+  const currencySymbol =
+    CURRENCIES.find((currency) => currency.code === baseCurrency)?.symbol ??
+    baseCurrency;
+
+  const now = new Date();
+  const selectedDate = new Date(selectedMonth.year, selectedMonth.month - 1, 1);
+  const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
+  const isCurrentOrFutureMonth = selectedDate >= currentMonthDate;
+
+  const refresh = useCallback(async () => {
+    await loadMonthData();
+    if (isSearchMode) {
+      await loadSearchResults();
+    }
+  }, [isSearchMode, loadMonthData, loadSearchResults]);
+
+  return {
+    loading,
+    searchLoading,
+    error,
+    monthLabel,
+    monthKey,
+    monthRange,
+    displayMovements,
+    filteredMovements,
+    groupedByStatus,
+    summary,
+    unregisteredRecurrents,
+    counts,
+    merchantOptions,
+    categoryOptions,
+    currencySymbol,
+    currencyCode: baseCurrency,
+    profilesById,
+    isCurrentOrFutureMonth,
+    refresh,
+    locale,
+  };
+}

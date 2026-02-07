@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon — Movimientos Redesign v2</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FAFAFA;
+    --surface: #FFFFFF;
+    --border: #F0F0F0;
+    --border-strong: #E5E5E5;
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B6B6B;
+    --text-tertiary: #9B9B9B;
+    --income-green: #22A06B;
+    --income-green-bg: #E6F9F0;
+    --expense-red: #DE350B;
+    --expense-red-bg: #FFF0E6;
+    --pending-amber: #E2850A;
+    --pending-amber-bg: #FFF8E6;
+    --pending-amber-border: #F5D990;
+    --recurrent-purple: #7C5CFC;
+    --recurrent-purple-bg: #F3F0FF;
+    --recurrent-purple-border: #D4CCFF;
+    --accent-blue: #0065FF;
+    --accent-blue-bg: #E6F0FF;
+    --chip-bg: #F5F5F5;
+    --chip-active: #1A1A1A;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-full: 999px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+    --transition: 0.2s ease;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── NAV ─── */
+  .nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .nav-logo {
+    font-weight: 700;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .nav-logo .icon {
+    width: 24px;
+    height: 24px;
+    background: var(--text-primary);
+    border-radius: 6px;
+  }
+
+  .nav-links { display: flex; gap: 4px; }
+
+  .nav-link {
+    padding: 8px 16px;
+    border-radius: var(--radius-full);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition);
+    text-decoration: none;
+  }
+  .nav-link:hover { color: var(--text-primary); background: var(--chip-bg); }
+  .nav-link.active { background: var(--text-primary); color: white; }
+
+  .nav-actions { display: flex; align-items: center; gap: 12px; }
+
+  .btn-add {
+    background: var(--text-primary);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: var(--radius-full);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: inherit;
+    transition: all var(--transition);
+  }
+  .btn-add:hover { opacity: 0.85; }
+
+  /* ─── MAIN ─── */
+  .main {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px 24px 100px;
+  }
+
+  /* ─── HEADER ─── */
+  .page-header { margin-bottom: 24px; }
+  .page-header h1 { font-size: 24px; font-weight: 700; margin-bottom: 2px; }
+  .page-header p { font-size: 14px; color: var(--text-secondary); }
+
+  /* ─── MONTH NAV ─── */
+  .month-nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    transition: opacity var(--transition);
+  }
+
+  .month-nav-label {
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .month-nav-arrow, .month-nav-calendar {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-secondary);
+    transition: all var(--transition);
+  }
+  .month-nav-arrow:hover, .month-nav-calendar:hover {
+    border-color: var(--text-primary);
+    color: var(--text-primary);
+  }
+
+  .recurrentes-link {
+    margin-left: auto;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: color var(--transition);
+  }
+  .recurrentes-link:hover { color: var(--text-primary); }
+
+  /* ─── SUMMARY CARDS ─── */
+  .summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 16px;
+  }
+
+  .summary-card-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  .summary-card-value {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .summary-card-detail {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+  }
+  .summary-card-detail span { font-weight: 500; }
+
+  .income-value { color: var(--income-green); }
+  .expense-value { color: var(--expense-red); }
+  .balance-value { color: var(--text-primary); }
+
+  .summary-card.income { border-left: 3px solid var(--income-green); }
+  .summary-card.expense { border-left: 3px solid var(--expense-red); }
+  .summary-card.balance { border-left: 3px solid var(--text-primary); }
+
+  /* ─── RECURRENTES POR REGISTRAR ─── */
+  .recurrent-section {
+    margin-bottom: 20px;
+  }
+
+  .recurrent-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .recurrent-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .recurrent-header-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    background: var(--recurrent-purple-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+
+  .recurrent-header-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--recurrent-purple);
+  }
+
+  .recurrent-header-count {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    font-weight: 400;
+  }
+
+  .recurrent-collapse-btn {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: color var(--transition);
+  }
+  .recurrent-collapse-btn:hover { color: var(--text-primary); }
+  .recurrent-collapse-btn svg {
+    width: 14px; height: 14px;
+    transition: transform var(--transition);
+  }
+  .recurrent-collapse-btn.collapsed svg { transform: rotate(-90deg); }
+
+  .recurrent-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.2s ease;
+  }
+  .recurrent-cards.collapsed {
+    max-height: 0;
+    opacity: 0;
+  }
+
+  .recurrent-card {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    background: var(--recurrent-purple-bg);
+    border: 1px solid var(--recurrent-purple-border);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .recurrent-card:hover {
+    background: #EBE5FF;
+  }
+
+  .recurrent-card .movement-icon {
+    background: white;
+  }
+
+  .recurrent-card .movement-name {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .recurrent-card .movement-meta {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .recurrent-card .movement-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .recurrent-card .movement-amount {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .btn-register {
+    padding: 6px 14px;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 600;
+    border: 1.5px solid var(--recurrent-purple);
+    background: white;
+    color: var(--recurrent-purple);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all var(--transition);
+    white-space: nowrap;
+  }
+  .btn-register:hover {
+    background: var(--recurrent-purple);
+    color: white;
+  }
+
+  .btn-register-all {
+    padding: 8px 18px;
+    border-radius: var(--radius-full);
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    background: var(--recurrent-purple);
+    color: white;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all var(--transition);
+    width: 100%;
+    margin-top: 6px;
+  }
+  .btn-register-all:hover { opacity: 0.9; }
+
+  /* ─── SEARCH & FILTERS ─── */
+  .search-filters { margin-bottom: 20px; }
+
+  .search-bar {
+    position: relative;
+    margin-bottom: 12px;
+  }
+
+  .search-bar input {
+    width: 100%;
+    padding: 12px 16px 12px 42px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-family: inherit;
+    background: var(--surface);
+    color: var(--text-primary);
+    transition: all var(--transition);
+    outline: none;
+  }
+  .search-bar input::placeholder { color: var(--text-tertiary); }
+  .search-bar input:focus { border-color: var(--accent-blue); box-shadow: 0 0 0 3px var(--accent-blue-bg); }
+
+  .search-bar .search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-tertiary);
+  }
+
+  .search-bar .search-global-badge {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: var(--text-tertiary);
+    background: var(--chip-bg);
+    padding: 3px 8px;
+    border-radius: var(--radius-full);
+    display: none;
+  }
+  .search-bar input:focus ~ .search-global-badge,
+  .search-bar input:not(:placeholder-shown) ~ .search-global-badge {
+    display: block;
+  }
+
+  .filter-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .filter-chip {
+    padding: 7px 14px;
+    border-radius: var(--radius-full);
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition);
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    user-select: none;
+  }
+  .filter-chip:hover { border-color: var(--text-primary); color: var(--text-primary); }
+  .filter-chip.active { background: var(--text-primary); color: white; border-color: var(--text-primary); }
+  .filter-chip .count { font-size: 11px; opacity: 0.7; }
+  .filter-chip.active .count { opacity: 0.6; }
+
+  .filter-separator {
+    width: 1px;
+    height: 20px;
+    background: var(--border-strong);
+  }
+
+  .filter-chip.dropdown-trigger { gap: 6px; }
+  .filter-chip.dropdown-trigger svg {
+    width: 12px; height: 12px;
+    transition: transform var(--transition);
+  }
+  .filter-chip.dropdown-trigger.open svg { transform: rotate(180deg); }
+
+  /* ─── DROPDOWN ─── */
+  .dropdown-container { position: relative; display: inline-flex; }
+
+  .dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    min-width: 200px;
+    max-height: 240px;
+    overflow-y: auto;
+    z-index: 50;
+    display: none;
+    padding: 6px;
+  }
+  .dropdown-menu.visible { display: block; animation: dropIn 0.15s ease; }
+
+  @keyframes dropIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .dropdown-item {
+    padding: 9px 12px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all var(--transition);
+  }
+  .dropdown-item:hover { background: var(--chip-bg); color: var(--text-primary); }
+  .dropdown-item.selected { color: var(--text-primary); font-weight: 600; }
+  .dropdown-item.selected::after { content: '✓'; font-size: 12px; color: var(--accent-blue); }
+
+  .dropdown-search {
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+  .dropdown-search input {
+    width: 100%;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 7px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+  }
+  .dropdown-search input:focus { border-color: var(--accent-blue); }
+
+  /* ─── ACTIVE FILTERS ─── */
+  .active-filters {
+    display: none;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .active-filters.has-filters { display: flex; }
+
+  .active-filter-tag {
+    padding: 5px 10px;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--accent-blue-bg);
+    color: var(--accent-blue);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .active-filter-tag:hover { background: #CCE0FF; }
+  .active-filter-tag .remove { font-size: 14px; line-height: 1; }
+
+  .clear-all {
+    padding: 5px 10px;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: inherit;
+    transition: color var(--transition);
+  }
+  .clear-all:hover { color: var(--expense-red); }
+
+  /* ─── SEARCH MODE ─── */
+  .search-mode-bar {
+    background: var(--accent-blue-bg);
+    border: 1px solid #B3D4FF;
+    border-radius: var(--radius-md);
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--accent-blue);
+    font-weight: 500;
+  }
+  .search-mode-bar.visible { display: flex; }
+  .search-mode-bar .close-search {
+    cursor: pointer;
+    font-size: 16px;
+    opacity: 0.6;
+    transition: opacity var(--transition);
+  }
+  .search-mode-bar .close-search:hover { opacity: 1; }
+
+  /* ─── MOVEMENT GROUPS ─── */
+  .movement-group { margin-bottom: 24px; }
+
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .group-header-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .group-header-dot.pending { background: var(--pending-amber); }
+  .group-header-dot.done { background: var(--income-green); }
+
+  .group-header-label {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .group-header-label.pending { color: var(--pending-amber); }
+  .group-header-label.done { color: var(--text-secondary); }
+
+  .group-header-count {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    font-weight: 400;
+  }
+
+  .group-header-amount {
+    margin-left: auto;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  /* ─── MOVEMENT ROWS ─── */
+  .movement-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .movement-row {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .movement-row:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .movement-row.pending-row {
+    background: var(--pending-amber-bg);
+    border-color: var(--pending-amber-border);
+  }
+  .movement-row.pending-row:hover { background: #FFF3D6; }
+
+  .movement-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    background: var(--chip-bg);
+  }
+
+  .pending-row .movement-icon { background: white; }
+
+  .movement-info { min-width: 0; }
+
+  .movement-name {
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .movement-meta {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .movement-meta .dot {
+    width: 3px; height: 3px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+  }
+
+  .movement-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+
+  .movement-amount {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .movement-amount.income { color: var(--income-green); }
+  .movement-amount.expense { color: var(--expense-red); }
+  .movement-amount.pending-income { color: var(--income-green); opacity: 0.7; }
+  .movement-amount.pending-expense { color: var(--expense-red); opacity: 0.7; }
+
+  .movement-badges {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .badge-user {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-transform: uppercase;
+  }
+  .badge-user.user-t { background: #E8E0F0; color: #6B4D8A; }
+  .badge-user.user-m { background: #D6EDFF; color: #2B6CB0; }
+
+  .badge-pending {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--pending-amber);
+    background: white;
+    padding: 2px 7px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--pending-amber-border);
+  }
+
+  .date-separator {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    font-weight: 500;
+    padding: 8px 4px 4px;
+  }
+
+  /* ─── ANNOTATIONS ─── */
+  .annotation {
+    position: relative;
+    margin: 28px 0 20px;
+    padding: 16px 20px;
+    background: #FFF9E6;
+    border: 1px dashed #E2C355;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    color: #8B7025;
+    line-height: 1.6;
+  }
+  .annotation-title {
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    color: #6B5418;
+  }
+  .annotation ul { margin: 6px 0 0 16px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    background: rgba(0,0,0,0.06);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 600px) {
+    .main { padding: 16px 16px 100px; }
+    .summary { grid-template-columns: 1fr; }
+    .nav-links { display: none; }
+    .page-header h1 { font-size: 20px; }
+    .recurrent-card { grid-template-columns: 28px 1fr auto; gap: 10px; padding: 10px 12px; }
+    .recurrent-card .movement-icon { width: 28px; height: 28px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-logo">
+    <div class="icon"></div>
+    Finnon
+  </div>
+  <div class="nav-links">
+    <a class="nav-link" href="#">Inicio</a>
+    <a class="nav-link active" href="#">Movimientos</a>
+    <a class="nav-link" href="#">Objetivo</a>
+    <a class="nav-link" href="#">Tu Cuenta</a>
+  </div>
+  <div class="nav-actions">
+    <button class="btn-add">+ Añadir</button>
+  </div>
+</nav>
+
+<main class="main">
+
+  <!-- HEADER -->
+  <div class="page-header">
+    <h1>Movimientos</h1>
+    <p>Seguimiento de ingresos y gastos</p>
+  </div>
+
+  <!-- MONTH NAVIGATION -->
+  <div class="month-nav" id="monthNav">
+    <button class="month-nav-arrow">‹</button>
+    <span class="month-nav-label">Febrero 2026</span>
+    <button class="month-nav-arrow">›</button>
+    <button class="month-nav-calendar" title="Seleccionar mes">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    </button>
+    <a class="recurrentes-link" href="#">
+      Recurrentes →
+    </a>
+  </div>
+
+  <!-- SUMMARY -->
+  <div class="summary">
+    <div class="summary-card income">
+      <div class="summary-card-label">Ingresos</div>
+      <div class="summary-card-value income-value">€6.067,61</div>
+      <div class="summary-card-detail"><span>€6.013,86</span> confirmados</div>
+    </div>
+    <div class="summary-card expense">
+      <div class="summary-card-label">Gastos</div>
+      <div class="summary-card-value expense-value">€3.145,61</div>
+      <div class="summary-card-detail"><span>€1.770,39</span> confirmados</div>
+    </div>
+    <div class="summary-card balance">
+      <div class="summary-card-label">Balance</div>
+      <div class="summary-card-value balance-value">€2.922,00</div>
+      <div class="summary-card-detail"><span>€4.243,47</span> actual</div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!-- RECURRENTES POR REGISTRAR -->
+  <!-- ════════════════════════════════════════════ -->
+  <div class="recurrent-section" id="recurrentSection">
+    <div class="recurrent-header">
+      <div class="recurrent-header-left">
+        <div class="recurrent-header-icon">🔄</div>
+        <span class="recurrent-header-label">Por registrar</span>
+        <span class="recurrent-header-count">· 3 recurrentes</span>
+      </div>
+      <button class="recurrent-collapse-btn" onclick="toggleRecurrents()">
+        <span class="collapse-text">Ocultar</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </div>
+
+    <div class="recurrent-cards" id="recurrentCards">
+      <div class="recurrent-card">
+        <div class="movement-icon">💼</div>
+        <div class="movement-info">
+          <div class="movement-name">Expedia</div>
+          <div class="movement-meta">
+            Paycheck
+            <span class="dot"></span>
+            28 feb
+          </div>
+        </div>
+        <div class="movement-right" style="flex-direction: row; align-items: center; gap: 10px;">
+          <span class="movement-amount income">+€4.200,00</span>
+          <button class="btn-register" onclick="registerRecurrent(this)">Registrar</button>
+        </div>
+      </div>
+
+      <div class="recurrent-card">
+        <div class="movement-icon">🏠</div>
+        <div class="movement-info">
+          <div class="movement-name">Trinity College</div>
+          <div class="movement-meta">
+            Paycheck
+            <span class="dot"></span>
+            Nómina Elena
+            <span class="dot"></span>
+            28 feb
+          </div>
+        </div>
+        <div class="movement-right" style="flex-direction: row; align-items: center; gap: 10px;">
+          <span class="movement-amount income">+€1.800,00</span>
+          <button class="btn-register" onclick="registerRecurrent(this)">Registrar</button>
+        </div>
+      </div>
+
+      <div class="recurrent-card">
+        <div class="movement-icon">🏠</div>
+        <div class="movement-info">
+          <div class="movement-name">Ibercaja</div>
+          <div class="movement-meta">
+            Casa
+            <span class="dot"></span>
+            Préstamo hipotecario
+            <span class="dot"></span>
+            28 feb
+          </div>
+        </div>
+        <div class="movement-right" style="flex-direction: row; align-items: center; gap: 10px;">
+          <span class="movement-amount expense">-€1.225,24</span>
+          <button class="btn-register" onclick="registerRecurrent(this)">Registrar</button>
+        </div>
+      </div>
+
+      <button class="btn-register-all" onclick="registerAll()">Registrar todos (3)</button>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <div class="annotation-title">📐 Nota de diseño — Recurrentes por registrar</div>
+    <ul>
+      <li>Sección propia con identidad visual diferenciada (púrpura) — no se mezcla con pendientes ni realizados.</li>
+      <li>Cada fila tiene <strong>botón "Registrar"</strong> individual + botón de <strong>"Registrar todos"</strong> al final.</li>
+      <li>Al registrar, el movimiento desaparece de aquí y aparece en Pendientes (si fecha futura) o Realizados (si fecha pasada/hoy).</li>
+      <li>La sección es <strong>colapsable</strong> — el usuario puede ocultarla si no quiere actuar ahora.</li>
+      <li>Cuando no quedan recurrentes por registrar, <strong>la sección desaparece</strong> completamente.</li>
+    </ul>
+  </div>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!-- SEARCH & FILTERS -->
+  <!-- ════════════════════════════════════════════ -->
+  <div class="search-filters">
+    <div class="search-bar">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" placeholder="Buscar movimiento, comercio, importe..." id="searchInput">
+      <span class="search-global-badge">Búsqueda global</span>
+    </div>
+
+    <div class="filter-row">
+      <button class="filter-chip" data-filter="income" onclick="toggleChip(this)">
+        Ingresos <span class="count">7</span>
+      </button>
+      <button class="filter-chip" data-filter="expense" onclick="toggleChip(this)">
+        Gastos <span class="count">10</span>
+      </button>
+      <button class="filter-chip" data-filter="pending" onclick="toggleChip(this)">
+        Pendientes <span class="count">2</span>
+      </button>
+
+      <div class="filter-separator"></div>
+
+      <div class="dropdown-container">
+        <button class="filter-chip dropdown-trigger" onclick="toggleDropdown('catDropdown', this)">
+          Categoría
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="dropdown-menu" id="catDropdown">
+          <div class="dropdown-search"><input type="text" placeholder="Buscar categoría..."></div>
+          <div class="dropdown-item" onclick="selectDropdownItem(this)">Casa</div>
+          <div class="dropdown-item" onclick="selectDropdownItem(this)">Restaurantes</div>
+          <div class="dropdown-item" onclick="selectDropdownItem(this)">Interests</div>
+          <div class="dropdown-item" onclick="selectDropdownItem(this)">Ocio</div>
+          <div class="dropdown-item" onclick="selectDropdownItem(this)">Desarrollo</div>
+          <div class="dropdown-item" onclick="selectDropdownItem(this)">Paycheck</div>
+        </div>
+      </div>
+
+      <div class="dropdown-container">
+        <button class="filter-chip dropdown-trigger" onclick="toggleDropdown('comDropdown', this)">
+          Comercio
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="dropdown-menu" id="comDropdown">
+          <div class="dropdown-search"><input type="text" placeholder="Buscar comercio..."></div>
+          <div class="dropdown-item" onclick="selectDropdownItem(this)">Ibercaja</div>
+          <div class="dropdown-item" onclick="selectDropdownItem(this)">Revolut</div>
+          <div class="dropdown-item" onclick="selectDropdownItem(this)">Blizzard</div>
+          <div class="dropdown-item" onclick="selectDropdownItem(this)">Anthropic</div>
+          <div class="dropdown-item" onclick="selectDropdownItem(this)">Expedia</div>
+          <div class="dropdown-item" onclick="selectDropdownItem(this)">Kia</div>
+          <div class="dropdown-item" onclick="selectDropdownItem(this)">80 Grados</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="active-filters" id="activeFilters"></div>
+  </div>
+
+  <div class="annotation">
+    <div class="annotation-title">📐 Nota de diseño — Búsqueda y filtros</div>
+    <ul>
+      <li>Búsqueda <strong>global</strong> (cross-temporal). Al escribir se oculta el selector de mes.</li>
+      <li>Chips de tipo son <strong>filtros primarios</strong> de un tap (finitos y predecibles). El count del chip "Pendientes" ahora solo cuenta los pendientes reales, no los recurrentes por registrar.</li>
+      <li>Categoría y Comercio son <strong>dropdowns dinámicos</strong> con búsqueda interna.</li>
+      <li>Filtros activos aparecen como tags removibles debajo.</li>
+    </ul>
+  </div>
+
+  <!-- SEARCH MODE BAR -->
+  <div class="search-mode-bar" id="searchModeBar">
+    <span>🔍 Mostrando resultados de todos los meses</span>
+    <span class="close-search" onclick="exitSearchMode()">✕</span>
+  </div>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!-- PENDIENTES (movimientos registrados con fecha futura) -->
+  <!-- ════════════════════════════════════════════ -->
+  <div class="movement-group" id="pendingGroup">
+    <div class="group-header">
+      <div class="group-header-dot pending"></div>
+      <span class="group-header-label pending">Pendientes</span>
+      <span class="group-header-count">— 2 movimientos</span>
+      <span class="group-header-amount">-€10,13</span>
+    </div>
+
+    <div class="movement-list">
+      <div class="date-separator">26 de febrero</div>
+
+      <div class="movement-row pending-row">
+        <div class="movement-icon">💰</div>
+        <div class="movement-info">
+          <div class="movement-name">Revolut</div>
+          <div class="movement-meta">
+            Interests
+            <span class="dot"></span>
+            Cuenta remunerada euros
+          </div>
+        </div>
+        <div class="movement-right">
+          <span class="movement-amount pending-income">+€13,86</span>
+          <div class="movement-badges">
+            <span class="badge-user user-m">M</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="date-separator">25 de febrero</div>
+
+      <div class="movement-row pending-row">
+        <div class="movement-icon">💻</div>
+        <div class="movement-info">
+          <div class="movement-name">Anthropic</div>
+          <div class="movement-meta">
+            Desarrollo
+            <span class="dot"></span>
+            Claude
+          </div>
+        </div>
+        <div class="movement-right">
+          <span class="movement-amount pending-expense">-€23,99</span>
+          <div class="movement-badges">
+            <span class="badge-user user-t">T</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <div class="annotation-title">📐 Nota de diseño — Pendientes</div>
+    <ul>
+      <li>Solo movimientos <strong>ya registrados</strong> con fecha futura. No requieren acción.</li>
+      <li>Fondo ámbar suave para distinguirlos de los realizados.</li>
+      <li>Sin botón de acción — son informativos. El usuario sabe qué viene.</li>
+      <li>En meses pasados este grupo <strong>no aparece</strong>.</li>
+    </ul>
+  </div>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!-- REALIZADOS -->
+  <!-- ════════════════════════════════════════════ -->
+  <div class="movement-group">
+    <div class="group-header">
+      <div class="group-header-dot done"></div>
+      <span class="group-header-label done">Realizados</span>
+      <span class="group-header-count">— 10 movimientos</span>
+      <span class="group-header-amount">-€1.744,53 neto</span>
+    </div>
+
+    <div class="movement-list">
+      <div class="date-separator">19 de febrero</div>
+
+      <div class="movement-row">
+        <div class="movement-icon">💰</div>
+        <div class="movement-info">
+          <div class="movement-name">Revolut</div>
+          <div class="movement-meta">Interests <span class="dot"></span> Cuenta remunerada euros</div>
+        </div>
+        <div class="movement-right">
+          <span class="movement-amount income">+€13,86</span>
+          <div class="movement-badges"><span class="badge-user user-m">M</span></div>
+        </div>
+      </div>
+
+      <div class="date-separator">12 de febrero</div>
+
+      <div class="movement-row">
+        <div class="movement-icon">💰</div>
+        <div class="movement-info">
+          <div class="movement-name">Revolut</div>
+          <div class="movement-meta">Interests <span class="dot"></span> Cuenta remunerada euros</div>
+        </div>
+        <div class="movement-right">
+          <span class="movement-amount income">+€13,86</span>
+          <div class="movement-badges"><span class="badge-user user-m">M</span></div>
+        </div>
+      </div>
+
+      <div class="movement-row">
+        <div class="movement-icon">🎮</div>
+        <div class="movement-info">
+          <div class="movement-name">Blizzard</div>
+          <div class="movement-meta">Ocio <span class="dot"></span> Wow</div>
+        </div>
+        <div class="movement-right">
+          <span class="movement-amount expense">-€12,99</span>
+          <div class="movement-badges"><span class="badge-user user-t">T</span></div>
+        </div>
+      </div>
+
+      <div class="date-separator">6 de febrero</div>
+
+      <div class="movement-row">
+        <div class="movement-icon">🏠</div>
+        <div class="movement-info">
+          <div class="movement-name">Comunidad de vecinos</div>
+          <div class="movement-meta">Casa <span class="dot"></span> Derrama</div>
+        </div>
+        <div class="movement-right">
+          <span class="movement-amount expense">-€299,00</span>
+          <div class="movement-badges"><span class="badge-user user-t">T</span></div>
+        </div>
+      </div>
+
+      <div class="date-separator">5 de febrero</div>
+
+      <div class="movement-row">
+        <div class="movement-icon">🍽️</div>
+        <div class="movement-info">
+          <div class="movement-name">80 Grados</div>
+          <div class="movement-meta">Restaurantes</div>
+        </div>
+        <div class="movement-right">
+          <span class="movement-amount expense">-€16,25</span>
+          <div class="movement-badges"><span class="badge-user user-t">T</span></div>
+        </div>
+      </div>
+
+      <div class="movement-row">
+        <div class="movement-icon">🚗</div>
+        <div class="movement-info">
+          <div class="movement-name">Kia</div>
+          <div class="movement-meta">Casa <span class="dot"></span> Leasing Niro</div>
+        </div>
+        <div class="movement-right">
+          <span class="movement-amount expense">-€200,00</span>
+          <div class="movement-badges"><span class="badge-user user-t">T</span></div>
+        </div>
+      </div>
+
+      <div class="movement-row">
+        <div class="movement-icon">💰</div>
+        <div class="movement-info">
+          <div class="movement-name">Revolut</div>
+          <div class="movement-meta">Interests <span class="dot"></span> Cuenta remunerada euros</div>
+        </div>
+        <div class="movement-right">
+          <span class="movement-amount income">+€13,86</span>
+          <div class="movement-badges"><span class="badge-user user-t">T</span></div>
+        </div>
+      </div>
+
+      <div class="date-separator">3 de febrero</div>
+
+      <div class="movement-row">
+        <div class="movement-icon">🏠</div>
+        <div class="movement-info">
+          <div class="movement-name">Ibercaja</div>
+          <div class="movement-meta">Casa <span class="dot"></span> Hipoteca — Amortización extra</div>
+        </div>
+        <div class="movement-right">
+          <span class="movement-amount expense">-€1.225,24</span>
+          <div class="movement-badges"><span class="badge-user user-t">T</span></div>
+        </div>
+      </div>
+
+      <div class="movement-row">
+        <div class="movement-icon">🍽️</div>
+        <div class="movement-info">
+          <div class="movement-name">Honest Greens</div>
+          <div class="movement-meta">Restaurantes <span class="dot"></span> Sodexo</div>
+        </div>
+        <div class="movement-right">
+          <span class="movement-amount expense">-€8,95</span>
+          <div class="movement-badges"><span class="badge-user user-t">T</span></div>
+        </div>
+      </div>
+
+      <div class="date-separator">2 de febrero</div>
+
+      <div class="movement-row">
+        <div class="movement-icon">🍽️</div>
+        <div class="movement-info">
+          <div class="movement-name">Lassal</div>
+          <div class="movement-meta">Restaurantes <span class="dot"></span> Comida trabajo</div>
+        </div>
+        <div class="movement-right">
+          <span class="movement-amount expense">-€8,95</span>
+          <div class="movement-badges"><span class="badge-user user-t">T</span></div>
+        </div>
+      </div>
+
+      <div class="date-separator">1 de febrero</div>
+
+      <div class="movement-row">
+        <div class="movement-icon">💰</div>
+        <div class="movement-info">
+          <div class="movement-name">Trade Republic</div>
+          <div class="movement-meta">Interests</div>
+        </div>
+        <div class="movement-right">
+          <span class="movement-amount income">+€13,86</span>
+          <div class="movement-badges"><span class="badge-user user-t">T</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  function toggleChip(el) {
+    el.classList.toggle('active');
+    updateActiveFilters();
+  }
+
+  function toggleDropdown(id, btn) {
+    const menu = document.getElementById(id);
+    const isVisible = menu.classList.contains('visible');
+    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('visible'));
+    document.querySelectorAll('.dropdown-trigger').forEach(b => b.classList.remove('open'));
+    if (!isVisible) {
+      menu.classList.add('visible');
+      btn.classList.add('open');
+    }
+  }
+
+  function selectDropdownItem(item) {
+    item.classList.toggle('selected');
+    updateActiveFilters();
+  }
+
+  function updateActiveFilters() {
+    const container = document.getElementById('activeFilters');
+    container.innerHTML = '';
+    let hasFilters = false;
+
+    document.querySelectorAll('.filter-chip.active:not(.dropdown-trigger)').forEach(chip => {
+      hasFilters = true;
+      container.appendChild(createFilterTag(chip.dataset.filter, chip.textContent.trim().split(' ')[0]));
+    });
+
+    document.querySelectorAll('.dropdown-item.selected').forEach(item => {
+      hasFilters = true;
+      container.appendChild(createFilterTag(item.textContent, item.textContent));
+    });
+
+    if (hasFilters) {
+      container.classList.add('has-filters');
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'clear-all';
+      clearBtn.textContent = 'Limpiar todo';
+      clearBtn.onclick = clearAllFilters;
+      container.appendChild(clearBtn);
+    } else {
+      container.classList.remove('has-filters');
+    }
+  }
+
+  function createFilterTag(id, label) {
+    const tag = document.createElement('span');
+    tag.className = 'active-filter-tag';
+    tag.innerHTML = `${label} <span class="remove">×</span>`;
+    tag.onclick = () => {
+      const chip = document.querySelector(`.filter-chip[data-filter="${id}"]`);
+      if (chip) chip.classList.remove('active');
+      const item = [...document.querySelectorAll('.dropdown-item')].find(i => i.textContent === id);
+      if (item) item.classList.remove('selected');
+      updateActiveFilters();
+    };
+    return tag;
+  }
+
+  function clearAllFilters() {
+    document.querySelectorAll('.filter-chip.active').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.dropdown-item.selected').forEach(i => i.classList.remove('selected'));
+    updateActiveFilters();
+  }
+
+  // Search mode
+  const searchInput = document.getElementById('searchInput');
+  const searchModeBar = document.getElementById('searchModeBar');
+  const monthNav = document.getElementById('monthNav');
+
+  searchInput.addEventListener('input', (e) => {
+    if (e.target.value.length > 0) {
+      searchModeBar.classList.add('visible');
+      monthNav.style.opacity = '0';
+      monthNav.style.maxHeight = '0';
+      monthNav.style.marginBottom = '0';
+      monthNav.style.overflow = 'hidden';
+    } else {
+      exitSearchMode();
+    }
+  });
+
+  function exitSearchMode() {
+    searchInput.value = '';
+    searchModeBar.classList.remove('visible');
+    monthNav.style.opacity = '1';
+    monthNav.style.maxHeight = '50px';
+    monthNav.style.marginBottom = '20px';
+    monthNav.style.overflow = 'visible';
+  }
+
+  // Collapse recurrents
+  function toggleRecurrents() {
+    const cards = document.getElementById('recurrentCards');
+    const btn = document.querySelector('.recurrent-collapse-btn');
+    const text = btn.querySelector('.collapse-text');
+    cards.classList.toggle('collapsed');
+    btn.classList.toggle('collapsed');
+    text.textContent = cards.classList.contains('collapsed') ? 'Mostrar' : 'Ocultar';
+  }
+
+  // Register recurrent (demo)
+  function registerRecurrent(btn) {
+    const card = btn.closest('.recurrent-card');
+    card.style.transition = 'all 0.3s ease';
+    card.style.opacity = '0';
+    card.style.transform = 'translateX(20px)';
+    setTimeout(() => {
+      card.remove();
+      updateRecurrentCount();
+    }, 300);
+  }
+
+  function registerAll() {
+    const cards = document.querySelectorAll('.recurrent-card');
+    cards.forEach((card, i) => {
+      setTimeout(() => {
+        card.style.transition = 'all 0.3s ease';
+        card.style.opacity = '0';
+        card.style.transform = 'translateX(20px)';
+      }, i * 100);
+    });
+    setTimeout(() => {
+      document.getElementById('recurrentSection').style.display = 'none';
+    }, cards.length * 100 + 300);
+  }
+
+  function updateRecurrentCount() {
+    const remaining = document.querySelectorAll('.recurrent-card').length;
+    const countEl = document.querySelector('.recurrent-header-count');
+    const allBtn = document.querySelector('.btn-register-all');
+    if (remaining === 0) {
+      document.getElementById('recurrentSection').style.transition = 'all 0.3s ease';
+      document.getElementById('recurrentSection').style.opacity = '0';
+      setTimeout(() => {
+        document.getElementById('recurrentSection').style.display = 'none';
+      }, 300);
+    } else {
+      countEl.textContent = `· ${remaining} recurrente${remaining > 1 ? 's' : ''}`;
+      allBtn.textContent = `Registrar todos (${remaining})`;
+    }
+  }
+
+  // Close dropdowns on outside click
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.dropdown-container')) {
+      document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('visible'));
+      document.querySelectorAll('.dropdown-trigger').forEach(b => b.classList.remove('open'));
+    }
+  });
+
+  // Transition setup for month nav
+  monthNav.style.transition = 'all 0.25s ease';
+</script>
+
+</body>
+</html>

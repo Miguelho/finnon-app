@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { TransactionsClient } from "./transactions-client";
+import { MovementsClient } from "./movements-client";
 import { cookies } from "next/headers";
 import { TopNav } from "@/components/navigation/top-nav";
 import { BottomNavWrapper } from "@/components/navigation/bottom-nav-wrapper";
@@ -124,18 +124,20 @@ export default async function TransactionsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#FAFAFA]">
       <TopNav />
-      <AddAction
-        canEdit={canEdit}
-        accountId={activeAccount.id}
-        currency={activeAccount.base_currency}
-        locale={locale}
-        categories={categories || []}
-        topCategories={initialTopCategories}
-        merchantSuggestions={initialMerchantSuggestions}
-      />
-      <TransactionsClient
+      <div className="hidden sm:block">
+        <AddAction
+          canEdit={canEdit}
+          accountId={activeAccount.id}
+          currency={activeAccount.base_currency}
+          locale={locale}
+          categories={categories || []}
+          topCategories={initialTopCategories}
+          merchantSuggestions={initialMerchantSuggestions}
+        />
+      </div>
+      <MovementsClient
         accountId={activeAccount.id}
         baseCurrency={activeAccount.base_currency}
         initialTransactions={transactions || []}
@@ -143,8 +145,6 @@ export default async function TransactionsPage() {
         categories={categories || []}
         profiles={profiles || []}
         role={activeRole}
-        initialTopCategories={initialTopCategories}
-        initialMerchantSuggestions={initialMerchantSuggestions}
       />
       {/* Bottom padding for mobile nav */}
       <div className="h-16 sm:hidden" />
