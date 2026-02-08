@@ -18,7 +18,7 @@ import {
   type TransactionDraft,
   type AvatarColorToken,
 } from "@poleursus/shared";
-import { ChevronDown, Check, X } from "lucide-react";
+import { ChevronDown, Check, X, Search, Repeat } from "lucide-react";
 import { AddTransactionForm } from "@/components/add-transaction";
 import { PageContainer } from "@/components/layout/page-container";
 import { CategoryIcon } from "@/components/category-icon";
@@ -541,8 +541,9 @@ function RecurrentSection({
     >
       <div className="flex w-full items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold" style={{ color: design.colors.recurrentPurple }}>
-            🔄 Por registrar
+          <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: design.colors.recurrentPurple }}>
+            <Repeat size={16} />
+            Por registrar
           </span>
           <span className="text-xs" style={{ color: design.colors.recurrentPurple }}>
             {recurrents.length}
@@ -1151,7 +1152,7 @@ export function MovementsClient({
 
       <div className="space-y-3">
         <div className="relative flex items-center gap-2 rounded-xl border bg-white px-3 py-2">
-          <span className="text-sm text-[#9B9B9B]">🔍</span>
+          <Search size={16} className="text-[#9B9B9B]" />
           <input
             className="flex-1 text-sm outline-none placeholder:text-[#9B9B9B]"
             placeholder="Buscar movimiento, comercio, importe..."

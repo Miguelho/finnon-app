@@ -4,7 +4,6 @@ import { MovementsClient } from "./movements-client";
 import { cookies } from "next/headers";
 import { TopNav } from "@/components/navigation/top-nav";
 import { BottomNavWrapper } from "@/components/navigation/bottom-nav-wrapper";
-import { AddAction } from "@/components/home/add-action";
 import {
   formatDateISO,
   getPeriodEnd,
@@ -159,17 +158,6 @@ export default async function TransactionsPage({
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
       <TopNav />
-      <div className="hidden sm:block">
-        <AddAction
-          canEdit={canEdit}
-          accountId={activeAccount.id}
-          currency={activeAccount.base_currency}
-          locale={locale}
-          categories={categories || []}
-          topCategories={initialTopCategories}
-          merchantSuggestions={initialMerchantSuggestions}
-        />
-      </div>
       <MovementsClient
         accountId={activeAccount.id}
         baseCurrency={activeAccount.base_currency}
