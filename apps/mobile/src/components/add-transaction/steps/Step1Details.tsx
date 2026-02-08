@@ -52,9 +52,15 @@ interface Step1DetailsProps {
     field: K,
     value: TransactionDraft[K]
   ) => void;
+  allowObligation?: boolean;
 }
 
-export function Step1Details({ draft, errors, onFieldChange }: Step1DetailsProps) {
+export function Step1Details({
+  draft,
+  errors,
+  onFieldChange,
+  allowObligation = true,
+}: Step1DetailsProps) {
   const { dictionary, locale } = useCopy();
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isObligationSheetOpen, setIsObligationSheetOpen] = useState(false);
@@ -257,7 +263,7 @@ export function Step1Details({ draft, errors, onFieldChange }: Step1DetailsProps
         </View>
       </View>
 
-      {draft.type === "expense" && draft.isObligation && (
+      {allowObligation && draft.type === "expense" && draft.isObligation && (
         <View style={styles.obligationSection}>
           <View style={styles.obligationRow}>
             <View style={styles.obligationLabelRow}>
@@ -337,129 +343,133 @@ export function Step1Details({ draft, errors, onFieldChange }: Step1DetailsProps
         />
       </View>
 
-      <FutureObligationSuggestion
-        visible={shouldShowFutureSuggestion}
-        onAccept={handleSuggestionAccept}
-        onDismiss={handleSuggestionDismiss}
-      />
+      {allowObligation && (
+        <>
+          <FutureObligationSuggestion
+            visible={shouldShowFutureSuggestion}
+            onAccept={handleSuggestionAccept}
+            onDismiss={handleSuggestionDismiss}
+          />
 
-      {/* Obligation info sheet */}
-      <Modal
-        transparent
-        visible={isInfoOpen}
-        animationType="slide"
-        onRequestClose={() => setIsInfoOpen(false)}
-      >
-        <View style={styles.sheetOverlay}>
-          <Pressable style={styles.sheetBackdrop} onPress={() => setIsInfoOpen(false)} />
-          <View style={styles.sheetContainer}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>
-                {t(dictionary, "addTransaction.obligationInfoTitle")}
-              </Text>
-              <TouchableOpacity onPress={() => setIsInfoOpen(false)}>
-                <Text style={styles.sheetAction}>{t(dictionary, "common.close")}</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.sheetDescription}>
-              {t(dictionary, "addTransaction.obligationInfoText")}
-            </Text>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Obligation configuration sheet */}
-      <Modal
-        transparent
-        visible={isObligationSheetOpen}
-        animationType="slide"
-        onRequestClose={handleCancelObligationConfig}
-      >
-        <View style={styles.sheetOverlay}>
-          <Pressable style={styles.sheetBackdrop} onPress={handleCancelObligationConfig} />
-          <View style={styles.sheetContainer}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>
-                {t(dictionary, "addTransaction.obligationSheetTitle")}
-              </Text>
-              <TouchableOpacity onPress={handleCancelObligationConfig}>
-                <Text style={styles.sheetAction}>{t(dictionary, "common.close")}</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.sheetContent}>
-              <Text style={styles.sheetSectionLabel}>
-                {t(dictionary, "addTransaction.obligationTypeLabel")}
-              </Text>
-              <View style={styles.segmentedControl}>
-                <Pressable
-                  onPress={() => handleSheetTypeChange("pending")}
-                  style={[
-                    styles.segmentOption,
-                    sheetType === "pending" && styles.segmentOptionActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.segmentOptionText,
-                      sheetType === "pending" && styles.segmentOptionTextActive,
-                    ]}
-                  >
-                    {t(dictionary, "addTransaction.obligationTypePending")}
+          {/* Obligation info sheet */}
+          <Modal
+            transparent
+            visible={isInfoOpen}
+            animationType="slide"
+            onRequestClose={() => setIsInfoOpen(false)}
+          >
+            <View style={styles.sheetOverlay}>
+              <Pressable style={styles.sheetBackdrop} onPress={() => setIsInfoOpen(false)} />
+              <View style={styles.sheetContainer}>
+                <View style={styles.sheetHandle} />
+                <View style={styles.sheetHeader}>
+                  <Text style={styles.sheetTitle}>
+                    {t(dictionary, "addTransaction.obligationInfoTitle")}
                   </Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => handleSheetTypeChange("scheduled")}
-                  style={[
-                    styles.segmentOption,
-                    sheetType === "scheduled" && styles.segmentOptionActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.segmentOptionText,
-                      sheetType === "scheduled" && styles.segmentOptionTextActive,
-                    ]}
-                  >
-                    {t(dictionary, "addTransaction.obligationTypeScheduled")}
+                  <TouchableOpacity onPress={() => setIsInfoOpen(false)}>
+                    <Text style={styles.sheetAction}>{t(dictionary, "common.close")}</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.sheetDescription}>
+                  {t(dictionary, "addTransaction.obligationInfoText")}
+                </Text>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Obligation configuration sheet */}
+          <Modal
+            transparent
+            visible={isObligationSheetOpen}
+            animationType="slide"
+            onRequestClose={handleCancelObligationConfig}
+          >
+            <View style={styles.sheetOverlay}>
+              <Pressable style={styles.sheetBackdrop} onPress={handleCancelObligationConfig} />
+              <View style={styles.sheetContainer}>
+                <View style={styles.sheetHandle} />
+                <View style={styles.sheetHeader}>
+                  <Text style={styles.sheetTitle}>
+                    {t(dictionary, "addTransaction.obligationSheetTitle")}
                   </Text>
-                </Pressable>
-              </View>
+                  <TouchableOpacity onPress={handleCancelObligationConfig}>
+                    <Text style={styles.sheetAction}>{t(dictionary, "common.close")}</Text>
+                  </TouchableOpacity>
+                </View>
 
-              {sheetType === "scheduled" && (
-                <DatePickerField
-                  label={t(dictionary, "addTransaction.obligationScheduledDate")}
-                  value={sheetScheduledDate}
-                  onChangeText={(value) => {
-                    setSheetScheduledDate(value);
-                    setSheetScheduledOverride(value !== draft.date);
-                  }}
-                  placeholder={t(dictionary, "addTransaction.obligationPickDate")}
-                  formatValue={(value) => formatDateForDisplay(value, locale)}
-                />
-              )}
-            </View>
+                <View style={styles.sheetContent}>
+                  <Text style={styles.sheetSectionLabel}>
+                    {t(dictionary, "addTransaction.obligationTypeLabel")}
+                  </Text>
+                  <View style={styles.segmentedControl}>
+                    <Pressable
+                      onPress={() => handleSheetTypeChange("pending")}
+                      style={[
+                        styles.segmentOption,
+                        sheetType === "pending" && styles.segmentOptionActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.segmentOptionText,
+                          sheetType === "pending" && styles.segmentOptionTextActive,
+                        ]}
+                      >
+                        {t(dictionary, "addTransaction.obligationTypePending")}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleSheetTypeChange("scheduled")}
+                      style={[
+                        styles.segmentOption,
+                        sheetType === "scheduled" && styles.segmentOptionActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.segmentOptionText,
+                          sheetType === "scheduled" && styles.segmentOptionTextActive,
+                        ]}
+                      >
+                        {t(dictionary, "addTransaction.obligationTypeScheduled")}
+                      </Text>
+                    </Pressable>
+                  </View>
 
-            <View style={styles.sheetActions}>
-              <View style={styles.sheetActionButton}>
-                <Button
-                  title={t(dictionary, "common.cancel")}
-                  onPress={handleCancelObligationConfig}
-                  variant="secondary"
-                />
-              </View>
-              <View style={styles.sheetActionButton}>
-                <Button
-                  title={t(dictionary, "common.save")}
-                  onPress={handleSaveObligationConfig}
-                />
+                  {sheetType === "scheduled" && (
+                    <DatePickerField
+                      label={t(dictionary, "addTransaction.obligationScheduledDate")}
+                      value={sheetScheduledDate}
+                      onChangeText={(value) => {
+                        setSheetScheduledDate(value);
+                        setSheetScheduledOverride(value !== draft.date);
+                      }}
+                      placeholder={t(dictionary, "addTransaction.obligationPickDate")}
+                      formatValue={(value) => formatDateForDisplay(value, locale)}
+                    />
+                  )}
+                </View>
+
+                <View style={styles.sheetActions}>
+                  <View style={styles.sheetActionButton}>
+                    <Button
+                      title={t(dictionary, "common.cancel")}
+                      onPress={handleCancelObligationConfig}
+                      variant="secondary"
+                    />
+                  </View>
+                  <View style={styles.sheetActionButton}>
+                    <Button
+                      title={t(dictionary, "common.save")}
+                      onPress={handleSaveObligationConfig}
+                    />
+                  </View>
+                </View>
               </View>
             </View>
-          </View>
-        </View>
-      </Modal>
+          </Modal>
+        </>
+      )}
     </View>
   );
 }

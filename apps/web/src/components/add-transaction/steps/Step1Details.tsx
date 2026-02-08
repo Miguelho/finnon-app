@@ -32,6 +32,7 @@ interface Step1DetailsProps {
     field: K,
     value: TransactionDraft[K]
   ) => void;
+  allowObligation?: boolean;
 }
 
 const parseIsoDate = (value: string) => {
@@ -58,6 +59,7 @@ export function Step1Details({
   errors,
   locale,
   onFieldChange,
+  allowObligation = true,
 }: Step1DetailsProps) {
   const t = useTranslations("addTransaction");
   const tCommon = useTranslations("common");
@@ -265,7 +267,7 @@ export function Step1Details({
         </div>
       </div>
 
-      {draft.type === "expense" && draft.isObligation && (
+      {allowObligation && draft.type === "expense" && draft.isObligation && (
         <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
           {/* Obligation toggle */}
           <div className="flex items-center justify-between gap-4">
@@ -357,80 +359,84 @@ export function Step1Details({
         />
       </div>
 
-      <FutureObligationSuggestion
-        visible={shouldShowFutureSuggestion}
-        onAccept={handleSuggestionAccept}
-        onDismiss={handleSuggestionDismiss}
-      />
+      {allowObligation && (
+        <>
+          <FutureObligationSuggestion
+            visible={shouldShowFutureSuggestion}
+            onAccept={handleSuggestionAccept}
+            onDismiss={handleSuggestionDismiss}
+          />
 
-      <Dialog open={isObligationDialogOpen} onOpenChange={handleDialogOpenChange}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("obligationSheetTitle")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">
-                {t("obligationTypeLabel")}
-              </Label>
-              <div className="flex rounded-full border border-border bg-muted/40 p-1">
-                <button
-                  type="button"
-                  onClick={() => handleSheetTypeChange("pending")}
-                  className={cn(
-                    "flex-1 rounded-full py-2 text-sm font-semibold transition",
-                    sheetType === "pending"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground"
-                  )}
-                >
-                  {t("obligationTypePending")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSheetTypeChange("scheduled")}
-                  className={cn(
-                    "flex-1 rounded-full py-2 text-sm font-semibold transition",
-                    sheetType === "scheduled"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground"
-                  )}
-                >
-                  {t("obligationTypeScheduled")}
-                </button>
-              </div>
-            </div>
+          <Dialog open={isObligationDialogOpen} onOpenChange={handleDialogOpenChange}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t("obligationSheetTitle")}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">
+                    {t("obligationTypeLabel")}
+                  </Label>
+                  <div className="flex rounded-full border border-border bg-muted/40 p-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSheetTypeChange("pending")}
+                      className={cn(
+                        "flex-1 rounded-full py-2 text-sm font-semibold transition",
+                        sheetType === "pending"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      {t("obligationTypePending")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSheetTypeChange("scheduled")}
+                      className={cn(
+                        "flex-1 rounded-full py-2 text-sm font-semibold transition",
+                        sheetType === "scheduled"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      {t("obligationTypeScheduled")}
+                    </button>
+                  </div>
+                </div>
 
-            {sheetType === "scheduled" && (
-              <div className="space-y-2">
-                <Label htmlFor="scheduled-date">
-                  {t("obligationScheduledDate")}
-                </Label>
-                <Input
-                  id="scheduled-date"
-                  type="date"
-                  value={sheetScheduledDate}
-                  onChange={(e) => {
-                    setSheetScheduledDate(e.target.value);
-                    setSheetScheduledOverride(e.target.value !== draft.date);
-                  }}
-                />
-                <p className="text-sm text-muted-foreground">
-                  {formatDateForDisplay(sheetScheduledDate || draft.date, locale)}
-                </p>
+                {sheetType === "scheduled" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="scheduled-date">
+                      {t("obligationScheduledDate")}
+                    </Label>
+                    <Input
+                      id="scheduled-date"
+                      type="date"
+                      value={sheetScheduledDate}
+                      onChange={(e) => {
+                        setSheetScheduledDate(e.target.value);
+                        setSheetScheduledOverride(e.target.value !== draft.date);
+                      }}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      {formatDateForDisplay(sheetScheduledDate || draft.date, locale)}
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="secondary" onClick={handleCancelObligationConfig}>
-              {tCommon("cancel")}
-            </Button>
-            <Button type="button" onClick={handleSaveObligationConfig}>
-              {tCommon("save")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <DialogFooter className="gap-2">
+                <Button type="button" variant="secondary" onClick={handleCancelObligationConfig}>
+                  {tCommon("cancel")}
+                </Button>
+                <Button type="button" onClick={handleSaveObligationConfig}>
+                  {tCommon("save")}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </div>
   );
 }

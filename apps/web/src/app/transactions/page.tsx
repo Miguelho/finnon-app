@@ -16,9 +16,10 @@ import {
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const supabase = await createClient();
+  const resolvedSearchParams = await searchParams;
 
   const {
     data: { user },
@@ -55,13 +56,13 @@ export default async function TransactionsPage({
     redirect("/select-account");
   }
 
-  const periodParamRaw = searchParams.period;
+  const periodParamRaw = resolvedSearchParams.period;
   const periodParam =
     typeof periodParamRaw === "string" &&
     PERIODS.some((period) => period.key === periodParamRaw)
       ? (periodParamRaw as Period)
       : "month";
-  const categoryParamRaw = searchParams.category;
+  const categoryParamRaw = resolvedSearchParams.category;
   const categoryParam =
     typeof categoryParamRaw === "string"
       ? categoryParamRaw
@@ -177,6 +178,8 @@ export default async function TransactionsPage({
         initialPeriod={periodParam}
         initialCategoryFilter={categoryParam ?? null}
         categories={categories || []}
+        initialTopCategories={initialTopCategories}
+        initialMerchantSuggestions={initialMerchantSuggestions}
         profiles={profiles || []}
         role={activeRole}
       />

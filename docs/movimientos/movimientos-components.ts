@@ -51,7 +51,7 @@ export interface RecurringTemplate {
 }
 
 export type MovementFilter = {
-  type?: 'income' | 'expense' | 'pending';
+  type?: 'income' | 'expense';
   categoryId?: string;
   merchantName?: string;
   searchQuery?: string; // Global search across all months
@@ -99,7 +99,6 @@ export interface MovementsScreenState {
  * ├── FilterRow
  * │   ├── FilterChip (Ingresos)
  * │   ├── FilterChip (Gastos)
- * │   ├── FilterChip (Pendientes)
  * │   ├── FilterSeparator
  * │   ├── DropdownFilter (Categoría)
  * │   └── DropdownFilter (Comercio)

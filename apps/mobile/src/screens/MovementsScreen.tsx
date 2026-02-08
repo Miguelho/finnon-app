@@ -348,6 +348,7 @@ export default function MovementsScreen() {
             locale={locale}
             isCollapsed={isPendingCollapsed}
             onToggleCollapse={() => setIsPendingCollapsed((prev) => !prev)}
+            onPressMovement={(id) => router.push(`/(auth)/transactions/${id}`)}
           />
         )}
 

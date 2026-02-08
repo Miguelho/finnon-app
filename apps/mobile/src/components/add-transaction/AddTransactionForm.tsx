@@ -83,6 +83,10 @@ interface AddTransactionFormProps {
     income: MerchantSuggestion[];
   };
   defaultDate?: string;
+  mode?: "create" | "edit";
+  initialDraft?: TransactionDraft;
+  allowObligation?: boolean;
+  onSubmitDraft?: (draft: TransactionDraft) => Promise<void>;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
@@ -95,6 +99,10 @@ export function AddTransactionForm({
   topCategories,
   merchantSuggestions,
   defaultDate,
+  mode = "create",
+  initialDraft,
+  allowObligation = true,
+  onSubmitDraft,
   onSuccess,
   onCancel,
 }: AddTransactionFormProps) {
@@ -103,7 +111,7 @@ export function AddTransactionForm({
 
   // Form state
   const [draft, setDraft] = useState<TransactionDraft>(() =>
-    createInitialDraft(type, currency, defaultDate)
+    initialDraft ?? createInitialDraft(type, currency, defaultDate)
   );
 
   // Get current top categories and merchant suggestions based on draft type
@@ -113,6 +121,28 @@ export function AddTransactionForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+
+  useEffect(() => {
+    if (initialDraft) {
+      setDraft(initialDraft);
+    } else {
+      setDraft(createInitialDraft(type, currency, defaultDate));
+    }
+    setCurrentStep(1);
+    setErrors({});
+  }, [currency, defaultDate, initialDraft, type]);
+
+  useEffect(() => {
+    if (allowObligation) return;
+    if (!draft.isObligation) return;
+    setDraft((prev) => ({
+      ...prev,
+      isObligation: false,
+      obligationType: null,
+      scheduledDate: null,
+      scheduledDateOverridden: false,
+    }));
+  }, [allowObligation, draft.isObligation]);
 
   // Form mode (panels vs list)
   const [formMode, setFormModeState] = useState<FormMode>("panels");
@@ -213,13 +243,24 @@ export function AddTransactionForm({
     }
 
     if (!user) {
-      Alert.alert(t(dictionary, "common.error"), t(dictionary, "common.notAuthenticated"));
+      Alert.alert(
+        t(dictionary, "common.error"),
+        t(dictionary, "common.notAuthenticated")
+      );
       return;
     }
 
     setIsSubmitting(true);
 
     try {
+      if (mode === "edit") {
+        if (!onSubmitDraft) {
+          throw new Error("Missing edit submit handler");
+        }
+        await onSubmitDraft(draft);
+        setIsSuccessOpen(true);
+        return;
+      }
       // Parse amount to minor units
       const amountMinorResult = parseMoneyToMinor(
         draft.amount,
@@ -289,7 +330,10 @@ export function AddTransactionForm({
       console.error("Failed to create transaction:", error);
       Alert.alert(
         t(dictionary, "common.error"),
-        error?.message || t(dictionary, "addTransaction.errorToast")
+        error?.message ||
+          (mode === "edit"
+            ? t(dictionary, "transactions.updateError")
+            : t(dictionary, "addTransaction.errorToast"))
       );
     } finally {
       setIsSubmitting(false);
@@ -342,6 +386,7 @@ export function AddTransactionForm({
                   draft={draft}
                   errors={errors}
                   onFieldChange={handleFieldChange}
+                  allowObligation={allowObligation}
                 />
               </KeyboardAwareScrollView>
             </View>
@@ -413,7 +458,11 @@ export function AddTransactionForm({
         <ConfirmationModal
           open={isSuccessOpen}
           title={t(dictionary, "common.successTitle")}
-          description={t(dictionary, "addTransaction.successToast")}
+          description={
+            mode === "edit"
+              ? t(dictionary, "transactions.updateSuccess")
+              : t(dictionary, "addTransaction.successToast")
+          }
           confirmLabel={t(dictionary, "common.ok")}
           onConfirm={handleSuccessAcknowledge}
           onCancel={handleSuccessAcknowledge}
@@ -442,6 +491,7 @@ export function AddTransactionForm({
             draft={draft}
             errors={errors}
             onFieldChange={handleFieldChange}
+            allowObligation={allowObligation}
           />
         </View>
 
@@ -482,7 +532,11 @@ export function AddTransactionForm({
       <ConfirmationModal
         open={isSuccessOpen}
         title={t(dictionary, "common.successTitle")}
-        description={t(dictionary, "addTransaction.successToast")}
+        description={
+          mode === "edit"
+            ? t(dictionary, "transactions.updateSuccess")
+            : t(dictionary, "addTransaction.successToast")
+        }
         confirmLabel={t(dictionary, "common.ok")}
         onConfirm={handleSuccessAcknowledge}
         onCancel={handleSuccessAcknowledge}

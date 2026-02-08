@@ -21,10 +21,6 @@ export default function AccountStackLayout() {
         options={{ title: t(dictionary, "categories.create.title") }}
       />
       <Stack.Screen
-        name="categories/[id]/index"
-        options={{ title: t(dictionary, "categories.detail.title") }}
-      />
-      <Stack.Screen
         name="categories/[id]/edit"
         options={{ title: t(dictionary, "categories.edit.title") }}
       />

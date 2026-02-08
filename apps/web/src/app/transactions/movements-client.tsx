@@ -11,11 +11,15 @@ import {
   getOccurrencesBetween,
   getOccurrenceKey,
   isFutureDay,
+  type MerchantSuggestion,
   type Period,
   type RecurringItem,
+  type TopCategory,
+  type TransactionDraft,
   type AvatarColorToken,
 } from "@poleursus/shared";
 import { ChevronDown, Check, X } from "lucide-react";
+import { AddTransactionForm } from "@/components/add-transaction";
 import { PageContainer } from "@/components/layout/page-container";
 import { CategoryIcon } from "@/components/category-icon";
 import { UserAvatar } from "@/components/user-avatar";
@@ -26,8 +30,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+  SlidePanel,
+  SlidePanelBody,
+  SlidePanelContent,
+  SlidePanelDescription,
+  SlidePanelHeader,
+  SlidePanelTitle,
+} from "@/components/ui/slide-panel";
 import { cn } from "@/lib/utils";
-import { confirmRecurringTransaction } from "./actions";
+import { confirmRecurringTransaction, updateTransaction } from "./actions";
 
 type Category = {
   id: string;
@@ -44,6 +56,8 @@ type Transaction = {
   amount_minor: string;
   currency: string;
   amount_base_minor: string;
+  fx_rate?: string | null;
+  fx_date?: string | null;
   category_id: string | null;
   date: string;
   merchant: string | null;
@@ -72,6 +86,14 @@ type MovementsClientProps = {
   initialPeriod: Period;
   initialCategoryFilter: string | null;
   categories: Category[];
+  initialTopCategories: {
+    expense: TopCategory[];
+    income: TopCategory[];
+  };
+  initialMerchantSuggestions: {
+    expense: MerchantSuggestion[];
+    income: MerchantSuggestion[];
+  };
   profiles: Profile[];
   role: "viewer" | "contributor" | "admin";
 };
@@ -402,6 +424,7 @@ function MovementGroup({
   locale,
   isCollapsed = false,
   onToggleCollapse,
+  onPressMovement,
 }: {
   label: string;
   variant: "pending" | "done";
@@ -414,6 +437,7 @@ function MovementGroup({
   locale: string;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  onPressMovement?: (id: string) => void;
 }) {
   const grouped = useMemo(() => groupByDate(movements), [movements]);
   const absoluteValue = totalAmount < 0n ? -totalAmount : totalAmount;
@@ -467,6 +491,7 @@ function MovementGroup({
                   currencySymbol={currencySymbol}
                   currencyCode={currencyCode}
                   variant={variant === "pending" ? "pending" : "default"}
+                  onClick={onPressMovement}
                 />
               ))}
             </div>
@@ -650,13 +675,15 @@ function RecurrentCard({
 }
 
 export function MovementsClient({
-  accountId: _accountId,
+  accountId,
   baseCurrency,
   initialTransactions,
   initialRecurringItems,
   initialPeriod,
   initialCategoryFilter,
   categories,
+  initialTopCategories,
+  initialMerchantSuggestions,
   profiles,
   role,
 }: MovementsClientProps) {
@@ -680,6 +707,9 @@ export function MovementsClient({
   const [isDoneCollapsed, setIsDoneCollapsed] = useState(!initialCategoryFilter);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<TransactionDraft | null>(null);
 
   useEffect(() => {
     setTransactions(initialTransactions);
@@ -711,6 +741,7 @@ export function MovementsClient({
   const currencySymbol =
     CURRENCIES.find((currency) => currency.code === baseCurrency)?.symbol ??
     baseCurrency;
+  const canEdit = role !== "viewer";
 
   const profilesById = useMemo(() => {
     const map: Record<string, Profile> = {};
@@ -723,6 +754,11 @@ export function MovementsClient({
   const movements = useMemo(
     () => transactions.map(mapTransactionToMovement),
     [transactions]
+  );
+
+  const selectedTransaction = useMemo(
+    () => transactions.find((item) => item.id === selectedTransactionId) ?? null,
+    [selectedTransactionId, transactions]
   );
 
   const isSearchMode = searchQuery.trim().length > 0;
@@ -921,6 +957,76 @@ export function MovementsClient({
     setCategoryFilters([]);
     setMerchantFilters([]);
   };
+
+  const handleOpenEdit = useCallback(
+    (movementId: string) => {
+      if (!canEdit) return;
+      const transaction = transactions.find((item) => item.id === movementId);
+      if (!transaction) return;
+      setSelectedTransactionId(movementId);
+      setEditDraft({
+        type: transaction.type,
+        name: "",
+        date: transaction.date,
+        amount: formatMinorToMoney(
+          toBigInt(transaction.amount_minor),
+          transaction.currency
+        ),
+        currency: transaction.currency,
+        categoryId: transaction.category_id ?? null,
+        merchant: transaction.merchant ?? "",
+        notes: transaction.notes ?? "",
+        photos: [],
+        isObligation: false,
+        obligationType: null,
+        scheduledDate: null,
+        scheduledDateOverridden: false,
+      });
+      setIsEditOpen(true);
+    },
+    [canEdit, transactions]
+  );
+
+  const handleCloseEdit = () => {
+    setIsEditOpen(false);
+    setSelectedTransactionId(null);
+    setEditDraft(null);
+  };
+
+  const handleEditSubmit = useCallback(
+    async (draft: TransactionDraft) => {
+      if (!selectedTransaction || !canEdit) {
+        throw new Error("Movimiento no disponible");
+      }
+      const result = await updateTransaction(selectedTransaction.id, {
+        type: draft.type,
+        amount: draft.amount,
+        currency: draft.currency,
+        category_id: draft.categoryId ?? null,
+        date: draft.date,
+        merchant: draft.merchant.trim() || null,
+        notes: draft.notes.trim() || null,
+        fx_rate: selectedTransaction.fx_rate
+          ? String(selectedTransaction.fx_rate)
+          : "1",
+      });
+
+      if (!result.success || !result.data) {
+        throw new Error("No se pudo guardar el movimiento.");
+      }
+
+      const updated = result.data as Transaction;
+      const category = categories.find((item) => item.id === updated.category_id);
+      const nextTransaction = {
+        ...updated,
+        category: category ? { ...category } : null,
+      };
+      setTransactions((prev) =>
+        prev.map((item) => (item.id === nextTransaction.id ? nextTransaction : item))
+      );
+    },
+    [canEdit, categories, selectedTransaction]
+  );
 
   const handlePeriodChange = useCallback(
     (newPeriod: Period) => {
@@ -1175,6 +1281,7 @@ export function MovementsClient({
             locale={locale}
             isCollapsed={isPendingCollapsed}
             onToggleCollapse={() => setIsPendingCollapsed((prev) => !prev)}
+            onPressMovement={canEdit ? handleOpenEdit : undefined}
           />
         )}
 
@@ -1194,8 +1301,46 @@ export function MovementsClient({
           locale={locale}
           isCollapsed={isDoneCollapsed}
           onToggleCollapse={() => setIsDoneCollapsed((prev) => !prev)}
+          onPressMovement={canEdit ? handleOpenEdit : undefined}
         />
       </div>
+
+      {canEdit && (
+        <SlidePanel
+          open={isEditOpen}
+          onOpenChange={(open) => (open ? setIsEditOpen(true) : handleCloseEdit())}
+        >
+          <SlidePanelContent>
+            <SlidePanelHeader>
+              <SlidePanelTitle>Editar movimiento</SlidePanelTitle>
+              <SlidePanelDescription>
+                Actualiza los datos del movimiento seleccionado.
+              </SlidePanelDescription>
+            </SlidePanelHeader>
+            <SlidePanelBody className="p-0">
+              <div className="px-6 py-4">
+                {editDraft && (
+                  <AddTransactionForm
+                    key={selectedTransactionId ?? "edit"}
+                    mode="edit"
+                    initialDraft={editDraft}
+                    allowObligation={false}
+                    accountId={accountId}
+                    currency={baseCurrency}
+                    locale={locale}
+                    categories={categories}
+                    topCategories={initialTopCategories}
+                    merchantSuggestions={initialMerchantSuggestions}
+                    onSubmitDraft={handleEditSubmit}
+                    onSuccess={handleCloseEdit}
+                    onCancel={handleCloseEdit}
+                  />
+                )}
+              </div>
+            </SlidePanelBody>
+          </SlidePanelContent>
+        </SlidePanel>
+      )}
 
     </PageContainer>
   );

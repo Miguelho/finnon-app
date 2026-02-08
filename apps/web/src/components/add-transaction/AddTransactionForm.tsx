@@ -69,6 +69,10 @@ interface AddTransactionFormProps {
     income: MerchantSuggestion[];
   };
   defaultDate?: string;
+  mode?: "create" | "edit";
+  initialDraft?: TransactionDraft;
+  allowObligation?: boolean;
+  onSubmitDraft?: (draft: TransactionDraft) => Promise<void>;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
@@ -82,14 +86,19 @@ export function AddTransactionForm({
   topCategories,
   merchantSuggestions,
   defaultDate,
+  mode = "create",
+  initialDraft,
+  allowObligation = true,
+  onSubmitDraft,
   onSuccess,
   onCancel,
 }: AddTransactionFormProps) {
   const t = useTranslations("addTransaction");
+  const tTransactions = useTranslations("transactions");
 
   // Form state
   const [draft, setDraft] = React.useState<TransactionDraft>(() =>
-    createInitialDraft(type, currency, defaultDate)
+    initialDraft ?? createInitialDraft(type, currency, defaultDate)
   );
 
   // Get current top categories and merchant suggestions based on draft type
@@ -98,6 +107,28 @@ export function AddTransactionForm({
   const [currentStep, setCurrentStep] = React.useState<1 | 2 | 3>(1);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  React.useEffect(() => {
+    if (initialDraft) {
+      setDraft(initialDraft);
+    } else {
+      setDraft(createInitialDraft(type, currency, defaultDate));
+    }
+    setCurrentStep(1);
+    setErrors({});
+  }, [currency, defaultDate, initialDraft, type]);
+
+  React.useEffect(() => {
+    if (allowObligation) return;
+    if (!draft.isObligation) return;
+    setDraft((prev) => ({
+      ...prev,
+      isObligation: false,
+      obligationType: null,
+      scheduledDate: null,
+      scheduledDateOverridden: false,
+    }));
+  }, [allowObligation, draft.isObligation]);
 
   // Form mode (panels vs list)
   const [formMode, setFormModeState] = React.useState<FormMode>("panels");
@@ -178,6 +209,15 @@ export function AddTransactionForm({
     setIsSubmitting(true);
 
     try {
+      if (mode === "edit") {
+        if (!onSubmitDraft) {
+          throw new Error("Missing edit submit handler");
+        }
+        await onSubmitDraft(draft);
+        toast.success(tTransactions("updateSuccess"));
+        onSuccess?.();
+        return;
+      }
       // If it's an obligation, create it via createObligation
       if (draft.isObligation) {
         const dueDate = resolveObligationDueDate(draft);
@@ -225,7 +265,9 @@ export function AddTransactionForm({
       onSuccess?.();
     } catch (error) {
       console.error("Failed to create transaction:", error);
-      toast.error(t("errorToast"));
+      toast.error(
+        mode === "edit" ? tTransactions("updateError") : t("errorToast")
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -249,12 +291,13 @@ export function AddTransactionForm({
     switch (step) {
       case 1:
         return (
-          <Step1Details
-            draft={draft}
-            errors={errors}
-            locale={locale}
-            onFieldChange={handleFieldChange}
-          />
+                <Step1Details
+                  draft={draft}
+                  errors={errors}
+                  locale={locale}
+                  onFieldChange={handleFieldChange}
+                  allowObligation={allowObligation}
+                />
         );
       case 2:
         return (
@@ -298,12 +341,13 @@ export function AddTransactionForm({
           <TransactionStepCarousel
             currentStep={currentStep}
             step1={
-              <Step1Details
-                draft={draft}
-                errors={errors}
-                locale={locale}
-                onFieldChange={handleFieldChange}
-              />
+          <Step1Details
+            draft={draft}
+            errors={errors}
+            locale={locale}
+            onFieldChange={handleFieldChange}
+            allowObligation={allowObligation}
+          />
             }
             step2={
               <Step2Category

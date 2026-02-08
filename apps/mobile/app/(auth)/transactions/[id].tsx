@@ -1,45 +1,30 @@
-import { useEffect, useState, useMemo, useRef, useCallback } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  ScrollView,
-  Alert,
-  ActivityIndicator,
-  TouchableOpacity,
-  Pressable,
-} from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { ArrowDownRight, ArrowUpRight } from "phosphor-react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+  CURRENCY_MINOR_UNITS,
+  computeAmountBaseMinor,
+  formatMinorToMoney,
+  parseFxRate,
+  parseMoneyToMinor,
+  type MerchantSuggestion,
+  type TopCategory,
+  type TransactionDraft,
+} from "@poleursus/shared";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
-import { Button } from "../../../src/components/Button";
-import { Input } from "../../../src/components/Input";
-import { Card } from "../../../src/components/Card";
-import { DatePickerField } from "../../../src/components/DatePickerField";
-import { TopCategorySelector } from "../../../src/components/TopCategorySelector";
-import { CurrencySelector } from "../../../src/components/CurrencySelector";
-import {
-  type TransactionType,
-  type TopCategory,
-  parseMoneyToMinor,
-  computeAmountBaseMinor,
-  parseFxRate,
-  CURRENCY_MINOR_UNITS,
-  formatMinorToMoney,
-} from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
+import { AddTransactionForm } from "../../../src/components/add-transaction";
 
-type Category = {
+interface Category {
   id: string;
   name: string;
   icon_id: string;
   type: "income" | "expense";
-};
+}
 
-type Transaction = {
+interface Transaction {
   id: string;
   account_id: string;
   type: "income" | "expense";
@@ -54,228 +39,199 @@ type Transaction = {
   notes: string | null;
   created_by: string;
   created_at: string;
-};
+}
 
 export default function EditTransactionScreen(): React.JSX.Element {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const isFocused = useIsFocused();
   const { selectedAccountId } = useAuth();
   const { dictionary } = useCopy();
-  const isFocused = useIsFocused();
+
+  const transactionId = useMemo(() => {
+    if (!id) return null;
+    return Array.isArray(id) ? id[0] : id;
+  }, [id]);
 
   const [transaction, setTransaction] = useState<Transaction | null>(null);
-  const [type, setType] = useState<TransactionType>("expense");
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState("EUR");
-  const [fxRate, setFxRate] = useState("1");
-  const [categoryId, setCategoryId] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [merchant, setMerchant] = useState("");
-  const [notes, setNotes] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const [initialDraft, setInitialDraft] = useState<TransactionDraft | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [topCategories, setTopCategories] = useState<{
+    expense: TopCategory[];
+    income: TopCategory[];
+  }>({ expense: [], income: [] });
+  const [merchantSuggestions, setMerchantSuggestions] = useState<{
+    expense: MerchantSuggestion[];
+    income: MerchantSuggestion[];
+  }>({ expense: [], income: [] });
   const [baseCurrency, setBaseCurrency] = useState("EUR");
-  const [fxRateError, setFxRateError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Top categories state
-  const [topCategories, setTopCategories] = useState<TopCategory[]>([]);
-  const [showFullCategorySelector, setShowFullCategorySelector] = useState(false);
-  const topCategoriesCache = useRef<Record<string, TopCategory[]>>({});
-
-  const sanitizeNumericInput = (value: string) =>
-    value.replace(/[^0-9.,]/g, "");
+  const buildDraft = useCallback((row: Transaction): TransactionDraft => {
+    const amountMinor = BigInt(row.amount_minor);
+    return {
+      type: row.type,
+      name: "",
+      date: row.date,
+      amount: formatMinorToMoney(amountMinor, row.currency, CURRENCY_MINOR_UNITS),
+      currency: row.currency,
+      categoryId: row.category_id,
+      merchant: row.merchant ?? "",
+      notes: row.notes ?? "",
+      photos: [],
+      isObligation: false,
+      obligationType: null,
+      scheduledDate: null,
+      scheduledDateOverridden: false,
+    };
+  }, []);
 
   useEffect(() => {
-    if (isFocused) {
-      loadTransaction();
-      loadCategories();
-      loadAccount();
-    }
-  }, [id, isFocused]);
-
-  const loadTransaction = async () => {
-    if (!id) return;
-
-    setIsLoading(true);
-
-    try {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (error) throw error;
-
-      if (data) {
-        setTransaction(data);
-        setType(data.type);
-        setAmount(
-          formatMinorToMoney(
-            BigInt(data.amount_minor),
-            data.currency,
-            CURRENCY_MINOR_UNITS
-          )
-        );
-        setCurrency(data.currency);
-        setFxRate(String(data.fx_rate) ?? "1");
-        setCategoryId(data.category_id || "");
-        setDate(data.date);
-        setMerchant(data.merchant || "");
-        setNotes(data.notes || "");
-      }
-    } catch (e: any) {
-      console.error("Error loading transaction:", e);
-      Alert.alert(
-        t(dictionary, "common.errorTitle"),
-        e?.message || t(dictionary, "transactions.loadError"),
-        [
-          {
-            text: t(dictionary, "common.ok"),
-            onPress: () => router.back(),
-          },
-        ]
-      );
-    } finally {
+    if (!isFocused) return;
+    if (!transactionId || !selectedAccountId) {
       setIsLoading(false);
-    }
-  };
-
-  const loadCategories = async () => {
-    if (!selectedAccountId) return;
-
-    try {
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .eq("account_id", selectedAccountId)
-        .order("name", { ascending: true });
-
-      if (error) throw error;
-
-      setCategories(data || []);
-    } catch (e: any) {
-      console.error("Error loading categories:", e);
-    }
-  };
-
-  const loadAccount = async () => {
-    if (!selectedAccountId) return;
-
-    try {
-      const { data, error } = await supabase
-        .from("accounts")
-        .select("base_currency")
-        .eq("id", selectedAccountId)
-        .single();
-
-      if (error) throw error;
-
-      setBaseCurrency(data.base_currency);
-    } catch (e: any) {
-      console.error("Error loading account:", e);
-    }
-  };
-
-  const fetchTopCategories = useCallback(
-    async (txType: TransactionType) => {
-      if (!selectedAccountId) return;
-
-      const cacheKey = `${selectedAccountId}:${txType}`;
-      if (topCategoriesCache.current[cacheKey]) {
-        setTopCategories(topCategoriesCache.current[cacheKey]);
-        return;
-      }
-
-      const { data, error } = await supabase.rpc("get_top_categories", {
-        p_account_id: selectedAccountId,
-        p_tx_type: txType,
-        p_limit: 3,
-      });
-
-      if (!error && data) {
-        const categories = data as TopCategory[];
-        topCategoriesCache.current[cacheKey] = categories;
-        setTopCategories(categories);
-      }
-    },
-    [selectedAccountId]
-  );
-
-  useEffect(() => {
-    if (isFocused && selectedAccountId) {
-      fetchTopCategories(type);
-      setShowFullCategorySelector(false);
-    }
-  }, [isFocused, type, selectedAccountId, fetchTopCategories]);
-
-  const handleUpdate = async () => {
-    if (!amount.trim()) {
       Alert.alert(
         t(dictionary, "common.errorTitle"),
-        t(dictionary, "transactions.amountRequired")
+        t(dictionary, "transactions.noAccountSelected"),
+        [{ text: t(dictionary, "common.ok"), onPress: () => router.back() }]
       );
       return;
     }
 
-    if (!transaction) return;
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const [
+          transactionResult,
+          categoriesResult,
+          accountResult,
+          topExpenseResult,
+          topIncomeResult,
+          merchantExpenseResult,
+          merchantIncomeResult,
+        ] = await Promise.all([
+          supabase
+            .from("transactions")
+            .select("*")
+            .eq("id", transactionId)
+            .single(),
+          supabase
+            .from("categories")
+            .select("id, name, icon_id, type")
+            .eq("account_id", selectedAccountId)
+            .order("name", { ascending: true }),
+          supabase
+            .from("accounts")
+            .select("base_currency")
+            .eq("id", selectedAccountId)
+            .single(),
+          supabase.rpc("get_top_categories", {
+            p_account_id: selectedAccountId,
+            p_tx_type: "expense",
+            p_limit: 3,
+          }),
+          supabase.rpc("get_top_categories", {
+            p_account_id: selectedAccountId,
+            p_tx_type: "income",
+            p_limit: 3,
+          }),
+          supabase.rpc("get_merchant_suggestions", {
+            p_account_id: selectedAccountId,
+            p_tx_type: "expense",
+            p_limit: 20,
+          }),
+          supabase.rpc("get_merchant_suggestions", {
+            p_account_id: selectedAccountId,
+            p_tx_type: "income",
+            p_limit: 20,
+          }),
+        ]);
 
-    if (currency !== baseCurrency) {
-      if (!fxRate.trim()) {
-        setFxRateError(t(dictionary, "transactions.fxRateRequired"));
-        return;
-      }
-      const parsedFx = parseFxRate(fxRate);
-      if (typeof parsedFx === "object" && "error" in parsedFx) {
-        setFxRateError(t(dictionary, parsedFx.error.key));
-        return;
-      }
-    }
+        if (transactionResult.error) throw transactionResult.error;
+        if (categoriesResult.error) throw categoriesResult.error;
+        if (accountResult.error) throw accountResult.error;
 
-    setFxRateError(null);
-    const fxRateValue =
-      currency === baseCurrency ? "1" : fxRate.replace(",", ".");
+        const tx = transactionResult.data as Transaction | null;
+        if (!tx) {
+          throw new Error(t(dictionary, "transactions.loadError"));
+        }
 
-    setIsSubmitting(true);
-
-    try {
-      // Parse amount to minor units
-      const amountMinor = parseMoneyToMinor(
-        amount,
-        currency,
-        CURRENCY_MINOR_UNITS
-      );
-      if (typeof amountMinor === "object" && "error" in amountMinor) {
+        setTransaction(tx);
+        setInitialDraft(buildDraft(tx));
+        setCategories((categoriesResult.data ?? []) as Category[]);
+        setBaseCurrency(accountResult.data?.base_currency ?? "EUR");
+        setTopCategories({
+          expense: (topExpenseResult.data ?? []) as TopCategory[],
+          income: (topIncomeResult.data ?? []) as TopCategory[],
+        });
+        setMerchantSuggestions({
+          expense: (merchantExpenseResult.data ?? []) as MerchantSuggestion[],
+          income: (merchantIncomeResult.data ?? []) as MerchantSuggestion[],
+        });
+      } catch (error: any) {
+        console.error("Error loading transaction:", error);
         Alert.alert(
           t(dictionary, "common.errorTitle"),
-          t(dictionary, amountMinor.error.key, amountMinor.error.params)
+          error?.message || t(dictionary, "transactions.loadError"),
+          [{ text: t(dictionary, "common.ok"), onPress: () => router.back() }]
         );
-        setIsSubmitting(false);
-        return;
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [
+    buildDraft,
+    dictionary,
+    isFocused,
+    router,
+    selectedAccountId,
+    transactionId,
+  ]);
+
+  const handleSubmitDraft = useCallback(
+    async (draft: TransactionDraft) => {
+      if (!transaction) {
+        throw new Error(t(dictionary, "transactions.loadError"));
       }
 
-      // Calculate amount_base_minor
-      let amountBaseMinor: bigint;
+      const amountMinorResult = parseMoneyToMinor(
+        draft.amount,
+        draft.currency,
+        CURRENCY_MINOR_UNITS
+      );
+      if (typeof amountMinorResult === "object" && "error" in amountMinorResult) {
+        throw new Error(
+          t(dictionary, amountMinorResult.error.key, amountMinorResult.error.params)
+        );
+      }
 
-      if (currency === baseCurrency) {
-        amountBaseMinor = amountMinor;
+      let amountBaseMinor: bigint;
+      let fxRateValue = "1";
+
+      if (draft.currency === baseCurrency) {
+        amountBaseMinor = amountMinorResult;
       } else {
+        const rawFx = transaction.fx_rate ?? "";
+        if (!rawFx) {
+          throw new Error(t(dictionary, "transactions.fxRateRequired"));
+        }
+        const parsedFx = parseFxRate(rawFx);
+        if (typeof parsedFx === "object" && "error" in parsedFx) {
+          throw new Error(t(dictionary, parsedFx.error.key));
+        }
+        fxRateValue = rawFx.replace(",", ".");
+
         const computed = computeAmountBaseMinor({
-          amountMinor,
-          currency,
+          amountMinor: amountMinorResult,
+          currency: draft.currency,
           baseCurrency,
           fxRate: fxRateValue,
           currencyMeta: CURRENCY_MINOR_UNITS,
         });
         if (typeof computed === "object" && "error" in computed) {
-          Alert.alert(
-            t(dictionary, "common.errorTitle"),
-            t(dictionary, computed.error.key)
-          );
-          setIsSubmitting(false);
-          return;
+          throw new Error(t(dictionary, computed.error.key));
         }
         amountBaseMinor = computed;
       }
@@ -283,482 +239,59 @@ export default function EditTransactionScreen(): React.JSX.Element {
       const { error } = await supabase
         .from("transactions")
         .update({
-          type,
-          amount_minor: amountMinor.toString(),
-          currency,
+          type: draft.type,
+          amount_minor: amountMinorResult.toString(),
+          currency: draft.currency,
           amount_base_minor: amountBaseMinor.toString(),
           fx_rate: fxRateValue,
-          fx_date: date,
-          category_id: categoryId || null,
-          date,
-          merchant: merchant.trim() || null,
-          notes: notes.trim() || null,
+          fx_date: draft.date,
+          category_id: draft.categoryId,
+          date: draft.date,
+          merchant: draft.merchant.trim() || null,
+          notes: draft.notes.trim() || null,
         })
         .eq("id", transaction.id);
 
       if (error) throw error;
+    },
+    [baseCurrency, dictionary, transaction]
+  );
 
-      Alert.alert(
-        t(dictionary, "common.successTitle"),
-        t(dictionary, "transactions.updateSuccess"),
-        [
-          {
-            text: t(dictionary, "common.ok"),
-            onPress: () => router.back(),
-          },
-        ]
-      );
-    } catch (e: any) {
-      console.error("Error updating transaction:", e);
-      Alert.alert(
-        t(dictionary, "common.errorTitle"),
-        e?.message || t(dictionary, "transactions.updateError")
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Filter categories by type
-  const availableCategories = categories.filter((cat) => cat.type === type);
-  const previewBaseAmount = useMemo(() => {
-    if (currency === baseCurrency) return null;
-    if (!amount.trim() || !fxRate.trim()) return null;
-
-    const amountMinor = parseMoneyToMinor(
-      amount,
-      currency,
-      CURRENCY_MINOR_UNITS
-    );
-    if (typeof amountMinor === "object" && "error" in amountMinor) {
-      return null;
-    }
-
-    const computed = computeAmountBaseMinor({
-      amountMinor,
-      currency,
-      baseCurrency,
-      fxRate,
-      currencyMeta: CURRENCY_MINOR_UNITS,
-    });
-    if (typeof computed === "object" && "error" in computed) {
-      return null;
-    }
-
-    return formatMinorToMoney(computed, baseCurrency, CURRENCY_MINOR_UNITS);
-  }, [amount, currency, baseCurrency, fxRate]);
-
-  if (isLoading) {
+  if (isLoading || !initialDraft || !transactionId) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
-  if (!transaction) {
-    return (
-      <View style={styles.container}>
-        <Card
-          title={t(dictionary, "transactions.notFoundTitle")}
-          description={t(dictionary, "transactions.notFoundDescription")}
-        >
-          <Button title={t(dictionary, "transactions.goBack")} onPress={() => router.back()} />
-        </Card>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2563eb" />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Card
-        title={t(dictionary, "transactions.edit.title")}
-        description={t(dictionary, "transactions.edit.description")}
-      >
-        <View style={styles.form}>
-          {/* Type - Toggle */}
-          <View style={styles.field}>
-            <Text style={styles.label}>{t(dictionary, "transactions.create.typeLabel")}</Text>
-            <View style={styles.typeToggle}>
-              <TouchableOpacity
-                style={[
-                  styles.typeOption,
-                  type === "expense" && styles.typeOptionActive,
-                ]}
-                onPress={() => {
-                  setType("expense");
-                  setCategoryId(""); // Reset category when type changes
-                }}
-              >
-                <ArrowDownRight
-                  size={18}
-                  weight="regular"
-                  color={type === "expense" ? colors.text.primary : colors.text.muted}
-                />
-                <Text
-                  style={[
-                    styles.typeOptionText,
-                    type === "expense" && styles.typeOptionTextActive,
-                  ]}
-                >
-                  {t(dictionary, "transactions.create.typeExpense")}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.typeOption,
-                  type === "income" && styles.typeOptionActive,
-                ]}
-                onPress={() => {
-                  setType("income");
-                  setCategoryId(""); // Reset category when type changes
-                }}
-              >
-                <ArrowUpRight
-                  size={18}
-                  weight="regular"
-                  color={type === "income" ? colors.text.primary : colors.text.muted}
-                />
-                <Text
-                  style={[
-                    styles.typeOptionText,
-                    type === "income" && styles.typeOptionTextActive,
-                  ]}
-                >
-                  {t(dictionary, "transactions.create.typeIncome")}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Amount + Currency */}
-          <View style={styles.field}>
-            <Text style={styles.label}>{t(dictionary, "transactions.create.amountLabel")}</Text>
-            <View style={styles.amountRow}>
-              <TextInput
-                style={styles.amountInput}
-                value={amount}
-                onChangeText={(value) => setAmount(sanitizeNumericInput(value))}
-                placeholder={t(dictionary, "transactions.create.amountPlaceholder")}
-                keyboardType="numeric"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <CurrencySelector
-                value={currency}
-                onChange={(value) => {
-                  setCurrency(value);
-                  if (value === baseCurrency) {
-                    setFxRate("1");
-                    setFxRateError(null);
-                  }
-                }}
-              />
-            </View>
-          </View>
-
-          {currency !== baseCurrency && (
-            <>
-              <Input
-                label={t(dictionary, "transactions.fxRateLabel")}
-                value={fxRate}
-                onChangeText={(value) => {
-                  setFxRateError(null);
-                  setFxRate(sanitizeNumericInput(value));
-                }}
-                placeholder={t(dictionary, "transactions.fxRatePlaceholder")}
-                keyboardType="numeric"
-                error={fxRateError ?? undefined}
-                helperText={t(dictionary, "transactions.fxRateHelper", {
-                  currency,
-                  baseCurrency,
-                })}
-              />
-              <Text style={styles.previewText}>
-                {t(dictionary, "transactions.baseAmountPreview", {
-                  amount: previewBaseAmount ?? "-",
-                  baseCurrency,
-                })}
-              </Text>
-            </>
-          )}
-
-          {/* Date */}
-          <DatePickerField
-            label={t(dictionary, "transactions.create.dateLabel")}
-            value={date}
-            onChangeText={setDate}
-            placeholder={t(dictionary, "transactions.datePlaceholder")}
-          />
-
-          {/* Category */}
-          <View style={styles.field}>
-            <Text style={styles.label}>{t(dictionary, "transactions.categoryOptionalLabel")}</Text>
-            {topCategories.length > 0 && (
-              <TopCategorySelector
-                topCategories={topCategories}
-                selectedCategoryId={categoryId || undefined}
-                onSelect={(id) => setCategoryId(id)}
-                onToggleAll={() => setShowFullCategorySelector((prev) => !prev)}
-                isExpanded={showFullCategorySelector}
-                seeOthersLabel={t(dictionary, "transactions.create.categorySeeOthers")}
-                hideOthersLabel={t(dictionary, "transactions.create.categoryHideOthers")}
-                style={styles.topCategorySelector}
-              />
-            )}
-            {(showFullCategorySelector || topCategories.length === 0) && (
-              <View style={styles.categoryDropdownContainer}>
-                <ScrollView
-                  style={styles.categoryDropdownList}
-                  keyboardShouldPersistTaps="handled"
-                  nestedScrollEnabled
-                >
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.categoryDropdownItem,
-                      !categoryId && styles.categoryDropdownItemSelected,
-                      pressed && styles.categoryDropdownItemPressed,
-                    ]}
-                    onPress={() => setCategoryId("")}
-                  >
-                    <Text style={[
-                      styles.categoryDropdownText,
-                      !categoryId && styles.categoryDropdownTextSelected,
-                    ]}>
-                      {t(dictionary, "common.noneOption")}
-                    </Text>
-                  </Pressable>
-                  {availableCategories.length === 0 ? (
-                    <View style={styles.categoryDropdownItem}>
-                      <Text style={styles.categoryDropdownEmptyText}>
-                        {t(dictionary, "transactions.create.categoryEmpty", {
-                          type:
-                            type === "income"
-                              ? t(dictionary, "categories.incomeLabel")
-                              : t(dictionary, "categories.expenseLabel"),
-                        })}
-                      </Text>
-                    </View>
-                  ) : (
-                    availableCategories.map((cat) => {
-                      const isSelected = categoryId === cat.id;
-                      return (
-                        <Pressable
-                          key={cat.id}
-                          style={({ pressed }) => [
-                            styles.categoryDropdownItem,
-                            isSelected && styles.categoryDropdownItemSelected,
-                            pressed && styles.categoryDropdownItemPressed,
-                          ]}
-                          onPress={() => setCategoryId(cat.id)}
-                        >
-                          <Text style={[
-                            styles.categoryDropdownText,
-                            isSelected && styles.categoryDropdownTextSelected,
-                          ]}>
-                            {cat.name}
-                          </Text>
-                        </Pressable>
-                      );
-                    })
-                  )}
-                </ScrollView>
-              </View>
-            )}
-          </View>
-
-          {/* Merchant */}
-          <Input
-            label={t(dictionary, "transactions.merchantOptionalLabel")}
-            value={merchant}
-            onChangeText={setMerchant}
-            placeholder={t(dictionary, "transactions.create.merchantPlaceholder")}
-          />
-
-          {/* Notes */}
-          <Input
-            label={t(dictionary, "transactions.notesOptionalLabel")}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder={t(dictionary, "transactions.notesPlaceholder")}
-            multiline
-            numberOfLines={3}
-          />
-
-          <View style={styles.actions}>
-            <View style={{ flex: 1 }}>
-              <Button
-                title={t(dictionary, "common.cancel")}
-                onPress={() => router.back()}
-                variant="secondary"
-                disabled={isSubmitting}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Button
-                title={
-                  isSubmitting
-                    ? t(dictionary, "common.saving")
-                    : t(dictionary, "transactions.saveChanges")
-                }
-                onPress={handleUpdate}
-                disabled={isSubmitting}
-              />
-            </View>
-          </View>
-        </View>
-      </Card>
-    </ScrollView>
+    <View style={styles.container}>
+      <AddTransactionForm
+        key={transactionId}
+        mode="edit"
+        allowObligation={false}
+        initialDraft={initialDraft}
+        accountId={transaction.account_id}
+        currency={baseCurrency}
+        categories={categories}
+        topCategories={topCategories}
+        merchantSuggestions={merchantSuggestions}
+        onSubmitDraft={handleSubmitDraft}
+        onSuccess={() => router.back()}
+        onCancel={() => router.back()}
+      />
+    </View>
   );
 }
 
-// Finnon Color Tokens (color-guide.md)
-const colors = {
-  bg: {
-    primary: "#FFFFFF",
-    secondary: "#F7F8FA",
-    surface: "#FFFFFF",
-  },
-  text: {
-    primary: "#1C1E21",
-    secondary: "#5F6368",
-    muted: "#9AA0A6",
-  },
-  action: {
-    primary: "#5B8DFF",
-    secondary: "#E8EEFF",
-    disabled: "#C7D2FE",
-  },
-  state: {
-    positive: "#2E7D65",
-    negative: "#B23B3B",
-    neutral: "#DADCE0",
-  },
-};
-
 const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   container: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
   },
-  content: {
-    padding: 16,
-  },
-  form: {
-    gap: 16,
-  },
-  field: {
-    gap: 8,
-  },
-  amountRow: {
-    flexDirection: "row",
-    alignItems: "stretch",
-  },
-  amountInput: {
+  loadingContainer: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    borderTopLeftRadius: 8,
-    borderBottomLeftRadius: 8,
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    backgroundColor: colors.bg.surface,
-    color: colors.text.primary,
-  },
-  topCategorySelector: {
-    marginBottom: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.text.primary,
-  },
-  previewText: {
-    fontSize: 12,
-    color: colors.text.secondary,
-  },
-  // Type toggle styles
-  typeToggle: {
-    flexDirection: "row",
-    gap: 6,
-    padding: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    backgroundColor: colors.bg.secondary,
-  },
-  typeOption: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 999,
-  },
-  typeOptionActive: {
-    backgroundColor: colors.bg.surface,
-  },
-  typeOptionText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.text.muted,
-  },
-  typeOptionTextActive: {
-    color: colors.text.primary,
-  },
-  actions: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 8,
-  },
-  // Category dropdown styles (matching MerchantAutocomplete)
-  categoryDropdownContainer: {
-    backgroundColor: colors.bg.surface,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-    borderRadius: 8,
-    maxHeight: 200,
-    overflow: "hidden",
-  },
-  categoryDropdownList: {
-    maxHeight: 200,
-  },
-  categoryDropdownItem: {
-    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.state.neutral,
-  },
-  categoryDropdownItemSelected: {
-    backgroundColor: colors.action.secondary,
-  },
-  categoryDropdownItemPressed: {
-    backgroundColor: colors.bg.secondary,
-  },
-  categoryDropdownText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: colors.text.primary,
-  },
-  categoryDropdownTextSelected: {
-    color: colors.action.primary,
-    fontWeight: "600",
-  },
-  categoryDropdownEmptyText: {
-    fontSize: 14,
-    color: colors.text.muted,
-    fontStyle: "italic",
   },
 });

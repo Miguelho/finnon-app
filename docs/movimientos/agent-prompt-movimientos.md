@@ -58,7 +58,7 @@ La pantalla tiene esta jerarquía de secciones, de arriba a abajo:
 - Badge "Búsqueda global" dentro del input (derecha) visible cuando tiene texto o focus
 
 #### Chips de filtro (fila horizontal)
-- **Ingresos** (count), **Gastos** (count), **Pendientes** (count) — toggle on/off
+- **Ingresos** (count), **Gastos** (count) — toggle on/off
 - Separador visual (línea vertical 1px)
 - **Categoría** — dropdown con búsqueda interna, opciones dinámicas por cuenta
 - **Comercio** — dropdown con búsqueda interna, opciones dinámicas por cuenta
@@ -121,7 +121,7 @@ interface MovementsStore {
   isRecurrentSectionCollapsed: boolean;
   
   setMonth: (month: number, year: number) => void;
-  toggleTypeFilter: (type: 'income' | 'expense' | 'pending') => void;
+  toggleTypeFilter: (type: 'income' | 'expense') => void;
   setCategoryFilter: (categoryIds: string[]) => void;
   setMerchantFilter: (merchantNames: string[]) => void;
   setSearchQuery: (query: string) => void;
