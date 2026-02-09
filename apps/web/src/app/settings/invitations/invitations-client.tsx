@@ -44,9 +44,7 @@ export default function InvitationsClient({ userId }: { userId: string }) {
   const [invites, setInvites] = useState<InviteRow[]>([]);
   const [loadingInvites, setLoadingInvites] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [selectedRole, setSelectedRole] = useState<
-    "viewer" | "contributor" | "admin"
-  >("viewer");
+  const selectedRole: InviteRow["role"] = "admin";
   const [isSending, setIsSending] = useState(false);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
@@ -247,25 +245,6 @@ export default function InvitationsClient({ userId }: { userId: string }) {
                   onChange={(event) => setInviteEmail(event.target.value)}
                   placeholder={t("login.emailPlaceholder")}
                 />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="role">{t("invites.roleLabel")}</Label>
-                <Select
-                  value={selectedRole}
-                  onValueChange={(value) => setSelectedRole(value as InviteRow["role"])}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="viewer">{t("invites.roleViewer")}</SelectItem>
-                    <SelectItem value="contributor">
-                      {t("invites.roleContributor")}
-                    </SelectItem>
-                    <SelectItem value="admin">{t("invites.roleAdmin")}</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
 
               <Button

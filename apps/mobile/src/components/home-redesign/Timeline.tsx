@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from "react-native";
 import { themeTokens } from "@poleursus/shared";
 import { formatCurrencyParts, formatShortDate } from "./utils";
+import { useCopy, t } from "../../lib/i18n";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -20,10 +21,11 @@ type TimelineProps = {
 };
 
 export function Timeline({ last, next, currencySymbol, locale = "es" }: TimelineProps) {
+  const { dictionary } = useCopy();
   return (
     <View style={styles.card}>
       <TimelineItem
-        label="Último"
+        label={t(dictionary, "mobile.home.timelineLast")}
         movement={last}
         align="left"
         currencySymbol={currencySymbol}
@@ -33,13 +35,13 @@ export function Timeline({ last, next, currencySymbol, locale = "es" }: Timeline
       <View style={styles.divider}>
         <View style={styles.dividerLine} />
         <View style={[styles.dividerDot, styles.dividerDotActive]} />
-        <Text style={styles.dividerLabel}>Hoy</Text>
+        <Text style={styles.dividerLabel}>{t(dictionary, "mobile.home.timelineToday")}</Text>
         <View style={styles.dividerDot} />
         <View style={styles.dividerLine} />
       </View>
 
       <TimelineItem
-        label="Próximo"
+        label={t(dictionary, "mobile.home.timelineNext")}
         movement={next}
         align="right"
         currencySymbol={currencySymbol}

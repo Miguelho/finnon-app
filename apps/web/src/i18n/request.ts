@@ -1,14 +1,28 @@
 import { getRequestConfig } from "next-intl/server";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getDictionary } from "@poleursus/shared";
 
 export const locales = ["en", "es"] as const;
 export type Locale = (typeof locales)[number];
 
 export default getRequestConfig(async () => {
-  // Get locale from cookie or default to 'es'
+  // Get locale from cookie or detect from browser language
   const cookieStore = await cookies();
-  const locale = (cookieStore.get("NEXT_LOCALE")?.value as Locale) || "es";
+  const cookieLocale = cookieStore.get("NEXT_LOCALE")?.value as Locale | undefined;
+  if (cookieLocale) {
+    return {
+      locale: cookieLocale,
+      messages: getDictionary(cookieLocale),
+    };
+  }
+
+  const acceptLanguage = (await headers()).get("accept-language") ?? "";
+  const normalized = acceptLanguage.toLowerCase();
+  const locale: Locale = normalized.includes("es")
+    ? "es"
+    : normalized.includes("en")
+      ? "en"
+      : "es";
 
   return {
     locale,

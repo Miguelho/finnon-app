@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import * as Linking from "expo-linking";
 import { Session, User } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { signOutAndReset } from "@poleursus/shared";
@@ -38,6 +39,85 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
   const [selectedAccountId, setSelectedAccountIdState] = useState<string | null>(null);
+
+  useEffect(() => {
+    const parseParams = (value: string) => {
+      const params: Record<string, string> = {};
+      if (!value) return params;
+      value.split("&").forEach((pair) => {
+        if (!pair) return;
+        const [rawKey, rawValue] = pair.split("=");
+        if (!rawKey) return;
+        const key = decodeURIComponent(rawKey);
+        const val = rawValue ? decodeURIComponent(rawValue) : "";
+        params[key] = val;
+      });
+      return params;
+    };
+
+    const handleAuthUrl = async (url: string) => {
+      try {
+        const [base, hash] = url.split("#");
+        const query = base.split("?")[1] ?? "";
+        const queryParams = parseParams(query);
+        const hashParams = parseParams(hash ?? "");
+        const params = { ...queryParams, ...hashParams };
+
+        const code = params.code;
+        const accessToken = params.access_token;
+        const refreshToken = params.refresh_token;
+
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            console.error("[AuthContext] exchangeCodeForSession error:", error);
+            if (accessToken && refreshToken) {
+              const { error: sessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              });
+              if (sessionError) {
+                console.error("[AuthContext] setSession error:", sessionError);
+              }
+            }
+          }
+          return;
+        }
+
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (error) {
+            console.error("[AuthContext] setSession error:", error);
+          }
+        }
+      } catch (err) {
+        console.error("[AuthContext] Error handling auth URL:", err);
+      }
+    };
+
+    Linking.getInitialURL()
+      .then((url) => {
+        if (url) {
+          void handleAuthUrl(url);
+        }
+      })
+      .catch((err) => {
+        console.error("[AuthContext] Error reading initial URL:", err);
+      });
+
+    const subscription = Linking.addEventListener("url", (event) => {
+      if (event.url) {
+        void handleAuthUrl(event.url);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   // Load selectedAccountId from AsyncStorage on init
   useEffect(() => {

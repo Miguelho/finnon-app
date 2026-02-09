@@ -1,10 +1,21 @@
 "use server";
 
-import { createAuthenticatedClient, createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { seedDefaultCategories } from "@poleursus/shared";
+import { createAuthenticatedClient, createClient } from "@/lib/supabase/server";
+import { persistOnboarding } from "@poleursus/shared";
+import type { OnboardingPayload } from "@poleursus/shared";
 
-export async function createAccountAction(formData: FormData) {
+type ActionError = {
+  key: string;
+  params?: Record<string, string | number>;
+};
+
+const ACTIVE_ACCOUNT_COOKIE = "finnon:activeAccountId";
+
+export async function createAccountAction(
+  formData: FormData
+): Promise<{ accountId: string; currency: string } | { error: ActionError }> {
   const accountName = formData.get("accountName") as string;
   const currency = formData.get("currency") as string;
 
@@ -28,7 +39,6 @@ export async function createAccountAction(formData: FormData) {
 
   console.log("Creating account for user:", userId);
 
-  // Crear cuenta (trigger auto-agrega owner como admin)
   const { data: account, error: accountError } = await authClient!
     .from("accounts")
     .insert({
@@ -61,12 +71,28 @@ export async function createAccountAction(formData: FormData) {
 
   console.log("Account created successfully:", account.id);
 
-  try {
-    await seedDefaultCategories(authClient!, account.id);
-  } catch (error) {
-    console.error("Error seeding default categories:", error);
-  }
+  const cookieStore = await cookies();
+  cookieStore.set(ACTIVE_ACCOUNT_COOKIE, account.id, {
+    path: "/",
+    sameSite: "lax",
+    httpOnly: true,
+  });
 
-  // Redirigir a selección de cuenta
-  redirect("/select-account");
+  return { accountId: account.id, currency };
+}
+
+export async function persistOnboardingAction(
+  payload: OnboardingPayload,
+  locale: "es" | "en"
+) {
+  const supabase = await createClient();
+
+  try {
+    const { client, user } = await createAuthenticatedClient();
+    return await persistOnboarding(client, payload, user.id, locale);
+  } catch (error) {
+    console.error("Invalid session while persisting onboarding:", error);
+    await supabase.auth.signOut();
+    return { success: false, error: "Not authenticated" };
+  }
 }

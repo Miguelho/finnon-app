@@ -44,7 +44,7 @@ export default async function DashboardPage() {
     .eq("account_members.user_id", user.id);
 
   if (!accounts || accounts.length === 0) {
-    redirect("/select-account");
+    redirect("/onboarding");
   }
 
   const cookieStore = await cookies();

@@ -75,9 +75,9 @@ export default function IndexGateAndHome() {
     );
   }
 
-  // 3) 0 cuentas -> select-account
+  // 3) 0 cuentas -> onboarding
   if (accountCount === 0) {
-    return <Redirect href="/(auth)/select-account" />;
+    return <Redirect href="/(auth)/onboarding" />;
   }
 
   if (!selectedAccountId) {

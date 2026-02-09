@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { themeTokens } from "@poleursus/shared";
 import { formatCurrencyParts } from "./utils";
+import { useCopy, t } from "../../lib/i18n";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -76,14 +77,16 @@ export function Calendar({
   onNextPeriod,
   currencySymbol,
 }: CalendarProps) {
+  const { dictionary, locale } = useCopy();
   const isWeek = view === "week";
   const selectedKey = selectedDay?.dateKey ?? "";
   const data = isWeek ? weekData : monthData;
+  const monthLabels = locale === "en" ? ["M", "T", "W", "T", "F", "S", "S"] : ["L", "M", "X", "J", "V", "S", "D"];
 
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Calendario</Text>
+        <Text style={styles.title}>{t(dictionary, "mobile.home.calendarTitle")}</Text>
       </View>
 
       <View style={styles.toggleRow}>
@@ -92,7 +95,7 @@ export function Calendar({
           onPress={() => onViewChange("week")}
         >
           <Text style={[styles.toggleText, isWeek && styles.toggleTextActive]}>
-            Semana
+            {t(dictionary, "mobile.home.calendarWeek")}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -100,7 +103,7 @@ export function Calendar({
           onPress={() => onViewChange("month")}
         >
           <Text style={[styles.toggleText, !isWeek && styles.toggleTextActive]}>
-            Mes
+            {t(dictionary, "mobile.home.calendarMonth")}
           </Text>
         </TouchableOpacity>
 
@@ -164,19 +167,19 @@ export function Calendar({
 
           <View style={styles.weekSummary}>
             <Text style={styles.weekSummaryText}>
-              Ingresos{" "}
+              {t(dictionary, "mobile.home.calendarIncome")}{" "}
               <Text style={[styles.weekSummaryValue, styles.amountPositive]}>
                 +{weekData.netIncome}
               </Text>
             </Text>
             <Text style={styles.weekSummaryText}>
-              Gastos{" "}
+              {t(dictionary, "mobile.home.calendarExpenses")}{" "}
               <Text style={[styles.weekSummaryValue, styles.amountNegative]}>
                 -{weekData.netExpense}
               </Text>
             </Text>
             <Text style={styles.weekSummaryText}>
-              Neto{" "}
+              {t(dictionary, "mobile.home.calendarNet")}{" "}
               <Text style={[styles.weekSummaryValue, styles.amountNet]}>
                 {weekData.net}
               </Text>
@@ -187,8 +190,8 @@ export function Calendar({
 
       {!isWeek && (
         <View style={styles.monthGrid}>
-          {MONTH_LABELS.map((label) => (
-            <Text key={label} style={styles.monthLabel}>
+          {monthLabels.map((label, index) => (
+            <Text key={`${label}-${index}`} style={styles.monthLabel}>
               {label}
             </Text>
           ))}
@@ -234,20 +237,20 @@ export function Calendar({
         <DayDetail
           day={selectedDay}
           currencySymbol={currencySymbol}
+          emptyLabel={t(dictionary, "mobile.home.calendarEmptyDay")}
         />
       )}
     </View>
   );
 }
 
-const MONTH_LABELS = ["L", "M", "X", "J", "V", "S", "D"];
-
 type DayDetailProps = {
   day: DayDetailData;
   currencySymbol: string;
+  emptyLabel: string;
 };
 
-function DayDetail({ day, currencySymbol }: DayDetailProps) {
+function DayDetail({ day, currencySymbol, emptyLabel }: DayDetailProps) {
   return (
     <View style={styles.dayDetail}>
       <Text style={styles.dayDetailLabel}>{day.formattedLabel}</Text>
@@ -260,7 +263,7 @@ function DayDetail({ day, currencySymbol }: DayDetailProps) {
           />
         ))
       ) : (
-        <Text style={styles.dayDetailEmpty}>No hay movimientos este día.</Text>
+        <Text style={styles.dayDetailEmpty}>{emptyLabel}</Text>
       )}
     </View>
   );

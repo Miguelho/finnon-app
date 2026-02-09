@@ -4,10 +4,28 @@ import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const localeCookie = request.cookies.get("NEXT_LOCALE")?.value;
+  const acceptLanguage = request.headers.get("accept-language")?.toLowerCase() ?? "";
+  const detectedLocale = acceptLanguage.includes("es")
+    ? "es"
+    : acceptLanguage.includes("en")
+      ? "en"
+      : "es";
+
+  const applyLocaleCookie = (response: NextResponse) => {
+    if (!localeCookie) {
+      response.cookies.set("NEXT_LOCALE", detectedLocale, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+        sameSite: "lax",
+      });
+    }
+    return response;
+  };
 
   // Skip middleware for API routes (they handle their own auth)
   if (pathname.startsWith("/api/")) {
-    return NextResponse.next();
+    return applyLocaleCookie(NextResponse.next());
   }
 
   // Rutas públicas que no requieren autenticación
@@ -57,16 +75,16 @@ export async function middleware(request: NextRequest) {
   if (isPublicRoute) {
     // Si está en login y ya tiene usuario, redirigir a home
     if (pathname === "/login" && user) {
-      return NextResponse.redirect(new URL("/", request.url));
+      return applyLocaleCookie(NextResponse.redirect(new URL("/", request.url)));
     }
-    return response;
+    return applyLocaleCookie(response);
   }
 
   // Si no hay usuario y no es ruta pública, redirigir a login
   if (!user) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
+    return applyLocaleCookie(NextResponse.redirect(loginUrl));
   }
 
   // Si hay usuario, verificar si tiene cuentas (como owner O como miembro)
@@ -76,19 +94,29 @@ export async function middleware(request: NextRequest) {
   );
 
   if (!isAccountGateExempt) {
+    const activeAccountId = request.cookies.get("finnon:activeAccountId")?.value;
     const { data: memberships } = await supabase
       .from("account_members")
       .select("account_id")
       .eq("user_id", user.id)
       .limit(1);
 
-    // Si no es miembro de ninguna cuenta, redirigir a selección de cuenta
+    // Si no es miembro de ninguna cuenta, redirigir a onboarding
     if (!memberships || memberships.length === 0) {
-      return NextResponse.redirect(new URL("/select-account", request.url));
+      return applyLocaleCookie(
+        NextResponse.redirect(new URL("/onboarding", request.url))
+      );
+    }
+
+    // Si tiene cuentas pero no hay cuenta activa, ir a selección
+    if (!activeAccountId) {
+      return applyLocaleCookie(
+        NextResponse.redirect(new URL("/select-account", request.url))
+      );
     }
   }
 
-  return response;
+  return applyLocaleCookie(response);
 }
 
 export const config = {

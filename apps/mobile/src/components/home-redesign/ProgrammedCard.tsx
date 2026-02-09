@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { themeTokens } from "@poleursus/shared";
 import { formatCurrencyParts } from "./utils";
+import { useCopy, t } from "../../lib/i18n";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -20,14 +21,15 @@ type ProgrammedCardProps = {
 };
 
 export function ProgrammedCard({ items, onViewAll, currencySymbol }: ProgrammedCardProps) {
+  const { dictionary } = useCopy();
   if (!items || items.length === 0) return null;
 
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Programados</Text>
+        <Text style={styles.title}>{t(dictionary, "mobile.home.programmedTitle")}</Text>
         <TouchableOpacity onPress={onViewAll}>
-          <Text style={styles.link}>Ver todos →</Text>
+          <Text style={styles.link}>{t(dictionary, "mobile.home.programmedViewAll")}</Text>
         </TouchableOpacity>
       </View>
 

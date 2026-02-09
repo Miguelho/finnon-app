@@ -1059,10 +1059,6 @@ export default function GoalScreen() {
           { paddingTop: tokens.spacing.lg, paddingBottom: 120 + insets.bottom },
         ]}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>{t(dictionary, "goal.pageTitle")}</Text>
-        </View>
-
         {/* CURRENT MONTH VIEW */}
         {goal && isViewingCurrentMonth ? (
           <>
@@ -1261,14 +1257,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: tokens.spacing.lg,
     gap: tokens.spacing.lg,
-  },
-  header: {
-    gap: tokens.spacing.xs,
-  },
-  title: {
-    fontSize: typography.display.fontSize,
-    fontWeight: typography.display.fontWeight,
-    color: colors.text.primary,
   },
   subtitle: {
     fontSize: typography.body.fontSize,

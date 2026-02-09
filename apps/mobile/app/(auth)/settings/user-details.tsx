@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -124,17 +124,13 @@ export default function UserDetailsScreen() {
 
   const viewModel = mapUserToUserDetailsVM(user);
   const emailValue = profileEmail ?? viewModel.email;
-  const fallbackPreview = useMemo(
-    () =>
-      resolveAvatarFallback(
-        {
-          avatar_fallback_text: draftText || null,
-          avatar_fallback_bg_token: draftBgToken ?? null,
-        },
-        emailValue,
-        user.id
-      ),
-    [draftBgToken, draftText, emailValue, user.id]
+  const fallbackPreview = resolveAvatarFallback(
+    {
+      avatar_fallback_text: draftText || null,
+      avatar_fallback_bg_token: draftBgToken ?? null,
+    },
+    emailValue,
+    user.id
   );
 
   const handlePickAvatar = async () => {

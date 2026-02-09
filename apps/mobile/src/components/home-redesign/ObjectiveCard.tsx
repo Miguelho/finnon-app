@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { themeTokens } from "@poleursus/shared";
 import { formatCurrencyParts, toMinor } from "./utils";
+import { useCopy, t } from "../../lib/i18n";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -30,6 +31,7 @@ export function ObjectiveCard({
   onNavigate,
   currencySymbol,
 }: ObjectiveCardProps) {
+  const { dictionary } = useCopy();
   if (!objective) return null;
 
   const statusConfig: Record<
@@ -66,9 +68,9 @@ export function ObjectiveCard({
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Objetivo</Text>
+        <Text style={styles.title}>{t(dictionary, "mobile.home.objectiveTitle")}</Text>
         <TouchableOpacity onPress={onNavigate}>
-          <Text style={styles.link}>Ver detalle →</Text>
+          <Text style={styles.link}>{t(dictionary, "mobile.home.objectiveViewDetail")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -100,9 +102,12 @@ export function ObjectiveCard({
         </View>
         <View style={styles.progressMeta}>
           <Text style={styles.progressText}>
-            <Text style={styles.progressStrong}>{current.full}</Text> ahorrado
+            <Text style={styles.progressStrong}>{current.full}</Text>{" "}
+            {t(dictionary, "mobile.home.objectiveSavedSuffix")}
           </Text>
-          <Text style={styles.progressText}>de {target.full}</Text>
+          <Text style={styles.progressText}>
+            {t(dictionary, "mobile.home.objectiveOfPrefix")} {target.full}
+          </Text>
         </View>
       </View>
 
@@ -124,7 +129,10 @@ export function ObjectiveCard({
             />
           ))}
           <Text style={styles.streakLabel}>
-            {objective.streak.filter((m) => m.hit).length} de {objective.streak.length} meses
+            {t(dictionary, "mobile.home.objectiveStreak", {
+              hit: objective.streak.filter((m) => m.hit).length,
+              total: objective.streak.length,
+            })}
           </Text>
         </View>
       ) : null}

@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon — Onboarding Wireframe</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --finnon-dark: #1a1f36;
+    --finnon-dark-hover: #2a3050;
+    --finnon-bg: #fafafa;
+    --finnon-white: #ffffff;
+    --finnon-border: #e5e7eb;
+    --finnon-text: #1a1f36;
+    --finnon-text-secondary: #6b7280;
+    --finnon-text-muted: #9ca3af;
+    --finnon-green: #16a34a;
+    --finnon-green-bg: #f0fdf4;
+    --finnon-green-border: #bbf7d0;
+    --finnon-red: #dc2626;
+    --finnon-red-bg: #fef2f2;
+    --finnon-amber: #f59e0b;
+    --finnon-amber-bg: #fffbeb;
+    --finnon-blue: #3b82f6;
+    --finnon-blue-bg: #eff6ff;
+    --finnon-purple: #8b5cf6;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    background: #f0f0f0;
+    color: var(--finnon-text);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ========== LAYOUT CONTROLS ========== */
+  .controls {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: var(--finnon-dark);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    font-size: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+
+  .controls-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .controls-left .logo {
+    font-weight: 700;
+    font-size: 16px;
+    opacity: 0.9;
+  }
+
+  .controls-left .divider {
+    width: 1px;
+    height: 20px;
+    background: rgba(255,255,255,0.2);
+  }
+
+  .controls-left .label {
+    font-weight: 500;
+    opacity: 0.7;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .viewport-toggle {
+    display: flex;
+    gap: 4px;
+    background: rgba(255,255,255,0.1);
+    padding: 3px;
+    border-radius: 8px;
+  }
+
+  .viewport-toggle button {
+    padding: 6px 16px;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .viewport-toggle button.active {
+    background: rgba(255,255,255,0.2);
+    color: white;
+  }
+
+  .step-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .step-nav button {
+    padding: 6px 12px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: transparent;
+    color: white;
+    cursor: pointer;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    transition: all 0.2s;
+  }
+
+  .step-nav button:hover:not(:disabled) {
+    background: rgba(255,255,255,0.1);
+  }
+
+  .step-nav button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .step-nav .step-indicator {
+    font-size: 13px;
+    opacity: 0.7;
+    min-width: 80px;
+    text-align: center;
+  }
+
+  /* ========== MAIN VIEWPORT ========== */
+  .viewport-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 80px 24px 40px;
+    min-height: 100vh;
+  }
+
+  .device-frame {
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+  }
+
+  .device-frame.mobile {
+    width: 375px;
+    min-height: 812px;
+    background: var(--finnon-white);
+    border-radius: 40px;
+    box-shadow: 0 0 0 12px #1a1f36, 0 20px 60px rgba(0,0,0,0.3);
+    overflow: hidden;
+    margin-top: 20px;
+  }
+
+  .device-frame.desktop {
+    width: 100%;
+    max-width: 1200px;
+    min-height: 700px;
+    background: var(--finnon-white);
+    border-radius: 12px;
+    box-shadow: 0 0 0 1px var(--finnon-border), 0 20px 60px rgba(0,0,0,0.15);
+    overflow: hidden;
+    margin-top: 20px;
+  }
+
+  /* ========== SCREEN CONTENT ========== */
+  .screen {
+    display: none;
+    width: 100%;
+    min-height: 100%;
+    background: var(--finnon-bg);
+    animation: fadeIn 0.3s ease;
+  }
+
+  .screen.active {
+    display: flex;
+    flex-direction: column;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ========== STEP 0: WELCOME ========== */
+  .welcome-screen {
+    justify-content: center;
+    align-items: center;
+    padding: 48px 32px;
+    text-align: center;
+    background: var(--finnon-white);
+    min-height: 812px;
+  }
+
+  .welcome-icon {
+    width: 72px;
+    height: 72px;
+    background: var(--finnon-dark);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 32px;
+    box-shadow: var(--shadow-md);
+  }
+
+  .welcome-icon svg {
+    width: 36px;
+    height: 36px;
+    fill: white;
+  }
+
+  .welcome-title {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--finnon-text);
+  }
+
+  .welcome-subtitle {
+    font-size: 16px;
+    color: var(--finnon-text-secondary);
+    max-width: 320px;
+    margin: 0 auto 40px;
+    line-height: 1.6;
+  }
+
+  .welcome-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 340px;
+    margin: 0 auto 48px;
+    text-align: left;
+  }
+
+  .welcome-step {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 4px;
+  }
+
+  .welcome-step-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--finnon-bg);
+    border: 1.5px solid var(--finnon-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--finnon-text-secondary);
+    flex-shrink: 0;
+  }
+
+  .welcome-step-text {
+    font-size: 15px;
+    color: var(--finnon-text);
+  }
+
+  .welcome-step-text span {
+    color: var(--finnon-text-secondary);
+    font-size: 13px;
+    display: block;
+    margin-top: 2px;
+  }
+
+  .welcome-time {
+    font-size: 13px;
+    color: var(--finnon-text-muted);
+    margin-bottom: 24px;
+  }
+
+  /* ========== STEP 1: CREATE ACCOUNT (existing) ========== */
+  .create-account-screen {
+    justify-content: center;
+    align-items: center;
+    padding: 48px 24px;
+    background: var(--finnon-white);
+    min-height: 812px;
+  }
+
+  .form-card {
+    width: 100%;
+    max-width: 420px;
+    border: 1px solid var(--finnon-border);
+    border-radius: var(--radius);
+    padding: 32px;
+  }
+
+  .form-card h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .form-card .form-subtitle {
+    color: var(--finnon-text-secondary);
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .form-group input,
+  .form-group select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--finnon-border);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 15px;
+    color: var(--finnon-text);
+    background: var(--finnon-white);
+    transition: border-color 0.2s;
+    outline: none;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus {
+    border-color: var(--finnon-dark);
+  }
+
+  .form-group input::placeholder {
+    color: var(--finnon-text-muted);
+  }
+
+  .form-group .hint {
+    font-size: 13px;
+    color: var(--finnon-text-muted);
+    margin-top: 4px;
+  }
+
+  /* ========== STEP 2: CATEGORIES ========== */
+  .categories-screen {
+    padding: 0;
+    background: var(--finnon-white);
+    min-height: 812px;
+  }
+
+  .onboarding-header {
+    padding: 32px 24px 0;
+    text-align: center;
+  }
+
+  .onboarding-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .onboarding-header p {
+    color: var(--finnon-text-secondary);
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .progress-bar {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    padding: 24px 24px 20px;
+  }
+
+  .progress-dot {
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--finnon-border);
+    transition: background 0.3s;
+  }
+
+  .progress-dot.active {
+    background: var(--finnon-dark);
+  }
+
+  .progress-dot.completed {
+    background: var(--finnon-green);
+  }
+
+  .categories-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 0 24px;
+    margin-bottom: 16px;
+  }
+
+  .category-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1.5px solid var(--finnon-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--finnon-white);
+    user-select: none;
+  }
+
+  .category-chip:hover {
+    border-color: var(--finnon-text-muted);
+  }
+
+  .category-chip.selected {
+    border-color: var(--finnon-dark);
+    background: #f8f9fc;
+  }
+
+  .category-chip .chip-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .category-chip .chip-label {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .category-chip .chip-check {
+    margin-left: auto;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1.5px solid var(--finnon-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .category-chip.selected .chip-check {
+    background: var(--finnon-dark);
+    border-color: var(--finnon-dark);
+  }
+
+  .category-chip.selected .chip-check svg {
+    display: block;
+  }
+
+  .category-chip .chip-check svg {
+    display: none;
+    width: 10px;
+    height: 10px;
+  }
+
+  .categories-footer {
+    padding: 12px 24px;
+    font-size: 13px;
+    color: var(--finnon-text-muted);
+    text-align: center;
+  }
+
+  /* ========== STEP 3: RECURRENTS ========== */
+  .recurrents-screen {
+    padding: 0;
+    background: var(--finnon-white);
+    min-height: 812px;
+  }
+
+  .recurrent-list {
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .recurrent-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1.5px solid var(--finnon-border);
+    border-radius: var(--radius-sm);
+    background: var(--finnon-white);
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+
+  .recurrent-item:hover {
+    border-color: var(--finnon-text-muted);
+  }
+
+  .recurrent-item.selected {
+    border-color: var(--finnon-dark);
+    background: #f8f9fc;
+  }
+
+  .recurrent-item .r-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .recurrent-item .r-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .recurrent-item .r-name {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 1px;
+  }
+
+  .recurrent-item .r-detail {
+    font-size: 12px;
+    color: var(--finnon-text-muted);
+  }
+
+  .recurrent-item .r-amount {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--finnon-text);
+    flex-shrink: 0;
+  }
+
+  .recurrent-item .r-amount input {
+    width: 80px;
+    padding: 6px 8px;
+    border: 1px solid var(--finnon-border);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: right;
+    color: var(--finnon-text);
+    outline: none;
+  }
+
+  .recurrent-item .r-amount input:focus {
+    border-color: var(--finnon-dark);
+  }
+
+  .recurrent-item.selected .r-amount input {
+    background: var(--finnon-white);
+  }
+
+  .add-custom-recurrent {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px;
+    border: 1.5px dashed var(--finnon-border);
+    border-radius: var(--radius-sm);
+    color: var(--finnon-text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin: 0 24px;
+  }
+
+  .add-custom-recurrent:hover {
+    border-color: var(--finnon-text-muted);
+    color: var(--finnon-text);
+  }
+
+  .recurrents-minimum {
+    padding: 12px 24px;
+    font-size: 13px;
+    color: var(--finnon-amber);
+    text-align: center;
+    font-weight: 500;
+  }
+
+  .recurrents-minimum.met {
+    color: var(--finnon-green);
+  }
+
+  /* ========== STEP 4: OBJECTIVE (optional) ========== */
+  .objective-screen {
+    padding: 0;
+    background: var(--finnon-white);
+    min-height: 812px;
+  }
+
+  .objective-card {
+    margin: 0 24px;
+    padding: 24px;
+    border: 1.5px solid var(--finnon-border);
+    border-radius: var(--radius);
+    background: var(--finnon-white);
+  }
+
+  .objective-card .obj-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--finnon-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+  }
+
+  .objective-input-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .objective-input-row .currency {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--finnon-text-muted);
+  }
+
+  .objective-input-row input {
+    flex: 1;
+    font-size: 32px;
+    font-weight: 700;
+    border: none;
+    outline: none;
+    font-family: inherit;
+    color: var(--finnon-text);
+    background: transparent;
+  }
+
+  .objective-input-row input::placeholder {
+    color: var(--finnon-text-muted);
+  }
+
+  .objective-timeline {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .timeline-chip {
+    padding: 8px 16px;
+    border: 1.5px solid var(--finnon-border);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--finnon-white);
+  }
+
+  .timeline-chip:hover {
+    border-color: var(--finnon-text-muted);
+  }
+
+  .timeline-chip.selected {
+    background: var(--finnon-dark);
+    color: white;
+    border-color: var(--finnon-dark);
+  }
+
+  .objective-preview {
+    margin: 20px 24px 0;
+    padding: 20px;
+    background: var(--finnon-green-bg);
+    border: 1px solid var(--finnon-green-border);
+    border-radius: var(--radius-sm);
+  }
+
+  .objective-preview .preview-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--finnon-green);
+    margin-bottom: 8px;
+  }
+
+  .objective-preview .preview-text {
+    font-size: 14px;
+    color: var(--finnon-text);
+    line-height: 1.5;
+  }
+
+  .objective-preview .preview-amount {
+    font-weight: 700;
+  }
+
+  .skip-link {
+    display: block;
+    text-align: center;
+    padding: 12px;
+    font-size: 14px;
+    color: var(--finnon-text-muted);
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .skip-link:hover {
+    color: var(--finnon-text-secondary);
+  }
+
+  /* ========== STEP 5: DONE ========== */
+  .done-screen {
+    justify-content: center;
+    align-items: center;
+    padding: 48px 32px;
+    text-align: center;
+    background: var(--finnon-white);
+    min-height: 812px;
+  }
+
+  .done-checkmark {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--finnon-green-bg);
+    border: 2px solid var(--finnon-green-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 24px;
+  }
+
+  .done-checkmark svg {
+    width: 32px;
+    height: 32px;
+    stroke: var(--finnon-green);
+  }
+
+  .done-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .done-subtitle {
+    font-size: 15px;
+    color: var(--finnon-text-secondary);
+    max-width: 300px;
+    margin: 0 auto 32px;
+    line-height: 1.6;
+  }
+
+  .done-preview {
+    width: 100%;
+    max-width: 360px;
+    margin: 0 auto 32px;
+    text-align: left;
+  }
+
+  .done-preview-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--finnon-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+
+  .done-preview-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--finnon-border);
+  }
+
+  .done-preview-item:last-child {
+    border-bottom: none;
+  }
+
+  .done-preview-item .dpi-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .done-preview-item .dpi-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .done-preview-item .dpi-name {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .done-preview-item .dpi-amount {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  /* ========== INVITE CTA ========== */
+  .invite-cta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    max-width: 380px;
+    margin: 0 auto 24px;
+    padding: 16px 20px;
+    background: var(--finnon-blue-bg);
+    border: 1px solid #bfdbfe;
+    border-radius: var(--radius);
+  }
+
+  .invite-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--finnon-white);
+    border: 1px solid #bfdbfe;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--finnon-blue);
+  }
+
+  .invite-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .invite-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .invite-desc {
+    font-size: 12px;
+    color: var(--finnon-text-secondary);
+    line-height: 1.4;
+  }
+
+  .invite-btn {
+    padding: 8px 16px;
+    background: var(--finnon-dark);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+
+  .invite-btn:hover {
+    background: var(--finnon-dark-hover);
+  }
+
+  /* ========== BUTTONS ========== */
+  .btn-primary {
+    width: 100%;
+    padding: 14px;
+    background: var(--finnon-dark);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .btn-primary:hover {
+    background: var(--finnon-dark-hover);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .button-area {
+    padding: 16px 24px 32px;
+    margin-top: auto;
+  }
+
+  /* ========== DESKTOP ADJUSTMENTS ========== */
+  .device-frame.desktop .welcome-screen,
+  .device-frame.desktop .create-account-screen,
+  .device-frame.desktop .done-screen {
+    min-height: 700px;
+  }
+
+  .device-frame.desktop .categories-screen,
+  .device-frame.desktop .recurrents-screen,
+  .device-frame.desktop .objective-screen {
+    min-height: 700px;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  .device-frame.desktop .categories-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .device-frame.desktop .welcome-title {
+    font-size: 34px;
+  }
+
+  .device-frame.desktop .welcome-subtitle {
+    font-size: 17px;
+    max-width: 400px;
+  }
+
+  /* ========== ANNOTATIONS ========== */
+  .annotation-bar {
+    background: var(--finnon-amber-bg);
+    border-bottom: 1px solid #fde68a;
+    padding: 12px 24px;
+    font-size: 13px;
+    color: #92400e;
+    line-height: 1.5;
+    display: none;
+  }
+
+  .annotation-bar.visible {
+    display: block;
+  }
+
+  .annotation-bar strong {
+    font-weight: 600;
+  }
+
+  /* ========== RESPONSIVE ========== */
+  @media (max-width: 768px) {
+    .controls {
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px 16px;
+    }
+    
+    .device-frame.desktop {
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .viewport-container {
+      padding: 64px 0 0;
+    }
+
+    .device-frame.mobile {
+      border-radius: 0;
+      box-shadow: none;
+      width: 100%;
+      margin-top: 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== CONTROLS ========== -->
+<div class="controls">
+  <div class="controls-left">
+    <span class="logo">Finnon</span>
+    <span class="divider"></span>
+    <span class="label">Onboarding Wireframe</span>
+  </div>
+  
+  <div class="step-nav">
+    <button onclick="prevStep()" id="prevBtn" disabled>← Anterior</button>
+    <span class="step-indicator" id="stepIndicator">Paso 1 / 5</span>
+    <button onclick="nextStep()" id="nextBtn">Siguiente →</button>
+  </div>
+
+  <div class="viewport-toggle">
+    <button class="active" onclick="setViewport('mobile', this)">Móvil</button>
+    <button onclick="setViewport('desktop', this)">Desktop</button>
+  </div>
+</div>
+
+<!-- ========== VIEWPORT ========== -->
+<div class="viewport-container">
+  <div class="device-frame mobile" id="deviceFrame">
+
+    <!-- ===== ANNOTATION BAR ===== -->
+    <div class="annotation-bar visible" id="annotationBar"></div>
+
+    <!-- ===== STEP 0: WELCOME ===== -->
+    <div class="screen welcome-screen active" id="step0">
+      <div class="welcome-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+          <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2m-16 0H3"/>
+          <path d="M9 7h1m-1 4h1m4-4h1m-1 4h1"/>
+        </svg>
+      </div>
+      <h1 class="welcome-title">Bienvenido a Finnon</h1>
+      <p class="welcome-subtitle">Vamos a configurar tu cuenta en 2 minutos para que empieces con todo listo.</p>
+      
+      <div class="welcome-steps">
+        <div class="welcome-step">
+          <div class="welcome-step-number">1</div>
+          <div class="welcome-step-text">
+            Elige tus categorías
+            <span>Te sugerimos unas para empezar</span>
+          </div>
+        </div>
+        <div class="welcome-step">
+          <div class="welcome-step-number">2</div>
+          <div class="welcome-step-text">
+            Añade tus gastos fijos
+            <span>Alquiler, suscripciones, nómina...</span>
+          </div>
+        </div>
+        <div class="welcome-step">
+          <div class="welcome-step-number">3</div>
+          <div class="welcome-step-text">
+            Define un objetivo
+            <span>Opcional — puedes hacerlo después</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="welcome-time">⏱ Menos de 2 minutos</p>
+
+      <div style="padding: 0 24px; width: 100%; max-width: 380px;">
+        <button class="btn-primary" onclick="nextStep()">Empezar</button>
+      </div>
+    </div>
+
+    <!-- ===== STEP 1: CATEGORIES ===== -->
+    <div class="screen categories-screen" id="step1">
+      <div class="progress-bar">
+        <div class="progress-dot active"></div>
+        <div class="progress-dot"></div>
+        <div class="progress-dot"></div>
+      </div>
+      
+      <div class="onboarding-header">
+        <h2>Elige tus categorías</h2>
+        <p>Selecciona las que uses. Podrás añadir más después.</p>
+      </div>
+
+      <div style="height: 20px;"></div>
+
+      <div class="categories-grid" id="categoriesGrid">
+        <!-- Filled by JS -->
+      </div>
+
+      <div class="categories-footer">
+        Puedes crear categorías personalizadas más tarde en Ajustes
+      </div>
+
+      <div class="button-area">
+        <button class="btn-primary" onclick="nextStep()">Continuar</button>
+      </div>
+    </div>
+
+    <!-- ===== STEP 2: RECURRENTS ===== -->
+    <div class="screen recurrents-screen" id="step2">
+      <div class="progress-bar">
+        <div class="progress-dot completed"></div>
+        <div class="progress-dot active"></div>
+        <div class="progress-dot"></div>
+      </div>
+
+      <div class="onboarding-header">
+        <h2>¿Cuáles son tus gastos fijos?</h2>
+        <p>Añade al menos 2 para ver tu semana con datos reales.</p>
+      </div>
+
+      <div style="height: 20px;"></div>
+
+      <div class="recurrent-list" id="recurrentList">
+        <!-- Filled by JS -->
+      </div>
+
+      <div class="add-custom-recurrent">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Añadir otro gasto o ingreso
+      </div>
+
+      <div class="recurrents-minimum" id="recurrentMinimum">Selecciona al menos 2 para continuar</div>
+
+      <div class="button-area">
+        <button class="btn-primary" id="recurrentContinueBtn" disabled onclick="nextStep()">Continuar</button>
+      </div>
+    </div>
+
+    <!-- ===== STEP 3: OBJECTIVE ===== -->
+    <div class="screen objective-screen" id="step3">
+      <div class="progress-bar">
+        <div class="progress-dot completed"></div>
+        <div class="progress-dot completed"></div>
+        <div class="progress-dot active"></div>
+      </div>
+
+      <div class="onboarding-header">
+        <h2>¿Tienes un objetivo de ahorro?</h2>
+        <p>Finnon te ayudará a ver si vas por buen camino.</p>
+      </div>
+
+      <div style="height: 20px;"></div>
+
+      <div class="objective-card">
+        <div class="obj-label">Quiero ahorrar</div>
+        <div class="objective-input-row">
+          <span class="currency">€</span>
+          <input type="text" placeholder="3.000" id="objAmount" oninput="updateObjectivePreview()">
+        </div>
+        <div class="obj-label" style="margin-top: 20px; margin-bottom: 10px;">En un plazo de</div>
+        <div class="objective-timeline">
+          <div class="timeline-chip" onclick="selectTimeline(this, 3)">3 meses</div>
+          <div class="timeline-chip selected" onclick="selectTimeline(this, 6)">6 meses</div>
+          <div class="timeline-chip" onclick="selectTimeline(this, 12)">12 meses</div>
+        </div>
+      </div>
+
+      <div class="objective-preview" id="objectivePreview" style="display: none;">
+        <div class="preview-title">Tu plan de ahorro</div>
+        <div class="preview-text">
+          Necesitas ahorrar <span class="preview-amount" id="monthlyAmount">€500</span>/mes para llegar a tu objetivo.
+        </div>
+      </div>
+
+      <div class="button-area">
+        <button class="btn-primary" onclick="nextStep()">Continuar</button>
+        <div class="skip-link" onclick="nextStep()">Lo haré más tarde</div>
+      </div>
+    </div>
+
+    <!-- ===== STEP 4: DONE ===== -->
+    <div class="screen done-screen" id="step4">
+      <div class="done-checkmark">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <h1 class="done-title">¡Todo listo!</h1>
+      <p class="done-subtitle">Tu cuenta está configurada. Así se ve tu semana con los datos que has añadido:</p>
+
+      <div class="done-preview">
+        <div class="done-preview-label">Esta semana</div>
+        <div class="done-preview-item">
+          <div class="dpi-left">
+            <div class="dpi-dot" style="background: var(--finnon-green);"></div>
+            <span class="dpi-name">Nómina</span>
+          </div>
+          <span class="dpi-amount" style="color: var(--finnon-green);">+€2.000</span>
+        </div>
+        <div class="done-preview-item">
+          <div class="dpi-left">
+            <div class="dpi-dot" style="background: var(--finnon-red);"></div>
+            <span class="dpi-name">Alquiler</span>
+          </div>
+          <span class="dpi-amount" style="color: var(--finnon-red);">-€850</span>
+        </div>
+        <div class="done-preview-item">
+          <div class="dpi-left">
+            <div class="dpi-dot" style="background: var(--finnon-red);"></div>
+            <span class="dpi-name">Netflix</span>
+          </div>
+          <span class="dpi-amount" style="color: var(--finnon-red);">-€17,99</span>
+        </div>
+      </div>
+
+      <div class="invite-cta">
+        <div class="invite-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <line x1="19" y1="8" x2="19" y2="14"/>
+            <line x1="22" y1="11" x2="16" y2="11"/>
+          </svg>
+        </div>
+        <div class="invite-text">
+          <div class="invite-title">¿Compartes gastos con alguien?</div>
+          <div class="invite-desc">Invita a tu pareja o compañero de piso para gestionar la cuenta juntos.</div>
+        </div>
+        <button class="invite-btn" onclick="alert('→ Abre flujo de invitación')">Invitar</button>
+      </div>
+
+      <div style="padding: 0 24px; width: 100%; max-width: 380px;">
+        <button class="btn-primary" onclick="alert('→ Navega al Home de Finnon')">Ir a Finnon</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ========== STATE ==========
+  let currentStep = 0;
+  const totalSteps = 5;
+  let selectedRecurrents = 0;
+  let selectedTimeline = 6;
+
+  // ========== CATEGORIES DATA ==========
+  const categories = [
+    { icon: '🏠', label: 'Hogar', color: '#dbeafe' },
+    { icon: '🚗', label: 'Transporte', color: '#fef3c7' },
+    { icon: '🛒', label: 'Alimentación', color: '#dcfce7' },
+    { icon: '🍽️', label: 'Restaurantes', color: '#fee2e2' },
+    { icon: '📺', label: 'Suscripciones', color: '#f3e8ff' },
+    { icon: '⚡', label: 'Suministros', color: '#ffedd5' },
+    { icon: '🏥', label: 'Salud', color: '#ccfbf1' },
+    { icon: '🎮', label: 'Ocio', color: '#fce7f3' },
+    { icon: '👗', label: 'Ropa', color: '#e0e7ff' },
+    { icon: '💼', label: 'Nómina', color: '#d1fae5' },
+  ];
+
+  // ========== RECURRENTS DATA ==========
+  const recurrents = [
+    { icon: '💼', label: 'Nómina', detail: 'Mensual · Ingreso', color: '#d1fae5', placeholder: '2.000', type: 'income' },
+    { icon: '🏠', label: 'Alquiler', detail: 'Mensual · Gasto', color: '#dbeafe', placeholder: '850', type: 'expense' },
+    { icon: '📺', label: 'Netflix', detail: 'Mensual · Gasto', color: '#f3e8ff', placeholder: '17,99', type: 'expense' },
+    { icon: '🎵', label: 'Spotify', detail: 'Mensual · Gasto', color: '#dcfce7', placeholder: '10,99', type: 'expense' },
+    { icon: '💪', label: 'Gimnasio', detail: 'Mensual · Gasto', color: '#ffedd5', placeholder: '39,90', type: 'expense' },
+    { icon: '📱', label: 'Teléfono', detail: 'Mensual · Gasto', color: '#fef3c7', placeholder: '25', type: 'expense' },
+  ];
+
+  // ========== ANNOTATIONS ==========
+  const annotations = [
+    '<strong>Pantalla de bienvenida</strong> — Se muestra tras crear la cuenta. Comunica qué va a pasar y cuánto tiempo llevará. Reduce ansiedad del usuario nuevo.',
+    '<strong>Categorías sugeridas</strong> — El usuario elige de un set predefinido. Puede deseleccionar las que no le sirvan. Después podrá crear las suyas. Esto elimina la fricción de empezar desde cero.',
+    '<strong>Gastos fijos</strong> — Mínimo 2 para continuar. El usuario selecciona y pone el importe. Estos se convierten en movimientos recurrentes que alimentan el Home y Tu Cuenta desde el primer día.',
+    '<strong>Objetivo de ahorro</strong> — Opcional. Si lo rellena, la pantalla Objetivo funciona desde el día 1. El preview instantáneo ("necesitas X/mes") da valor inmediato y engancha.',
+    '<strong>Resumen y transición</strong> — Muestra los datos que acaba de crear en formato de "tu semana". El CTA de invitación aparece aquí como acción secundaria: visible pero no obligatoria. El usuario puede invitar ahora o hacerlo después desde Ajustes.',
+  ];
+
+  // ========== INIT ==========
+  function init() {
+    renderCategories();
+    renderRecurrents();
+    updateAnnotation();
+    updateStepIndicator();
+  }
+
+  function renderCategories() {
+    const grid = document.getElementById('categoriesGrid');
+    grid.innerHTML = categories.map((cat, i) => `
+      <div class="category-chip ${i < 6 ? 'selected' : ''}" onclick="toggleChip(this)">
+        <div class="chip-icon" style="background: ${cat.color}">${cat.icon}</div>
+        <span class="chip-label">${cat.label}</span>
+        <div class="chip-check">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderRecurrents() {
+    const list = document.getElementById('recurrentList');
+    list.innerHTML = recurrents.map((rec, i) => `
+      <div class="recurrent-item" onclick="toggleRecurrent(this)" data-index="${i}">
+        <div class="r-icon" style="background: ${rec.color}">${rec.icon}</div>
+        <div class="r-info">
+          <div class="r-name">${rec.label}</div>
+          <div class="r-detail">${rec.detail}</div>
+        </div>
+        <div class="r-amount">
+          <input type="text" placeholder="${rec.placeholder}" onclick="event.stopPropagation()" onfocus="this.closest('.recurrent-item').classList.contains('selected') || toggleRecurrent(this.closest('.recurrent-item'))">
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ========== INTERACTIONS ==========
+  function toggleChip(el) {
+    el.classList.toggle('selected');
+  }
+
+  function toggleRecurrent(el) {
+    el.classList.toggle('selected');
+    updateRecurrentCount();
+  }
+
+  function updateRecurrentCount() {
+    const selected = document.querySelectorAll('.recurrent-item.selected').length;
+    selectedRecurrents = selected;
+    const min = document.getElementById('recurrentMinimum');
+    const btn = document.getElementById('recurrentContinueBtn');
+    
+    if (selected >= 2) {
+      min.textContent = `✓ ${selected} seleccionados`;
+      min.classList.add('met');
+      btn.disabled = false;
+    } else {
+      min.textContent = `Selecciona al menos 2 para continuar (${selected}/2)`;
+      min.classList.remove('met');
+      btn.disabled = true;
+    }
+  }
+
+  function selectTimeline(el, months) {
+    document.querySelectorAll('.timeline-chip').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedTimeline = months;
+    updateObjectivePreview();
+  }
+
+  function updateObjectivePreview() {
+    const amount = document.getElementById('objAmount').value.replace(/[^\d]/g, '');
+    const preview = document.getElementById('objectivePreview');
+    const monthlyEl = document.getElementById('monthlyAmount');
+    
+    if (amount && parseInt(amount) > 0) {
+      const monthly = Math.ceil(parseInt(amount) / selectedTimeline);
+      monthlyEl.textContent = `€${monthly.toLocaleString('es-ES')}`;
+      preview.style.display = 'block';
+    } else {
+      preview.style.display = 'none';
+    }
+  }
+
+  // ========== NAVIGATION ==========
+  function setStep(step) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(`step${step}`).classList.add('active');
+    currentStep = step;
+    updateStepIndicator();
+    updateAnnotation();
+  }
+
+  function nextStep() {
+    if (currentStep < totalSteps - 1) {
+      setStep(currentStep + 1);
+    }
+  }
+
+  function prevStep() {
+    if (currentStep > 0) {
+      setStep(currentStep - 1);
+    }
+  }
+
+  function updateStepIndicator() {
+    document.getElementById('stepIndicator').textContent = `Paso ${currentStep + 1} / ${totalSteps}`;
+    document.getElementById('prevBtn').disabled = currentStep === 0;
+    document.getElementById('nextBtn').disabled = currentStep === totalSteps - 1;
+  }
+
+  function updateAnnotation() {
+    const bar = document.getElementById('annotationBar');
+    bar.innerHTML = annotations[currentStep];
+    bar.classList.add('visible');
+  }
+
+  // ========== VIEWPORT ==========
+  function setViewport(mode, btn) {
+    const frame = document.getElementById('deviceFrame');
+    document.querySelectorAll('.viewport-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    frame.classList.remove('mobile', 'desktop');
+    frame.classList.add(mode);
+  }
+
+  // ========== START ==========
+  init();
+</script>
+
+</body>
+</html>

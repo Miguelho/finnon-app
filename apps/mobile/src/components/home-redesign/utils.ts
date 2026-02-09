@@ -50,6 +50,20 @@ export function formatShortDate(date: Date | string, locale: string = "es"): str
   const d = parseDateValue(date);
   if (Number.isNaN(d.getTime())) return "";
   const months: Record<string, string[]> = {
+    en: [
+      "jan",
+      "feb",
+      "mar",
+      "apr",
+      "may",
+      "jun",
+      "jul",
+      "aug",
+      "sep",
+      "oct",
+      "nov",
+      "dec",
+    ],
     es: [
       "ene",
       "feb",
@@ -73,9 +87,32 @@ export function formatFullDate(date: Date | string, locale: string = "es"): stri
   const d = parseDateValue(date);
   if (Number.isNaN(d.getTime())) return "";
   const days: Record<string, string[]> = {
+    en: [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ],
     es: ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"],
   };
   const months: Record<string, string[]> = {
+    en: [
+      "january",
+      "february",
+      "march",
+      "april",
+      "may",
+      "june",
+      "july",
+      "august",
+      "september",
+      "october",
+      "november",
+      "december",
+    ],
     es: [
       "enero",
       "febrero",
@@ -93,6 +130,11 @@ export function formatFullDate(date: Date | string, locale: string = "es"): stri
   };
   const dayLabels = days[locale] ?? days.es;
   const monthLabels = months[locale] ?? months.es;
+  if (locale === "en") {
+    return `${dayLabels[d.getDay()] ?? ""} ${monthLabels[d.getMonth()] ?? ""} ${
+      d.getDate()
+    }`.trim();
+  }
   return `${dayLabels[d.getDay()] ?? ""} ${d.getDate()} de ${
     monthLabels[d.getMonth()] ?? ""
   }`.trim();

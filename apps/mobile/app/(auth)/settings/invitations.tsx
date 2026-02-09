@@ -53,7 +53,7 @@ export default function InvitationsSettingsScreen() {
   const [invites, setInvites] = useState<InviteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [selectedRole, setSelectedRole] = useState<MemberRole>("viewer");
+  const selectedRole: MemberRole = "admin";
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -261,23 +261,13 @@ export default function InvitationsSettingsScreen() {
               autoCapitalize="none"
             />
 
-            <Text style={styles.label}>{t(dictionary, "invites.roleLabel")}</Text>
-            <View style={styles.pickerWrapper}>
-              <Picker
-                selectedValue={selectedRole}
-                onValueChange={(value) => setSelectedRole(value as MemberRole)}
-              >
-                <Picker.Item label={t(dictionary, "invites.roleViewer")} value="viewer" />
-                <Picker.Item label={t(dictionary, "invites.roleContributor")} value="contributor" />
-                <Picker.Item label={t(dictionary, "invites.roleAdmin")} value="admin" />
-              </Picker>
+            <View style={styles.sendButton}>
+              <Button
+                title={sending ? t(dictionary, "common.creating") : t(dictionary, "invites.createButton")}
+                onPress={sendInvite}
+                disabled={sending || inviteEmail.trim().length === 0}
+              />
             </View>
-
-            <Button
-              title={sending ? t(dictionary, "common.creating") : t(dictionary, "invites.createButton")}
-              onPress={sendInvite}
-              disabled={sending || inviteEmail.trim().length === 0}
-            />
 
             {inviteCode && (
               <TouchableOpacity
@@ -382,6 +372,9 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radii.md,
     backgroundColor: colors.bg.surface,
     overflow: "hidden",
+  },
+  sendButton: {
+    marginTop: tokens.spacing.md,
   },
   actionsRow: {
     flexDirection: "row",

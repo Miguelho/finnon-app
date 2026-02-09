@@ -1,201 +1,197 @@
-import { useState } from "react";
-import {
-  View,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Text,
-} from "react-native";
-import { Picker } from "@react-native-picker/picker";
-import { useRouter } from "expo-router";
-import { supabase } from "../../src/lib/supabase";
-import { Card } from "../../src/components/Card";
-import { Input } from "../../src/components/Input";
-import { Button } from "../../src/components/Button";
-import { CURRENCIES, seedDefaultCategories } from "@poleursus/shared";
-import { useAuth } from "../../src/contexts/AuthContext";
+import { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import type {
+  DefaultCategory,
+  OnboardingGoalInput,
+  OnboardingRecurrentInput,
+} from "@poleursus/shared";
+import { DEFAULT_CATEGORIES } from "@poleursus/shared";
 import { useCopy, t } from "../../src/lib/i18n";
+import { CreateAccountStep } from "./onboarding/CreateAccountStep";
+import { WelcomeStep } from "./onboarding/WelcomeStep";
+import { CategoriesStep } from "./onboarding/CategoriesStep";
+import { RecurrentsStep } from "./onboarding/RecurrentsStep";
+import { ObjectiveStep } from "./onboarding/ObjectiveStep";
+import { DoneStep } from "./onboarding/DoneStep";
+import {
+  createInitialRecurrentsState,
+  ONBOARDING_STORAGE_KEY,
+  type OnboardingPersistedState,
+  type RecurrentsStepState,
+} from "./onboarding/state";
+
+type OnboardingStep =
+  | "create-account"
+  | "welcome"
+  | "categories"
+  | "recurrents"
+  | "objective"
+  | "done";
 
 export default function OnboardingScreen() {
-  const [accountName, setAccountName] = useState("");
-  const [currency, setCurrency] = useState("EUR");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { user, setSelectedAccountId, signOut } = useAuth();
-  const router = useRouter();
   const { dictionary } = useCopy();
-
-  const handleCreateAccount = async () => {
-    if (!accountName || !currency) {
-      setError(t(dictionary, "mobile.onboarding.errorRequired"));
-      return;
-    }
-
-    if (!user) {
-      await signOut();
-      router.replace("/(auth)/login");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Create account (trigger auto-adds owner as admin)
-      const { data: account, error: accountError } = await supabase
-        .from("accounts")
-        .insert({
-          name: accountName,
-          base_currency: currency,
-          owner_user_id: user.id,
-        })
-        .select()
-        .single();
-
-      if (accountError) throw accountError;
-
-      console.log("Account created successfully:", account.id);
-
-      try {
-        await seedDefaultCategories(supabase, account.id);
-      } catch (seedError) {
-        console.error("Error seeding default categories:", seedError);
-      }
-
-      // Set the newly created account as the selected account
-      await setSelectedAccountId(account.id);
-
-      // Navigate to home
-      router.replace("/");
-    } catch (err) {
-      console.error("Error creating account:", err);
-      const errorCode =
-        typeof err === "object" && err !== null && "code" in err ? (err as any).code : null;
-      const errorStatus =
-        typeof err === "object" && err !== null && "status" in err ? (err as any).status : null;
-      const isAuthError =
-        errorCode === "401" ||
-        errorCode === "403" ||
-        errorCode === "42501" ||
-        errorCode === "23503" ||
-        errorStatus === 401 ||
-        errorStatus === 403;
-
-      if (isAuthError) {
-        await signOut();
-        router.replace("/(auth)/login");
-        return;
-      }
-
-      setError(err instanceof Error ? err.message : t(dictionary, "mobile.onboarding.createError"));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Card
-          title={t(dictionary, "mobile.onboarding.title")}
-          description={t(dictionary, "mobile.onboarding.description")}
-        >
-          <Input
-            label={t(dictionary, "mobile.onboarding.accountNameLabel")}
-            value={accountName}
-            onChangeText={setAccountName}
-            placeholder={t(dictionary, "mobile.onboarding.accountNamePlaceholder")}
-            maxLength={255}
-            disabled={loading}
-            helperText={t(dictionary, "mobile.onboarding.accountNameHelper")}
-          />
-
-          <View style={styles.pickerContainer}>
-            <Text style={styles.pickerLabel}>{t(dictionary, "mobile.onboarding.currencyLabel")}</Text>
-            <View style={styles.pickerWrapper}>
-              <Picker
-                selectedValue={currency}
-                onValueChange={(itemValue) => setCurrency(itemValue)}
-                enabled={!loading}
-                style={styles.picker}
-              >
-                {CURRENCIES.map((curr) => (
-                  <Picker.Item
-                    key={curr.code}
-                    label={`${curr.symbol} ${curr.name} (${curr.code})`}
-                    value={curr.code}
-                  />
-                ))}
-              </Picker>
-            </View>
-            <Text style={styles.helperText}>
-              {t(dictionary, "mobile.onboarding.currencyHelper")}
-            </Text>
-          </View>
-
-          {error && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
-
-          <Button
-            title={t(dictionary, "mobile.onboarding.submitButton")}
-            onPress={handleCreateAccount}
-            disabled={loading || !accountName}
-            loading={loading}
-          />
-        </Card>
-      </ScrollView>
-    </KeyboardAvoidingView>
+  const [currentStep, setCurrentStep] = useState<OnboardingStep>("welcome");
+  const [accountId, setAccountId] = useState<string | null>(null);
+  const [currency, setCurrency] = useState<string>("EUR");
+  const [selectedCategories, setSelectedCategories] = useState<DefaultCategory[]>(() =>
+    DEFAULT_CATEGORIES.filter((category) => category.preselected)
   );
-}
+  const [recurrentsState, setRecurrentsState] = useState<RecurrentsStepState>(() =>
+    createInitialRecurrentsState((key) => t(dictionary, key))
+  );
+  const [objectiveDraft, setObjectiveDraft] = useState<{
+    amount: string;
+    months: 3 | 6 | 12;
+  }>({ amount: "", months: 3 });
+  const [recurrents, setRecurrents] = useState<OnboardingRecurrentInput[]>([]);
+  const [goal, setGoal] = useState<OnboardingGoalInput | null>(null);
+  const [hasHydrated, setHasHydrated] = useState(false);
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: 20,
-  },
-  pickerContainer: {
-    marginBottom: 16,
-  },
-  pickerLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-    color: "#000",
-  },
-  pickerWrapper: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    backgroundColor: "#fff",
-  },
-  picker: {
-    height: 50,
-  },
-  helperText: {
-    color: "#666",
-    fontSize: 12,
-    marginTop: 4,
-  },
-  errorContainer: {
-    backgroundColor: "#ffe6e6",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  errorText: {
-    color: "#ff3b30",
-    fontSize: 14,
-  },
-});
+  const goTo = (step: OnboardingStep) => setCurrentStep(step);
+
+  const isOnboardingStep = (value: string): value is OnboardingStep =>
+    [
+      "create-account",
+      "welcome",
+      "categories",
+      "recurrents",
+      "objective",
+      "done",
+    ].includes(value);
+
+  useEffect(() => {
+    const loadState = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(ONBOARDING_STORAGE_KEY);
+        if (!stored) {
+          setHasHydrated(true);
+          return;
+        }
+        const parsed = JSON.parse(stored) as OnboardingPersistedState;
+        if (parsed.accountId !== undefined) setAccountId(parsed.accountId);
+        if (parsed.currency) setCurrency(parsed.currency);
+        if (Array.isArray(parsed.selectedCategories)) {
+          setSelectedCategories(parsed.selectedCategories);
+        }
+        if (parsed.recurrentsState) setRecurrentsState(parsed.recurrentsState);
+        if (parsed.objectiveDraft) setObjectiveDraft(parsed.objectiveDraft);
+        if (Array.isArray(parsed.recurrents)) setRecurrents(parsed.recurrents);
+        if (parsed.goal !== undefined) setGoal(parsed.goal ?? null);
+        if (parsed.currentStep && isOnboardingStep(parsed.currentStep)) {
+          setCurrentStep(parsed.currentStep);
+        }
+      } catch (error) {
+        console.warn("[Onboarding] Failed to restore draft:", error);
+      } finally {
+        setHasHydrated(true);
+      }
+    };
+    loadState();
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+    const payload: OnboardingPersistedState = {
+      currentStep,
+      accountId,
+      currency,
+      selectedCategories,
+      recurrentsState,
+      objectiveDraft,
+      recurrents,
+      goal,
+    };
+    AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(payload)).catch(
+      (error) => {
+        console.warn("[Onboarding] Failed to persist draft:", error);
+      }
+    );
+  }, [
+    hasHydrated,
+    currentStep,
+    accountId,
+    currency,
+    selectedCategories,
+    recurrentsState,
+    objectiveDraft,
+    recurrents,
+    goal,
+  ]);
+
+  switch (currentStep) {
+    case "create-account":
+      return (
+        <CreateAccountStep
+          onComplete={(id, curr) => {
+            setAccountId(id);
+            setCurrency(curr);
+            goTo("categories");
+          }}
+        />
+      );
+    case "welcome":
+      return (
+        <WelcomeStep
+          onContinue={() => (accountId ? goTo("categories") : goTo("create-account"))}
+          showInvite={!accountId}
+        />
+      );
+    case "categories":
+      return (
+        <CategoriesStep
+          selectedCategories={selectedCategories}
+          onChangeSelectedCategories={setSelectedCategories}
+          onContinue={() => goTo("recurrents")}
+          onBack={() => goTo("welcome")}
+        />
+      );
+    case "recurrents":
+      return (
+        <RecurrentsStep
+          currency={currency}
+          state={recurrentsState}
+          onChangeState={setRecurrentsState}
+          onContinue={(recs) => {
+            setRecurrents(recs);
+            goTo("objective");
+          }}
+          onBack={() => goTo("categories")}
+        />
+      );
+    case "objective":
+      return (
+        <ObjectiveStep
+          currency={currency}
+          amount={objectiveDraft.amount}
+          months={objectiveDraft.months}
+          onAmountChange={(value) =>
+            setObjectiveDraft((prev) => ({ ...prev, amount: value }))
+          }
+          onMonthsChange={(value) =>
+            setObjectiveDraft((prev) => ({ ...prev, months: value }))
+          }
+          onContinue={(g) => {
+            setGoal(g);
+            goTo("done");
+          }}
+          onSkip={() => {
+            setGoal(null);
+            goTo("done");
+          }}
+          onBack={() => goTo("recurrents")}
+        />
+      );
+    case "done":
+      return (
+        <DoneStep
+          accountId={accountId ?? ""}
+          selectedCategories={selectedCategories}
+          recurrents={recurrents}
+          goal={goal}
+          currency={currency}
+        />
+      );
+    default:
+      return null;
+  }
+}

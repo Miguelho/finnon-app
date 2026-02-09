@@ -69,41 +69,54 @@ type Transaction = SharedTransaction & {
   category?: Category | null;
 };
 
-const WEEKDAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-const MONTHS_SHORT = [
-  "ene",
-  "feb",
-  "mar",
-  "abr",
-  "may",
-  "jun",
-  "jul",
-  "ago",
-  "sep",
-  "oct",
-  "nov",
-  "dic",
-];
-const MONTHS_LONG = [
-  "enero",
-  "febrero",
-  "marzo",
-  "abril",
-  "mayo",
-  "junio",
-  "julio",
-  "agosto",
-  "septiembre",
-  "octubre",
-  "noviembre",
-  "diciembre",
-];
+const WEEKDAY_LABELS = {
+  es: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
+  en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+};
+const MONTHS_SHORT = {
+  es: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
+  en: ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"],
+};
+const MONTHS_LONG = {
+  es: [
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
+  ],
+  en: [
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
+  ],
+};
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user, session, selectedAccountId, setSelectedAccountId } = useAuth();
   const { dictionary, locale } = useCopy();
   const isFocused = useIsFocused();
+  const localeKey = locale === "en" ? "en" : "es";
+  const weekdayLabels = WEEKDAY_LABELS[localeKey];
+  const monthsShort = MONTHS_SHORT[localeKey];
+  const monthsLong = MONTHS_LONG[localeKey];
 
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [monthlyTransactions, setMonthlyTransactions] = useState<Transaction[]>([]);
@@ -342,7 +355,7 @@ export default function HomeScreen() {
 
   const today = new Date();
   const todayKey = toDateKey(today);
-  const monthLabel = `${MONTHS_LONG[today.getMonth()] ?? ""} ${today.getFullYear()}`;
+  const monthLabel = `${monthsLong[today.getMonth()] ?? ""} ${today.getFullYear()}`;
   const monthLabelCapitalized =
     monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
@@ -416,10 +429,10 @@ export default function HomeScreen() {
 
         const statusLabel =
           status === "on-track"
-            ? "Vas bien"
+            ? t(dictionary, "mobile.home.objectiveStatusOnTrack")
             : status === "off-track"
-            ? "Fuera de objetivo"
-            : "En riesgo";
+            ? t(dictionary, "mobile.home.objectiveStatusOffTrack")
+            : t(dictionary, "mobile.home.objectiveStatusAtRisk");
 
         const targetFormatted = formatCurrencyParts(targetMinor, currencySymbol).full;
         const forecastFormatted = formatCurrencyParts(
@@ -431,19 +444,27 @@ export default function HomeScreen() {
           currencySymbol
         ).full;
 
-        let message = `Al ritmo actual, terminarás ${monthLabel} con ${forecastFormatted}.`;
+        let message = t(dictionary, "mobile.home.objectiveForecastMessage", {
+          month: monthLabel,
+          amount: forecastFormatted,
+        });
         if (progress.forecastEndMinor < targetMinor) {
-          message += ` Necesitas ${remainingFormatted} más para alcanzar el objetivo.`;
+          message += ` ${t(dictionary, "mobile.home.objectiveRemainingMessage", {
+            amount: remainingFormatted,
+          })}`;
         } else if (currentMinor < progress.expectedSavedMinor) {
-          message += " Acelerar tus ahorros te acercaría al objetivo.";
+          message += ` ${t(dictionary, "mobile.home.objectiveCatchUpMessage")}`;
         } else {
-          message += " Sigue así para cumplir el objetivo.";
+          message += ` ${t(dictionary, "mobile.home.objectiveKeepItUpMessage")}`;
         }
 
         return {
           status,
           statusLabel,
-          description: `Ahorrar ${targetFormatted} en ${monthLabel}`,
+          description: t(dictionary, "mobile.home.objectiveDescription", {
+            amount: targetFormatted,
+            month: monthLabel,
+          }),
           currentMinor: currentMinor.toString(),
           targetMinor: targetMinor.toString(),
           progressPercent,
@@ -466,12 +487,15 @@ export default function HomeScreen() {
     const item = past[0];
     if (!item) return null;
     return {
-      name: item.merchant ?? item.category?.name ?? "Movimiento",
+      name:
+        item.merchant ??
+        item.category?.name ??
+        t(dictionary, "mobile.home.movementFallback"),
       amountMinor: toMinor(item.amount_base_minor ?? item.amount_minor),
       date: item.date,
       type: item.type,
     };
-  }, [allTransactions, todayKey]);
+  }, [allTransactions, todayKey, dictionary]);
 
   const nextMovement = useMemo(() => {
     const upcoming: Array<{ dateKey: string; item: Transaction | Obligation; type: "income" | "expense" }> = [];
@@ -496,7 +520,9 @@ export default function HomeScreen() {
     const next = upcoming[0];
     const name =
       "merchant" in next.item
-        ? next.item.merchant ?? next.item.category?.name ?? "Movimiento"
+        ? next.item.merchant ??
+          next.item.category?.name ??
+          t(dictionary, "mobile.home.movementFallback")
         : next.item.name;
 
     return {
@@ -509,7 +535,7 @@ export default function HomeScreen() {
       date: "date" in next.item ? next.item.date : next.item.due_date,
       type: next.type,
     };
-  }, [upcomingTransactions, obligations, todayKey]);
+  }, [upcomingTransactions, obligations, todayKey, dictionary]);
 
   const weekStrip = useMemo(() => {
     const weekObligations = obligations.filter((item) => item.status !== "paid");
@@ -541,13 +567,13 @@ export default function HomeScreen() {
   const weekPeriodLabel = useMemo(() => {
     const start = weekStrip.weekRange.start;
     const end = weekStrip.weekRange.end;
-    const startMonth = MONTHS_SHORT[start.getMonth()] ?? "";
-    const endMonth = MONTHS_SHORT[end.getMonth()] ?? "";
+    const startMonth = monthsShort[start.getMonth()] ?? "";
+    const endMonth = monthsShort[end.getMonth()] ?? "";
     if (start.getMonth() === end.getMonth()) {
       return `${start.getDate()} – ${end.getDate()} ${endMonth}`;
     }
     return `${start.getDate()} ${startMonth} – ${end.getDate()} ${endMonth}`;
-  }, [weekStrip.weekRange]);
+  }, [weekStrip.weekRange, monthsShort]);
 
   const weekData = useMemo(() => {
     const netIncome = formatCurrencyParts(weekTotals.income, currencySymbol).full;
@@ -557,7 +583,7 @@ export default function HomeScreen() {
     return {
       days: weekStrip.days.map((day) => ({
         date: day.dayKey,
-        dayLabel: WEEKDAY_LABELS[day.dayOfWeek] ?? "",
+        dayLabel: weekdayLabels[day.dayOfWeek] ?? "",
         dayNumber: day.dayOfMonth,
         isToday: day.isToday,
         dots: day.dots.map((dot) => ({
@@ -569,7 +595,7 @@ export default function HomeScreen() {
       netExpense,
       net,
     };
-  }, [weekStrip.days, weekTotals, currencySymbol, weekPeriodLabel]);
+  }, [weekStrip.days, weekTotals, currencySymbol, weekPeriodLabel, weekdayLabels]);
 
   const monthData = useMemo(() => {
     const monthRange = getExpandedMonthRange(monthReference);
@@ -616,7 +642,7 @@ export default function HomeScreen() {
       cursor.setDate(cursor.getDate() + 1);
     }
 
-    const monthLabel = `${MONTHS_LONG[monthReference.getMonth()] ?? ""} ${
+    const monthLabel = `${monthsLong[monthReference.getMonth()] ?? ""} ${
       monthReference.getFullYear()
     }`;
 
@@ -624,7 +650,7 @@ export default function HomeScreen() {
       days,
       period: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1),
     };
-  }, [allTransactions, obligations, monthReference, todayKey]);
+  }, [allTransactions, obligations, monthReference, todayKey, monthsLong]);
 
   const selectedDay = useMemo<DayDetailData | null>(() => {
     if (!selectedDayKey) return null;
@@ -634,7 +660,10 @@ export default function HomeScreen() {
       if (toDateKey(tx.date as string) !== selectedDayKey) return;
       movements.push({
         id: tx.id,
-        name: tx.merchant ?? tx.category?.name ?? "Movimiento",
+        name:
+          tx.merchant ??
+          tx.category?.name ??
+          t(dictionary, "mobile.home.movementFallback"),
         amountMinor: toMinor(tx.amount_base_minor ?? tx.amount_minor),
         type: tx.type,
         category: tx.category?.name ?? null,
@@ -652,8 +681,8 @@ export default function HomeScreen() {
           obligation.amount_base_minor ?? obligation.amount_minor
         ),
         type: "expense",
-        category: "Programado",
-        badge: "Programado",
+        category: t(dictionary, "mobile.home.programmedBadge"),
+        badge: t(dictionary, "mobile.home.programmedBadge"),
       });
     });
 
@@ -662,7 +691,7 @@ export default function HomeScreen() {
       formattedLabel: formatFullDate(selectedDayKey, locale),
       movements,
     };
-  }, [selectedDayKey, allTransactions, obligations, locale]);
+  }, [selectedDayKey, allTransactions, obligations, locale, dictionary]);
 
   const programmedItems = useMemo(() => {
     const items: {
@@ -678,7 +707,10 @@ export default function HomeScreen() {
       if (!dateKey || dateKey <= todayKey) return;
       items.push({
         id: tx.id,
-        name: tx.merchant ?? tx.category?.name ?? "Movimiento",
+        name:
+          tx.merchant ??
+          tx.category?.name ??
+          t(dictionary, "mobile.home.movementFallback"),
         amountMinor: toMinor(tx.amount_base_minor ?? tx.amount_minor),
         dateKey,
         type: tx.type,
@@ -819,9 +851,9 @@ export default function HomeScreen() {
         ) : (
           <EmptyStateCard
             icon="📝"
-            title="Empieza a registrar tus movimientos"
-            description="Añade tu primer ingreso o gasto para ver tu calendario financiero y el estado de tu semana."
-            buttonLabel="Añadir movimiento"
+            title={t(dictionary, "mobile.home.emptyMovementsTitle")}
+            description={t(dictionary, "mobile.home.emptyMovementsDescription")}
+            buttonLabel={t(dictionary, "mobile.home.emptyMovementsCta")}
             onAction={handleAddMovement}
           />
         )}
@@ -835,9 +867,9 @@ export default function HomeScreen() {
         ) : (
           <EmptyStateCard
             icon="🎯"
-            title="Define tu primer objetivo"
-            description="Establece cuánto quieres ahorrar este mes y te ayudaremos a seguir tu progreso."
-            buttonLabel="Crear objetivo"
+            title={t(dictionary, "mobile.home.emptyGoalTitle")}
+            description={t(dictionary, "mobile.home.emptyGoalDescription")}
+            buttonLabel={t(dictionary, "mobile.home.emptyGoalCta")}
             onAction={handleCreateObjective}
           />
         )}

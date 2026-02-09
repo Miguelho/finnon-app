@@ -1,29 +1,42 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
+  Text,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from "react-native";
+import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { Card } from "../../src/components/Card";
 import { Input } from "../../src/components/Input";
 import { Button } from "../../src/components/Button";
 import { useCopy, t } from "../../src/lib/i18n";
+import { useAuth } from "../../src/contexts/AuthContext";
 
 export default function LoginScreen() {
+  const { session } = useAuth();
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<"email" | "otp">("email");
-  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<"email" | "otp" | "magicLinkSent">("email");
+  const [loadingAction, setLoadingAction] = useState<
+    "otp" | "magic" | "verify" | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const { dictionary } = useCopy();
+  const isLoading = loadingAction !== null;
+
+  useEffect(() => {
+    if (session) {
+      router.replace("/");
+    }
+  }, [router, session]);
 
   const handleSendOtp = async () => {
-    setLoading(true);
+    setLoadingAction("otp");
     setError(null);
 
     try {
@@ -40,14 +53,40 @@ export default function LoginScreen() {
       console.error("Send OTP error:", err);
       setError(err instanceof Error ? err.message : t(dictionary, "mobile.login.sendError"));
     } finally {
-      setLoading(false);
+      setLoadingAction(null);
+    }
+  };
+
+  const handleSendMagicLink = async () => {
+    setLoadingAction("magic");
+    setError(null);
+
+    try {
+      const redirectTo = Linking.createURL("/");
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: redirectTo,
+          shouldCreateUser: true,
+        },
+      });
+
+      if (error) throw error;
+      setStep("magicLinkSent");
+    } catch (err) {
+      console.error("Send magic link error:", err);
+      setError(
+        err instanceof Error ? err.message : t(dictionary, "mobile.login.sendError")
+      );
+    } finally {
+      setLoadingAction(null);
     }
   };
 
   const handleVerifyOtp = async () => {
     if (otp.length !== 6) return;
 
-    setLoading(true);
+    setLoadingAction("verify");
     setError(null);
 
     try {
@@ -84,9 +123,41 @@ export default function LoginScreen() {
         err instanceof Error ? err.message : t(dictionary, "mobile.login.invalidOtp")
       );
     } finally {
-      setLoading(false);
+      setLoadingAction(null);
     }
   };
+
+  if (step === "magicLinkSent") {
+    return (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <Card
+            title={t(dictionary, "mobile.login.magicLinkTitle")}
+            description={t(dictionary, "mobile.login.magicLinkDescription", { email })}
+          >
+            <Text style={styles.helperText}>
+              {t(dictionary, "mobile.login.magicLinkMessage")}
+            </Text>
+
+            <View style={styles.buttonStack}>
+              <Button
+                title={t(dictionary, "mobile.login.backButton")}
+                onPress={() => {
+                  setStep("email");
+                  setError(null);
+                }}
+                disabled={isLoading}
+                variant="secondary"
+              />
+            </View>
+          </Card>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
 
   if (step === "otp") {
     return (
@@ -106,7 +177,7 @@ export default function LoginScreen() {
               placeholder={t(dictionary, "mobile.login.otpPlaceholder")}
               keyboardType="numeric"
               maxLength={6}
-              disabled={loading}
+              disabled={isLoading}
               error={error || undefined}
             />
 
@@ -119,7 +190,7 @@ export default function LoginScreen() {
                     setOtp("");
                     setError(null);
                   }}
-                  disabled={loading}
+                  disabled={isLoading}
                   variant="secondary"
                 />
               </View>
@@ -127,8 +198,8 @@ export default function LoginScreen() {
                 <Button
                   title={t(dictionary, "mobile.login.verifyButton")}
                   onPress={handleVerifyOtp}
-                  disabled={loading || otp.length !== 6}
-                  loading={loading}
+                  disabled={isLoading || otp.length !== 6}
+                  loading={loadingAction === "verify"}
                 />
               </View>
             </View>
@@ -154,16 +225,25 @@ export default function LoginScreen() {
             onChangeText={setEmail}
             placeholder={t(dictionary, "mobile.login.emailPlaceholder")}
             keyboardType="email-address"
-            disabled={loading}
+            disabled={isLoading}
             error={error || undefined}
           />
 
-          <Button
-            title={t(dictionary, "mobile.login.sendButton")}
-            onPress={handleSendOtp}
-            disabled={loading || !email}
-            loading={loading}
-          />
+          <View style={styles.buttonStack}>
+            <Button
+              title={t(dictionary, "mobile.login.sendButton")}
+              onPress={handleSendOtp}
+              disabled={isLoading || !email}
+              loading={loadingAction === "otp"}
+            />
+            <Button
+              title={t(dictionary, "mobile.login.sendMagicLinkButton")}
+              onPress={handleSendMagicLink}
+              disabled={isLoading || !email}
+              loading={loadingAction === "magic"}
+              variant="secondary"
+            />
+          </View>
         </Card>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -187,5 +267,14 @@ const styles = StyleSheet.create({
   },
   buttonHalf: {
     flex: 1,
+  },
+  buttonStack: {
+    marginTop: 12,
+    gap: 10,
+  },
+  helperText: {
+    marginBottom: 12,
+    fontSize: 13,
+    color: "#555",
   },
 });

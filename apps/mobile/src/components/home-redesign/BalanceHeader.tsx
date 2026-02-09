@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from "react-native";
 import { themeTokens } from "@poleursus/shared";
 import { formatCurrencyParts } from "./utils";
+import { useCopy, t } from "../../lib/i18n";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -16,11 +17,12 @@ export function BalanceHeader({
   monthLabel,
   currencySymbol,
 }: BalanceHeaderProps) {
+  const { dictionary } = useCopy();
   const { integer, decimals } = formatCurrencyParts(amountMinor, currencySymbol);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Balance del mes</Text>
+      <Text style={styles.label}>{t(dictionary, "mobile.home.balanceLabel")}</Text>
       <Text style={styles.amount}>
         {integer}
         <Text style={styles.decimals}>,{decimals}</Text>
