@@ -275,8 +275,6 @@ export async function TopNav({ containerClassName }: TopNavProps) {
             openLabel={openSettingsLabel}
             actionsLabel={actionsLabel}
             profile={profileData}
-            accounts={accountsWithCounts}
-            activeAccountId={activeAccountId}
             menu={settingsMenu}
           />
         </div>

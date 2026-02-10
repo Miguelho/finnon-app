@@ -46,6 +46,8 @@ export default async function ActiveAccountPage() {
   if (!activeAccount) {
     redirect("/select-account");
   }
+  const activeRole =
+    activeAccount.account_members?.[0]?.role ?? "viewer";
 
   return (
     <div className="min-h-screen bg-background">
@@ -57,8 +59,13 @@ export default async function ActiveAccountPage() {
         </div>
 
         <ActiveAccountDetails
-          account={activeAccount}
+          account={{
+            id: activeAccount.id,
+            name: activeAccount.name,
+            base_currency: activeAccount.base_currency,
+          }}
           currentUserId={user.id}
+          role={activeRole}
         />
       </PageContainer>
     </div>

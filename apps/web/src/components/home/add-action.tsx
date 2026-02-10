@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -25,10 +25,16 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { AddMenuItem } from "@/components/home/AddMenuItem";
 import { AddTransactionForm } from "@/components/add-transaction";
+import { CategoryFormPanel } from "@/components/categories/category-form-panel";
+import { createCategory } from "@/app/categories/actions";
 import { createRecurringItem } from "@/app/transactions/actions";
 import {
   ADD_ACTIONS,
+  normalizeCategoryName,
+  suggestCategoryIcon,
   type AddActionKey,
+  type CategoryIconKey,
+  type CategoryType,
   type TopCategory,
   type MerchantSuggestion,
   type RecurringFrequency,
@@ -74,7 +80,18 @@ export function AddAction({
   const [isOpen, setIsOpen] = useState(false);
   const [isTransactionOpen, setIsTransactionOpen] = useState(false);
   const [isRecurringOpen, setIsRecurringOpen] = useState(false);
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [isCategorySubmitting, setIsCategorySubmitting] = useState(false);
   const [isRecurringSubmitting, setIsRecurringSubmitting] = useState(false);
+  const [availableCategories, setAvailableCategories] = useState<Category[]>(
+    categories
+  );
+  const [categoryForm, setCategoryForm] = useState({
+    name: "",
+    icon_id: "Tag" as CategoryIconKey,
+    type: "expense" as CategoryType,
+  });
+  const [categoryIconSelected, setCategoryIconSelected] = useState(false);
   const [recurringForm, setRecurringForm] = useState(() => ({
     type: "expense" as TransactionType,
     amount: "",
@@ -89,6 +106,13 @@ export function AddAction({
   const recurringTitle =
     ADD_ACTIONS.find((action) => action.key === "recurring")?.title ??
     t("home.addCta");
+  const normalizedCategoryName = normalizeCategoryName(categoryForm.name);
+  const canSubmitCategory =
+    Boolean(normalizedCategoryName) && !isCategorySubmitting;
+
+  useEffect(() => {
+    setAvailableCategories(categories);
+  }, [categories]);
 
   const handleAction = (key: AddActionKey) => {
     if (!canEdit) return;
@@ -99,7 +123,7 @@ export function AddAction({
         setIsTransactionOpen(true);
         return;
       case "category":
-        router.push("/categories");
+        setIsCategoryOpen(true);
         return;
       case "recurring":
         setIsRecurringOpen(true);
@@ -130,10 +154,70 @@ export function AddAction({
     });
   };
 
+  const resetCategoryForm = () => {
+    setCategoryForm({
+      name: "",
+      icon_id: "Tag",
+      type: "expense",
+    });
+    setCategoryIconSelected(false);
+  };
+
   const categoryOptions = useMemo(
-    () => categories.filter((category) => category.type === recurringForm.type),
-    [categories, recurringForm.type]
+    () =>
+      availableCategories.filter(
+        (category) => category.type === recurringForm.type
+      ),
+    [availableCategories, recurringForm.type]
   );
+
+  const handleCategorySubmit = async () => {
+    if (!canEdit || isCategorySubmitting) return;
+
+    if (!normalizedCategoryName) {
+      toast.error(t("categories.nameRequired"));
+      return;
+    }
+
+    if (normalizedCategoryName.length < 2 || normalizedCategoryName.length > 40) {
+      toast.error(t("categories.error.nameLength"));
+      return;
+    }
+
+    setIsCategorySubmitting(true);
+    try {
+      const result = await createCategory({
+        account_id: accountId,
+        name: normalizedCategoryName,
+        icon_id: categoryForm.icon_id,
+        type: categoryForm.type,
+      });
+
+      if (result.success && result.data) {
+        setAvailableCategories((prev) => {
+          const created = result.data as Category;
+          if (prev.some((category) => category.id === created.id)) {
+            return prev;
+          }
+          return [...prev, created];
+        });
+        setIsCategoryOpen(false);
+        resetCategoryForm();
+        router.refresh();
+        return;
+      }
+
+      toast.error(
+        result.error
+          ? t(result.error.key, result.error.params)
+          : t("categories.createError")
+      );
+    } catch (error) {
+      toast.error(t("categories.createError"));
+    } finally {
+      setIsCategorySubmitting(false);
+    }
+  };
 
   const handleRecurringSubmit = async (
     event?: React.FormEvent<HTMLFormElement>
@@ -245,7 +329,7 @@ export function AddAction({
                   accountId={accountId}
                   currency={currency}
                   locale={locale}
-                  categories={categories}
+                  categories={availableCategories}
                   topCategories={topCategories}
                   merchantSuggestions={merchantSuggestions}
                   onSuccess={handleTransactionSuccess}
@@ -255,6 +339,55 @@ export function AddAction({
             </SlidePanelBody>
           </SlidePanelContent>
         </SlidePanel>
+      )}
+
+      {canEdit && (
+        <CategoryFormPanel
+          open={isCategoryOpen}
+          onOpenChange={(open) => {
+            setIsCategoryOpen(open);
+            if (!open && !isCategorySubmitting) {
+              resetCategoryForm();
+            }
+          }}
+          title={t("categories.newTitle")}
+          description={t("categories.createDescription")}
+          nameLabel={t("categories.nameLabel")}
+          namePlaceholder={t("categories.namePlaceholder")}
+          typeLabel={t("categories.typeLabel")}
+          expenseLabel={t("categories.expenseLabel")}
+          incomeLabel={t("categories.incomeLabel")}
+          iconLabel={t("categories.iconLabel")}
+          nameValue={categoryForm.name}
+          onNameChange={(newName) => {
+            setCategoryForm((prev) => {
+              if (!categoryIconSelected && newName.trim()) {
+                const suggestion = suggestCategoryIcon(newName);
+                return { ...prev, name: newName, icon_id: suggestion.primary };
+              }
+              return { ...prev, name: newName };
+            });
+          }}
+          typeValue={categoryForm.type}
+          onTypeChange={(value) =>
+            setCategoryForm((prev) => ({ ...prev, type: value }))
+          }
+          iconValue={categoryForm.icon_id}
+          onIconChange={(iconKey) => {
+            setCategoryIconSelected(true);
+            setCategoryForm((prev) => ({ ...prev, icon_id: iconKey }));
+          }}
+          onCancel={() => {
+            setIsCategoryOpen(false);
+            resetCategoryForm();
+          }}
+          onSubmit={handleCategorySubmit}
+          cancelLabel={t("common.cancel")}
+          submitLabel={isCategorySubmitting ? t("common.saving") : t("categories.saveLabel")}
+          submitDisabled={!canSubmitCategory}
+          cancelDisabled={isCategorySubmitting}
+          nameInputId="add-action-category-name"
+        />
       )}
 
       {canEdit && (

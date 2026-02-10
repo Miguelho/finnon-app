@@ -381,7 +381,7 @@ export function AccountSummaryClient({
             <CardDescription>{viewModel.copy.categoriesCount}</CardDescription>
           </div>
           <Link
-            href="/categories"
+            href="/settings/account"
             className="text-sm text-primary hover:underline"
           >
             {viewModel.copy.categoriesViewAll}

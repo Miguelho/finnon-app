@@ -86,7 +86,8 @@ export async function createCategory(input: {
       return { success: false, error: { key: "errors.internalServer" } };
     }
 
-    revalidatePath("/categories");
+    revalidatePath("/account");
+    revalidatePath("/settings/account");
     revalidatePath("/transactions");
     return { success: true, data };
   } catch (error: any) {
@@ -187,7 +188,8 @@ export async function updateCategory(
       return { success: false, error: { key: "errors.internalServer" } };
     }
 
-    revalidatePath("/categories");
+    revalidatePath("/account");
+    revalidatePath("/settings/account");
     revalidatePath("/transactions");
     return { success: true, data };
   } catch (error: any) {
@@ -251,7 +253,8 @@ export async function deleteCategory(
       return { success: false, error: { key: "errors.internalServer" } };
     }
 
-    revalidatePath("/categories");
+    revalidatePath("/account");
+    revalidatePath("/settings/account");
     revalidatePath("/transactions");
     return { success: true };
   } catch (error: any) {

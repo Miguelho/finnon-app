@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   StyleSheet,
   Text,
@@ -17,7 +16,6 @@ import { useRouter } from "expo-router";
 import {
   ALLOWED_AVATAR_BG_TOKENS,
   buildSettingsMenuVM,
-  isExpired,
   mapUserToUserDetailsVM,
   signOutAndReset,
   themeTokens,
@@ -28,12 +26,6 @@ import { useCopy, t } from "../../lib/i18n";
 import { supabase } from "../../lib/supabase";
 import { SettingsRow } from "../SettingsRow";
 import { UserAvatar } from "../UserAvatar";
-
-type Account = {
-  id: string;
-  name: string;
-  base_currency: string;
-};
 
 type ProfileAvatarState = {
   avatarPath: string | null;
@@ -46,7 +38,7 @@ const tokens = themeTokens.light;
 const colors = tokens.colors;
 
 export function SettingsDrawerContent(props: DrawerContentComponentProps) {
-  const { user, clearSelectedAccount, selectedAccountId, setSelectedAccountId } = useAuth();
+  const { user, clearSelectedAccount } = useAuth();
   const { dictionary } = useCopy();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -57,9 +49,6 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
     email: null,
   });
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [inviteCount, setInviteCount] = useState(0);
-  const [isSwitching, setIsSwitching] = useState(false);
 
   const viewModel = useMemo(() => buildSettingsMenuVM(dictionary, "mobile"), [
     dictionary,
@@ -123,85 +112,6 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
     };
   }, [user?.id, user?.email]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadAccounts() {
-      if (!user?.id) {
-        if (!cancelled) setAccounts([]);
-        return;
-      }
-
-      const { data: memberships, error } = await supabase
-        .from("account_members")
-        .select("account_id, accounts(id, name, base_currency)")
-        .eq("user_id", user.id);
-
-      if (cancelled) return;
-
-      if (error) {
-        setAccounts([]);
-        return;
-      }
-
-      const accountsList =
-        memberships
-          ?.map((m: any) => m.accounts)
-          .filter((a: any) => a !== null) || [];
-
-      setAccounts(accountsList);
-    }
-
-    async function loadInviteCount() {
-      if (!user) {
-        if (!cancelled) setInviteCount(0);
-        return;
-      }
-
-      const normalizedEmail = user.email?.trim().toLowerCase();
-      const filters = [];
-
-      if (normalizedEmail) {
-        filters.push(
-          `invited_email.ilike.${normalizedEmail}`,
-          `invitee_email.ilike.${normalizedEmail}`
-        );
-      }
-
-      if (user.id) {
-        filters.push(`invitee_user_id.eq.${user.id}`);
-      }
-
-      if (filters.length === 0) {
-        if (!cancelled) setInviteCount(0);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("invites")
-        .select("id, expires_at, status, invited_email, invitee_email, invitee_user_id")
-        .or(filters.join(","))
-        .eq("status", "pending");
-
-      if (cancelled) return;
-
-      if (error) {
-        setInviteCount(0);
-        return;
-      }
-
-      const count = (data ?? []).filter((invite) => !isExpired(invite.expires_at)).length;
-      setInviteCount(count);
-    }
-
-    void loadAccounts();
-    void loadInviteCount();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id, user?.email]);
-
   const email = profile.email ?? user?.email ?? "";
 
   const handleNavigate = (route: string) => {
@@ -211,20 +121,6 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
 
   const handleCloseDrawer = () => {
     props.navigation.closeDrawer();
-  };
-
-  const handleSelectAccount = async (accountId: string) => {
-    if (isSwitching || accountId === selectedAccountId) return;
-    setIsSwitching(true);
-    try {
-      await setSelectedAccountId(accountId);
-      props.navigation.closeDrawer();
-      router.replace("/(auth)/(tabs)/home");
-    } catch (err) {
-      console.error("[SettingsDrawer] Error switching account:", err);
-    } finally {
-      setIsSwitching(false);
-    }
   };
 
   const handleConfirmSignOut = async () => {
@@ -308,108 +204,21 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
         </TouchableOpacity>
       </View>
 
-      {viewModel.sections.map((section) => {
-        const isAccountSection = section.id === "account";
-        // Filter out switch-account since we show the selector directly
-        const filteredItems = section.items.filter(
-          (item) => item.id !== "switch-account" && item.id !== "categories"
-        );
-
-        return (
-          <View key={section.id} style={styles.section}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            <View style={styles.sectionContent}>
-              {isAccountSection && accounts.length > 0 && (
-                <View style={styles.accountSelector}>
-                  <TouchableOpacity
-                    style={styles.inviteRow}
-                    onPress={() => handleNavigate("/(auth)/invitations")}
-                  >
-                    <View style={styles.inviteRowInfo}>
-                      <Text style={styles.inviteRowTitle}>
-                        {t(dictionary, "invitations.title")}
-                      </Text>
-                      <Text style={styles.inviteRowDescription}>
-                        {t(dictionary, "invitations.subtitle")}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.inviteBadge,
-                        inviteCount > 0 && styles.inviteBadgeActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.inviteBadgeText,
-                          inviteCount > 0 && styles.inviteBadgeTextActive,
-                        ]}
-                      >
-                        {inviteCount}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                  {accounts.map((account) => {
-                    const isActive = account.id === selectedAccountId;
-                    return (
-                      <TouchableOpacity
-                        key={account.id}
-                        style={[
-                          styles.accountRow,
-                          isActive && styles.accountRowActive,
-                          isSwitching && styles.accountRowDisabled,
-                        ]}
-                        onPress={() => handleSelectAccount(account.id)}
-                        disabled={isSwitching}
-                      >
-                        <View style={styles.accountRowInfo}>
-                          <Text style={styles.accountRowName}>{account.name}</Text>
-                          <Text style={styles.accountRowCurrency}>
-                            {account.base_currency}
-                          </Text>
-                        </View>
-                        <View style={styles.accountRowRight}>
-                          <View
-                            style={[
-                              styles.accountBadge,
-                              isActive && styles.accountBadgeActive,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.accountBadgeText,
-                                isActive && styles.accountBadgeTextActive,
-                              ]}
-                            >
-                              {isActive
-                                ? t(dictionary, "dashboard.accountsActiveBadge")
-                                : t(dictionary, "dashboard.accountsSelectBadge")}
-                            </Text>
-                          </View>
-                          {isSwitching && isActive && (
-                            <ActivityIndicator
-                              size="small"
-                              color={colors.text.muted}
-                            />
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-              {filteredItems.map((item) => (
-                <SettingsRow
-                  key={item.id}
-                  title={item.title}
-                  description={item.description}
-                  onPress={() => handleNavigate(item.route)}
-                />
-              ))}
-            </View>
+      {viewModel.sections.map((section) => (
+        <View key={section.id} style={styles.section}>
+          <Text style={styles.sectionTitle}>{section.title}</Text>
+          <View style={styles.sectionContent}>
+            {section.items.map((item) => (
+              <SettingsRow
+                key={item.id}
+                title={item.title}
+                description={item.description}
+                onPress={() => handleNavigate(item.route)}
+              />
+            ))}
           </View>
-        );
-      })}
+        </View>
+      ))}
 
       <View style={styles.signOutSection}>
         <View style={styles.signOutDivider} />
@@ -486,107 +295,6 @@ const styles = StyleSheet.create({
   sectionContent: {
     borderTopWidth: 1,
     borderTopColor: colors.state.neutral,
-  },
-  accountSelector: {
-    paddingHorizontal: tokens.spacing.lg,
-    paddingVertical: tokens.spacing.md,
-    gap: tokens.spacing.sm,
-  },
-  inviteRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.bg.secondary,
-    padding: tokens.spacing.md,
-    borderRadius: tokens.radii.md,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-  },
-  inviteRowInfo: {
-    flex: 1,
-  },
-  inviteRowTitle: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
-  },
-  inviteRowDescription: {
-    fontSize: tokens.typography.size.xs,
-    color: colors.text.secondary,
-    marginTop: tokens.spacing.xs,
-  },
-  inviteBadge: {
-    paddingHorizontal: tokens.spacing.sm,
-    paddingVertical: tokens.spacing.xs,
-    borderRadius: tokens.radii.pill,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-  },
-  inviteBadgeActive: {
-    backgroundColor: colors.action.primary,
-    borderColor: colors.action.primary,
-  },
-  inviteBadgeText: {
-    fontSize: tokens.typography.size.xs,
-    fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.muted,
-  },
-  inviteBadgeTextActive: {
-    color: colors.bg.primary,
-  },
-  accountRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.bg.secondary,
-    padding: tokens.spacing.md,
-    borderRadius: tokens.radii.md,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-  },
-  accountRowActive: {
-    borderColor: colors.action.primary,
-    backgroundColor: colors.bg.surface,
-  },
-  accountRowDisabled: {
-    opacity: 0.6,
-  },
-  accountRowInfo: {
-    flex: 1,
-  },
-  accountRowName: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
-  },
-  accountRowCurrency: {
-    fontSize: tokens.typography.size.xs,
-    color: colors.text.secondary,
-    marginTop: tokens.spacing.xs,
-  },
-  accountRowRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: tokens.spacing.sm,
-  },
-  accountBadge: {
-    paddingHorizontal: tokens.spacing.sm,
-    paddingVertical: tokens.spacing.xs,
-    borderRadius: tokens.radii.pill,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
-  },
-  accountBadgeActive: {
-    backgroundColor: colors.action.primary,
-    borderColor: colors.action.primary,
-  },
-  accountBadgeText: {
-    fontSize: tokens.typography.size.xs,
-    fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.muted,
-  },
-  accountBadgeTextActive: {
-    color: colors.bg.primary,
   },
   signOutSection: {
     marginTop: tokens.spacing.md,

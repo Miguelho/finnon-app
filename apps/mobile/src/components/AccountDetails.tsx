@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { Card } from "./Card";
+import { CategoryIcon } from "./CategoryIcon";
 import { useNetworkNotice } from "../contexts/NetworkNoticeContext";
 import { useCopy, t } from "../lib/i18n";
 import { ConfirmationModal, signOutAndReset, themeTokens } from "@poleursus/shared";
@@ -29,6 +30,15 @@ type MemberProfile = {
   email: string | null;
 };
 
+type Category = {
+  id: string;
+  account_id: string;
+  name: string;
+  icon_id: string;
+  type: "income" | "expense";
+  created_at: string;
+};
+
 type AccountDetailsProps = {
   accountId: string;
   showSignOut?: boolean;
@@ -43,8 +53,11 @@ export function AccountDetails({ accountId, showSignOut = false }: AccountDetail
 
   const [account, setAccount] = useState<Account | null>(null);
   const [members, setMembers] = useState<MemberProfile[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [isSignOutOpen, setIsSignOutOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -65,6 +78,7 @@ export function AccountDetails({ accountId, showSignOut = false }: AccountDetail
 
       setLoading(true);
       setError(null);
+      setCategoriesError(null);
 
       try {
         const { data: accountData, error: accountError } = await supabase
@@ -116,6 +130,35 @@ export function AccountDetails({ accountId, showSignOut = false }: AccountDetail
         const payload = await response.json();
         if (!cancelled) {
           setMembers((payload?.members ?? []) as MemberProfile[]);
+        }
+
+        setCategoriesLoading(true);
+        try {
+          const { data: categoryData, error: categoryError } = await supabase
+            .from("categories")
+            .select("id, account_id, name, icon_id, type, created_at")
+            .eq("account_id", accountId)
+            .order("name", { ascending: true });
+
+          if (categoryError) {
+            throw categoryError;
+          }
+
+          if (!cancelled) {
+            setCategories((categoryData ?? []) as Category[]);
+          }
+        } catch (categoryErr: any) {
+          console.error("[AccountDetail] Categories load error:", categoryErr);
+          if (!cancelled) {
+            setCategoriesError(
+              categoryErr?.message ?? t(dictionary, "categories.loadError")
+            );
+            setCategories([]);
+          }
+        } finally {
+          if (!cancelled) {
+            setCategoriesLoading(false);
+          }
         }
       } catch (err: any) {
         console.error("[AccountDetail] Error:", err);
@@ -213,7 +256,6 @@ export function AccountDetails({ accountId, showSignOut = false }: AccountDetail
         description={t(dictionary, "account.description")}
       >
         <View style={styles.section}>
-          <Text style={styles.label}>{t(dictionary, "account.labelAccount")}</Text>
           <Text style={styles.value}>{account?.name ?? "-"}</Text>
           <Text style={styles.meta}>
             {t(dictionary, "account.baseCurrencyLabel", {
@@ -223,7 +265,7 @@ export function AccountDetails({ accountId, showSignOut = false }: AccountDetail
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>
+          <Text style={styles.sectionTitle}>
             {t(dictionary, "account.participantsLabel", { count: members.length })}
           </Text>
           {members.length === 0 ? (
@@ -262,9 +304,76 @@ export function AccountDetails({ accountId, showSignOut = false }: AccountDetail
           )}
         </View>
 
+        <View style={styles.sectionDivider} />
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            {t(dictionary, "account.categoriesLabel", {
+              count: categories.length,
+            })}
+          </Text>
+          <Text style={styles.sectionSubtitle}>
+            {t(dictionary, "account.categoriesSubtitle")}
+          </Text>
+
+          {categoriesLoading ? (
+            <Text style={styles.empty}>{t(dictionary, "common.loading")}</Text>
+          ) : categoriesError ? (
+            <Text style={styles.empty}>{categoriesError}</Text>
+          ) : categories.length === 0 ? (
+            <Text style={styles.empty}>{t(dictionary, "categories.emptyAll")}</Text>
+          ) : (
+            <View style={styles.categoryList}>
+              {categories.map((category) => (
+                <TouchableOpacity
+                  key={category.id}
+                  style={styles.categoryRow}
+                  onPress={() =>
+                    router.push(
+                      `/(auth)/(tabs)/account/categories/${category.id}/edit`
+                    )
+                  }
+                >
+                  <View style={styles.categoryInfo}>
+                    <View style={styles.categoryIconBadge}>
+                      <CategoryIcon
+                        iconKey={category.icon_id}
+                        size={16}
+                        tone="muted"
+                        accessibilityLabel={category.name}
+                      />
+                    </View>
+                    <Text style={styles.categoryName} numberOfLines={1}>
+                      {category.name}
+                    </Text>
+                  </View>
+                  <View style={styles.categoryTypeBadge}>
+                    <Text style={styles.categoryTypeText}>
+                      {category.type === "income"
+                        ? t(dictionary, "categories.incomeLabel")
+                        : t(dictionary, "categories.expenseLabel")}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <TouchableOpacity
+            onPress={() =>
+              router.push("/(auth)/(tabs)/account/categories/create")
+            }
+            style={styles.addCategoryLink}
+          >
+            <Text style={styles.addCategoryText}>
+              + {t(dictionary, "account.categoriesAddLabel")}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {showSignOut && (
           <View style={styles.signOutSection}>
-            <View style={styles.signOutDivider} />
+            <View style={styles.sectionDivider} />
             <TouchableOpacity
               onPress={() => setIsSignOutOpen(true)}
               disabled={isSigningOut}
@@ -334,12 +443,16 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: tokens.spacing.lg,
   },
-  label: {
-    fontSize: tokens.typography.size.xs,
-    color: colors.text.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+  sectionTitle: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.text.primary,
     marginBottom: tokens.spacing.xs,
+  },
+  sectionSubtitle: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.secondary,
+    marginBottom: tokens.spacing.sm,
   },
   value: {
     fontSize: tokens.typography.size.xl,
@@ -393,6 +506,65 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.sm,
     color: colors.text.secondary,
   },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: colors.state.neutral,
+    marginBottom: tokens.spacing.md,
+  },
+  categoryList: {
+    gap: tokens.spacing.sm,
+    marginBottom: tokens.spacing.sm,
+  },
+  categoryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: tokens.spacing.md,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    borderRadius: tokens.radii.md,
+    backgroundColor: colors.bg.surface,
+  },
+  categoryInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: tokens.spacing.sm,
+  },
+  categoryIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: tokens.radii.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.bg.secondary,
+  },
+  categoryName: {
+    flex: 1,
+    fontSize: tokens.typography.size.md,
+    fontWeight: tokens.typography.weight.medium,
+    color: colors.text.primary,
+  },
+  categoryTypeBadge: {
+    backgroundColor: colors.action.secondary,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: tokens.spacing.xs,
+    borderRadius: tokens.radii.pill,
+  },
+  categoryTypeText: {
+    fontSize: tokens.typography.size.xs,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.text.primary,
+    textTransform: "capitalize",
+  },
+  addCategoryLink: {
+    paddingVertical: tokens.spacing.xs,
+  },
+  addCategoryText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.action.primary,
+  },
   errorText: {
     color: colors.state.negative,
     fontSize: tokens.typography.size.sm,
@@ -400,11 +572,6 @@ const styles = StyleSheet.create({
   },
   signOutSection: {
     marginTop: tokens.spacing.md,
-  },
-  signOutDivider: {
-    height: 1,
-    backgroundColor: colors.state.neutral,
-    marginBottom: tokens.spacing.md,
   },
   signOutRow: {
     flexDirection: "row",

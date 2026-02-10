@@ -692,7 +692,7 @@ export const en = {
     accountDescription: "Invites and other features coming soon",
     signOut: {
       label: "Sign out",
-      description: "Sign out from this device",
+      description: "Sign out on this device",
       confirmTitle: "Sign out?",
       confirmDescription:
         "You will need to sign in again to access your accounts.",
@@ -724,8 +724,9 @@ export const en = {
           title: "Account",
           items: {
             activeAccount: {
-              title: "Active account",
-              description: "View details and participants for the active account",
+              title: "Account settings",
+              description:
+                "Manage your account details, members, and categories",
             },
             switchAccount: {
               title: "Switch account",
@@ -789,14 +790,17 @@ export const en = {
   },
   account: {
     title: "Account details",
-    description: "Participants and account context",
+    description: "",
     idLabel: "Account ID",
     infoButtonLabel: "Account information",
     roleLabel: "Account role",
     yourRoleLabel: "Your role",
     labelAccount: "Account",
-    baseCurrencyLabel: "Base currency: {currency}",
-    participantsLabel: "Participants ({count})",
+    baseCurrencyLabel: "Currency: {currency}",
+    participantsLabel: "Members ({count})",
+    categoriesLabel: "Categories ({count})",
+    categoriesSubtitle: "Organize movements by expense or income type",
+    categoriesAddLabel: "Add category",
     participantsEmpty: "No participants",
     memberFallback: "Member {id}",
     youLabel: "You",

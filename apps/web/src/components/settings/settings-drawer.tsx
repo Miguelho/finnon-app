@@ -10,13 +10,6 @@ import { AvatarButton } from "@/components/user/avatar-button";
 import { SettingsDrawerContent } from "@/components/settings/settings-drawer-content";
 import { cn } from "@/lib/utils";
 
-type AccountSummary = {
-  id: string;
-  name: string;
-  base_currency: string;
-  memberCount: number;
-};
-
 type SettingsDrawerProfile = {
   userId: string;
   email: string;
@@ -31,8 +24,6 @@ type SettingsDrawerProps = {
   openLabel: string;
   actionsLabel: string;
   profile: SettingsDrawerProfile;
-  accounts: AccountSummary[];
-  activeAccountId: string;
   menu: SettingsMenuVM;
 };
 
@@ -41,8 +32,6 @@ export function SettingsDrawer({
   openLabel,
   actionsLabel,
   profile,
-  accounts,
-  activeAccountId,
   menu,
 }: SettingsDrawerProps) {
   const [open, setOpen] = useState(false);
@@ -103,8 +92,6 @@ export function SettingsDrawer({
 
           <SettingsDrawerContent
             profile={profile}
-            accounts={accounts}
-            activeAccountId={activeAccountId}
             menu={menu}
             actionsLabel={actionsLabel}
             onNavigate={() => setOpen(false)}

@@ -141,34 +141,6 @@ export function buildSettingsMenuVM(
                 ? `${baseRoute}/account`
                 : `${baseRoute}/account`,
           },
-          ...(platform === "mobile"
-            ? [
-                {
-                  id: "switch-account",
-                  title: t(
-                    dictionary,
-                    "settings.menu.sections.account.items.switchAccount.title"
-                  ),
-                  description: t(
-                    dictionary,
-                    "settings.menu.sections.account.items.switchAccount.description"
-                  ),
-                  route: "/(auth)/select-account",
-                },
-              ]
-            : []),
-          {
-            id: "categories",
-            title: t(
-              dictionary,
-              "settings.menu.sections.account.items.categories.title"
-            ),
-            description: t(
-              dictionary,
-              "settings.menu.sections.account.items.categories.description"
-            ),
-            route: platform === "mobile" ? "/(auth)/categories" : "/categories",
-          },
           {
             id: "invitations",
             title: t(

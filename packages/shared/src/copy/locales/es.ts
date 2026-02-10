@@ -693,7 +693,7 @@ export const es = {
     accountDescription: "Gestión de invitaciones y otras funciones próximamente",
     signOut: {
       label: "Cerrar sesión",
-      description: "Salir de tu cuenta en este dispositivo",
+      description: "Cierra sesión en este dispositivo",
       confirmTitle: "¿Cerrar sesión?",
       confirmDescription:
         "Tendrás que volver a iniciar sesión para acceder a tus cuentas.",
@@ -725,8 +725,9 @@ export const es = {
           title: "Cuenta",
           items: {
             activeAccount: {
-              title: "Cuenta activa",
-              description: "Ver detalles y participantes de la cuenta activa",
+              title: "Configuración de la cuenta",
+              description:
+                "Gestiona los detalles, participantes y categorías de tu cuenta",
             },
             switchAccount: {
               title: "Cambiar cuenta",
@@ -790,14 +791,17 @@ export const es = {
   },
   account: {
     title: "Detalles de la cuenta",
-    description: "Participantes y contexto de la cuenta",
+    description: "",
     idLabel: "ID de cuenta",
     infoButtonLabel: "Información de la cuenta",
     roleLabel: "Rol en la cuenta",
     yourRoleLabel: "Tu rol",
     labelAccount: "Cuenta",
-    baseCurrencyLabel: "Moneda base: {currency}",
-    participantsLabel: "Participantes ({count})",
+    baseCurrencyLabel: "Moneda: {currency}",
+    participantsLabel: "Miembros ({count})",
+    categoriesLabel: "Categorías ({count})",
+    categoriesSubtitle: "Organiza tus movimientos por tipo de gasto o ingreso",
+    categoriesAddLabel: "Añadir categoría",
     participantsEmpty: "Sin participantes",
     memberFallback: "Miembro {id}",
     youLabel: "Tú",

@@ -29,37 +29,35 @@ export default function LanguageClient() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="mx-auto max-w-2xl space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {t(dictionary, "settings.language.title")}
-          </h1>
-          <p className="text-muted-foreground">
-            {t(dictionary, "settings.language.subtitle")}
-          </p>
-        </div>
-
-        <Card>
-          <CardContent className="p-0">
-            {options.map((option, index) => (
-              <button
-                key={option.code}
-                onClick={() => switchLocale(option.code)}
-                disabled={isPending}
-                className={`w-full flex items-center justify-between p-4 text-left hover:bg-muted/50 transition-colors disabled:opacity-50 ${
-                  index !== options.length - 1 ? "border-b" : ""
-                }`}
-              >
-                <span className="font-medium">{option.label}</span>
-                {currentLocale === option.code && (
-                  <span className="text-primary font-semibold">✓</span>
-                )}
-              </button>
-            ))}
-          </CardContent>
-        </Card>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">
+          {t(dictionary, "settings.language.title")}
+        </h1>
+        <p className="text-muted-foreground">
+          {t(dictionary, "settings.language.subtitle")}
+        </p>
       </div>
+
+      <Card>
+        <CardContent className="p-0">
+          {options.map((option, index) => (
+            <button
+              key={option.code}
+              onClick={() => switchLocale(option.code)}
+              disabled={isPending}
+              className={`w-full flex items-center justify-between p-4 text-left hover:bg-muted/50 transition-colors disabled:opacity-50 ${
+                index !== options.length - 1 ? "border-b" : ""
+              }`}
+            >
+              <span className="font-medium">{option.label}</span>
+              {currentLocale === option.code && (
+                <span className="text-primary font-semibold">✓</span>
+              )}
+            </button>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }

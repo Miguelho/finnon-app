@@ -2,16 +2,8 @@
 
 import Link from "next/link";
 import type { AvatarColorToken, SettingsMenuVM } from "@poleursus/shared";
-import { ActiveAccountSelector } from "@/components/settings/active-account-selector";
 import { UserAvatar } from "@/components/user-avatar";
 import { UserSignOutRow } from "@/components/settings/user-signout";
-
-type AccountSummary = {
-  id: string;
-  name: string;
-  base_currency: string;
-  memberCount: number;
-};
 
 type SettingsDrawerProfile = {
   userId: string;
@@ -24,8 +16,6 @@ type SettingsDrawerProfile = {
 
 type SettingsDrawerContentProps = {
   profile: SettingsDrawerProfile;
-  accounts: AccountSummary[];
-  activeAccountId: string;
   menu: SettingsMenuVM;
   actionsLabel: string;
   onNavigate?: () => void;
@@ -33,8 +23,6 @@ type SettingsDrawerContentProps = {
 
 export function SettingsDrawerContent({
   profile,
-  accounts,
-  activeAccountId,
   menu,
   actionsLabel,
   onNavigate,
@@ -48,8 +36,6 @@ export function SettingsDrawerContent({
       <div className="space-y-6">
         {menu.sections.map((section) => {
           const showProfile = section.id === "user";
-          const showAccountSelector =
-            section.id === "account" && accounts.length > 0;
 
           return (
             <section key={section.id} className="space-y-3">
@@ -57,59 +43,49 @@ export function SettingsDrawerContent({
                 {section.title}
               </h2>
               <div className="divide-y border-y border-muted">
-                  {showProfile && (
-                    <div className="flex items-center gap-3 p-4">
-                      <UserAvatar
-                        email={profile.email}
-                        userId={profile.userId}
-                        avatarPath={profile.avatarPath}
-                        fallbackText={profile.fallbackText}
-                        fallbackBgToken={profile.fallbackBgToken}
-                        size={52}
-                        label={primaryLabel}
-                      />
-                      <div className="min-w-0 space-y-1">
-                        <p className="truncate text-sm font-semibold text-foreground">
-                          {primaryLabel}
+                {showProfile && (
+                  <div className="flex items-center gap-3 p-4">
+                    <UserAvatar
+                      email={profile.email}
+                      userId={profile.userId}
+                      avatarPath={profile.avatarPath}
+                      fallbackText={profile.fallbackText}
+                      fallbackBgToken={profile.fallbackBgToken}
+                      size={52}
+                      label={primaryLabel}
+                    />
+                    <div className="min-w-0 space-y-1">
+                      <p className="truncate text-sm font-semibold text-foreground">
+                        {primaryLabel}
+                      </p>
+                      {secondaryLabel && (
+                        <p className="truncate text-xs text-muted-foreground">
+                          {secondaryLabel}
                         </p>
-                        {secondaryLabel && (
-                          <p className="truncate text-xs text-muted-foreground">
-                            {secondaryLabel}
-                          </p>
-                        )}
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {section.items.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={item.route}
+                    onClick={onNavigate}
+                    className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/50"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-foreground">
+                        {item.title}
                       </div>
-                    </div>
-                  )}
-
-                  {showAccountSelector && (
-                    <div className="p-4">
-                      <ActiveAccountSelector
-                        accounts={accounts}
-                        initialActiveAccountId={activeAccountId}
-                        onAccountSelected={onNavigate}
-                      />
-                    </div>
-                  )}
-
-                  {section.items.map((item) => (
-                    <Link
-                      key={item.id}
-                      href={item.route}
-                      onClick={onNavigate}
-                      className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/50"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-foreground">
-                          {item.title}
-                        </div>
                       <div className="text-xs text-muted-foreground">
-                          {item.description}
-                        </div>
+                        {item.description}
                       </div>
-                      <span className="text-lg text-muted-foreground">{">"}</span>
-                    </Link>
-                  ))}
-                </div>
+                    </div>
+                    <span className="text-lg text-muted-foreground">{">"}</span>
+                  </Link>
+                ))}
+              </div>
             </section>
           );
         })}
@@ -119,8 +95,8 @@ export function SettingsDrawerContent({
             {actionsLabel}
           </h2>
           <div className="border-y border-muted p-4">
-              <UserSignOutRow />
-            </div>
+            <UserSignOutRow />
+          </div>
         </section>
       </div>
     </div>
