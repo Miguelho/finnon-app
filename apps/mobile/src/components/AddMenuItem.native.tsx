@@ -4,6 +4,7 @@ import {
   PlusCircle,
   RefreshCw,
   Repeat,
+  Tag,
 } from "lucide-react-native";
 import {
   themeTokens,
@@ -18,6 +19,7 @@ const iconMap: Record<AddActionIconName, typeof HelpCircle> = {
   PlusCircle,
   Repeat,
   RefreshCw,
+  Tag,
 };
 
 type AddMenuItemProps = {

@@ -34,6 +34,9 @@ export function TabBarWithAdd({ state, navigation }: BottomTabBarProps) {
       case "movement":
         router.push("/(auth)/(tabs)/transactions/create");
         return;
+      case "category":
+        router.push("/(auth)/(tabs)/account/categories/create");
+        return;
       case "recurring":
         router.push("/(auth)/(tabs)/transactions/create?type=expense&kind=recurring");
         return;
@@ -50,6 +53,7 @@ export function TabBarWithAdd({ state, navigation }: BottomTabBarProps) {
     const iconName = isFocused
       ? tabIconMap[route.name].active
       : tabIconMap[route.name].inactive;
+    const shouldResetToRoot = route.name === "transactions" || route.name === "account";
 
     const onPress = () => {
       const event = navigation.emit({
@@ -58,7 +62,13 @@ export function TabBarWithAdd({ state, navigation }: BottomTabBarProps) {
         canPreventDefault: true,
       });
 
-      if (!isFocused && !event.defaultPrevented) {
+      if (event.defaultPrevented) return;
+
+      if (!isFocused || shouldResetToRoot) {
+        if (shouldResetToRoot) {
+          navigation.navigate(route.name, { screen: "index" });
+          return;
+        }
         navigation.navigate(route.name);
       }
     };

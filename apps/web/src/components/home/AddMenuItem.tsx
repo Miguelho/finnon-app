@@ -3,6 +3,7 @@ import {
   PlusCircle,
   RefreshCw,
   Repeat,
+  Tag,
 } from "lucide-react";
 import type { AddActionMeta, AddActionIconName } from "@poleursus/shared";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,7 @@ const iconMap: Record<AddActionIconName, typeof HelpCircle> = {
   PlusCircle,
   Repeat,
   RefreshCw,
+  Tag,
 };
 
 type AddMenuItemProps = {

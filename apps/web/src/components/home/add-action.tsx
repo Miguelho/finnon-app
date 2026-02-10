@@ -98,6 +98,9 @@ export function AddAction({
       case "movement":
         setIsTransactionOpen(true);
         return;
+      case "category":
+        router.push("/categories");
+        return;
       case "recurring":
         setIsRecurringOpen(true);
         return;

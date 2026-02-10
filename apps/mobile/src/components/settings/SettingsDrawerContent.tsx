@@ -428,7 +428,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
               {t(dictionary, "settings.signOut.description")}
             </Text>
           </View>
-          <Text style={styles.signOutChevron}>&gt;</Text>
+          <Text style={styles.signOutChevron}>›</Text>
         </TouchableOpacity>
       </View>
     </DrawerContentScrollView>
@@ -589,35 +589,33 @@ const styles = StyleSheet.create({
     color: colors.bg.primary,
   },
   signOutSection: {
-    gap: tokens.spacing.sm,
-    paddingHorizontal: tokens.spacing.lg,
+    marginTop: tokens.spacing.md,
   },
   signOutDivider: {
     height: 1,
     backgroundColor: colors.state.neutral,
+    marginBottom: tokens.spacing.md,
+    marginHorizontal: tokens.spacing.lg,
   },
   signOutRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: tokens.spacing.md,
-    paddingHorizontal: tokens.spacing.md,
-    borderRadius: tokens.radii.md,
-    backgroundColor: colors.bg.secondary,
-    borderWidth: 1,
-    borderColor: colors.state.neutral,
+    justifyContent: "space-between",
+    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.lg,
   },
   signOutContent: {
     flex: 1,
   },
   signOutTitle: {
     fontSize: tokens.typography.size.md,
-    fontWeight: tokens.typography.weight.medium,
-    color: colors.text.primary,
-    marginBottom: tokens.spacing.xs,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.state.negative,
   },
   signOutDescription: {
     fontSize: tokens.typography.size.sm,
     color: colors.text.secondary,
+    marginTop: tokens.spacing.xs,
   },
   signOutChevron: {
     fontSize: tokens.typography.size.xl,

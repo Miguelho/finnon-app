@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import { AddAction } from "@/components/home/add-action";
 import type { TopCategory, MerchantSuggestion } from "@poleursus/shared";
 
@@ -31,7 +30,6 @@ export function AddActionTrigger({
   variant = "top-nav",
 }: AddActionTriggerProps) {
   const t = useTranslations();
-  const supabase = useMemo(() => createClient(), []);
   const [categories, setCategories] = useState<Category[]>([]);
   const [topCategories, setTopCategories] = useState<{
     expense: TopCategory[];
@@ -56,52 +54,33 @@ export function AddActionTrigger({
 
     setIsLoading(true);
     try {
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from("categories")
-        .select("id, name, icon_id, type")
-        .eq("account_id", accountId)
-        .order("name", { ascending: true });
+      const response = await fetch(
+        `/api/add-action-data?accountId=${encodeURIComponent(accountId)}`,
+        { cache: "no-store" }
+      );
+      if (!response.ok) {
+        throw new Error("Failed to load add action data");
+      }
 
-      if (categoriesError) throw categoriesError;
+      const payload = (await response.json()) as {
+        categories?: Category[];
+        topCategories?: {
+          expense: TopCategory[];
+          income: TopCategory[];
+        };
+        merchantSuggestions?: {
+          expense: MerchantSuggestion[];
+          income: MerchantSuggestion[];
+        };
+      };
 
-      const [topExpenseResult, topIncomeResult, merchantExpenseResult, merchantIncomeResult] =
-        await Promise.all([
-          supabase.rpc("get_top_categories", {
-            p_account_id: accountId,
-            p_tx_type: "expense",
-            p_limit: 3,
-          }),
-          supabase.rpc("get_top_categories", {
-            p_account_id: accountId,
-            p_tx_type: "income",
-            p_limit: 3,
-          }),
-          supabase.rpc("get_merchant_suggestions", {
-            p_account_id: accountId,
-            p_tx_type: "expense",
-            p_limit: 20,
-          }),
-          supabase.rpc("get_merchant_suggestions", {
-            p_account_id: accountId,
-            p_tx_type: "income",
-            p_limit: 20,
-          }),
-        ]);
-
-      if (topExpenseResult.error) throw topExpenseResult.error;
-      if (topIncomeResult.error) throw topIncomeResult.error;
-      if (merchantExpenseResult.error) throw merchantExpenseResult.error;
-      if (merchantIncomeResult.error) throw merchantIncomeResult.error;
-
-      setCategories(categoriesData ?? []);
-      setTopCategories({
-        expense: topExpenseResult.data ?? [],
-        income: topIncomeResult.data ?? [],
-      });
-      setMerchantSuggestions({
-        expense: merchantExpenseResult.data ?? [],
-        income: merchantIncomeResult.data ?? [],
-      });
+      setCategories(payload.categories ?? []);
+      setTopCategories(
+        payload.topCategories ?? { expense: [], income: [] }
+      );
+      setMerchantSuggestions(
+        payload.merchantSuggestions ?? { expense: [], income: [] }
+      );
       setHasLoaded(true);
       return true;
     } catch (error) {
@@ -111,7 +90,7 @@ export function AddActionTrigger({
     } finally {
       setIsLoading(false);
     }
-  }, [accountId, hasLoaded, isLoading, supabase, t]);
+  }, [accountId, hasLoaded, isLoading, t]);
 
   const handleOpen = async (open: () => void) => {
     if (isLoading) return;

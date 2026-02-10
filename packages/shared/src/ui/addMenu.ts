@@ -1,9 +1,10 @@
-export type AddActionKey = "movement" | "recurring";
+export type AddActionKey = "movement" | "recurring" | "category";
 
 export type AddActionIconName =
   | "PlusCircle"
   | "Repeat"
-  | "RefreshCw";
+  | "RefreshCw"
+  | "Tag";
 
 export type AddActionMeta = {
   key: AddActionKey;
@@ -27,6 +28,12 @@ export const ADD_ACTIONS: AddActionMeta[] = [
       "Una serie que crea ocurrencias; confirma cada una para registrar.",
     icon: "Repeat",
     iconFallback: "RefreshCw",
+  },
+  {
+    key: "category",
+    title: "Crear categoría",
+    description: "Crea o actualiza categorías compartidas.",
+    icon: "Tag",
   },
 ];
 
