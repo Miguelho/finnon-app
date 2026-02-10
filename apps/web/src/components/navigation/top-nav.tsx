@@ -90,7 +90,9 @@ export async function TopNav({ containerClassName }: TopNavProps) {
   const settingsLabel = t(dictionary, settingsLabelKey);
   const openSettingsLabel = locale === "es" ? "Abrir ajustes" : "Open settings";
   const actionsLabel = locale === "es" ? "Acciones" : "Actions";
-  const settingsMenu = buildSettingsMenuVM(dictionary, "web");
+  const settingsMenu = buildSettingsMenuVM(dictionary, "web", {
+    accountId: activeAccountId,
+  });
 
   const formatTimeAgo = (value: Date, currentLocale: string) => {
     const diffMs = Date.now() - value.getTime();

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,7 +6,7 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../../../../../src/lib/supabase";
 import { useAuth } from "../../../../../src/contexts/AuthContext";
@@ -28,6 +28,7 @@ const colors = tokens.colors;
 
 export default function CreateCategoryScreen() {
   const router = useRouter();
+  const { type: initialTypeParam } = useLocalSearchParams<{ type?: string }>();
   const { selectedAccountId } = useAuth();
   const [name, setName] = useState("");
   const [iconKey, setIconKey] = useState<CategoryIconKey>("Tag");
@@ -37,6 +38,20 @@ export default function CreateCategoryScreen() {
   const { dictionary } = useCopy();
   const normalizedNameValue = normalizeCategoryName(name);
   const canSubmit = Boolean(normalizedNameValue) && !isSubmitting;
+
+  useEffect(() => {
+    const normalizedType =
+      initialTypeParam === "income" || initialTypeParam === "expense"
+        ? initialTypeParam
+        : null;
+
+    if (!normalizedType) return;
+
+    setType(normalizedType);
+    if (!userSelectedIcon) {
+      setIconKey(normalizedType === "income" ? "Bank" : "Tag");
+    }
+  }, [initialTypeParam, userSelectedIcon]);
 
   const handleNameChange = (newName: string) => {
     setName(newName);

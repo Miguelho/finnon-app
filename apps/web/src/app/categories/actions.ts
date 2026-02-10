@@ -88,6 +88,7 @@ export async function createCategory(input: {
 
     revalidatePath("/account");
     revalidatePath("/settings/account");
+    revalidatePath(`/account/${validated.account_id}/settings/categories`);
     revalidatePath("/transactions");
     return { success: true, data };
   } catch (error: any) {
@@ -190,6 +191,7 @@ export async function updateCategory(
 
     revalidatePath("/account");
     revalidatePath("/settings/account");
+    revalidatePath(`/account/${category.account_id}/settings/categories`);
     revalidatePath("/transactions");
     return { success: true, data };
   } catch (error: any) {
@@ -255,6 +257,7 @@ export async function deleteCategory(
 
     revalidatePath("/account");
     revalidatePath("/settings/account");
+    revalidatePath(`/account/${category.account_id}/settings/categories`);
     revalidatePath("/transactions");
     return { success: true };
   } catch (error: any) {

@@ -724,6 +724,14 @@ export const es = {
         account: {
           title: "Cuenta",
           items: {
+            general: {
+              title: "General",
+              description: "Nombre, moneda e icono de la cuenta",
+            },
+            members: {
+              title: "Miembros",
+              description: "Gestiona accesos e invitaciones",
+            },
             activeAccount: {
               title: "Configuración de la cuenta",
               description:
@@ -735,7 +743,7 @@ export const es = {
             },
             categories: {
               title: "Categorías",
-              description: "Consulta y organiza las categorías de la cuenta",
+              description: "Organiza gastos e ingresos",
             },
             invitations: {
               title: "Invitaciones",
@@ -787,6 +795,53 @@ export const es = {
         es: "Español",
       },
       current: "Actual: {language}",
+    },
+  },
+  accountSettings: {
+    sidebar: {
+      back: "Volver a Tu Cuenta",
+      accountMeta: "Cuenta",
+      general: "General",
+      members: "Miembros",
+      categories: "Categorías",
+    },
+    general: {
+      title: "General",
+      subtitle: "Configuración básica de tu cuenta",
+      saveSuccess: "Cambios guardados",
+      saveError: "No se pudieron guardar los cambios",
+      dangerTitle: "Zona de peligro",
+      deleteTitle: "Eliminar cuenta",
+      deleteDescription:
+        "Se eliminarán permanentemente todos los movimientos, categorías y configuraciones.",
+    },
+    members: {
+      title: "Miembros",
+      subtitle: "Gestiona quién tiene acceso a esta cuenta",
+      activeMembers: "Miembros activos",
+      invitations: "Invitaciones",
+      pendingInvites: "{count} pendientes",
+      inviteButton: "Invitar",
+      emptyInvites: "No hay invitaciones pendientes",
+      inviteMeta: "{sentAgo} · Rol: {role}",
+      pendingStatus: "Pendiente",
+      resendButton: "Reenviar",
+      resendSuccess: "Invitación reenviada",
+      updateRoleError: "No se pudo actualizar el rol",
+      updateRoleSuccess: "Rol actualizado",
+      removeMemberConfirm: "¿Seguro que quieres eliminar este miembro?",
+      removeMemberError: "No se pudo eliminar el miembro",
+      removeMemberSuccess: "Miembro eliminado",
+    },
+    categories: {
+      title: "Categorías",
+      subtitle: "Organiza tus movimientos por tipo de gasto o ingreso",
+      expenseSection: "Gastos",
+      incomeSection: "Ingresos",
+      categoryCount: "{count} categorías",
+      addExpense: "Añadir categoría de gasto",
+      addIncome: "Añadir categoría de ingreso",
+      deleteSuccess: "Categoría eliminada",
     },
   },
   account: {

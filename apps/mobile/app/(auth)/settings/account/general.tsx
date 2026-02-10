@@ -1,0 +1,510 @@
+import { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { Picker } from "@react-native-picker/picker";
+import { Redirect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "../../../../src/contexts/AuthContext";
+import { useNetworkNotice } from "../../../../src/contexts/NetworkNoticeContext";
+import { useCopy, t } from "../../../../src/lib/i18n";
+import { supabase } from "../../../../src/lib/supabase";
+import { CURRENCIES, themeTokens } from "@poleursus/shared";
+
+type AccountRole = "viewer" | "contributor" | "admin";
+type AccountRecord = {
+  id: string;
+  name: string;
+  base_currency: string;
+  account_members?: Array<{ user_id: string; role: AccountRole }>;
+};
+
+const tokens = themeTokens.light;
+const colors = themeTokens.light.colors;
+
+export default function AccountGeneralSettingsScreen() {
+  const { selectedAccountId, isInitialized, user } = useAuth();
+  const { dictionary } = useCopy();
+  const insets = useSafeAreaInsets();
+  const { reportNetworkIssue } = useNetworkNotice();
+
+  const [account, setAccount] = useState<AccountRecord | null>(null);
+  const [name, setName] = useState("");
+  const [currency, setCurrency] = useState("EUR");
+  const [role, setRole] = useState<AccountRole>("viewer");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAccount() {
+      if (!selectedAccountId || !user?.id) {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const { data, error: accountError } = await supabase
+          .from("accounts")
+          .select("id, name, base_currency, account_members!inner(user_id, role)")
+          .eq("id", selectedAccountId)
+          .eq("account_members.user_id", user.id)
+          .maybeSingle();
+
+        if (accountError) {
+          throw accountError;
+        }
+
+        if (!data) {
+          throw new Error(t(dictionary, "errors.accountNotFoundOrDenied"));
+        }
+
+        const accountData = data as AccountRecord;
+        const currentRole =
+          accountData.account_members?.find((member) => member.user_id === user.id)?.role ??
+          "viewer";
+
+        if (!cancelled) {
+          setAccount(accountData);
+          setName(accountData.name);
+          setCurrency(accountData.base_currency);
+          setRole(currentRole);
+        }
+      } catch (err: any) {
+        console.error("[AccountGeneralSettings] Load error:", err);
+        if (!cancelled) {
+          setError(err?.message ?? t(dictionary, "account.loadError"));
+        }
+        reportNetworkIssue({
+          message: t(dictionary, "account.loadError"),
+          onRetry: loadAccount,
+        });
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadAccount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dictionary, reportNetworkIssue, selectedAccountId, user?.id]);
+
+  const canEdit = role !== "viewer";
+
+  const hasChanges = useMemo(() => {
+    if (!account) return false;
+    return name.trim() !== account.name.trim() || currency !== account.base_currency;
+  }, [account, currency, name]);
+
+  const accountIcon = useMemo(() => {
+    const source = name.trim() || account?.name?.trim() || "";
+    return source.charAt(0).toUpperCase() || "🏦";
+  }, [account?.name, name]);
+
+  const saveChanges = async () => {
+    if (!selectedAccountId || !account || !canEdit || isSaving || !hasChanges) {
+      return;
+    }
+
+    const normalizedName = name.trim();
+    if (!normalizedName) {
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "categories.nameRequired")
+      );
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { error: updateError } = await supabase
+        .from("accounts")
+        .update({ name: normalizedName, base_currency: currency })
+        .eq("id", selectedAccountId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setAccount((previous) =>
+        previous
+          ? { ...previous, name: normalizedName, base_currency: currency }
+          : previous
+      );
+      setName(normalizedName);
+
+      Alert.alert(
+        t(dictionary, "common.successTitle"),
+        t(dictionary, "accountSettings.general.saveSuccess")
+      );
+    } catch (err) {
+      console.error("[AccountGeneralSettings] Save error:", err);
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "accountSettings.general.saveError")
+      );
+      reportNetworkIssue({
+        message: t(dictionary, "accountSettings.general.saveError"),
+        onRetry: saveChanges,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!isInitialized) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={colors.text.muted} />
+      </View>
+    );
+  }
+
+  if (!selectedAccountId) {
+    return <Redirect href="/(auth)/select-account" />;
+  }
+
+  if (isLoading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={colors.text.muted} />
+      </View>
+    );
+  }
+
+  if (error || !account) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>{t(dictionary, "common.errorTitle")}</Text>
+        <Text style={styles.errorText}>
+          {error ?? t(dictionary, "account.loadError")}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={styles.scrollContainer}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { paddingBottom: insets.bottom + tokens.spacing.xxl },
+      ]}
+    >
+      <View style={styles.pageHeader}>
+        <Text style={styles.pageTitle}>{t(dictionary, "accountSettings.general.title")}</Text>
+        <Text style={styles.pageSubtitle}>
+          {t(dictionary, "accountSettings.general.subtitle")}
+        </Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{t(dictionary, "account.title")}</Text>
+        <View style={styles.formCard}>
+          <View style={styles.formRow}>
+            <Text style={styles.formLabel}>{t(dictionary, "common.iconLabel")}</Text>
+            <View style={styles.formControl}>
+              <View style={styles.iconPreview}>
+                <Text style={styles.iconText}>{accountIcon}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.formRow}>
+            <Text style={styles.formLabel}>{t(dictionary, "common.nameLabel")}</Text>
+            <View style={styles.formControl}>
+              <TextInput
+                value={name}
+                onChangeText={setName}
+                editable={canEdit && !isSaving}
+                style={[
+                  styles.textInput,
+                  (!canEdit || isSaving) && styles.inputDisabled,
+                ]}
+                placeholder={t(dictionary, "common.nameLabel")}
+                maxLength={80}
+              />
+            </View>
+          </View>
+
+          <View style={[styles.formRow, styles.formRowLast]}>
+            <Text style={styles.formLabel}>{t(dictionary, "common.currencyLabel")}</Text>
+            <View style={styles.formControl}>
+              <View
+                style={[
+                  styles.pickerWrapper,
+                  (!canEdit || isSaving) && styles.inputDisabled,
+                ]}
+              >
+                <Picker
+                  selectedValue={currency}
+                  onValueChange={(value) => setCurrency(String(value))}
+                  enabled={canEdit && !isSaving}
+                  style={styles.picker}
+                >
+                  {CURRENCIES.map((option) => (
+                    <Picker.Item
+                      key={option.code}
+                      label={`${option.code} - ${option.name}`}
+                      value={option.code}
+                    />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.saveRow}>
+          <Pressable
+            onPress={() => {
+              void saveChanges();
+            }}
+            disabled={!canEdit || isSaving || !hasChanges}
+            style={[
+              styles.saveButton,
+              (!canEdit || isSaving || !hasChanges) && styles.saveButtonDisabled,
+            ]}
+          >
+            <Text style={styles.saveButtonText}>
+              {isSaving ? t(dictionary, "common.saving") : t(dictionary, "common.saveChanges")}
+            </Text>
+          </Pressable>
+
+          {!canEdit ? (
+            <Text style={styles.readOnlyHint}>{t(dictionary, "categories.readOnlyNotice")}</Text>
+          ) : null}
+        </View>
+      </View>
+
+      <View style={styles.dangerSection}>
+        <Text style={styles.dangerTitle}>{t(dictionary, "accountSettings.general.dangerTitle")}</Text>
+        <View style={styles.dangerCard}>
+          <View style={styles.dangerInfo}>
+            <Text style={styles.dangerActionTitle}>
+              {t(dictionary, "accountSettings.general.deleteTitle")}
+            </Text>
+            <Text style={styles.dangerDescription}>
+              {t(dictionary, "accountSettings.general.deleteDescription")}
+            </Text>
+          </View>
+          <Pressable disabled style={styles.dangerButton}>
+            <Text style={styles.dangerButtonText}>{t(dictionary, "common.delete")}</Text>
+          </Pressable>
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  scrollContainer: {
+    flex: 1,
+    backgroundColor: colors.bg.secondary,
+  },
+  scrollContent: {
+    paddingTop: tokens.spacing.lg,
+    paddingHorizontal: tokens.spacing.lg,
+  },
+  loading: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.bg.secondary,
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: tokens.spacing.xl,
+    backgroundColor: colors.bg.secondary,
+  },
+  errorTitle: {
+    fontSize: tokens.typography.size.lg,
+    fontWeight: tokens.typography.weight.bold,
+    color: colors.text.primary,
+    marginBottom: tokens.spacing.xs,
+  },
+  errorText: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.state.negative,
+    textAlign: "center",
+  },
+  pageHeader: {
+    marginBottom: tokens.spacing.xl,
+  },
+  pageTitle: {
+    fontSize: tokens.typography.size.xl,
+    fontWeight: tokens.typography.weight.bold,
+    color: colors.text.primary,
+    marginBottom: tokens.spacing.xs,
+  },
+  pageSubtitle: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.muted,
+  },
+  section: {
+    marginBottom: tokens.spacing.xxl,
+  },
+  sectionTitle: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.text.primary,
+    marginBottom: tokens.spacing.md,
+  },
+  formCard: {
+    backgroundColor: colors.bg.surface,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    borderRadius: tokens.radii.lg,
+    overflow: "hidden",
+  },
+  formRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.md,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEF0F4",
+  },
+  formRowLast: {
+    borderBottomWidth: 0,
+  },
+  formLabel: {
+    width: 118,
+    fontSize: 13,
+    fontWeight: tokens.typography.weight.medium,
+    color: colors.text.secondary,
+  },
+  formControl: {
+    flex: 1,
+  },
+  iconPreview: {
+    width: 48,
+    height: 48,
+    borderRadius: tokens.radii.sm,
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    backgroundColor: colors.bg.secondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconText: {
+    fontSize: 22,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    borderRadius: tokens.radii.sm,
+    backgroundColor: colors.bg.secondary,
+    color: colors.text.primary,
+    fontSize: tokens.typography.size.sm,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: 10,
+  },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    borderRadius: tokens.radii.sm,
+    backgroundColor: colors.bg.secondary,
+    overflow: "hidden",
+  },
+  picker: {
+    color: colors.text.primary,
+    height: 44,
+  },
+  inputDisabled: {
+    opacity: 0.65,
+  },
+  saveRow: {
+    marginTop: tokens.spacing.lg,
+    gap: tokens.spacing.sm,
+  },
+  saveButton: {
+    backgroundColor: colors.text.primary,
+    borderRadius: tokens.radii.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    paddingHorizontal: tokens.spacing.lg,
+    alignSelf: "flex-start",
+    minWidth: 148,
+  },
+  saveButtonDisabled: {
+    opacity: 0.45,
+  },
+  saveButtonText: {
+    color: colors.bg.primary,
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+  },
+  readOnlyHint: {
+    fontSize: tokens.typography.size.xs,
+    color: colors.text.secondary,
+  },
+  dangerSection: {
+    borderTopWidth: 1,
+    borderTopColor: colors.state.neutral,
+    paddingTop: tokens.spacing.xl,
+  },
+  dangerTitle: {
+    fontSize: tokens.typography.size.xs,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.state.negative,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: tokens.spacing.md,
+  },
+  dangerCard: {
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    borderRadius: tokens.radii.lg,
+    backgroundColor: colors.bg.surface,
+    padding: tokens.spacing.lg,
+    gap: tokens.spacing.md,
+  },
+  dangerInfo: {
+    gap: tokens.spacing.xs,
+  },
+  dangerActionTitle: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.text.primary,
+  },
+  dangerDescription: {
+    fontSize: tokens.typography.size.xs,
+    color: colors.text.muted,
+  },
+  dangerButton: {
+    borderWidth: 1,
+    borderColor: "#F3C6BD",
+    borderRadius: tokens.radii.sm,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: 8,
+    alignSelf: "flex-start",
+  },
+  dangerButtonText: {
+    color: colors.state.negative,
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+  },
+});

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { ChevronRight, Globe, Settings, Tags, UserRound, Users } from "lucide-react";
 import type { AvatarColorToken, SettingsMenuVM } from "@poleursus/shared";
 import { UserAvatar } from "@/components/user-avatar";
 import { UserSignOutRow } from "@/components/settings/user-signout";
@@ -27,9 +29,27 @@ export function SettingsDrawerContent({
   actionsLabel,
   onNavigate,
 }: SettingsDrawerContentProps) {
+  const pathname = usePathname();
   const displayName = profile.displayName?.trim() || null;
   const primaryLabel = displayName ?? profile.email;
   const secondaryLabel = displayName ? profile.email : null;
+
+  const resolveIcon = (itemId: string) => {
+    switch (itemId) {
+      case "user-details":
+        return UserRound;
+      case "language":
+        return Globe;
+      case "general":
+        return Settings;
+      case "members":
+        return Users;
+      case "categories":
+        return Tags;
+      default:
+        return Settings;
+    }
+  };
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-5">
@@ -67,24 +87,50 @@ export function SettingsDrawerContent({
                   </div>
                 )}
 
-                {section.items.map((item) => (
-                  <Link
-                    key={item.id}
-                    href={item.route}
-                    onClick={onNavigate}
-                    className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/50"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium text-foreground">
-                        {item.title}
+                {section.items.map((item) => {
+                  const ItemIcon = resolveIcon(item.id);
+                  const isActive =
+                    pathname === item.route ||
+                    pathname.startsWith(`${item.route}/`);
+
+                  return (
+                    <Link
+                      key={item.id}
+                      href={item.route}
+                      onClick={onNavigate}
+                      className={`flex items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/50 ${
+                        isActive ? "bg-muted/70" : ""
+                      }`}
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div
+                          className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+                            isActive
+                              ? "bg-background text-foreground"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          <ItemIcon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div
+                            className={`text-sm ${
+                              isActive
+                                ? "font-semibold text-foreground"
+                                : "font-medium text-foreground"
+                            }`}
+                          >
+                            {item.title}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {item.description}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {item.description}
-                      </div>
-                    </div>
-                    <span className="text-lg text-muted-foreground">{">"}</span>
-                  </Link>
-                ))}
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </Link>
+                  );
+                })}
               </div>
             </section>
           );

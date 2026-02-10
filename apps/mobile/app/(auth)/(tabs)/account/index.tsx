@@ -525,7 +525,7 @@ export default function AccountTabScreen() {
           onPeriodChange={setPeriod}
           currencySymbol={currencySymbol}
           currencyDecimals={currencyDecimals}
-          onSettingsPress={() => router.push("/(auth)/settings/account")}
+          onSettingsPress={() => router.push("/(auth)/settings/account/general")}
           onSearchPress={() =>
             router.push(`/(auth)/(tabs)/transactions?period=${period}`)
           }

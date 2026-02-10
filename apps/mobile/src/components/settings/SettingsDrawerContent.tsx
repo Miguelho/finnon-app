@@ -12,7 +12,7 @@ import {
 } from "@react-navigation/drawer";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import {
   ALLOWED_AVATAR_BG_TOKENS,
   buildSettingsMenuVM,
@@ -38,9 +38,10 @@ const tokens = themeTokens.light;
 const colors = tokens.colors;
 
 export function SettingsDrawerContent(props: DrawerContentComponentProps) {
-  const { user, clearSelectedAccount } = useAuth();
+  const { user, clearSelectedAccount, selectedAccountId } = useAuth();
   const { dictionary } = useCopy();
   const router = useRouter();
+  const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<ProfileAvatarState>({
     avatarPath: null,
@@ -50,9 +51,13 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
   });
   const [isSigningOut, setIsSigningOut] = useState(false);
 
-  const viewModel = useMemo(() => buildSettingsMenuVM(dictionary, "mobile"), [
-    dictionary,
-  ]);
+  const viewModel = useMemo(
+    () =>
+      buildSettingsMenuVM(dictionary, "mobile", {
+        accountId: selectedAccountId,
+      }),
+    [dictionary, selectedAccountId]
+  );
   const userDetails = useMemo(
     () => (user ? mapUserToUserDetailsVM(user) : null),
     [user]
@@ -119,6 +124,23 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
     router.push(route as any);
   };
 
+  const resolveIcon = (itemId: string) => {
+    switch (itemId) {
+      case "user-details":
+        return "account-circle-outline" as const;
+      case "language":
+        return "translate" as const;
+      case "general":
+        return "cog-outline" as const;
+      case "members":
+        return "account-group-outline" as const;
+      case "categories":
+        return "tag-outline" as const;
+      default:
+        return "chevron-right" as const;
+    }
+  };
+
   const handleCloseDrawer = () => {
     props.navigation.closeDrawer();
   };
@@ -130,7 +152,9 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
 
     try {
       await signOutAndReset({
-        signOut: () => supabase.auth.signOut(),
+        signOut: async () => {
+          await supabase.auth.signOut();
+        },
         clearLocalSessionArtifacts: clearSelectedAccount,
         onNavigate: () => {
           router.replace("/(auth)/login");
@@ -214,6 +238,11 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
                 title={item.title}
                 description={item.description}
                 onPress={() => handleNavigate(item.route)}
+                iconName={resolveIcon(item.id)}
+                isActive={
+                  pathname === item.route ||
+                  pathname.startsWith(`${item.route}/`)
+                }
               />
             ))}
           </View>

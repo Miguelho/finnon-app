@@ -57,10 +57,34 @@ export default function AuthLayout() {
         }}
       />
       <Stack.Screen
-        name="settings/account"
+        name="settings/account/index"
         options={{
           headerShown: true,
-          title: t(dictionary, "settings.menu.sections.account.items.activeAccount.title"),
+          title: t(dictionary, "settings.menu.sections.account.items.general.title"),
+          headerLeft: (props) => <SettingsHeaderBackButton {...props} />,
+        }}
+      />
+      <Stack.Screen
+        name="settings/account/general"
+        options={{
+          headerShown: true,
+          title: t(dictionary, "settings.menu.sections.account.items.general.title"),
+          headerLeft: (props) => <SettingsHeaderBackButton {...props} />,
+        }}
+      />
+      <Stack.Screen
+        name="settings/account/members"
+        options={{
+          headerShown: true,
+          title: t(dictionary, "settings.menu.sections.account.items.members.title"),
+          headerLeft: (props) => <SettingsHeaderBackButton {...props} />,
+        }}
+      />
+      <Stack.Screen
+        name="settings/account/categories"
+        options={{
+          headerShown: true,
+          title: t(dictionary, "settings.menu.sections.account.items.categories.title"),
           headerLeft: (props) => <SettingsHeaderBackButton {...props} />,
         }}
       />

@@ -723,6 +723,14 @@ export const en = {
         account: {
           title: "Account",
           items: {
+            general: {
+              title: "General",
+              description: "Account name, currency, and icon",
+            },
+            members: {
+              title: "Members",
+              description: "Manage access and invitations",
+            },
             activeAccount: {
               title: "Account settings",
               description:
@@ -734,7 +742,7 @@ export const en = {
             },
             categories: {
               title: "Categories",
-              description: "Review and organize account categories",
+              description: "Organize expenses and income",
             },
             invitations: {
               title: "Invitations",
@@ -786,6 +794,53 @@ export const en = {
         es: "Spanish",
       },
       current: "Current: {language}",
+    },
+  },
+  accountSettings: {
+    sidebar: {
+      back: "Back to Your Account",
+      accountMeta: "Account",
+      general: "General",
+      members: "Members",
+      categories: "Categories",
+    },
+    general: {
+      title: "General",
+      subtitle: "Basic configuration for your account",
+      saveSuccess: "Changes saved",
+      saveError: "Could not save changes",
+      dangerTitle: "Danger zone",
+      deleteTitle: "Delete account",
+      deleteDescription:
+        "All movements, categories, and settings will be permanently deleted.",
+    },
+    members: {
+      title: "Members",
+      subtitle: "Manage who has access to this account",
+      activeMembers: "Active members",
+      invitations: "Invitations",
+      pendingInvites: "{count} pending",
+      inviteButton: "Invite",
+      emptyInvites: "No pending invitations",
+      inviteMeta: "{sentAgo} · Role: {role}",
+      pendingStatus: "Pending",
+      resendButton: "Resend",
+      resendSuccess: "Invitation resent",
+      updateRoleError: "Could not update role",
+      updateRoleSuccess: "Role updated",
+      removeMemberConfirm: "Are you sure you want to remove this member?",
+      removeMemberError: "Could not remove member",
+      removeMemberSuccess: "Member removed",
+    },
+    categories: {
+      title: "Categories",
+      subtitle: "Organize your movements by expense or income type",
+      expenseSection: "Expenses",
+      incomeSection: "Income",
+      categoryCount: "{count} categories",
+      addExpense: "Add expense category",
+      addIncome: "Add income category",
+      deleteSuccess: "Category deleted",
     },
   },
   account: {

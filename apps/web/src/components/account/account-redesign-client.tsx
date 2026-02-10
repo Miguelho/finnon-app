@@ -88,7 +88,11 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
             <Link href="/transactions" className={styles.iconBtn} aria-label="Buscar">
               <Search size={16} />
             </Link>
-            <Link href="/settings/account" className={styles.iconBtn} aria-label="Ajustes">
+            <Link
+              href={`/account/${data.account.id}/settings/general`}
+              className={styles.iconBtn}
+              aria-label="Ajustes"
+            >
               <Settings size={16} />
             </Link>
           </div>

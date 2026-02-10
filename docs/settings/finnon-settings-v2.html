@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon — Configuración de cuenta (Wireframe v2)</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fafaf8;
+    --surface: #ffffff;
+    --surface-hover: #f7f7f5;
+    --border: #e8e6e1;
+    --border-light: #f0eee9;
+    --text-primary: #1a1a1a;
+    --text-secondary: #6b6b6b;
+    --text-tertiary: #9a9a9a;
+    --accent: #1a1a1a;
+    --expense-bg: #fff5f3;
+    --expense-text: #c4442a;
+    --expense-badge: #f8d7cf;
+    --income-bg: #f0f7f1;
+    --income-text: #2d7a3a;
+    --income-badge: #c8e6cd;
+    --blue-light: #eef3ff;
+    --blue: #4a6cf7;
+    --amber-bg: #fff8eb;
+    --amber-text: #a16207;
+    --amber-badge: #fde68a;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.03);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  /* ── NAV ── */
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    height: 56px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .nav-left { display: flex; align-items: center; gap: 28px; }
+
+  .nav-logo {
+    display: flex; align-items: center; gap: 8px;
+    font-weight: 700; font-size: 16px; letter-spacing: -0.3px;
+  }
+
+  .nav-logo-icon {
+    width: 28px; height: 28px; background: var(--accent); border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 14px; font-weight: 700;
+  }
+
+  .nav-links { display: flex; gap: 4px; }
+
+  .nav-links a {
+    text-decoration: none; color: var(--text-secondary); font-size: 14px;
+    font-weight: 500; padding: 6px 12px; border-radius: var(--radius-sm);
+    transition: all 0.15s ease;
+  }
+
+  .nav-links a:hover { background: var(--surface-hover); color: var(--text-primary); }
+  .nav-links a.active { color: var(--text-primary); background: var(--surface-hover); }
+
+  .nav-right { display: flex; align-items: center; gap: 12px; }
+
+  .nav-btn-add {
+    display: flex; align-items: center; gap: 6px; padding: 7px 16px;
+    background: var(--accent); color: white; border: none; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+
+  .nav-icon-btn {
+    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+    border: none; background: none; color: var(--text-secondary); cursor: pointer;
+    border-radius: var(--radius-sm); transition: background 0.15s;
+  }
+
+  .nav-icon-btn:hover { background: var(--surface-hover); }
+
+  .nav-avatar {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--blue-light);
+    color: var(--blue); display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600;
+  }
+
+  /* ── LAYOUT ── */
+  .settings-layout {
+    display: flex;
+    max-width: 1080px;
+    margin: 0 auto;
+    min-height: calc(100vh - 56px);
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 240px;
+    padding: 32px 16px 32px 24px;
+    border-right: 1px solid var(--border);
+    flex-shrink: 0;
+    position: sticky;
+    top: 56px;
+    height: calc(100vh - 56px);
+  }
+
+  .sidebar-back {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-tertiary);
+    text-decoration: none;
+    margin-bottom: 8px;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    transition: all 0.15s;
+  }
+
+  .sidebar-back:hover { color: var(--text-secondary); background: var(--surface-hover); }
+
+  .sidebar-account {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 8px;
+    margin-bottom: 24px;
+  }
+
+  .sidebar-account-icon {
+    width: 40px; height: 40px; border-radius: var(--radius-md);
+    background: linear-gradient(135deg, #f0eee9 0%, #e8e6e1 100%);
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+  }
+
+  .sidebar-account-name {
+    font-size: 15px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.2;
+  }
+
+  .sidebar-account-meta {
+    font-size: 12px; color: var(--text-tertiary); margin-top: 1px;
+  }
+
+  .sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+
+  .sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.12s ease;
+    cursor: pointer;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+  }
+
+  .sidebar-link:hover { background: var(--surface-hover); color: var(--text-primary); }
+
+  .sidebar-link.active {
+    background: var(--surface);
+    color: var(--text-primary);
+    font-weight: 600;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .sidebar-link svg { opacity: 0.5; flex-shrink: 0; }
+  .sidebar-link.active svg { opacity: 0.8; }
+
+  /* ── MAIN CONTENT ── */
+  .settings-content {
+    flex: 1;
+    padding: 40px 48px 80px;
+    max-width: 720px;
+  }
+
+  .page-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+  }
+
+  .page-description {
+    font-size: 14px;
+    color: var(--text-tertiary);
+    margin-bottom: 36px;
+  }
+
+  /* ── PANELS (hidden/shown) ── */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── FORM FIELDS ── */
+  .form-section {
+    margin-bottom: 32px;
+  }
+
+  .form-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    letter-spacing: -0.2px;
+  }
+
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .form-row {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    gap: 16px;
+    position: relative;
+  }
+
+  .form-row:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 20px;
+    right: 20px;
+    height: 1px;
+    background: var(--border-light);
+  }
+
+  .form-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    width: 140px;
+    flex-shrink: 0;
+  }
+
+  .form-input {
+    flex: 1;
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text-primary);
+    background: var(--bg);
+    transition: border-color 0.15s;
+    outline: none;
+  }
+
+  .form-input:focus { border-color: var(--blue); background: var(--surface); }
+
+  .form-select {
+    flex: 1;
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text-primary);
+    background: var(--bg);
+    outline: none;
+    cursor: pointer;
+  }
+
+  .form-select:focus { border-color: var(--blue); }
+
+  .form-icon-picker {
+    width: 48px;
+    height: 48px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    background: var(--bg);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .form-icon-picker:hover { border-color: var(--text-tertiary); background: var(--surface); }
+
+  .btn-save {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 24px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    margin-top: 8px;
+    transition: opacity 0.15s;
+  }
+
+  .btn-save:hover { opacity: 0.85; }
+
+  /* Danger zone */
+  .danger-section {
+    margin-top: 48px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+  }
+
+  .danger-section .form-section-title {
+    color: var(--expense-text);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .danger-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .danger-info h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+  .danger-info p { font-size: 12px; color: var(--text-tertiary); }
+
+  .btn-danger {
+    padding: 8px 18px; background: none; border: 1px solid var(--expense-badge);
+    border-radius: var(--radius-sm); font-size: 13px; font-weight: 500;
+    color: var(--expense-text); cursor: pointer; font-family: inherit; transition: all 0.15s;
+  }
+
+  .btn-danger:hover { background: var(--expense-bg); border-color: var(--expense-text); }
+
+  /* ── MEMBERS PANEL ── */
+  .members-header-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+  }
+
+  .members-header-left { display: flex; align-items: center; gap: 16px; }
+
+  .avatar-stack { display: flex; align-items: center; }
+
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; border: 2px solid var(--surface);
+    margin-left: -10px; position: relative;
+  }
+
+  .avatar:first-child { margin-left: 0; }
+  .avatar-you { background: #1a1a1a; color: #fff; z-index: 5; }
+  .avatar-1 { background: #e8dff5; color: #7c5cbf; z-index: 4; }
+  .avatar-2 { background: #fde8d8; color: #c67a3c; z-index: 3; }
+  .avatar-3 { background: #d8eff5; color: #3c8ea8; z-index: 2; }
+  .avatar-overflow { background: var(--surface-hover); color: var(--text-tertiary); z-index: 1; font-size: 11px; }
+
+  .members-summary-text { font-size: 14px; font-weight: 600; }
+  .members-summary-roles { font-size: 12px; color: var(--text-tertiary); }
+
+  /* Members list */
+  .member-list {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 32px;
+  }
+
+  .member-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 20px;
+    gap: 14px;
+    position: relative;
+    transition: background 0.12s;
+  }
+
+  .member-item:hover { background: var(--surface-hover); }
+
+  .member-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 56px; right: 20px;
+    height: 1px; background: var(--border-light);
+  }
+
+  .member-avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600; flex-shrink: 0;
+  }
+
+  .member-info { flex: 1; }
+  .member-name { font-size: 14px; font-weight: 600; }
+  .member-email { font-size: 12px; color: var(--text-tertiary); }
+
+  .member-role-badge {
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .badge-admin { background: var(--blue-light); color: var(--blue); }
+  .badge-viewer { background: var(--surface-hover); color: var(--text-tertiary); }
+
+  .member-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .member-item:hover .member-actions { opacity: 1; }
+
+  .member-action-btn {
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; background: none; color: var(--text-tertiary);
+    cursor: pointer; border-radius: 6px; transition: all 0.12s;
+  }
+
+  .member-action-btn:hover { background: var(--border-light); color: var(--text-secondary); }
+  .member-action-btn.delete:hover { background: var(--expense-bg); color: var(--expense-text); }
+
+  /* Invitations section */
+  .subsection-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    padding: 0 4px;
+  }
+
+  .subsection-title {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+  }
+
+  .subsection-count {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-left: 8px;
+  }
+
+  .btn-invite {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 18px; background: var(--blue-light); border: none;
+    border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+    color: var(--blue); cursor: pointer; font-family: inherit; transition: all 0.15s;
+  }
+
+  .btn-invite:hover { background: #dfe8ff; }
+
+  .invitation-list {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .invitation-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 20px;
+    gap: 14px;
+    position: relative;
+  }
+
+  .invitation-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 20px; right: 20px;
+    height: 1px; background: var(--border-light);
+  }
+
+  .invitation-icon {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--amber-bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+
+  .invitation-info { flex: 1; }
+  .invitation-email { font-size: 14px; font-weight: 500; }
+  .invitation-meta { font-size: 12px; color: var(--text-tertiary); }
+
+  .invitation-status {
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--amber-bg);
+    color: var(--amber-text);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .invitation-actions {
+    display: flex; align-items: center; gap: 4px;
+  }
+
+  .btn-resend {
+    padding: 5px 12px; background: none; border: 1px solid var(--border);
+    border-radius: 6px; font-size: 11px; font-weight: 500;
+    color: var(--text-secondary); cursor: pointer; font-family: inherit; transition: all 0.12s;
+  }
+
+  .btn-resend:hover { border-color: var(--text-tertiary); color: var(--text-primary); }
+
+  .empty-invitations {
+    padding: 32px 20px;
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 13px;
+  }
+
+  /* ── CATEGORIES PANEL ── */
+  .category-section { margin-bottom: 28px; }
+  .category-section:last-child { margin-bottom: 0; }
+
+  .category-section-header {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 12px; padding: 0 4px;
+  }
+
+  .category-section-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .category-section-dot.expense { background: var(--expense-text); }
+  .category-section-dot.income { background: var(--income-text); }
+
+  .category-section-label {
+    font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+
+  .category-section-label.expense { color: var(--expense-text); }
+  .category-section-label.income { color: var(--income-text); }
+  .category-section-count { font-size: 12px; color: var(--text-tertiary); }
+
+  .category-grid {
+    display: flex; flex-direction: column; gap: 2px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+  }
+
+  .category-item {
+    display: flex; align-items: center; padding: 14px 20px;
+    gap: 14px; cursor: pointer; transition: background 0.12s; position: relative;
+  }
+
+  .category-item:hover { background: var(--surface-hover); }
+
+  .category-item:not(:last-child)::after {
+    content: ''; position: absolute; bottom: 0; left: 56px; right: 20px;
+    height: 1px; background: var(--border-light);
+  }
+
+  .category-icon {
+    width: 36px; height: 36px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+
+  .category-icon.expense { background: var(--expense-bg); }
+  .category-icon.income { background: var(--income-bg); }
+
+  .category-name { font-size: 14px; font-weight: 500; flex: 1; }
+
+  .category-actions {
+    display: flex; align-items: center; gap: 4px;
+    opacity: 0; transition: opacity 0.15s;
+  }
+
+  .category-item:hover .category-actions { opacity: 1; }
+
+  .category-action-btn {
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; background: none; color: var(--text-tertiary);
+    cursor: pointer; border-radius: 6px; transition: all 0.12s;
+  }
+
+  .category-action-btn:hover { background: var(--border-light); color: var(--text-secondary); }
+  .category-action-btn.delete:hover { background: var(--expense-bg); color: var(--expense-text); }
+
+  .btn-add-category {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; padding: 14px 20px; cursor: pointer; transition: background 0.12s;
+    color: var(--text-tertiary); font-size: 13px; font-weight: 500;
+    font-family: inherit; background: none; border: none; width: 100%;
+  }
+
+  .btn-add-category:hover { background: var(--surface-hover); color: var(--text-secondary); }
+
+  /* ── WIREFRAME NOTE ── */
+  .wireframe-note {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--accent); color: white; padding: 10px 20px;
+    border-radius: 100px; font-size: 12px; font-weight: 500;
+    letter-spacing: 0.3px; z-index: 200; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .settings-content { padding: 24px 16px 80px; }
+    .members-header-card { flex-direction: column; gap: 16px; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-left">
+    <div class="nav-logo">
+      <div class="nav-logo-icon">F</div>
+      Finnon
+    </div>
+    <div class="nav-links">
+      <a href="#">Inicio</a>
+      <a href="#">Movimientos</a>
+      <a href="#">Objetivo</a>
+      <a href="#" class="active">Tu Cuenta</a>
+    </div>
+  </div>
+  <div class="nav-right">
+    <button class="nav-btn-add">+ Añadir</button>
+    <button class="nav-icon-btn">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 5l7 5 7-5"/><rect x="1" y="3" width="16" height="12" rx="2"/></svg>
+    </button>
+    <div class="nav-avatar">T</div>
+  </div>
+</nav>
+
+<!-- SETTINGS LAYOUT -->
+<div class="settings-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <a href="#" class="sidebar-back">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12L4 7l5-5"/></svg>
+      Volver a Tu Cuenta
+    </a>
+
+    <div class="sidebar-account">
+      <div class="sidebar-account-icon">🏠</div>
+      <div>
+        <div class="sidebar-account-name">Casa</div>
+        <div class="sidebar-account-meta">Cuenta · EUR</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="sidebar-link active" onclick="showPanel('general')">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3"/><path d="M14.7 7.2a1.2 1.2 0 00.2-1.3l-.7-1.2a1.2 1.2 0 00-1.1-.6h-.3a1.2 1.2 0 01-1.1-.7 1.2 1.2 0 01.1-1.3l.2-.3a1.2 1.2 0 00-.2-1.3L10.5.2a1.2 1.2 0 00-1.3-.2l-.3.2a1.2 1.2 0 01-1.3.1A1.2 1.2 0 016.9.8V.5A1.2 1.2 0 005.8-.6H4.5a1.2 1.2 0 00-1.2 1.1v.3a1.2 1.2 0 01-.7 1.1 1.2 1.2 0 01-1.3-.1l-.3-.2a1.2 1.2 0 00-1.3.2L-.6 3a1.2 1.2 0 00.2 1.3l.2.3c.3.4.4.8.1 1.3a1.2 1.2 0 01-1.1.7H-1.5"/></svg>
+        General
+      </button>
+      <button class="sidebar-link" onclick="showPanel('members')">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 16v-1.5a3 3 0 00-3-3H6a3 3 0 00-3 3V16"/><circle cx="8" cy="6" r="3"/><path d="M16 16v-1.5a3 3 0 00-2-2.8M13 3.2a3 3 0 010 5.6"/></svg>
+        Miembros
+      </button>
+      <button class="sidebar-link" onclick="showPanel('categories')">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="5.5" height="5.5" rx="1"/><rect x="10.5" y="2" width="5.5" height="5.5" rx="1"/><rect x="2" y="10.5" width="5.5" height="5.5" rx="1"/><rect x="10.5" y="10.5" width="5.5" height="5.5" rx="1"/></svg>
+        Categorías
+      </button>
+    </nav>
+  </aside>
+
+  <!-- CONTENT -->
+  <div class="settings-content">
+
+    <!-- ═══════════════════════════════════ -->
+    <!-- PANEL: GENERAL                      -->
+    <!-- ═══════════════════════════════════ -->
+    <div class="panel active" id="panel-general">
+      <h1 class="page-title">General</h1>
+      <p class="page-description">Configuración básica de tu cuenta</p>
+
+      <div class="form-section">
+        <div class="form-section-title">Detalles de la cuenta</div>
+        <div class="form-card">
+          <div class="form-row">
+            <span class="form-label">Icono</span>
+            <div class="form-icon-picker">🏠</div>
+          </div>
+          <div class="form-row">
+            <span class="form-label">Nombre</span>
+            <input type="text" class="form-input" value="Casa">
+          </div>
+          <div class="form-row">
+            <span class="form-label">Moneda</span>
+            <select class="form-select">
+              <option selected>EUR — Euro</option>
+              <option>USD — Dólar estadounidense</option>
+              <option>GBP — Libra esterlina</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-save" style="margin-top: 20px;">Guardar cambios</button>
+      </div>
+
+      <div class="danger-section">
+        <div class="form-section-title">Zona de peligro</div>
+        <div class="danger-card">
+          <div class="danger-info">
+            <h4>Eliminar cuenta</h4>
+            <p>Se eliminarán permanentemente todos los movimientos, categorías y configuraciones.</p>
+          </div>
+          <button class="btn-danger">Eliminar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════ -->
+    <!-- PANEL: MEMBERS                      -->
+    <!-- ═══════════════════════════════════ -->
+    <div class="panel" id="panel-members">
+      <h1 class="page-title">Miembros</h1>
+      <p class="page-description">Gestiona quién tiene acceso a esta cuenta</p>
+
+      <!-- Compact header -->
+      <div class="members-header-card">
+        <div class="members-header-left">
+          <div class="avatar-stack">
+            <div class="avatar avatar-you" style="font-size:10px">Tú</div>
+            <div class="avatar avatar-1">TE</div>
+            <div class="avatar avatar-2">MH</div>
+            <div class="avatar avatar-3">AA</div>
+            <div class="avatar avatar-overflow">+1</div>
+          </div>
+          <div>
+            <div class="members-summary-text">5 miembros</div>
+            <div class="members-summary-roles">4 admins · 1 viewer</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Members list -->
+      <div class="subsection-header">
+        <span class="subsection-title">Miembros activos</span>
+      </div>
+      <div class="member-list">
+        <div class="member-item">
+          <div class="member-avatar" style="background:#1a1a1a;color:#fff;">T</div>
+          <div class="member-info">
+            <div class="member-name">Tú</div>
+            <div class="member-email">tu@email.com</div>
+          </div>
+          <span class="member-role-badge badge-admin">Admin</span>
+        </div>
+        <div class="member-item">
+          <div class="member-avatar" style="background:#e8dff5;color:#7c5cbf;">TE</div>
+          <div class="member-info">
+            <div class="member-name">test_user2@test.com</div>
+            <div class="member-email">test_user2@test.com</div>
+          </div>
+          <span class="member-role-badge badge-admin">Admin</span>
+          <div class="member-actions">
+            <button class="member-action-btn" title="Cambiar rol">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 1.5a2.121 2.121 0 013 3L4.5 13.5 1 14l.5-3.5z"/></svg>
+            </button>
+            <button class="member-action-btn delete" title="Eliminar">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="member-item">
+          <div class="member-avatar" style="background:#fde8d8;color:#c67a3c;">MH</div>
+          <div class="member-info">
+            <div class="member-name">mhalys91@gmail.com</div>
+            <div class="member-email">mhalys91@gmail.com</div>
+          </div>
+          <span class="member-role-badge badge-admin">Admin</span>
+          <div class="member-actions">
+            <button class="member-action-btn" title="Cambiar rol">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 1.5a2.121 2.121 0 013 3L4.5 13.5 1 14l.5-3.5z"/></svg>
+            </button>
+            <button class="member-action-btn delete" title="Eliminar">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="member-item">
+          <div class="member-avatar" style="background:#d8eff5;color:#3c8ea8;">AA</div>
+          <div class="member-info">
+            <div class="member-name">a@a.com</div>
+            <div class="member-email">a@a.com</div>
+          </div>
+          <span class="member-role-badge badge-viewer">Viewer</span>
+          <div class="member-actions">
+            <button class="member-action-btn" title="Cambiar rol">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 1.5a2.121 2.121 0 013 3L4.5 13.5 1 14l.5-3.5z"/></svg>
+            </button>
+            <button class="member-action-btn delete" title="Eliminar">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="member-item">
+          <div class="member-avatar" style="background:#f0eee9;color:#6b6b6b;">BB</div>
+          <div class="member-info">
+            <div class="member-name">b@b.com</div>
+            <div class="member-email">b@b.com</div>
+          </div>
+          <span class="member-role-badge badge-admin">Admin</span>
+          <div class="member-actions">
+            <button class="member-action-btn" title="Cambiar rol">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 1.5a2.121 2.121 0 013 3L4.5 13.5 1 14l.5-3.5z"/></svg>
+            </button>
+            <button class="member-action-btn delete" title="Eliminar">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Invitations -->
+      <div style="margin-top: 32px;">
+        <div class="subsection-header">
+          <div>
+            <span class="subsection-title">Invitaciones</span>
+            <span class="subsection-count">· 2 pendientes</span>
+          </div>
+          <button class="btn-invite">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="7" y1="2" x2="7" y2="12"/><line x1="2" y1="7" x2="12" y2="7"/></svg>
+            Invitar
+          </button>
+        </div>
+        <div class="invitation-list">
+          <div class="invitation-item">
+            <div class="invitation-icon">✉️</div>
+            <div class="invitation-info">
+              <div class="invitation-email">carlos@example.com</div>
+              <div class="invitation-meta">Enviada hace 3 días · Rol: Admin</div>
+            </div>
+            <span class="invitation-status">Pendiente</span>
+            <div class="invitation-actions">
+              <button class="btn-resend">Reenviar</button>
+              <button class="member-action-btn delete" title="Cancelar">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="invitation-item">
+            <div class="invitation-icon">✉️</div>
+            <div class="invitation-info">
+              <div class="invitation-email">laura@example.com</div>
+              <div class="invitation-meta">Enviada hace 1 semana · Rol: Viewer</div>
+            </div>
+            <span class="invitation-status">Pendiente</span>
+            <div class="invitation-actions">
+              <button class="btn-resend">Reenviar</button>
+              <button class="member-action-btn delete" title="Cancelar">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════ -->
+    <!-- PANEL: CATEGORIES                   -->
+    <!-- ═══════════════════════════════════ -->
+    <div class="panel" id="panel-categories">
+      <h1 class="page-title">Categorías</h1>
+      <p class="page-description">Organiza tus movimientos por tipo de gasto o ingreso</p>
+
+      <!-- GASTOS -->
+      <div class="category-section">
+        <div class="category-section-header">
+          <div class="category-section-dot expense"></div>
+          <span class="category-section-label expense">Gastos</span>
+          <span class="category-section-count">· 7 categorías</span>
+        </div>
+        <div class="category-grid">
+          <div class="category-item">
+            <div class="category-icon expense">🏠</div>
+            <span class="category-name">Casa</span>
+            <div class="category-actions">
+              <button class="category-action-btn" title="Editar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 1.5a2.121 2.121 0 013 3L4.5 13.5 1 14l.5-3.5z"/></svg></button>
+              <button class="category-action-btn delete" title="Eliminar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg></button>
+            </div>
+          </div>
+          <div class="category-item">
+            <div class="category-icon expense">💻</div>
+            <span class="category-name">Desarrollo</span>
+            <div class="category-actions">
+              <button class="category-action-btn" title="Editar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 1.5a2.121 2.121 0 013 3L4.5 13.5 1 14l.5-3.5z"/></svg></button>
+              <button class="category-action-btn delete" title="Eliminar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg></button>
+            </div>
+          </div>
+          <div class="category-item">
+            <div class="category-icon expense">👨‍👩‍👧</div>
+            <span class="category-name">Familia</span>
+            <div class="category-actions">
+              <button class="category-action-btn" title="Editar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 1.5a2.121 2.121 0 013 3L4.5 13.5 1 14l.5-3.5z"/></svg></button>
+              <button class="category-action-btn delete" title="Eliminar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg></button>
+            </div>
+          </div>
+          <div class="category-item">
+            <div class="category-icon expense">🧒</div>
+            <span class="category-name">Infancia</span>
+            <div class="category-actions">
+              <button class="category-action-btn" title="Editar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 1.5a2.121 2.121 0 013 3L4.5 13.5 1 14l.5-3.5z"/></svg></button>
+              <button class="category-action-btn delete" title="Eliminar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg></button>
+            </div>
+          </div>
+          <div class="category-item">
+            <div class="category-icon expense">🐾</div>
+            <span class="category-name">Mascotas</span>
+            <div class="category-actions">
+              <button class="category-action-btn" title="Editar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 1.5a2.121 2.121 0 013 3L4.5 13.5 1 14l.5-3.5z"/></svg></button>
+              <button class="category-action-btn delete" title="Eliminar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg></button>
+            </div>
+          </div>
+          <div class="category-item">
+            <div class="category-icon expense">🍽️</div>
+            <span class="category-name">Restaurantes</span>
+            <div class="category-actions">
+              <button class="category-action-btn" title="Editar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 1.5a2.121 2.121 0 013 3L4.5 13.5 1 14l.5-3.5z"/></svg></button>
+              <button class="category-action-btn delete" title="Eliminar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg></button>
+            </div>
+          </div>
+          <div class="category-item">
+            <div class="category-icon expense">🎮</div>
+            <span class="category-name">Ocio</span>
+            <div class="category-actions">
+              <button class="category-action-btn" title="Editar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 1.5a2.121 2.121 0 013 3L4.5 13.5 1 14l.5-3.5z"/></svg></button>
+              <button class="category-action-btn delete" title="Eliminar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg></button>
+            </div>
+          </div>
+          <button class="btn-add-category">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="7" y1="2" x2="7" y2="12"/><line x1="2" y1="7" x2="12" y2="7"/></svg>
+            Añadir categoría de gasto
+          </button>
+        </div>
+      </div>
+
+      <!-- INGRESOS -->
+      <div class="category-section">
+        <div class="category-section-header">
+          <div class="category-section-dot income"></div>
+          <span class="category-section-label income">Ingresos</span>
+          <span class="category-section-count">· 2 categorías</span>
+        </div>
+        <div class="category-grid">
+          <div class="category-item">
+            <div class="category-icon income">💰</div>
+            <span class="category-name">Interests</span>
+            <div class="category-actions">
+              <button class="category-action-btn" title="Editar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 1.5a2.121 2.121 0 013 3L4.5 13.5 1 14l.5-3.5z"/></svg></button>
+              <button class="category-action-btn delete" title="Eliminar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg></button>
+            </div>
+          </div>
+          <div class="category-item">
+            <div class="category-icon income">🎰</div>
+            <span class="category-name">Lottery</span>
+            <div class="category-actions">
+              <button class="category-action-btn" title="Editar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 1.5a2.121 2.121 0 013 3L4.5 13.5 1 14l.5-3.5z"/></svg></button>
+              <button class="category-action-btn delete" title="Eliminar"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg></button>
+            </div>
+          </div>
+          <button class="btn-add-category">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="7" y1="2" x2="7" y2="12"/><line x1="2" y1="7" x2="12" y2="7"/></svg>
+            Añadir categoría de ingreso
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- WIREFRAME NOTE -->
+<div class="wireframe-note">Wireframe interactivo · Finnon Settings v2 — Haz clic en el sidebar para navegar</div>
+
+<script>
+  function showPanel(name) {
+    // Hide all panels
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    // Show selected
+    document.getElementById('panel-' + name).classList.add('active');
+    // Update sidebar
+    document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+  }
+</script>
+</body>
+</html>

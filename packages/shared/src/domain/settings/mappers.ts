@@ -87,9 +87,16 @@ export function mapInvitesToInvitesVM(
 
 export function buildSettingsMenuVM(
   dictionary: CopyDictionary,
-  platform: "mobile" | "web"
+  platform: "mobile" | "web",
+  options?: {
+    accountId?: string | null;
+  }
 ): SettingsMenuVM {
   const baseRoute = platform === "mobile" ? "/(auth)/settings" : "/settings";
+  const mobileAccountBaseRoute = `${baseRoute}/account`;
+  const webAccountBaseRoute = options?.accountId
+    ? `/account/${options.accountId}/settings`
+    : "/settings/account";
 
   return {
     title: t(dictionary, "settings.title"),
@@ -127,31 +134,49 @@ export function buildSettingsMenuVM(
         title: t(dictionary, "settings.menu.sections.account.title"),
         items: [
           {
-            id: "active-account",
+            id: "general",
             title: t(
               dictionary,
-              "settings.menu.sections.account.items.activeAccount.title"
+              "settings.menu.sections.account.items.general.title"
             ),
             description: t(
               dictionary,
-              "settings.menu.sections.account.items.activeAccount.description"
+              "settings.menu.sections.account.items.general.description"
             ),
             route:
               platform === "mobile"
-                ? `${baseRoute}/account`
-                : `${baseRoute}/account`,
+                ? `${mobileAccountBaseRoute}/general`
+                : `${webAccountBaseRoute}/general`,
           },
           {
-            id: "invitations",
+            id: "members",
             title: t(
               dictionary,
-              "settings.menu.sections.account.items.invitations.title"
+              "settings.menu.sections.account.items.members.title"
             ),
             description: t(
               dictionary,
-              "settings.menu.sections.account.items.invitations.description"
+              "settings.menu.sections.account.items.members.description"
             ),
-            route: `${baseRoute}/invitations`,
+            route:
+              platform === "mobile"
+                ? `${mobileAccountBaseRoute}/members`
+                : `${webAccountBaseRoute}/members`,
+          },
+          {
+            id: "categories",
+            title: t(
+              dictionary,
+              "settings.menu.sections.account.items.categories.title"
+            ),
+            description: t(
+              dictionary,
+              "settings.menu.sections.account.items.categories.description"
+            ),
+            route:
+              platform === "mobile"
+                ? `${mobileAccountBaseRoute}/categories`
+                : `${webAccountBaseRoute}/categories`,
           },
         ],
       },

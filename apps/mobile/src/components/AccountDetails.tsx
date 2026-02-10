@@ -42,9 +42,20 @@ type Category = {
 type AccountDetailsProps = {
   accountId: string;
   showSignOut?: boolean;
+  showInvitationsShortcut?: boolean;
+  sections?: {
+    general?: boolean;
+    members?: boolean;
+    categories?: boolean;
+  };
 };
 
-export function AccountDetails({ accountId, showSignOut = false }: AccountDetailsProps) {
+export function AccountDetails({
+  accountId,
+  showSignOut = false,
+  showInvitationsShortcut = false,
+  sections,
+}: AccountDetailsProps) {
   const { user, clearSelectedAccount, setSelectedAccountId } = useAuth();
   const { dictionary } = useCopy();
   const router = useRouter();
@@ -60,6 +71,9 @@ export function AccountDetails({ accountId, showSignOut = false }: AccountDetail
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [isSignOutOpen, setIsSignOutOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const showGeneralSection = sections?.general ?? true;
+  const showMembersSection = sections?.members ?? true;
+  const showCategoriesSection = sections?.categories ?? true;
 
   const closeSignOutModal = () => {
     if (!isSigningOut) setIsSignOutOpen(false);
@@ -107,58 +121,71 @@ export function AccountDetails({ accountId, showSignOut = false }: AccountDetail
           setAccount(accountData as Account);
         }
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          throw new Error(t(dictionary, "account.noSessionError"));
-        }
-
-        const apiUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
-        const response = await fetch(`${apiUrl}/api/profiles`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ accountId }),
-        });
-
-        if (!response.ok) {
-          const errorBody = await response.json().catch(() => ({}));
-          throw new Error(errorBody.error || t(dictionary, "account.participantsLoadError"));
-        }
-
-        const payload = await response.json();
-        if (!cancelled) {
-          setMembers((payload?.members ?? []) as MemberProfile[]);
-        }
-
-        setCategoriesLoading(true);
-        try {
-          const { data: categoryData, error: categoryError } = await supabase
-            .from("categories")
-            .select("id, account_id, name, icon_id, type, created_at")
-            .eq("account_id", accountId)
-            .order("name", { ascending: true });
-
-          if (categoryError) {
-            throw categoryError;
+        if (showMembersSection) {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          if (!session) {
+            throw new Error(t(dictionary, "account.noSessionError"));
           }
 
-          if (!cancelled) {
-            setCategories((categoryData ?? []) as Category[]);
-          }
-        } catch (categoryErr: any) {
-          console.error("[AccountDetail] Categories load error:", categoryErr);
-          if (!cancelled) {
-            setCategoriesError(
-              categoryErr?.message ?? t(dictionary, "categories.loadError")
+          const apiUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+          const response = await fetch(`${apiUrl}/api/profiles`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ accountId }),
+          });
+
+          if (!response.ok) {
+            const errorBody = await response.json().catch(() => ({}));
+            throw new Error(
+              errorBody.error || t(dictionary, "account.participantsLoadError")
             );
-            setCategories([]);
           }
-        } finally {
+
+          const payload = await response.json();
           if (!cancelled) {
-            setCategoriesLoading(false);
+            setMembers((payload?.members ?? []) as MemberProfile[]);
           }
+        } else if (!cancelled) {
+          setMembers([]);
+        }
+
+        if (showCategoriesSection) {
+          setCategoriesLoading(true);
+          try {
+            const { data: categoryData, error: categoryError } = await supabase
+              .from("categories")
+              .select("id, account_id, name, icon_id, type, created_at")
+              .eq("account_id", accountId)
+              .order("name", { ascending: true });
+
+            if (categoryError) {
+              throw categoryError;
+            }
+
+            if (!cancelled) {
+              setCategories((categoryData ?? []) as Category[]);
+            }
+          } catch (categoryErr: any) {
+            console.error("[AccountDetail] Categories load error:", categoryErr);
+            if (!cancelled) {
+              setCategoriesError(
+                categoryErr?.message ?? t(dictionary, "categories.loadError")
+              );
+              setCategories([]);
+            }
+          } finally {
+            if (!cancelled) {
+              setCategoriesLoading(false);
+            }
+          }
+        } else if (!cancelled) {
+          setCategories([]);
+          setCategoriesLoading(false);
         }
       } catch (err: any) {
         console.error("[AccountDetail] Error:", err);
@@ -182,6 +209,8 @@ export function AccountDetails({ accountId, showSignOut = false }: AccountDetail
     reportNetworkIssue,
     router,
     showSignOut,
+    showCategoriesSection,
+    showMembersSection,
   ]);
 
   const handleSignOut = async () => {
@@ -189,7 +218,9 @@ export function AccountDetails({ accountId, showSignOut = false }: AccountDetail
 
     try {
       await signOutAndReset({
-        signOut: () => supabase.auth.signOut(),
+        signOut: async () => {
+          await supabase.auth.signOut();
+        },
         clearLocalSessionArtifacts: clearSelectedAccount,
         onReset: async () => {
           setIsSignOutOpen(false);
@@ -255,121 +286,139 @@ export function AccountDetails({ accountId, showSignOut = false }: AccountDetail
         title={t(dictionary, "account.title")}
         description={t(dictionary, "account.description")}
       >
-        <View style={styles.section}>
-          <Text style={styles.value}>{account?.name ?? "-"}</Text>
-          <Text style={styles.meta}>
-            {t(dictionary, "account.baseCurrencyLabel", {
-              currency: account?.base_currency ?? "-",
-            })}
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {t(dictionary, "account.participantsLabel", { count: members.length })}
-          </Text>
-          {members.length === 0 ? (
-            <Text style={styles.empty}>{t(dictionary, "account.participantsEmpty")}</Text>
-          ) : (
-            <View style={styles.memberList}>
-              {members.map((member) => {
-                const isCurrentUser = member.user_id === user?.id;
-                const fallback = t(dictionary, "account.memberFallback", {
-                  id: member.user_id.slice(0, 6),
-                });
-                const displayName =
-                  member.name ||
-                  member.email ||
-                  (isCurrentUser ? t(dictionary, "account.youLabel") : fallback);
-                return (
-                  <View
-                    key={`${member.user_id}-${member.role}`}
-                    style={styles.memberRow}
-                  >
-                    <View style={styles.memberInfo}>
-                      <Text style={styles.memberName}>
-                        {isCurrentUser ? t(dictionary, "account.youLabel") : displayName}
-                      </Text>
-                      {member.email && !isCurrentUser && (
-                        <Text style={styles.memberMeta}>{member.email}</Text>
-                      )}
-                    </View>
-                    <View style={styles.memberRoleBadge}>
-                      <Text style={styles.memberRoleText}>{member.role}</Text>
-                    </View>
-                  </View>
-                );
+        {showGeneralSection ? (
+          <View style={styles.section}>
+            <Text style={styles.value}>{account?.name ?? "-"}</Text>
+            <Text style={styles.meta}>
+              {t(dictionary, "account.baseCurrencyLabel", {
+                currency: account?.base_currency ?? "-",
               })}
-            </View>
-          )}
-        </View>
-
-        <View style={styles.sectionDivider} />
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {t(dictionary, "account.categoriesLabel", {
-              count: categories.length,
-            })}
-          </Text>
-          <Text style={styles.sectionSubtitle}>
-            {t(dictionary, "account.categoriesSubtitle")}
-          </Text>
-
-          {categoriesLoading ? (
-            <Text style={styles.empty}>{t(dictionary, "common.loading")}</Text>
-          ) : categoriesError ? (
-            <Text style={styles.empty}>{categoriesError}</Text>
-          ) : categories.length === 0 ? (
-            <Text style={styles.empty}>{t(dictionary, "categories.emptyAll")}</Text>
-          ) : (
-            <View style={styles.categoryList}>
-              {categories.map((category) => (
-                <TouchableOpacity
-                  key={category.id}
-                  style={styles.categoryRow}
-                  onPress={() =>
-                    router.push(
-                      `/(auth)/(tabs)/account/categories/${category.id}/edit`
-                    )
-                  }
-                >
-                  <View style={styles.categoryInfo}>
-                    <View style={styles.categoryIconBadge}>
-                      <CategoryIcon
-                        iconKey={category.icon_id}
-                        size={16}
-                        tone="muted"
-                        accessibilityLabel={category.name}
-                      />
-                    </View>
-                    <Text style={styles.categoryName} numberOfLines={1}>
-                      {category.name}
-                    </Text>
-                  </View>
-                  <View style={styles.categoryTypeBadge}>
-                    <Text style={styles.categoryTypeText}>
-                      {category.type === "income"
-                        ? t(dictionary, "categories.incomeLabel")
-                        : t(dictionary, "categories.expenseLabel")}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          <TouchableOpacity
-            onPress={() =>
-              router.push("/(auth)/(tabs)/account/categories/create")
-            }
-            style={styles.addCategoryLink}
-          >
-            <Text style={styles.addCategoryText}>
-              + {t(dictionary, "account.categoriesAddLabel")}
             </Text>
-          </TouchableOpacity>
-        </View>
+          </View>
+        ) : null}
+
+        {showMembersSection ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {t(dictionary, "account.participantsLabel", { count: members.length })}
+            </Text>
+            {members.length === 0 ? (
+              <Text style={styles.empty}>{t(dictionary, "account.participantsEmpty")}</Text>
+            ) : (
+              <View style={styles.memberList}>
+                {members.map((member) => {
+                  const isCurrentUser = member.user_id === user?.id;
+                  const fallback = t(dictionary, "account.memberFallback", {
+                    id: member.user_id.slice(0, 6),
+                  });
+                  const displayName =
+                    member.name ||
+                    member.email ||
+                    (isCurrentUser ? t(dictionary, "account.youLabel") : fallback);
+                  return (
+                    <View
+                      key={`${member.user_id}-${member.role}`}
+                      style={styles.memberRow}
+                    >
+                      <View style={styles.memberInfo}>
+                        <Text style={styles.memberName}>
+                          {isCurrentUser ? t(dictionary, "account.youLabel") : displayName}
+                        </Text>
+                        {member.email && !isCurrentUser && (
+                          <Text style={styles.memberMeta}>{member.email}</Text>
+                        )}
+                      </View>
+                      <View style={styles.memberRoleBadge}>
+                        <Text style={styles.memberRoleText}>{member.role}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+            {showInvitationsShortcut ? (
+              <TouchableOpacity
+                style={styles.memberInviteButton}
+                onPress={() => router.push("/(auth)/settings/invitations")}
+              >
+                <Text style={styles.memberInviteText}>
+                  + {t(dictionary, "accountSettings.members.invitations")}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : null}
+
+        {showMembersSection && showCategoriesSection ? (
+          <View style={styles.sectionDivider} />
+        ) : null}
+
+        {showCategoriesSection ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {t(dictionary, "account.categoriesLabel", {
+                count: categories.length,
+              })}
+            </Text>
+            <Text style={styles.sectionSubtitle}>
+              {t(dictionary, "account.categoriesSubtitle")}
+            </Text>
+
+            {categoriesLoading ? (
+              <Text style={styles.empty}>{t(dictionary, "common.loading")}</Text>
+            ) : categoriesError ? (
+              <Text style={styles.empty}>{categoriesError}</Text>
+            ) : categories.length === 0 ? (
+              <Text style={styles.empty}>{t(dictionary, "categories.emptyAll")}</Text>
+            ) : (
+              <View style={styles.categoryList}>
+                {categories.map((category) => (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={styles.categoryRow}
+                    onPress={() =>
+                      router.push(
+                        `/(auth)/(tabs)/account/categories/${category.id}/edit`
+                      )
+                    }
+                  >
+                    <View style={styles.categoryInfo}>
+                      <View style={styles.categoryIconBadge}>
+                        <CategoryIcon
+                          iconKey={category.icon_id}
+                          size={16}
+                          tone="muted"
+                          accessibilityLabel={category.name}
+                        />
+                      </View>
+                      <Text style={styles.categoryName} numberOfLines={1}>
+                        {category.name}
+                      </Text>
+                    </View>
+                    <View style={styles.categoryTypeBadge}>
+                      <Text style={styles.categoryTypeText}>
+                        {category.type === "income"
+                          ? t(dictionary, "categories.incomeLabel")
+                          : t(dictionary, "categories.expenseLabel")}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            <TouchableOpacity
+              onPress={() =>
+                router.push("/(auth)/(tabs)/account/categories/create")
+              }
+              style={styles.addCategoryLink}
+            >
+              <Text style={styles.addCategoryText}>
+                + {t(dictionary, "account.categoriesAddLabel")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {showSignOut && (
           <View style={styles.signOutSection}>
@@ -501,6 +550,15 @@ const styles = StyleSheet.create({
     fontWeight: tokens.typography.weight.semibold,
     color: colors.text.primary,
     textTransform: "capitalize",
+  },
+  memberInviteButton: {
+    marginTop: tokens.spacing.sm,
+    paddingVertical: tokens.spacing.xs,
+  },
+  memberInviteText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.action.primary,
   },
   empty: {
     fontSize: tokens.typography.size.sm,

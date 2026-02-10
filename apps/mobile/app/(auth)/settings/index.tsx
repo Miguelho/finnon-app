@@ -3,17 +3,38 @@ import { useRouter } from "expo-router";
 import { buildSettingsMenuVM, themeTokens } from "@poleursus/shared";
 import { useCopy } from "../../../src/lib/i18n";
 import { SettingsRow } from "../../../src/components/SettingsRow";
+import { useAuth } from "../../../src/contexts/AuthContext";
 
 const tokens = themeTokens.light;
 
 export default function SettingsMenuScreen() {
   const router = useRouter();
   const { dictionary } = useCopy();
+  const { selectedAccountId } = useAuth();
 
-  const viewModel = buildSettingsMenuVM(dictionary, "mobile");
+  const viewModel = buildSettingsMenuVM(dictionary, "mobile", {
+    accountId: selectedAccountId,
+  });
 
   const handleNavigate = (route: string) => {
     router.push(route as any);
+  };
+
+  const resolveIcon = (itemId: string) => {
+    switch (itemId) {
+      case "user-details":
+        return "account-circle-outline" as const;
+      case "language":
+        return "translate" as const;
+      case "general":
+        return "cog-outline" as const;
+      case "members":
+        return "account-group-outline" as const;
+      case "categories":
+        return "tag-outline" as const;
+      default:
+        return undefined;
+    }
   };
 
   return (
@@ -32,6 +53,7 @@ export default function SettingsMenuScreen() {
                 title={item.title}
                 description={item.description}
                 onPress={() => handleNavigate(item.route)}
+                iconName={resolveIcon(item.id)}
               />
             ))}
           </View>

@@ -1,0 +1,20 @@
+.page {
+  min-height: 100vh;
+  background: hsl(var(--background));
+}
+
+.wrapper {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.content {
+  padding: 40px 48px 80px;
+  width: 100%;
+}
+
+@media (max-width: 767px) {
+  .content {
+    padding: 28px 16px 80px;
+  }
+}
