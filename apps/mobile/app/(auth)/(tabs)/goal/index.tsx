@@ -1053,16 +1053,18 @@ export default function GoalScreen() {
 
   return (
     <>
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: tokens.spacing.lg, paddingBottom: 120 + insets.bottom },
-        ]}
-      >
-        {/* CURRENT MONTH VIEW */}
-        {goal && isViewingCurrentMonth ? (
-          <>
-          <Card>
+      <View style={styles.root}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingTop: tokens.spacing.lg, paddingBottom: 120 + insets.bottom },
+          ]}
+        >
+          {/* CURRENT MONTH VIEW */}
+          {goal && isViewingCurrentMonth ? (
+            <>
+            <Card>
             {/* V3: Simplified hero */}
             <View style={styles.heroEditRow}>
               {monthNavigator}
@@ -1201,22 +1203,23 @@ export default function GoalScreen() {
               </Text>
             </Card>
           </>
-        ) : (
-          /* NO GOAL - EMPTY STATE */
-          <Card>
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>{t(dictionary, "goal.emptyTitle")}</Text>
-              <Text style={styles.emptyDescription}>{t(dictionary, "goal.emptyDescription")}</Text>
-              <Button
-                title={t(dictionary, "goal.createCta")}
-                onPress={handleOpenEditor}
-                disabled={!canEdit}
-                variant="secondary"
-              />
-            </View>
-          </Card>
-        )}
-      </ScrollView>
+          ) : (
+            /* NO GOAL - EMPTY STATE */
+            <Card>
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>{t(dictionary, "goal.emptyTitle")}</Text>
+                <Text style={styles.emptyDescription}>{t(dictionary, "goal.emptyDescription")}</Text>
+                <Button
+                  title={t(dictionary, "goal.createCta")}
+                  onPress={handleOpenEditor}
+                  disabled={!canEdit}
+                  variant="secondary"
+                />
+              </View>
+            </Card>
+          )}
+        </ScrollView>
+      </View>
 
       <GoalSheet
         visible={isSheetOpen}
@@ -1254,6 +1257,14 @@ export default function GoalScreen() {
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.bg.primary,
+  },
+  scrollView: {
+    flex: 1,
+    backgroundColor: colors.bg.primary,
+  },
   scrollContent: {
     paddingHorizontal: tokens.spacing.lg,
     gap: tokens.spacing.lg,
@@ -1535,6 +1546,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: colors.bg.primary,
   },
   errorContainer: {
     flex: 1,
@@ -1542,6 +1554,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: tokens.spacing.lg,
     gap: tokens.spacing.sm,
+    backgroundColor: colors.bg.primary,
   },
   errorTitle: {
     fontSize: tokens.typography.size.lg,

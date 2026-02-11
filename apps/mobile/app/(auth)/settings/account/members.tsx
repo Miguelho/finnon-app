@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { Redirect } from "expo-router";
+import { PencilSimple, X } from "phosphor-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { useNetworkNotice } from "../../../../src/contexts/NetworkNoticeContext";
@@ -46,6 +47,12 @@ type AccountMembershipRecord = {
 const tokens = themeTokens.light;
 const colors = tokens.colors;
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+const ui = {
+  surface: colors.bg.surface,
+  surfaceHover: "#F7F7F5",
+  expenseBg: "#FFF5F3",
+  dangerHover: "#FDEAE4",
+};
 const AVATAR_BACKGROUNDS = [
   "#1C1E21",
   "#E8EEFF",
@@ -470,7 +477,6 @@ export default function AccountMembersSettingsScreen() {
       ]}
     >
       <View style={styles.pageHeader}>
-        <Text style={styles.pageTitle}>{t(dictionary, "accountSettings.members.title")}</Text>
         <Text style={styles.pageSubtitle}>
           {t(dictionary, "accountSettings.members.subtitle")}
         </Text>
@@ -609,19 +615,25 @@ export default function AccountMembersSettingsScreen() {
                         <View style={styles.memberActions}>
                           <Pressable
                             onPress={() => startEditRole(member)}
-                            style={styles.linkAction}
+                            style={({ pressed }) => [
+                              styles.iconActionButton,
+                              pressed && styles.iconActionButtonPressed,
+                            ]}
+                            accessibilityRole="button"
+                            accessibilityLabel={t(dictionary, "common.edit")}
                           >
-                            <Text style={styles.linkActionText}>
-                              {t(dictionary, "common.edit")}
-                            </Text>
+                            <PencilSimple size={14} color={colors.text.secondary} />
                           </Pressable>
                           <Pressable
                             onPress={() => removeMember(member)}
-                            style={styles.linkActionDanger}
+                            style={({ pressed }) => [
+                              styles.iconActionButtonDanger,
+                              pressed && styles.iconActionButtonDangerPressed,
+                            ]}
+                            accessibilityRole="button"
+                            accessibilityLabel={t(dictionary, "common.delete")}
                           >
-                            <Text style={styles.linkActionDangerText}>
-                              {t(dictionary, "common.delete")}
-                            </Text>
+                            <X size={14} color={colors.state.negative} />
                           </Pressable>
                         </View>
                       )
@@ -831,12 +843,6 @@ const styles = StyleSheet.create({
   pageHeader: {
     marginBottom: tokens.spacing.sm,
   },
-  pageTitle: {
-    fontSize: tokens.typography.size.xl,
-    fontWeight: tokens.typography.weight.bold,
-    color: colors.text.primary,
-    marginBottom: tokens.spacing.xs,
-  },
   pageSubtitle: {
     fontSize: tokens.typography.size.sm,
     color: colors.text.muted,
@@ -942,15 +948,29 @@ const styles = StyleSheet.create({
   memberActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: tokens.spacing.md,
+    gap: tokens.spacing.xs,
   },
-  linkAction: {
-    paddingVertical: 2,
+  iconActionButton: {
+    width: 30,
+    height: 30,
+    borderRadius: tokens.radii.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: ui.surface,
   },
-  linkActionText: {
-    fontSize: tokens.typography.size.xs,
-    fontWeight: tokens.typography.weight.semibold,
-    color: colors.action.primary,
+  iconActionButtonPressed: {
+    backgroundColor: ui.surfaceHover,
+  },
+  iconActionButtonDanger: {
+    width: 30,
+    height: 30,
+    borderRadius: tokens.radii.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: ui.expenseBg,
+  },
+  iconActionButtonDangerPressed: {
+    backgroundColor: ui.dangerHover,
   },
   linkActionDanger: {
     paddingVertical: 2,

@@ -379,7 +379,6 @@ export default function AccountCategoriesSettingsScreen() {
       ]}
     >
       <View style={styles.pageHeader}>
-        <Text style={styles.pageTitle}>{t(dictionary, "accountSettings.categories.title")}</Text>
         <Text style={styles.pageSubtitle}>
           {t(dictionary, "accountSettings.categories.subtitle")}
         </Text>
@@ -431,12 +430,6 @@ const styles = StyleSheet.create({
   },
   pageHeader: {
     marginBottom: tokens.spacing.sm,
-  },
-  pageTitle: {
-    fontSize: tokens.typography.size.xl,
-    fontWeight: tokens.typography.weight.bold,
-    color: colors.text.primary,
-    marginBottom: tokens.spacing.xs,
   },
   pageSubtitle: {
     fontSize: tokens.typography.size.sm,
