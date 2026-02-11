@@ -15,6 +15,9 @@ import { Input } from "../../src/components/Input";
 import { Button } from "../../src/components/Button";
 import { useCopy, t } from "../../src/lib/i18n";
 import { useAuth } from "../../src/contexts/AuthContext";
+import { themeTokens } from "@poleursus/shared";
+
+const colors = themeTokens.light.colors;
 
 export default function LoginScreen() {
   const { session } = useAuth();
@@ -253,7 +256,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: colors.bg.primary,
   },
   scrollContent: {
     flexGrow: 1,

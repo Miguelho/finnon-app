@@ -54,7 +54,7 @@ export default function AuthConfirmPage() {
 
   if (status === "error") {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
           <p className="text-red-500">{errorMessage}</p>
           <button
@@ -69,7 +69,7 @@ export default function AuthConfirmPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="text-center">
         <p>Confirmando sesión...</p>
       </div>

@@ -11,6 +11,7 @@ import {
   getOccurrencesBetween,
   getOccurrenceKey,
   isFutureDay,
+  movementsTokens,
   type MerchantSuggestion,
   type Period,
   type RecurringItem,
@@ -132,34 +133,7 @@ type RecurringTemplate = {
   currency: string;
 };
 
-const design = {
-  colors: {
-    bg: "#FAFAFA",
-    surface: "#FFFFFF",
-    border: "#F0F0F0",
-    borderStrong: "#E5E5E5",
-    textPrimary: "#1A1A1A",
-    textSecondary: "#6B6B6B",
-    textTertiary: "#9B9B9B",
-    incomeGreen: "#22A06B",
-    expenseRed: "#DE350B",
-    pendingAmber: "#E2850A",
-    pendingAmberBg: "#FFF8E6",
-    pendingAmberBorder: "#F5D990",
-    recurrentPurple: "#7C5CFC",
-    recurrentPurpleBg: "#F3F0FF",
-    recurrentPurpleBorder: "#D4CCFF",
-    accentBlue: "#0065FF",
-    accentBlueBg: "#E6F0FF",
-    chipBg: "#F5F5F5",
-  },
-  radius: {
-    sm: 8,
-    md: 12,
-    lg: 16,
-    full: 999,
-  },
-};
+const design = movementsTokens;
 
 const toBigInt = (value: unknown) => {
   try {

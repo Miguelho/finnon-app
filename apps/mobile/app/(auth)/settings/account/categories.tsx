@@ -38,7 +38,7 @@ type AccountMembershipRecord = {
 const tokens = themeTokens.light;
 const colors = tokens.colors;
 const ui = {
-  pageBg: "#FAFAF8",
+  pageBg: colors.bg.primary,
   surface: "#FFFFFF",
   border: "#E8E6E1",
   borderLight: "#F0EEE9",

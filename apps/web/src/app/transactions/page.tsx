@@ -156,7 +156,7 @@ export default async function TransactionsPage({
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
+    <div className="min-h-screen bg-background">
       <TopNav />
       <MovementsClient
         accountId={activeAccount.id}

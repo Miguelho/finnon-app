@@ -34,6 +34,7 @@ import {
   parseFxRate,
   formatMinorToMoney,
   CURRENCY_MINOR_UNITS,
+  themeTokens,
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
 import { TopCategorySelector } from "../../../src/components/TopCategorySelector";
@@ -945,29 +946,7 @@ function CreateRecurringTransactionScreen(): React.JSX.Element {
   );
 }
 
-// Finnon Color Tokens (color-guide.md)
-const colors = {
-  bg: {
-    primary: "#FFFFFF",
-    secondary: "#F7F8FA",
-    surface: "#FFFFFF",
-  },
-  text: {
-    primary: "#1C1E21",
-    secondary: "#5F6368",
-    muted: "#9AA0A6",
-  },
-  action: {
-    primary: "#5B8DFF",
-    secondary: "#E8EEFF",
-    disabled: "#C7D2FE",
-  },
-  state: {
-    positive: "#2E7D65",
-    negative: "#B23B3B",
-    neutral: "#DADCE0",
-  },
-};
+const colors = themeTokens.light.colors;
 
 const styles = StyleSheet.create({
   container: {

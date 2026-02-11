@@ -6,6 +6,9 @@ import { useAuth } from "../src/contexts/AuthContext";
 import { Card } from "../src/components/Card";
 import { Button } from "../src/components/Button";
 import { useCopy, t } from "../src/lib/i18n";
+import { themeTokens } from "@poleursus/shared";
+
+const colors = themeTokens.light.colors;
 
 type JoinState =
   | { status: "loading" }
@@ -166,7 +169,7 @@ export default function JoinScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: colors.bg.primary,
     justifyContent: "center",
     padding: 20,
   },

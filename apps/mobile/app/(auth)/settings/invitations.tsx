@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
   container: {
     padding: tokens.spacing.lg,
     gap: tokens.spacing.lg,
-    backgroundColor: colors.bg.secondary,
+    backgroundColor: colors.bg.primary,
   },
   label: {
     ...typography.meta,

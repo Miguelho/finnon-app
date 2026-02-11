@@ -571,13 +571,13 @@ export default function UserDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.bg.secondary,
+    backgroundColor: tokens.colors.bg.primary,
   },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: tokens.colors.bg.secondary,
+    backgroundColor: tokens.colors.bg.primary,
     padding: tokens.spacing.lg,
   },
   loadingText: {

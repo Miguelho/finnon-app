@@ -799,11 +799,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.bg.secondary,
+    backgroundColor: colors.bg.primary,
   },
   scrollContainer: {
     flex: 1,
-    backgroundColor: colors.bg.secondary,
+    backgroundColor: colors.bg.primary,
   },
   scrollContent: {
     paddingTop: tokens.spacing.lg,
@@ -815,7 +815,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: tokens.spacing.xl,
-    backgroundColor: colors.bg.secondary,
+    backgroundColor: colors.bg.primary,
   },
   errorTitle: {
     fontSize: tokens.typography.size.lg,

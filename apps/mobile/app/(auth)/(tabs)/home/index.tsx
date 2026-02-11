@@ -892,18 +892,18 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#FAFAFA",
+    backgroundColor: colors.bg.primary,
   },
   loading: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#FAFAFA",
+    backgroundColor: colors.bg.primary,
   },
   container: {
     flex: 1,
     padding: tokens.spacing.lg,
-    backgroundColor: "#FAFAFA",
+    backgroundColor: colors.bg.primary,
     justifyContent: "center",
   },
   scrollView: {

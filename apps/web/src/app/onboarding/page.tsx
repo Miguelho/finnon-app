@@ -195,7 +195,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f0f0f0] p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="absolute right-4 top-4">
         <LocaleSwitcher />
       </div>

@@ -261,7 +261,7 @@ export default async function DashboardPage() {
 
   return (
     <div
-      className={cn("min-h-screen bg-[#FAFAFA]", dmSans.className)}
+      className={cn("min-h-screen bg-background", dmSans.className)}
     >
       <TopNav />
       <HomePageClient

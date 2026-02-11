@@ -66,7 +66,7 @@ export default function SettingsMenuScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.bg.secondary,
+    backgroundColor: tokens.colors.bg.primary,
   },
   header: {
     paddingHorizontal: tokens.spacing.lg,

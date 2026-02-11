@@ -7,7 +7,7 @@ import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AccountSelection } from "@/components/account-selection";
-import { getDictionary, isExpired, t, themeTokens } from "@poleursus/shared";
+import { getDictionary, isExpired, t } from "@poleursus/shared";
 
 export default async function SelectAccountPage() {
   const supabase = await createClient();
@@ -27,7 +27,6 @@ export default async function SelectAccountPage() {
   const cookieStore = await cookies();
   const locale = cookieStore.get("NEXT_LOCALE")?.value || "es";
   const dictionary = getDictionary(locale);
-  const colors = themeTokens.light.colors;
   const activeAccountId =
     cookieStore.get("finnon:activeAccountId")?.value ?? "";
 
@@ -64,10 +63,7 @@ export default async function SelectAccountPage() {
 
   if (!accounts || accounts.length === 0) {
     return (
-      <div
-        className="min-h-screen"
-        style={{ backgroundColor: colors.bg.primary, color: colors.text.primary }}
-      >
+      <div className="min-h-screen bg-background text-foreground">
         <header className="mx-auto flex w-full max-w-4xl items-center gap-3 px-6 py-6">
           <FinnonMark mode="iconWordmark" size="md" />
         </header>
@@ -141,10 +137,7 @@ export default async function SelectAccountPage() {
   }));
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ backgroundColor: colors.bg.primary, color: colors.text.primary }}
-    >
+    <div className="min-h-screen bg-background text-foreground">
       <header className="mx-auto flex w-full max-w-4xl items-center gap-3 px-6 py-6">
         <FinnonMark mode="iconWordmark" size="md" />
       </header>

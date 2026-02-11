@@ -404,10 +404,7 @@ export default async function AccountPage() {
   };
 
   return (
-    <div
-      className={cn("min-h-screen", dmSans.variable, jetbrains.variable)}
-      style={{ backgroundColor: "#FAFAF8" }}
-    >
+    <div className={cn("min-h-screen bg-background", dmSans.variable, jetbrains.variable)}>
       <TopNav />
       <PageContainer className="space-y-6">
         <AccountRedesignClient dataByPeriod={dataByPeriod} />

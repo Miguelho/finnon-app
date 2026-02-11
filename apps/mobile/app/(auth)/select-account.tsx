@@ -212,14 +212,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: colors.bg.secondary,
+    backgroundColor: colors.bg.primary,
     padding: tokens.spacing.lg,
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
     padding: tokens.spacing.lg,
-    backgroundColor: colors.bg.secondary,
+    backgroundColor: colors.bg.primary,
   },
   accountsList: {
     gap: tokens.spacing.sm,
