@@ -197,10 +197,7 @@ export default function EditCategoryScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Card
-        title={t(dictionary, "categories.editTitle")}
-        description={t(dictionary, "categories.editDescription")}
-      >
+      <Card description={t(dictionary, "categories.editDescription")}>
         <View style={styles.form}>
           <Input
             label={t(dictionary, "categories.nameLabel")}

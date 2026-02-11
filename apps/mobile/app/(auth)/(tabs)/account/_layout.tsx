@@ -18,11 +18,11 @@ export default function AccountStackLayout() {
       />
       <Stack.Screen
         name="categories/create"
-        options={{ title: t(dictionary, "categories.create.title") }}
+        options={{ title: t(dictionary, "categories.createTitle") }}
       />
       <Stack.Screen
         name="categories/[id]/edit"
-        options={{ title: t(dictionary, "categories.edit.title") }}
+        options={{ title: t(dictionary, "categories.editTitle") }}
       />
     </Stack>
   );

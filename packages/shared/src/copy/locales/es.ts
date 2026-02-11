@@ -532,7 +532,7 @@ export const es = {
     emptyAll: "Aún no hay categorías.",
     createTitle: "Crear categoría",
     createDescription: "Agrega una nueva categoría para organizar tus transacciones",
-    editTitle: "Editar categoría",
+    editTitle: "Editar Categoría",
     editDescription: "Actualiza los detalles de la categoría",
     nameLabel: "Nombre",
     namePlaceholder: "Ej. Supermercado",
