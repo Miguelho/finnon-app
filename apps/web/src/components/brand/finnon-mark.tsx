@@ -16,34 +16,36 @@ const MARK_SIZES: Record<NonNullable<FinnonMarkProps["size"]>, number> = {
 
 export function FinnonMark({ size = "md", mode = "iconOnly" }: FinnonMarkProps) {
   const dimension = MARK_SIZES[size];
-  const notch = Math.round(dimension * 0.45);
 
   return (
     <span className="inline-flex items-center">
-      <span
-        aria-hidden="true"
+      <picture
         style={{
           width: dimension,
           height: dimension,
-          borderRadius: Math.round(dimension * 0.2),
-          backgroundColor: colors.text.primary,
-          position: "relative",
-          overflow: "hidden",
           display: "inline-block",
+          lineHeight: 0,
         }}
       >
-        <span
+        <source
+          srcSet="/brand/icono-dark.png"
+          media="(prefers-color-scheme: dark)"
+          type="image/png"
+        />
+        <img
+          src="/brand/icono.png"
+          alt=""
+          aria-hidden="true"
+          width={dimension}
+          height={dimension}
           style={{
-            position: "absolute",
-            top: 0,
-            right: 0,
-            width: notch,
-            height: notch,
-            backgroundColor: colors.bg.primary,
-            borderBottomLeftRadius: Math.round(notch * 0.4),
+            borderRadius: Math.round(dimension * 0.2),
+            display: "block",
+            width: dimension,
+            height: dimension,
           }}
         />
-      </span>
+      </picture>
       {mode === "iconWordmark" && (
         <span
           style={{

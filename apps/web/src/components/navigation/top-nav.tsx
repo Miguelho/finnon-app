@@ -245,7 +245,7 @@ export async function TopNav({ containerClassName }: TopNavProps) {
             className="flex items-center gap-2 rounded-md px-2 py-1"
             style={{ color: colors.text.primary }}
           >
-            <FinnonMark mode="iconWordmark" size="md" />
+            <FinnonMark mode="iconWordmark" size="lg" />
           </Link>
         </div>
 
