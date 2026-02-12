@@ -34,7 +34,15 @@ export function RecurrentsStep({
   const t = useTranslations("onboarding");
   const tGlobal = useTranslations();
   const locale = useLocale();
-  const { items, customEnabled, customLabel, customAmount, customType } = state;
+  const {
+    items,
+    customEnabled,
+    customLabel,
+    customAmount,
+    customExpectedDate,
+    customType,
+  } = state;
+  const today = new Date().toISOString().slice(0, 10);
 
   const resolveCategoryName = (categoryName: string) => {
     const match = DEFAULT_CATEGORIES.find(
@@ -52,6 +60,12 @@ export function RecurrentsStep({
         item.id === id ? { ...item, ...changes } : item
       ),
     }));
+  };
+
+  const dayOfMonthFromDate = (value: string, fallback: number) => {
+    const day = Number(value.slice(8, 10));
+    if (!Number.isInteger(day) || day < 1 || day > 31) return fallback;
+    return day;
   };
 
   const selectedItems = items.filter((item) => item.selected);
@@ -86,6 +100,7 @@ export function RecurrentsStep({
       .map((item) => {
         const parsed = parseMoneyToMinor(item.amount, currency);
         if (typeof parsed === "object") return null;
+        const expectedDate = item.expectedDate || today;
         return {
           suggestedId: item.id,
           label: item.label,
@@ -93,9 +108,10 @@ export function RecurrentsStep({
           amountMinor: Number(parsed),
           currency,
           categoryName: resolveCategoryName(item.suggestedCategoryName),
+          expectedDate,
           frequency: item.frequency,
           interval: item.interval,
-          dayOfMonth,
+          dayOfMonth: dayOfMonthFromDate(expectedDate, dayOfMonth),
         } satisfies OnboardingRecurrentInput;
       })
       .filter(Boolean) as OnboardingRecurrentInput[];
@@ -104,6 +120,7 @@ export function RecurrentsStep({
       return suggested;
     }
 
+    const customDate = customExpectedDate || today;
     const custom: OnboardingRecurrentInput = {
       suggestedId: `custom_${Date.now()}`,
       label: customLabel.trim(),
@@ -111,9 +128,10 @@ export function RecurrentsStep({
       amountMinor: Number(customAmountResult),
       currency,
       categoryName: "",
+      expectedDate: customDate,
       frequency: "monthly",
       interval: 1,
-      dayOfMonth,
+      dayOfMonth: dayOfMonthFromDate(customDate, dayOfMonth),
     };
 
     return [...suggested, custom];
@@ -168,6 +186,17 @@ export function RecurrentsStep({
                   className="w-full bg-transparent text-sm font-semibold text-[#1a1f36] outline-none"
                 />
                 <p className="text-xs text-[#9ca3af]">{detail}</p>
+                <div className="mt-2">
+                  <input
+                    type="date"
+                    value={item.expectedDate || today}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) =>
+                      updateItem(item.id, { expectedDate: event.target.value })
+                    }
+                    className="w-full rounded-md border border-[#e5e7eb] px-2 py-1 text-sm text-[#1a1f36] outline-none focus:border-[#1a1f36]"
+                  />
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-[#9ca3af]">{currency}</span>
@@ -239,6 +268,23 @@ export function RecurrentsStep({
                 {currency}
               </span>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-foreground">
+              {tGlobal("addTransaction.dateLabel")}
+            </Label>
+            <Input
+              type="date"
+              value={customExpectedDate || today}
+              onChange={(event) =>
+                onChangeState((prev) => ({
+                  ...prev,
+                  customExpectedDate: event.target.value,
+                }))
+              }
+              placeholder={tGlobal("transactions.datePlaceholder")}
+              className="bg-background"
+            />
           </div>
           <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
             <Label className="text-sm font-semibold text-foreground">

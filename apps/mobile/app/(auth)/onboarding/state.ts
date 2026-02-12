@@ -10,6 +10,7 @@ export type RecurrentDraft = {
   id: string;
   label: string;
   amount: string;
+  expectedDate?: string;
   selected: boolean;
   type: "income" | "expense";
   suggestedCategoryName: string;
@@ -23,6 +24,7 @@ export type RecurrentsStepState = {
   customEnabled: boolean;
   customLabel: string;
   customAmount: string;
+  customExpectedDate?: string;
   customType: "income" | "expense";
 };
 
@@ -46,20 +48,26 @@ export type OnboardingPersistedState = {
 
 export const createInitialRecurrentsState = (
   translate: TranslateFn
-): RecurrentsStepState => ({
-  items: SUGGESTED_RECURRENTS.map((item) => ({
-    id: item.id,
-    label: translate(item.labelKey),
-    amount: item.placeholderAmount,
-    selected: false,
-    type: item.type,
-    suggestedCategoryName: item.suggestedCategoryName,
-    frequency: item.frequency,
-    interval: item.interval,
-    icon: item.icon,
-  })),
-  customEnabled: false,
-  customLabel: "",
-  customAmount: "",
-  customType: "expense",
-});
+): RecurrentsStepState => {
+  const today = new Date().toISOString().slice(0, 10);
+
+  return {
+    items: SUGGESTED_RECURRENTS.map((item) => ({
+      id: item.id,
+      label: translate(item.labelKey),
+      amount: item.placeholderAmount,
+      expectedDate: today,
+      selected: false,
+      type: item.type,
+      suggestedCategoryName: item.suggestedCategoryName,
+      frequency: item.frequency,
+      interval: item.interval,
+      icon: item.icon,
+    })),
+    customEnabled: false,
+    customLabel: "",
+    customAmount: "",
+    customExpectedDate: today,
+    customType: "expense",
+  };
+};

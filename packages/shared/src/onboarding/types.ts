@@ -29,6 +29,7 @@ export type OnboardingRecurrentInput = {
   amountMinor: number;
   currency: string;
   categoryName: string;
+  expectedDate?: string;
   frequency: RecurringFrequency;
   interval: number;
   dayOfMonth: number;

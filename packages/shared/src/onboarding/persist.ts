@@ -12,6 +12,31 @@ export type OnboardingDbClient = {
 const normalizeSeedName = (value: string) =>
   normalizeCategoryName(value).toLowerCase();
 
+const normalizeExpectedDate = (
+  value: string | undefined,
+  fallback: string
+): string => {
+  if (!value) return fallback;
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return fallback;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!year || month < 1 || month > 12 || day < 1 || day > 31) return fallback;
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  const isValid =
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day;
+  return isValid ? value : fallback;
+};
+
+const dayOfMonthFromDate = (value: string, fallback: number): number => {
+  const day = Number(value.slice(8, 10));
+  if (!Number.isInteger(day) || day < 1 || day > 31) return fallback;
+  return day;
+};
+
 /**
  * Persiste todos los datos del onboarding en una transacción lógica.
  * Se llama desde web (server action) y desde móvil (directamente).
@@ -61,6 +86,7 @@ export async function persistOnboarding(
         const categoryId = normalizedName
           ? categoryMap.get(normalizedName) ?? null
           : null;
+        const expectedDate = normalizeExpectedDate(rec.expectedDate, today);
 
         return {
           account_id: payload.accountId,
@@ -69,10 +95,12 @@ export async function persistOnboarding(
           currency: rec.currency,
           category_id: categoryId,
           merchant: rec.label,
-          start_date: today,
+          start_date: expectedDate,
           frequency: rec.frequency,
           interval: rec.interval,
-          day_of_month: rec.dayOfMonth || dayOfMonth,
+          day_of_month:
+            rec.dayOfMonth ||
+            dayOfMonthFromDate(expectedDate, dayOfMonth),
           is_paused: false,
           created_by: userId,
         };
@@ -98,7 +126,7 @@ export async function persistOnboarding(
           .toISOString()
           .slice(0, 10);
 
-        const pendingRows = insertedItems.flatMap((item) => {
+        const pendingRows = insertedItems.flatMap((item: RecurringItem) => {
           const recurringItem = item as RecurringItem;
           const occurrences = getOccurrencesBetween(
             recurringItem,

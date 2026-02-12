@@ -44,7 +44,15 @@ export function RecurrentsStep({
   onBack,
 }: RecurrentsStepProps) {
   const { dictionary, locale } = useCopy();
-  const { items, customEnabled, customLabel, customAmount, customType } = state;
+  const {
+    items,
+    customEnabled,
+    customLabel,
+    customAmount,
+    customExpectedDate,
+    customType,
+  } = state;
+  const today = new Date().toISOString().slice(0, 10);
 
   const resolveCategoryName = (categoryName: string) => {
     const match = DEFAULT_CATEGORIES.find(
@@ -62,6 +70,12 @@ export function RecurrentsStep({
         item.id === id ? { ...item, ...changes } : item
       ),
     }));
+  };
+
+  const dayOfMonthFromDate = (value: string, fallback: number) => {
+    const day = Number(value.slice(8, 10));
+    if (!Number.isInteger(day) || day < 1 || day > 31) return fallback;
+    return day;
   };
 
   const selectedItems = items.filter((item) => item.selected);
@@ -94,6 +108,7 @@ export function RecurrentsStep({
       .map((item) => {
         const parsed = parseMoneyToMinor(item.amount, currency);
         if (typeof parsed === "object") return null;
+        const expectedDate = item.expectedDate || today;
         return {
           suggestedId: item.id,
           label: item.label,
@@ -101,9 +116,10 @@ export function RecurrentsStep({
           amountMinor: Number(parsed),
           currency,
           categoryName: resolveCategoryName(item.suggestedCategoryName),
+          expectedDate,
           frequency: item.frequency,
           interval: item.interval,
-          dayOfMonth,
+          dayOfMonth: dayOfMonthFromDate(expectedDate, dayOfMonth),
         };
       })
       .filter(Boolean) as OnboardingRecurrentInput[];
@@ -112,6 +128,7 @@ export function RecurrentsStep({
       return suggested;
     }
 
+    const customDate = customExpectedDate || today;
     const custom: OnboardingRecurrentInput = {
       suggestedId: `custom_${Date.now()}`,
       label: customLabel.trim(),
@@ -119,9 +136,10 @@ export function RecurrentsStep({
       amountMinor: Number(customAmountResult),
       currency,
       categoryName: "",
+      expectedDate: customDate,
       frequency: "monthly",
       interval: 1,
-      dayOfMonth,
+      dayOfMonth: dayOfMonthFromDate(customDate, dayOfMonth),
     };
 
     return [...suggested, custom];
@@ -137,6 +155,8 @@ export function RecurrentsStep({
     : t(dictionary, "onboarding.recurrents.minimum");
 
   const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
+  const sanitizeDateInput = (value: string) =>
+    value.replace(/[^0-9-]/g, "").slice(0, 10);
 
   return (
     <KeyboardAvoidingView
@@ -184,11 +204,23 @@ export function RecurrentsStep({
                   </View>
                   <View style={styles.amountBox}>
                     <TextInput
-                      style={styles.amountInput}
+                      style={styles.itemAmountInput}
                       value={item.amount}
                       onChangeText={(text) => updateItem(item.id, { amount: text })}
                       onFocus={() => updateItem(item.id, { selected: true })}
                       keyboardType="decimal-pad"
+                    />
+                    <TextInput
+                      style={styles.itemDateInput}
+                      value={item.expectedDate || today}
+                      onChangeText={(text) =>
+                        updateItem(item.id, {
+                          expectedDate: sanitizeDateInput(text),
+                        })
+                      }
+                      onFocus={() => updateItem(item.id, { selected: true })}
+                      placeholder={t(dictionary, "transactions.datePlaceholder")}
+                      placeholderTextColor={onboardingColors.textMuted}
                     />
                   </View>
                 </TouchableOpacity>
@@ -224,7 +256,7 @@ export function RecurrentsStep({
                 </Text>
                 <View style={styles.amountRow}>
                   <TextInput
-                    style={styles.amountInput}
+                    style={styles.fieldAmountInput}
                     value={customAmount}
                     onChangeText={(value) =>
                       onChangeState((prev) => ({
@@ -240,6 +272,23 @@ export function RecurrentsStep({
                     <Text style={styles.currencyText}>{currency}</Text>
                   </View>
                 </View>
+              </View>
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>
+                  {t(dictionary, "addTransaction.dateLabel")}
+                </Text>
+                <TextInput
+                  style={styles.fieldAmountInput}
+                  value={customExpectedDate || today}
+                  onChangeText={(value) =>
+                    onChangeState((prev) => ({
+                      ...prev,
+                      customExpectedDate: sanitizeDateInput(value),
+                    }))
+                  }
+                  placeholder={t(dictionary, "transactions.datePlaceholder")}
+                  placeholderTextColor={appColors.text.muted}
+                />
               </View>
               <View style={styles.field}>
                 <Text style={styles.fieldLabel}>
@@ -402,10 +451,11 @@ const styles = StyleSheet.create({
     color: onboardingColors.textMuted,
   },
   amountBox: {
-    minWidth: 72,
+    minWidth: 120,
     alignItems: "flex-end",
+    gap: 6,
   },
-  amountInput: {
+  itemAmountInput: {
     width: 72,
     borderWidth: 1,
     borderColor: onboardingColors.border,
@@ -416,6 +466,18 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "right",
     color: onboardingColors.text,
+  },
+  itemDateInput: {
+    width: 120,
+    borderWidth: 1,
+    borderColor: onboardingColors.border,
+    borderRadius: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    fontSize: 12,
+    textAlign: "center",
+    color: onboardingColors.text,
+    backgroundColor: onboardingColors.white,
   },
   customToggle: {
     marginTop: 14,
@@ -461,7 +523,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  amountInput: {
+  fieldAmountInput: {
     flex: 1,
     borderWidth: 1,
     borderColor: appColors.state.neutral,
