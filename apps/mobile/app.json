@@ -1,7 +1,8 @@
 {
   "expo": {
+    "owner":"poleursus",
     "name": "Finnon",
-    "slug": "finnon-mobile",
+    "slug": "finnon-app",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -32,6 +33,11 @@
       "favicon": "./assets/favicon.png"
     },
     "scheme": "finnon",
-    "plugins": ["expo-router"]
+    "plugins": ["expo-router"],
+    "extra": {
+      "eas": {
+        "projectId": "e89e0bcd-c347-47df-87ce-1f6ea0d5a8f0"
+      }
+    }
   }
 }

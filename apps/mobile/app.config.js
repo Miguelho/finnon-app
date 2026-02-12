@@ -3,7 +3,8 @@ require("dotenv").config();
 module.exports = {
   expo: {
     name: "Finnon",
-    slug: "finnon-mobile",
+    owner: "poleursus",
+    slug: "finnon-app",
     version: "0.1.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
@@ -47,6 +48,9 @@ module.exports = {
     extra: {
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+      eas: {
+        projectId: "e89e0bcd-c347-47df-87ce-1f6ea0d5a8f0",
+      },
     },
   },
 };
