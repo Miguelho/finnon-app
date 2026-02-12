@@ -1,6 +1,11 @@
 import type { NextRequest } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createAuthenticatedClient } from "@/lib/supabase/server";
+import {
+  getSupabaseAnonKey,
+  getSupabaseServiceRoleKey,
+  getSupabaseUrl,
+} from "@/lib/supabase/env";
 
 export type InviteLookup = {
   id: string;
@@ -18,8 +23,8 @@ export type InviteLookup = {
 
 export function createServiceRoleClient() {
   return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    getSupabaseUrl(),
+    getSupabaseServiceRoleKey(),
     {
       auth: {
         autoRefreshToken: false,
@@ -35,8 +40,8 @@ export async function getAuthenticatedUser(request: NextRequest) {
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.substring(7);
     const supabase = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      getSupabaseUrl(),
+      getSupabaseAnonKey(),
       {
         global: {
           headers: {

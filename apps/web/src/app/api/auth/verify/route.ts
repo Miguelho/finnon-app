@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 
 /**
  * Proxy endpoint for magic link verification.
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        "apikey": getSupabaseAnonKey(),
       },
       body: JSON.stringify({
         type,
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
 
     // Set auth cookies using Supabase SSR format
     // The cookie name is derived from the Supabase URL hostname
-    const supabaseUrl = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!);
+    const supabaseUrl = new URL(getSupabaseUrl());
     const projectRef = supabaseUrl.hostname.split(".")[0]; // e.g., "192" from "192.168.1.100"
     const cookieName = `sb-${projectRef}-auth-token`;
 

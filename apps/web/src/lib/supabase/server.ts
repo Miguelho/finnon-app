@@ -1,13 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { getSupabaseAnonKey, getSupabaseUrl } from "./env";
 
 export async function createClient() {
   const cookieStore = await cookies();
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    getSupabaseUrl(),
+    getSupabaseAnonKey(),
     {
       cookies: {
         getAll() {
@@ -45,8 +46,8 @@ export async function createAuthenticatedClient() {
 
   // Primero crear un cliente temporal solo para obtener el token
   const tempClient = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    getSupabaseUrl(),
+    getSupabaseAnonKey(),
     {
       cookies: {
         getAll() {
@@ -82,7 +83,7 @@ export async function createAuthenticatedClient() {
   // CRÍTICO: Usar el access_token del usuario como la API key
   // Esto asegura que TODAS las peticiones usen el JWT del usuario autenticado
   const authenticatedClient = createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    getSupabaseUrl(),
     session.access_token, // <-- USAR ACCESS TOKEN COMO API KEY
     {
       auth: {

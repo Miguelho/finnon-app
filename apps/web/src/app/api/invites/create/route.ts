@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAuthenticatedClient } from "@/lib/supabase/server";
+import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 import { createInviteSchema } from "@poleursus/shared";
 import {
   generateInviteToken,
@@ -25,8 +26,8 @@ export async function POST(request: NextRequest) {
       const token = authHeader.substring(7);
       const { createClient } = await import("@supabase/supabase-js");
       supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        getSupabaseUrl(),
+        getSupabaseAnonKey(),
         {
           global: {
             headers: {

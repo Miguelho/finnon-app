@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAuthenticatedClient } from "@/lib/supabase/server";
+import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 
 const TIME_ZONE = "Europe/Madrid";
 
@@ -62,8 +63,8 @@ export async function GET(request: NextRequest) {
       const token = authHeader.substring(7);
       const { createClient } = await import("@supabase/supabase-js");
       supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        getSupabaseUrl(),
+        getSupabaseAnonKey(),
         {
           global: {
             headers: {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAuthenticatedClient } from "@/lib/supabase/server";
+import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 
 type AccountMember = {
   user_id: string;
@@ -29,7 +30,12 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-    const accountId = typeof body?.accountId === "string" ? body.accountId : null;
+    const parsedBody =
+      typeof body === "object" && body !== null
+        ? (body as { accountId?: unknown })
+        : null;
+    const accountId =
+      typeof parsedBody?.accountId === "string" ? parsedBody.accountId : null;
 
     if (!accountId) {
       return NextResponse.json(
@@ -47,8 +53,8 @@ export async function POST(request: NextRequest) {
       const token = authHeader.substring(7);
       const { createClient } = await import("@supabase/supabase-js");
       supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        getSupabaseUrl(),
+        getSupabaseAnonKey(),
         {
           global: {
             headers: {
