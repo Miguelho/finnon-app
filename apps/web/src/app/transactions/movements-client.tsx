@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   CURRENCIES,
@@ -198,6 +198,39 @@ const formatDateLabel = (value: string, locale: string) =>
     month: "long",
   });
 
+const toPercent = (part: bigint, total: bigint) => {
+  if (part <= 0n || total <= 0n) return 0;
+  return Number((part * 10000n) / total) / 100;
+};
+
+const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
+
+const formatSignedAmount = (
+  amountMinor: bigint,
+  currencyCode: string,
+  currencySymbol: string
+) => {
+  const absoluteValue = amountMinor < 0n ? -amountMinor : amountMinor;
+  const formatted = formatMinorToMoney(absoluteValue, currencyCode);
+  if (amountMinor < 0n) return `-${currencySymbol}${formatted}`;
+  return `${currencySymbol}${formatted}`;
+};
+
+const formatIncomeAmount = (
+  amountMinor: bigint,
+  currencyCode: string,
+  currencySymbol: string
+) => `${currencySymbol}${formatMinorToMoney(amountMinor, currencyCode)}`;
+
+const formatExpenseAmount = (
+  amountMinor: bigint,
+  currencyCode: string,
+  currencySymbol: string
+) => {
+  const absoluteValue = amountMinor < 0n ? -amountMinor : amountMinor;
+  return `-${currencySymbol}${formatMinorToMoney(absoluteValue, currencyCode)}`;
+};
+
 function FilterDropdown({
   label,
   options,
@@ -263,54 +296,261 @@ function FilterDropdown({
   );
 }
 
-function SummaryCard({
-  label,
-  totalValue,
-  confirmedValue,
-  confirmedLabel,
-  variant,
+function MovementsSummary({
+  movements,
   currencySymbol,
   currencyCode,
 }: {
-  label: string;
-  totalValue: bigint;
-  confirmedValue: bigint;
-  confirmedLabel: string;
-  variant: "income" | "expense" | "balance";
+  movements: Movement[];
   currencySymbol: string;
   currencyCode: string;
 }) {
-  const accent =
-    variant === "income"
-      ? design.colors.incomeGreen
-      : variant === "expense"
-      ? design.colors.expenseRed
-      : design.colors.textPrimary;
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+  const infoButtonRef = useRef<HTMLButtonElement | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
 
-  const formatAmount = (value: bigint, forceNegative?: boolean) => {
-    const absoluteValue = value < 0n ? -value : value;
-    const formatted = formatMinorToMoney(absoluteValue, currencyCode);
-    if (forceNegative || value < 0n) {
-      return `-${currencySymbol}${formatted}`;
-    }
-    return `${currencySymbol}${formatted}`;
-  };
+  const summary = useMemo(() => {
+    let totalIncome = 0n;
+    let totalExpense = 0n;
+    let confirmedIncome = 0n;
+    let confirmedExpense = 0n;
+
+    movements.forEach((movement) => {
+      if (movement.type === "income") {
+        totalIncome += movement.amountMinor;
+        if (movement.status === "confirmed") confirmedIncome += movement.amountMinor;
+      } else {
+        totalExpense += movement.amountMinor;
+        if (movement.status === "confirmed") confirmedExpense += movement.amountMinor;
+      }
+    });
+
+    const combinedTotal = totalIncome + totalExpense;
+    const incomeRatio = clampPercent(toPercent(totalIncome, combinedTotal));
+    const expenseRatio = clampPercent(toPercent(totalExpense, combinedTotal));
+    const incomeConfirmedRatio = clampPercent(
+      toPercent(confirmedIncome, totalIncome)
+    );
+    const expenseConfirmedRatio = clampPercent(
+      toPercent(confirmedExpense, totalExpense)
+    );
+
+    return {
+      totalIncome,
+      totalExpense,
+      confirmedIncome,
+      confirmedExpense,
+      balance: totalIncome - totalExpense,
+      confirmedBalance: confirmedIncome - confirmedExpense,
+      incomeRatio,
+      expenseRatio,
+      incomeConfirmedRatio,
+      expenseConfirmedRatio,
+      hasIncome: totalIncome > 0n,
+      hasExpense: totalExpense > 0n,
+      isEmpty: movements.length === 0,
+      movementCount: movements.length,
+    };
+  }, [movements]);
+
+  useEffect(() => {
+    if (!isTooltipOpen) return;
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (tooltipRef.current?.contains(target)) return;
+      if (infoButtonRef.current?.contains(target)) return;
+      setIsTooltipOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [isTooltipOpen]);
+
+  const hasSingleType =
+    !summary.isEmpty && (summary.hasIncome ? !summary.hasExpense : summary.hasExpense);
+  const movementCountLabel = `${summary.movementCount} ${
+    summary.movementCount === 1 ? "movimiento" : "movimientos"
+  }`;
 
   return (
-    <div
-      className="rounded-xl border bg-white p-3"
-      style={{ borderLeftWidth: 3, borderLeftColor: accent }}
-    >
-      <div className="text-xs font-medium text-[#6B6B6B]">{label}</div>
-      <div className="mt-1 text-lg font-semibold" style={{ color: accent }}>
-        {formatAmount(totalValue, variant === "expense")}
+    <div className="space-y-2">
+      <div className="mb-[14px] text-center">
+        <div className="text-[11px] font-medium uppercase tracking-[0.5px] text-[#9B9B9B]">
+          BALANCE
+        </div>
+        <div
+          className="text-[30px] font-bold tracking-[-1px]"
+          style={{
+            color:
+              summary.balance < 0n ? design.colors.expenseRed : design.colors.textPrimary,
+          }}
+        >
+          {formatSignedAmount(summary.balance, currencyCode, currencySymbol)}
+        </div>
+        <div className="text-xs text-[#9B9B9B]">
+          {formatSignedAmount(summary.confirmedBalance, currencyCode, currencySymbol)} confirmado
+        </div>
       </div>
-      <div className="mt-1 text-[11px] text-[#9B9B9B]">
-        <span className="font-semibold text-[#6B6B6B]">
-          {formatAmount(confirmedValue, variant === "expense")}
-        </span>{" "}
-        {confirmedLabel}
-      </div>
+
+      {summary.isEmpty ? (
+        <p className="mb-2 text-center text-sm font-medium text-[#9B9B9B]">
+          Sin movimientos en este periodo
+        </p>
+      ) : (
+        <div className="mb-[18px]">
+          <div className="relative mb-2 flex items-center gap-2">
+            <div className="flex h-[10px] flex-1 overflow-hidden gap-[2px]">
+              {summary.hasIncome && (
+                <div
+                  className={cn(
+                    "flex overflow-hidden",
+                    summary.hasExpense
+                      ? "rounded-l-[100px]"
+                      : "rounded-[100px]"
+                  )}
+                  style={{
+                    flex: summary.hasExpense ? summary.incomeRatio : 100,
+                    transition: "flex 0.3s ease",
+                  }}
+                >
+                  <div
+                    className="h-[10px]"
+                    style={{
+                      backgroundColor: design.colors.incomeSolid,
+                      flex: summary.incomeConfirmedRatio,
+                      transition: "flex 0.3s ease",
+                    }}
+                  />
+                  <div
+                    className="h-[10px]"
+                    style={{
+                      backgroundColor: design.colors.incomePending,
+                      flex: Math.max(0, 100 - summary.incomeConfirmedRatio),
+                      transition: "flex 0.3s ease",
+                    }}
+                  />
+                </div>
+              )}
+
+              {summary.hasExpense && (
+                <div
+                  className={cn(
+                    "flex overflow-hidden",
+                    summary.hasIncome
+                      ? "rounded-r-[100px]"
+                      : "rounded-[100px]"
+                  )}
+                  style={{
+                    flex: summary.hasIncome ? summary.expenseRatio : 100,
+                    transition: "flex 0.3s ease",
+                  }}
+                >
+                  <div
+                    className="h-[10px]"
+                    style={{
+                      backgroundColor: design.colors.expenseSolid,
+                      flex: summary.expenseConfirmedRatio,
+                      transition: "flex 0.3s ease",
+                    }}
+                  />
+                  <div
+                    className="h-[10px]"
+                    style={{
+                      backgroundColor: design.colors.expensePending,
+                      flex: Math.max(0, 100 - summary.expenseConfirmedRatio),
+                      transition: "flex 0.3s ease",
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <button
+              ref={infoButtonRef}
+              type="button"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#E5E5E5] text-[11px] font-semibold text-[#9B9B9B] transition hover:border-[#9B9B9B] hover:text-[#6B6B6B]"
+              onClick={() => setIsTooltipOpen((prev) => !prev)}
+              aria-label="Mostrar leyenda de colores"
+            >
+              i
+            </button>
+
+            {isTooltipOpen && (
+              <div
+                ref={tooltipRef}
+                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[220px] rounded-[8px] bg-[#1A1A1A] px-[14px] py-[10px] text-white shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
+              >
+                <span className="absolute right-[5px] top-[-5px] h-[10px] w-[10px] rotate-45 bg-[#1A1A1A]" />
+                <div className="flex items-center gap-2 py-0.5 text-xs">
+                  <span className="h-[6px] w-[10px] rounded-[3px] bg-white opacity-90" />
+                  <span>Color sólido = confirmado</span>
+                </div>
+                <div className="flex items-center gap-2 py-0.5 text-xs">
+                  <span className="h-[6px] w-[10px] rounded-[3px] bg-white opacity-35" />
+                  <span>Color suave = pendiente</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {hasSingleType ? (
+            <div className="flex items-start justify-between">
+              <div className="flex flex-col gap-0.5">
+                <span
+                  className="text-sm font-bold"
+                  style={{
+                    color: summary.hasIncome
+                      ? design.colors.incomeGreen
+                      : design.colors.expenseRed,
+                  }}
+                >
+                  {summary.hasIncome
+                    ? formatIncomeAmount(summary.totalIncome, currencyCode, currencySymbol)
+                    : formatExpenseAmount(summary.totalExpense, currencyCode, currencySymbol)}
+                </span>
+                <span className="text-[11px] text-[#9B9B9B]">
+                  {summary.hasIncome
+                    ? formatIncomeAmount(
+                        summary.confirmedIncome,
+                        currencyCode,
+                        currencySymbol
+                      )
+                    : formatExpenseAmount(
+                        summary.confirmedExpense,
+                        currencyCode,
+                        currencySymbol
+                      )}{" "}
+                  confirmados
+                </span>
+              </div>
+              <div className="flex flex-col items-end">
+                <span className="text-[13px] text-[#9B9B9B]">{movementCountLabel}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start justify-between">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm font-bold" style={{ color: design.colors.incomeGreen }}>
+                  {formatIncomeAmount(summary.totalIncome, currencyCode, currencySymbol)}
+                </span>
+                <span className="text-[11px] text-[#9B9B9B]">
+                  {formatIncomeAmount(summary.confirmedIncome, currencyCode, currencySymbol)} confirmados
+                </span>
+              </div>
+              <div className="flex flex-col items-end gap-0.5">
+                <span className="text-sm font-bold" style={{ color: design.colors.expenseRed }}>
+                  {formatExpenseAmount(summary.totalExpense, currencyCode, currencySymbol)}
+                </span>
+                <span className="text-[11px] text-[#9B9B9B]">
+                  {formatExpenseAmount(summary.confirmedExpense, currencyCode, currencySymbol)} confirmados
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -780,30 +1020,6 @@ export function MovementsClient({
     return { pending: sortByDateDesc(pending), confirmed: sortByDateDesc(confirmed) };
   }, [filteredMovements]);
 
-  const summary = useMemo(() => {
-    let totalIncome = 0n;
-    let totalExpense = 0n;
-    let confirmedIncome = 0n;
-    let confirmedExpense = 0n;
-    filteredMovements.forEach((movement) => {
-      if (movement.type === "income") {
-        totalIncome += movement.amountMinor;
-        if (movement.status === "confirmed") confirmedIncome += movement.amountMinor;
-      } else {
-        totalExpense += movement.amountMinor;
-        if (movement.status === "confirmed") confirmedExpense += movement.amountMinor;
-      }
-    });
-    return {
-      totalIncome,
-      totalExpense,
-      totalBalance: totalIncome - totalExpense,
-      confirmedIncome,
-      confirmedExpense,
-      confirmedBalance: confirmedIncome - confirmedExpense,
-    };
-  }, [filteredMovements]);
-
   const counts = useMemo(() => {
     let income = 0;
     let expense = 0;
@@ -1065,48 +1281,24 @@ export function MovementsClient({
           isSearchMode ? "max-h-0 opacity-0" : "max-h-20 opacity-100"
         )}
       >
-        <div>
-          <PeriodSelector selected={selectedPeriod} onChange={handlePeriodChange} />
-          <div className="flex justify-end px-5">
-            <button
-              type="button"
-              className="text-xs font-medium text-[#0065FF]"
-              onClick={() => router.push("/recurrentes")}
-            >
-              Recurrentes →
-            </button>
-          </div>
-        </div>
+        <PeriodSelector selected={selectedPeriod} onChange={handlePeriodChange} />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <SummaryCard
-          label="Ingresos"
-          totalValue={summary.totalIncome}
-          confirmedValue={summary.confirmedIncome}
-          confirmedLabel="confirmados"
-          variant="income"
+      <div className="space-y-2">
+        <MovementsSummary
+          movements={filteredMovements}
           currencySymbol={currencySymbol}
           currencyCode={baseCurrency}
         />
-        <SummaryCard
-          label="Gastos"
-          totalValue={summary.totalExpense}
-          confirmedValue={summary.confirmedExpense}
-          confirmedLabel="confirmados"
-          variant="expense"
-          currencySymbol={currencySymbol}
-          currencyCode={baseCurrency}
-        />
-        <SummaryCard
-          label="Balance"
-          totalValue={summary.totalBalance}
-          confirmedValue={summary.confirmedBalance}
-          confirmedLabel="actual"
-          variant="balance"
-          currencySymbol={currencySymbol}
-          currencyCode={baseCurrency}
-        />
+        <div className="flex justify-end">
+          <button
+            type="button"
+            className="text-xs font-medium text-[#0065FF]"
+            onClick={() => router.push("/recurrentes")}
+          >
+            Recurrentes →
+          </button>
+        </div>
       </div>
 
       {unregisteredRecurrents.length > 0 ? (

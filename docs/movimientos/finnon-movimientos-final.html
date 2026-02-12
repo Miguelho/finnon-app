@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon — Movimientos · Barra con tooltip</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fafaf8;
+    --surface: #ffffff;
+    --surface-hover: #f7f7f5;
+    --border: #e8e6e1;
+    --border-light: #f0eee9;
+    --text-primary: #1a1a1a;
+    --text-secondary: #6b6b6b;
+    --text-tertiary: #9a9a9a;
+    --accent: #1a1a1a;
+    --income: #2d7a3a;
+    --income-solid: #6abb7b;
+    --income-pending: #c8e6cd;
+    --expense: #c4442a;
+    --expense-solid: #e07a68;
+    --expense-pending: #f8d7cf;
+    --blue: #4a6cf7;
+    --blue-light: #eef3ff;
+    --amber: #a16207;
+    --amber-bg: #fff8eb;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #e8e6e1;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 32px 24px;
+    min-height: 100vh;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+
+  .phone-wrapper {
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
+
+  .variant-label {
+    font-size: 14px; font-weight: 700; color: var(--text-primary);
+    background: var(--surface); padding: 6px 16px; border-radius: 100px;
+    letter-spacing: -0.2px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  .phone {
+    width: 375px; max-width: 100%; min-height: 780px;
+    background: var(--bg); border-radius: 32px; overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+    border: 6px solid #2a2a2a;
+  }
+
+  .nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+
+  .nav-left { display: flex; align-items: center; gap: 8px; }
+
+  .nav-logo {
+    width: 28px; height: 28px; background: var(--accent); border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 13px; font-weight: 700;
+  }
+
+  .nav-name { font-weight: 700; font-size: 15px; }
+
+  .nav-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue-light); color: var(--blue);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600;
+  }
+
+  .page { padding: 20px; }
+
+  .page-title { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 16px; }
+
+  .period-selector {
+    display: flex; align-items: center; justify-content: center;
+    gap: 4px; margin-bottom: 12px;
+  }
+
+  .period-btn {
+    padding: 6px 14px; border-radius: 100px; font-size: 13px; font-weight: 500;
+    color: var(--text-secondary); background: none; border: none; cursor: pointer; font-family: inherit;
+  }
+
+  .period-btn.active { background: var(--accent); color: white; font-weight: 600; }
+
+  .recurrentes-link {
+    display: block; text-align: right; font-size: 13px; color: var(--blue);
+    font-weight: 500; margin-bottom: 16px; text-decoration: none;
+  }
+
+  /* ═══════════════════════════════ */
+  /* HERO BALANCE                    */
+  /* ═══════════════════════════════ */
+  .hero-balance { text-align: center; margin-bottom: 14px; }
+
+  .hero-balance-label {
+    font-size: 11px; color: var(--text-tertiary); font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;
+  }
+
+  .hero-balance-amount { font-size: 30px; font-weight: 700; letter-spacing: -1px; }
+  .hero-balance-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 1px; }
+
+  /* ═══════════════════════════════ */
+  /* PROPORTION BAR + TOOLTIP        */
+  /* ═══════════════════════════════ */
+  .proportion-section { margin-bottom: 18px; }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    position: relative;
+  }
+
+  .proportion-bar {
+    height: 10px; border-radius: 100px; display: flex;
+    overflow: hidden; gap: 2px; flex: 1;
+  }
+
+  .bar-side { display: flex; overflow: hidden; }
+  .bar-side.income { border-radius: 100px 0 0 100px; }
+  .bar-side.expense { border-radius: 0 100px 100px 0; }
+  .bar-side.full { border-radius: 100px; }
+
+  .bar-segment-confirmed { height: 10px; }
+  .bar-segment-pending { height: 10px; }
+
+  .bar-side.income .bar-segment-confirmed { background: var(--income-solid); }
+  .bar-side.income .bar-segment-pending { background: var(--income-pending); }
+  .bar-side.expense .bar-segment-confirmed { background: var(--expense-solid); }
+  .bar-side.expense .bar-segment-pending { background: var(--expense-pending); }
+
+  /* Info icon */
+  .info-btn {
+    width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: none; border: 1.5px solid var(--border);
+    color: var(--text-tertiary); font-size: 11px; font-weight: 600;
+    cursor: pointer; flex-shrink: 0; font-family: inherit;
+    transition: all 0.15s;
+    position: relative;
+  }
+
+  .info-btn:hover { border-color: var(--text-tertiary); color: var(--text-secondary); }
+
+  /* Tooltip */
+  .tooltip {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    background: var(--accent);
+    color: white;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    line-height: 1.6;
+    width: 220px;
+    z-index: 50;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-4px);
+    transition: all 0.15s ease;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  }
+
+  .tooltip.show {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateY(0);
+  }
+
+  .tooltip::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    right: 5px;
+    width: 10px; height: 10px;
+    background: var(--accent);
+    transform: rotate(45deg);
+  }
+
+  .tooltip-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+  }
+
+  .tooltip-dot {
+    width: 10px; height: 6px; border-radius: 3px; flex-shrink: 0;
+  }
+
+  .tooltip-dot.confirmed { background: var(--text-secondary); opacity: 0.9; }
+  .tooltip-dot.pending { background: var(--text-secondary); opacity: 0.35; }
+
+  .proportion-labels { display: flex; justify-content: space-between; }
+
+  .proportion-label-group { display: flex; flex-direction: column; gap: 1px; }
+  .proportion-label-group.right { align-items: flex-end; }
+
+  .proportion-total { font-size: 14px; font-weight: 700; }
+  .proportion-total.income { color: var(--income); }
+  .proportion-total.expense { color: var(--expense); }
+
+  .proportion-confirmed { font-size: 11px; color: var(--text-tertiary); }
+
+  /* ── SHARED ── */
+  .por-registrar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; background: var(--amber-bg); border: 1px solid #fde68a;
+    border-radius: var(--radius-sm); margin-bottom: 14px; font-size: 13px;
+  }
+
+  .por-registrar-left { display: flex; align-items: center; gap: 8px; font-weight: 500; color: var(--amber); }
+
+  .por-registrar-right { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .por-registrar-amount { font-weight: 600; color: var(--amber); }
+  .por-registrar-toggle { font-size: 12px; color: var(--amber); font-weight: 500; opacity: 0.7; }
+
+  .search-bar {
+    display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); margin-bottom: 10px;
+  }
+
+  .search-bar span { font-size: 13px; color: var(--text-tertiary); }
+
+  .filters { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+
+  .filter-chip {
+    padding: 5px 12px; border-radius: 100px; font-size: 12px; font-weight: 500;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text-secondary); font-family: inherit; cursor: pointer;
+  }
+
+  .filter-chip .count { color: var(--text-tertiary); margin-left: 4px; }
+
+  .filter-chip.active-filter {
+    background: var(--blue-light); border-color: var(--blue); color: var(--blue);
+  }
+
+  .movement-group {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--border-light);
+  }
+
+  .group-left { display: flex; align-items: center; gap: 8px; }
+  .group-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .group-dot.pending { background: var(--amber); }
+  .group-dot.done { background: var(--income); }
+
+  .group-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
+  .group-count { font-size: 12px; color: var(--text-tertiary); }
+  .group-right { display: flex; align-items: center; gap: 10px; }
+  .group-amount { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+  .group-toggle { font-size: 12px; color: var(--blue); font-weight: 500; cursor: pointer; }
+
+  .annotation {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--accent); color: white; padding: 10px 20px;
+    border-radius: 100px; font-size: 12px; font-weight: 500;
+    letter-spacing: 0.3px; z-index: 200; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  }
+</style>
+</head>
+<body>
+
+  <!-- PHONE 1: Sin filtro -->
+  <div class="phone-wrapper">
+    <span class="variant-label">Sin filtro</span>
+    <div class="phone">
+      <div class="nav">
+        <div class="nav-left"><div class="nav-logo">F</div><span class="nav-name">Finnon</span></div>
+        <div class="nav-avatar">T</div>
+      </div>
+      <div class="page">
+        <h1 class="page-title">Movimientos</h1>
+        <div class="period-selector">
+          <button class="period-btn">Semana</button>
+          <button class="period-btn active">Mes</button>
+          <button class="period-btn">Trimestre</button>
+          <button class="period-btn">Año</button>
+        </div>
+
+        <div class="hero-balance">
+          <div class="hero-balance-label">Balance</div>
+          <div class="hero-balance-amount">€2.886,50</div>
+          <div class="hero-balance-sub">-€2.014,96 confirmado</div>
+        </div>
+
+        <div class="proportion-section">
+          <div class="bar-row">
+            <div class="proportion-bar">
+              <div class="bar-side income" style="flex:65;">
+                <div class="bar-segment-confirmed" style="flex:0.5;"></div>
+                <div class="bar-segment-pending" style="flex:99.5;"></div>
+              </div>
+              <div class="bar-side expense" style="flex:35;">
+                <div class="bar-segment-confirmed" style="flex:62;"></div>
+                <div class="bar-segment-pending" style="flex:38;"></div>
+              </div>
+            </div>
+            <button class="info-btn" onclick="toggleTooltip(this)">
+              i
+              <div class="tooltip" id="tooltip-1">
+                <div class="tooltip-row"><div class="tooltip-dot confirmed"></div> Color sólido = confirmado</div>
+                <div class="tooltip-row"><div class="tooltip-dot pending"></div> Color suave = pendiente</div>
+              </div>
+            </button>
+          </div>
+          <div class="proportion-labels">
+            <div class="proportion-label-group">
+              <span class="proportion-total income">€6.193,91</span>
+              <span class="proportion-confirmed">€30,23 confirmados</span>
+            </div>
+            <div class="proportion-label-group right">
+              <span class="proportion-total expense">-€3.307,41</span>
+              <span class="proportion-confirmed">-€2.045,19 confirmados</span>
+            </div>
+          </div>
+        </div>
+
+        <a href="#" class="recurrentes-link">Recurrentes →</a>
+
+        <div class="por-registrar">
+          <div class="por-registrar-left">🔄 Por registrar <strong>1</strong></div>
+          <div class="por-registrar-right">
+            <span class="por-registrar-amount">(-€1,00)</span>
+            <span class="por-registrar-toggle">Mostrar</span>
+          </div>
+        </div>
+
+        <div class="search-bar"><span>🔍</span><span>Buscar movimiento, comercio, importe...</span></div>
+        <div class="filters">
+          <button class="filter-chip">Ingresos<span class="count">12</span></button>
+          <button class="filter-chip">Gastos<span class="count">15</span></button>
+          <button class="filter-chip">Categoría ↓</button>
+          <button class="filter-chip">Comercio ↓</button>
+        </div>
+
+        <div class="movement-group">
+          <div class="group-left">
+            <div class="group-dot pending"></div>
+            <span class="group-label">Pendientes</span>
+            <span class="group-count">— 12 movimientos</span>
+          </div>
+          <div class="group-right">
+            <span class="group-amount">(€4901.46)</span>
+            <span class="group-toggle">Mostrar</span>
+          </div>
+        </div>
+        <div class="movement-group">
+          <div class="group-left">
+            <div class="group-dot done"></div>
+            <span class="group-label">Realizados</span>
+            <span class="group-count">— 15 movimientos</span>
+          </div>
+          <div class="group-right">
+            <span class="group-amount">(-€2014.96)</span>
+            <span class="group-toggle">Mostrar</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHONE 2: Con filtro -->
+  <div class="phone-wrapper">
+    <span class="variant-label">Filtro: Restaurantes</span>
+    <div class="phone">
+      <div class="nav">
+        <div class="nav-left"><div class="nav-logo">F</div><span class="nav-name">Finnon</span></div>
+        <div class="nav-avatar">T</div>
+      </div>
+      <div class="page">
+        <h1 class="page-title">Movimientos</h1>
+        <div class="period-selector">
+          <button class="period-btn">Semana</button>
+          <button class="period-btn active">Mes</button>
+          <button class="period-btn">Trimestre</button>
+          <button class="period-btn">Año</button>
+        </div>
+
+        <div class="hero-balance">
+          <div class="hero-balance-label">Balance</div>
+          <div class="hero-balance-amount" style="color:var(--expense)">-€59,85</div>
+          <div class="hero-balance-sub">-€24,95 confirmado</div>
+        </div>
+
+        <div class="proportion-section">
+          <div class="bar-row">
+            <div class="proportion-bar">
+              <div class="bar-side expense full" style="flex:100;">
+                <div class="bar-segment-confirmed" style="flex:42;"></div>
+                <div class="bar-segment-pending" style="flex:58;"></div>
+              </div>
+            </div>
+            <button class="info-btn" onclick="toggleTooltip(this)">
+              i
+              <div class="tooltip">
+                <div class="tooltip-row"><div class="tooltip-dot confirmed"></div> Color sólido = confirmado</div>
+                <div class="tooltip-row"><div class="tooltip-dot pending"></div> Color suave = pendiente</div>
+              </div>
+            </button>
+          </div>
+          <div class="proportion-labels">
+            <div class="proportion-label-group">
+              <span class="proportion-total expense">-€59,85</span>
+              <span class="proportion-confirmed">-€24,95 confirmados</span>
+            </div>
+            <div class="proportion-label-group right">
+              <span style="font-size:13px;color:var(--text-tertiary);">5 movimientos</span>
+            </div>
+          </div>
+        </div>
+
+        <a href="#" class="recurrentes-link">Recurrentes →</a>
+
+        <div class="search-bar"><span>🔍</span><span>Buscar movimiento, comercio, importe...</span></div>
+        <div class="filters">
+          <button class="filter-chip">Ingresos<span class="count">0</span></button>
+          <button class="filter-chip">Gastos<span class="count">5</span></button>
+          <button class="filter-chip active-filter">🍽️ Restaurantes ✕</button>
+          <button class="filter-chip">Comercio ↓</button>
+        </div>
+
+        <div class="movement-group">
+          <div class="group-left">
+            <div class="group-dot pending"></div>
+            <span class="group-label">Pendientes</span>
+            <span class="group-count">— 2 movimientos</span>
+          </div>
+          <div class="group-right">
+            <span class="group-amount">(-€34,90)</span>
+            <span class="group-toggle">Mostrar</span>
+          </div>
+        </div>
+        <div class="movement-group">
+          <div class="group-left">
+            <div class="group-dot done"></div>
+            <span class="group-label">Realizados</span>
+            <span class="group-count">— 3 movimientos</span>
+          </div>
+          <div class="group-right">
+            <span class="group-amount">(-€24,95)</span>
+            <span class="group-toggle">Mostrar</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHONE 3: Tooltip visible -->
+  <div class="phone-wrapper">
+    <span class="variant-label">Tooltip abierto</span>
+    <div class="phone">
+      <div class="nav">
+        <div class="nav-left"><div class="nav-logo">F</div><span class="nav-name">Finnon</span></div>
+        <div class="nav-avatar">T</div>
+      </div>
+      <div class="page">
+        <h1 class="page-title">Movimientos</h1>
+        <div class="period-selector">
+          <button class="period-btn">Semana</button>
+          <button class="period-btn active">Mes</button>
+          <button class="period-btn">Trimestre</button>
+          <button class="period-btn">Año</button>
+        </div>
+
+        <div class="hero-balance">
+          <div class="hero-balance-label">Balance</div>
+          <div class="hero-balance-amount">€2.886,50</div>
+          <div class="hero-balance-sub">-€2.014,96 confirmado</div>
+        </div>
+
+        <div class="proportion-section">
+          <div class="bar-row">
+            <div class="proportion-bar">
+              <div class="bar-side income" style="flex:65;">
+                <div class="bar-segment-confirmed" style="flex:0.5;"></div>
+                <div class="bar-segment-pending" style="flex:99.5;"></div>
+              </div>
+              <div class="bar-side expense" style="flex:35;">
+                <div class="bar-segment-confirmed" style="flex:62;"></div>
+                <div class="bar-segment-pending" style="flex:38;"></div>
+              </div>
+            </div>
+            <button class="info-btn" style="border-color:var(--text-secondary);color:var(--text-secondary);">
+              i
+              <div class="tooltip show">
+                <div class="tooltip-row"><div class="tooltip-dot confirmed"></div> Color sólido = confirmado</div>
+                <div class="tooltip-row"><div class="tooltip-dot pending"></div> Color suave = pendiente</div>
+              </div>
+            </button>
+          </div>
+          <div class="proportion-labels">
+            <div class="proportion-label-group">
+              <span class="proportion-total income">€6.193,91</span>
+              <span class="proportion-confirmed">€30,23 confirmados</span>
+            </div>
+            <div class="proportion-label-group right">
+              <span class="proportion-total expense">-€3.307,41</span>
+              <span class="proportion-confirmed">-€2.045,19 confirmados</span>
+            </div>
+          </div>
+        </div>
+
+        <a href="#" class="recurrentes-link">Recurrentes →</a>
+
+        <div class="por-registrar">
+          <div class="por-registrar-left">🔄 Por registrar <strong>1</strong></div>
+          <div class="por-registrar-right">
+            <span class="por-registrar-amount">(-€1,00)</span>
+            <span class="por-registrar-toggle">Mostrar</span>
+          </div>
+        </div>
+
+        <div class="search-bar"><span>🔍</span><span>Buscar movimiento, comercio, importe...</span></div>
+        <div class="filters">
+          <button class="filter-chip">Ingresos<span class="count">12</span></button>
+          <button class="filter-chip">Gastos<span class="count">15</span></button>
+          <button class="filter-chip">Categoría ↓</button>
+          <button class="filter-chip">Comercio ↓</button>
+        </div>
+
+        <div class="movement-group">
+          <div class="group-left">
+            <div class="group-dot pending"></div>
+            <span class="group-label">Pendientes</span>
+            <span class="group-count">— 12 movimientos</span>
+          </div>
+          <div class="group-right">
+            <span class="group-amount">(€4901.46)</span>
+            <span class="group-toggle">Mostrar</span>
+          </div>
+        </div>
+        <div class="movement-group">
+          <div class="group-left">
+            <div class="group-dot done"></div>
+            <span class="group-label">Realizados</span>
+            <span class="group-count">— 15 movimientos</span>
+          </div>
+          <div class="group-right">
+            <span class="group-amount">(-€2014.96)</span>
+            <span class="group-toggle">Mostrar</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="annotation">Haz clic en el icono ⓘ del primer móvil para probar el tooltip</div>
+
+<script>
+  function toggleTooltip(btn) {
+    const tooltip = btn.querySelector('.tooltip');
+    const isOpen = tooltip.classList.contains('show');
+    // Close all tooltips first
+    document.querySelectorAll('.tooltip').forEach(t => t.classList.remove('show'));
+    if (!isOpen) tooltip.classList.add('show');
+  }
+
+  // Close tooltip on outside click
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.info-btn')) {
+      document.querySelectorAll('.tooltip').forEach(t => t.classList.remove('show'));
+    }
+  });
+</script>
+</body>
+</html>

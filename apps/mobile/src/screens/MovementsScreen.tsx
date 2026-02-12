@@ -19,7 +19,7 @@ import { PERIODS, type Period } from "@poleursus/shared";
 import { movementsDesignTokens } from "../types/movements";
 import { useMovements } from "../hooks/useMovements";
 import { useMovementsStore } from "../stores/useMovementsStore";
-import { SummaryCards } from "../components/movements/SummaryCards";
+import { MovementsSummary } from "../components/movements/MovementsSummary";
 import { RecurrentSection } from "../components/movements/RecurrentSection";
 import { SearchBar } from "../components/movements/SearchBar";
 import { FilterRow } from "../components/movements/FilterRow";
@@ -42,7 +42,7 @@ export default function MovementsScreen() {
     loading,
     error,
     groupedByStatus,
-    summary,
+    filteredMovements,
     unregisteredRecurrents,
     counts,
     merchantOptions,
@@ -231,20 +231,21 @@ export default function MovementsScreen() {
         >
           <View style={styles.periodNav}>
             <PeriodSelector selected={selectedPeriod} onSelect={setPeriod} />
-            <Pressable
-              style={styles.recurrentLink}
-              onPress={() => router.push("/(auth)/recurrentes")}
-            >
-              <Text style={styles.recurrentLinkText}>Recurrentes →</Text>
-            </Pressable>
           </View>
         </Animated.View>
 
-        <SummaryCards
-          summary={summary}
+        <MovementsSummary
+          movements={filteredMovements}
           currencyCode={currencyCode}
           currencySymbol={currencySymbol}
         />
+
+        <Pressable
+          style={styles.recurrentLink}
+          onPress={() => router.push("/(auth)/recurrentes")}
+        >
+          <Text style={styles.recurrentLinkText}>Recurrentes →</Text>
+        </Pressable>
 
         {unregisteredRecurrents.length > 0 ? (
           <RecurrentSection
@@ -432,12 +433,13 @@ const styles = StyleSheet.create({
     borderRadius: movementsDesignTokens.radius.md,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 8,
   },
   recurrentLink: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    alignSelf: "flex-end",
+    paddingHorizontal: 2,
+    paddingVertical: 2,
   },
   recurrentLinkText: {
     fontSize: movementsDesignTokens.typography.sizes.sm,
