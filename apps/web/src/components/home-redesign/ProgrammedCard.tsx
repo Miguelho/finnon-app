@@ -26,13 +26,13 @@ export function ProgrammedCard({
   if (!items || items.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5">
+    <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-[15px] font-semibold text-gray-900">Programados</h3>
+        <h3 className="text-[15px] font-semibold text-foreground">Programados</h3>
         <button
           type="button"
           onClick={onViewAll}
-          className="text-[13px] font-medium text-blue-600 hover:underline"
+          className="text-[13px] font-medium text-primary hover:underline"
         >
           Ver todos →
         </button>
@@ -49,21 +49,21 @@ export function ProgrammedCard({
           return (
             <div
               key={item.id}
-              className="flex items-center justify-between border-t border-gray-50 py-2.5 first:border-t-0"
+              className="flex items-center justify-between border-t border-border/50 py-2.5 first:border-t-0"
             >
               <div className="flex items-center gap-3">
                 <div
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-base ${
-                    isIncome ? "bg-green-50" : "bg-red-50"
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-secondary text-base ${
+                    isIncome ? "text-green-600" : "text-red-600"
                   }`}
                 >
                   {isIncome ? "↑" : "↓"}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-foreground">
                     {item.name}
                   </p>
-                  <p className="text-xs text-gray-400">{item.dateLabel}</p>
+                  <p className="text-xs text-muted-foreground">{item.dateLabel}</p>
                 </div>
               </div>
               <span

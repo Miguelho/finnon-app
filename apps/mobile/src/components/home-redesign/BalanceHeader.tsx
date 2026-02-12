@@ -2,9 +2,9 @@ import { View, Text, StyleSheet } from "react-native";
 import { themeTokens } from "@poleursus/shared";
 import { formatCurrencyParts } from "./utils";
 import { useCopy, t } from "../../lib/i18n";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
-const colors = tokens.colors;
 
 type BalanceHeaderProps = {
   amountMinor: bigint;
@@ -18,16 +18,23 @@ export function BalanceHeader({
   currencySymbol,
 }: BalanceHeaderProps) {
   const { dictionary } = useCopy();
+  const { tokens: userTokens } = useUserTheme();
   const { integer, decimals } = formatCurrencyParts(amountMinor, currencySymbol);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{t(dictionary, "mobile.home.balanceLabel")}</Text>
-      <Text style={styles.amount}>
-        {integer}
-        <Text style={styles.decimals}>,{decimals}</Text>
+      <Text style={[styles.label, { color: userTokens.textSecondary }]}>
+        {t(dictionary, "mobile.home.balanceLabel")}
       </Text>
-      <Text style={styles.month}>{monthLabel}</Text>
+      <Text style={[styles.amount, { color: userTokens.textPrimary }]}>
+        {integer}
+        <Text style={[styles.decimals, { color: userTokens.textSecondary }]}>
+          ,{decimals}
+        </Text>
+      </Text>
+      <Text style={[styles.month, { color: userTokens.textSecondary }]}>
+        {monthLabel}
+      </Text>
     </View>
   );
 }
@@ -42,25 +49,21 @@ const styles = StyleSheet.create({
     fontWeight: tokens.typography.weight.medium,
     textTransform: "uppercase",
     letterSpacing: 0.8,
-    color: colors.text.secondary,
     fontFamily: "DMSans-Medium",
   },
   amount: {
     fontSize: 42,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.text.primary,
     marginTop: tokens.spacing.xs,
     fontFamily: "JetBrainsMono-Medium",
   },
   decimals: {
     fontSize: 24,
-    color: colors.text.muted,
     fontFamily: "JetBrainsMono-Medium",
   },
   month: {
     marginTop: tokens.spacing.xs,
     fontSize: tokens.typography.size.sm,
-    color: colors.text.muted,
     fontFamily: "DMSans",
   },
 });

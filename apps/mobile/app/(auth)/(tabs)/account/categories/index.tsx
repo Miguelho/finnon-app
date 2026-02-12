@@ -14,6 +14,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../../../../../src/lib/supabase";
 import { useAuth } from "../../../../../src/contexts/AuthContext";
+import { useUserTheme } from "../../../../../src/contexts/UserThemeContext";
 import { Button } from "../../../../../src/components/Button";
 import { Card } from "../../../../../src/components/Card";
 import { CategoryTile } from "../../../../../src/components/CategoryTile";
@@ -37,6 +38,7 @@ const radii = tokens.radii;
 export default function CategoriesScreen() {
   const router = useRouter();
   const { selectedAccountId } = useAuth();
+  const { tokens: userThemeTokens } = useUserTheme();
   const { dictionary } = useCopy();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
@@ -125,7 +127,7 @@ export default function CategoriesScreen() {
     return (
       <>
         <Stack.Screen options={{ title: t(dictionary, "categories.title") }} />
-        <View style={styles.loading}>
+        <View style={[styles.loading, { backgroundColor: userThemeTokens.background }]}>
           <ActivityIndicator size="large" />
         </View>
       </>
@@ -136,7 +138,7 @@ export default function CategoriesScreen() {
     return (
       <>
         <Stack.Screen options={{ title: t(dictionary, "categories.title") }} />
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: userThemeTokens.background }]}>
           <Card title={t(dictionary, "common.errorTitle")} description={error}>
             <Button title={t(dictionary, "common.retry")} onPress={loadCategories} />
           </Card>
@@ -148,7 +150,7 @@ export default function CategoriesScreen() {
   return (
     <>
       <Stack.Screen options={{ title: t(dictionary, "categories.title") }} />
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: userThemeTokens.background }]}>
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={[
@@ -254,11 +256,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: colors.bg.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
   },
   scroll: {
     flex: 1,

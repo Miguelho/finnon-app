@@ -18,6 +18,7 @@ import {
   formatDateForDisplay,
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../lib/i18n";
+import { useUserTheme } from "../../../contexts/UserThemeContext";
 import { DateQuickPicker } from "../DateQuickPicker";
 import { DatePickerField } from "../../DatePickerField";
 import { Button } from "../../Button";
@@ -62,6 +63,8 @@ export function Step1Details({
   allowObligation = true,
 }: Step1DetailsProps) {
   const { dictionary, locale } = useCopy();
+  const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
+    useUserTheme();
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isObligationSheetOpen, setIsObligationSheetOpen] = useState(false);
   const [sheetType, setSheetType] = useState<ObligationType>("pending");
@@ -204,11 +207,19 @@ export function Step1Details({
   return (
     <View style={styles.container}>
       {/* Type selector */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>{t(dictionary, "addTransaction.typeLabel")}</Text>
+      <View
+        style={[
+          styles.section,
+          { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+        ]}
+      >
+        <Text style={[styles.sectionLabel, { color: userTokens.textPrimary }]}>
+          {t(dictionary, "addTransaction.typeLabel")}
+        </Text>
         <View
           style={[
             styles.typeToggle,
+            { borderColor: userTokens.border, backgroundColor: userTokens.surfaceAlt },
             draft.isObligation && styles.typeToggleDisabled,
           ]}
         >
@@ -216,6 +227,7 @@ export function Step1Details({
             style={[
               styles.typeOption,
               draft.type === "expense" && styles.typeOptionActive,
+              draft.type === "expense" && { backgroundColor: userTokens.surface },
             ]}
             onPress={() => handleTypeChange("expense")}
             disabled={draft.isObligation}
@@ -224,13 +236,17 @@ export function Step1Details({
               size={18}
               weight="regular"
               color={
-                draft.type === "expense" ? colors.text.primary : colors.text.muted
+                draft.type === "expense"
+                  ? userTokens.textPrimary
+                  : userTokens.textTertiary
               }
             />
             <Text
               style={[
                 styles.typeOptionText,
                 draft.type === "expense" && styles.typeOptionTextActive,
+                { color: userTokens.textTertiary },
+                draft.type === "expense" && { color: userTokens.textPrimary },
               ]}
             >
               {t(dictionary, "addTransaction.typeExpense")}
@@ -240,6 +256,7 @@ export function Step1Details({
             style={[
               styles.typeOption,
               draft.type === "income" && styles.typeOptionActive,
+              draft.type === "income" && { backgroundColor: userTokens.surface },
             ]}
             onPress={() => handleTypeChange("income")}
             disabled={draft.isObligation}
@@ -248,13 +265,17 @@ export function Step1Details({
               size={18}
               weight="regular"
               color={
-                draft.type === "income" ? colors.text.primary : colors.text.muted
+                draft.type === "income"
+                  ? userTokens.textPrimary
+                  : userTokens.textTertiary
               }
             />
             <Text
               style={[
                 styles.typeOptionText,
                 draft.type === "income" && styles.typeOptionTextActive,
+                { color: userTokens.textTertiary },
+                draft.type === "income" && { color: userTokens.textPrimary },
               ]}
             >
               {t(dictionary, "addTransaction.typeIncome")}
@@ -264,40 +285,55 @@ export function Step1Details({
       </View>
 
       {allowObligation && draft.type === "expense" && draft.isObligation && (
-        <View style={styles.obligationSection}>
+        <View
+          style={[
+            styles.obligationSection,
+            { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+          ]}
+        >
           <View style={styles.obligationRow}>
             <View style={styles.obligationLabelRow}>
-              <Text style={styles.toggleLabel}>
+              <Text style={[styles.toggleLabel, { color: userTokens.textPrimary }]}>
                 {t(dictionary, "addTransaction.obligationLabel")}
               </Text>
               <Pressable
                 onPress={() => setIsInfoOpen(true)}
-                style={styles.infoButton}
+                style={[
+                  styles.infoButton,
+                  { borderColor: userTokens.border, backgroundColor: userTokens.surface },
+                ]}
                 accessibilityRole="button"
                 accessibilityLabel={t(dictionary, "addTransaction.obligationInfoTitle")}
               >
-                <Info size={16} color={colors.text.secondary} />
+                <Info size={16} color={userTokens.textSecondary} />
               </Pressable>
             </View>
             <Switch
               value={draft.isObligation}
               onValueChange={handleObligationToggle}
-              trackColor={{ false: colors.state.neutral, true: colors.action.primary }}
-              thumbColor={colors.bg.surface}
+              trackColor={{ false: userTokens.border, true: primaryActionColor }}
+              thumbColor={userTokens.surface}
             />
           </View>
 
           {hasObligationConfig && (
             <View style={styles.obligationChipRow}>
-              <View style={styles.obligationChip}>
-                <Text style={styles.obligationChipText}>{obligationSummary}</Text>
+              <View
+                style={[
+                  styles.obligationChip,
+                  { borderColor: userTokens.border, backgroundColor: userTokens.surface },
+                ]}
+              >
+                <Text style={[styles.obligationChipText, { color: userTokens.textPrimary }]}>
+                  {obligationSummary}
+                </Text>
               </View>
               <Pressable
                 onPress={() => openObligationSheet({ fromToggle: false })}
                 style={styles.obligationChipEditButton}
                 accessibilityRole="button"
               >
-                <Text style={styles.obligationChipEdit}>
+                <Text style={[styles.obligationChipEdit, { color: primaryActionColor }]}>
                   {t(dictionary, "addTransaction.obligationEdit")}
                 </Text>
               </Pressable>
@@ -308,19 +344,43 @@ export function Step1Details({
       )}
 
       {/* Amount field */}
-      <View style={[styles.section, styles.amountSection]}>
-        <Text style={styles.amountLabel}>{t(dictionary, "addTransaction.amountLabel")}</Text>
+      <View
+        style={[
+          styles.section,
+          styles.amountSection,
+          { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+        ]}
+      >
+        <Text style={[styles.amountLabel, { color: userTokens.textPrimary }]}>
+          {t(dictionary, "addTransaction.amountLabel")}
+        </Text>
         <View style={styles.amountRow}>
           <TextInput
-            style={[styles.input, styles.amountInput, errors.amount && styles.inputError]}
+            style={[
+              styles.input,
+              styles.amountInput,
+              {
+                borderColor: userTokens.border,
+                backgroundColor: userTokens.surface,
+                color: userTokens.textPrimary,
+              },
+              errors.amount && styles.inputError,
+            ]}
             value={draft.amount}
             onChangeText={handleAmountChange}
             placeholder="0,00"
-            placeholderTextColor={colors.text.muted}
+            placeholderTextColor={userTokens.textTertiary}
             keyboardType="decimal-pad"
           />
-          <View style={styles.currencyBadge}>
-            <Text style={styles.currencyText}>{draft.currency}</Text>
+          <View
+            style={[
+              styles.currencyBadge,
+              { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+            ]}
+          >
+            <Text style={[styles.currencyText, { color: userTokens.textSecondary }]}>
+              {draft.currency}
+            </Text>
           </View>
         </View>
         {errors.amount ? (
@@ -328,14 +388,19 @@ export function Step1Details({
             {t(dictionary, "addTransaction.errors.amountRequired")}
           </Text>
         ) : (
-          <Text style={styles.helperText}>
+          <Text style={[styles.helperText, { color: userTokens.textSecondary }]}>
             {t(dictionary, "addTransaction.amountHelper")}
           </Text>
         )}
       </View>
 
       {/* Date field */}
-      <View style={styles.section}>
+      <View
+        style={[
+          styles.section,
+          { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+        ]}
+      >
         <DateQuickPicker
           value={draft.date}
           onChange={(value) => onFieldChange("date", value)}
@@ -360,17 +425,24 @@ export function Step1Details({
           >
             <View style={styles.sheetOverlay}>
               <Pressable style={styles.sheetBackdrop} onPress={() => setIsInfoOpen(false)} />
-              <View style={styles.sheetContainer}>
-                <View style={styles.sheetHandle} />
+              <View
+                style={[
+                  styles.sheetContainer,
+                  { backgroundColor: userTokens.surface, borderTopColor: userTokens.border },
+                ]}
+              >
+                <View style={[styles.sheetHandle, { backgroundColor: userTokens.border }]} />
                 <View style={styles.sheetHeader}>
-                  <Text style={styles.sheetTitle}>
+                  <Text style={[styles.sheetTitle, { color: userTokens.textPrimary }]}>
                     {t(dictionary, "addTransaction.obligationInfoTitle")}
                   </Text>
                   <TouchableOpacity onPress={() => setIsInfoOpen(false)}>
-                    <Text style={styles.sheetAction}>{t(dictionary, "common.close")}</Text>
+                    <Text style={[styles.sheetAction, { color: primaryActionColor }]}>
+                      {t(dictionary, "common.close")}
+                    </Text>
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.sheetDescription}>
+                <Text style={[styles.sheetDescription, { color: userTokens.textSecondary }]}>
                   {t(dictionary, "addTransaction.obligationInfoText")}
                 </Text>
               </View>
@@ -386,33 +458,48 @@ export function Step1Details({
           >
             <View style={styles.sheetOverlay}>
               <Pressable style={styles.sheetBackdrop} onPress={handleCancelObligationConfig} />
-              <View style={styles.sheetContainer}>
-                <View style={styles.sheetHandle} />
+              <View
+                style={[
+                  styles.sheetContainer,
+                  { backgroundColor: userTokens.surface, borderTopColor: userTokens.border },
+                ]}
+              >
+                <View style={[styles.sheetHandle, { backgroundColor: userTokens.border }]} />
                 <View style={styles.sheetHeader}>
-                  <Text style={styles.sheetTitle}>
+                  <Text style={[styles.sheetTitle, { color: userTokens.textPrimary }]}>
                     {t(dictionary, "addTransaction.obligationSheetTitle")}
                   </Text>
                   <TouchableOpacity onPress={handleCancelObligationConfig}>
-                    <Text style={styles.sheetAction}>{t(dictionary, "common.close")}</Text>
+                    <Text style={[styles.sheetAction, { color: primaryActionColor }]}>
+                      {t(dictionary, "common.close")}
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
                 <View style={styles.sheetContent}>
-                  <Text style={styles.sheetSectionLabel}>
+                  <Text style={[styles.sheetSectionLabel, { color: userTokens.textPrimary }]}>
                     {t(dictionary, "addTransaction.obligationTypeLabel")}
                   </Text>
-                  <View style={styles.segmentedControl}>
+                  <View
+                    style={[
+                      styles.segmentedControl,
+                      { borderColor: userTokens.border, backgroundColor: userTokens.surfaceAlt },
+                    ]}
+                  >
                     <Pressable
                       onPress={() => handleSheetTypeChange("pending")}
                       style={[
                         styles.segmentOption,
                         sheetType === "pending" && styles.segmentOptionActive,
+                        sheetType === "pending" && { backgroundColor: primaryActionColor },
                       ]}
                     >
                       <Text
                         style={[
                           styles.segmentOptionText,
                           sheetType === "pending" && styles.segmentOptionTextActive,
+                          { color: userTokens.textSecondary },
+                          sheetType === "pending" && { color: primaryActionTextColor },
                         ]}
                       >
                         {t(dictionary, "addTransaction.obligationTypePending")}
@@ -423,12 +510,15 @@ export function Step1Details({
                       style={[
                         styles.segmentOption,
                         sheetType === "scheduled" && styles.segmentOptionActive,
+                        sheetType === "scheduled" && { backgroundColor: primaryActionColor },
                       ]}
                     >
                       <Text
                         style={[
                           styles.segmentOptionText,
                           sheetType === "scheduled" && styles.segmentOptionTextActive,
+                          { color: userTokens.textSecondary },
+                          sheetType === "scheduled" && { color: primaryActionTextColor },
                         ]}
                       >
                         {t(dictionary, "addTransaction.obligationTypeScheduled")}
@@ -656,8 +746,8 @@ const styles = StyleSheet.create({
   },
   sheetContainer: {
     backgroundColor: colors.bg.surface,
-    borderTopLeftRadius: tokens.radii.xl,
-    borderTopRightRadius: tokens.radii.xl,
+    borderTopLeftRadius: tokens.radii.lg,
+    borderTopRightRadius: tokens.radii.lg,
     padding: tokens.spacing.lg,
   },
   sheetHandle: {

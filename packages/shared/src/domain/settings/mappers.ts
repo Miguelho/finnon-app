@@ -118,15 +118,6 @@ export function buildSettingsMenuVM(
                 ? `${baseRoute}/user-details`
                 : `${baseRoute}/user`,
           },
-          {
-            id: "language",
-            title: t(dictionary, "settings.menu.sections.user.items.language.title"),
-            description: t(
-              dictionary,
-              "settings.menu.sections.user.items.language.description"
-            ),
-            route: `${baseRoute}/language`,
-          },
         ],
       },
       {

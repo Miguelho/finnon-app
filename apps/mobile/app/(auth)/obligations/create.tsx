@@ -10,6 +10,7 @@ import { useRouter } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
+import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { Button } from "../../../src/components/Button";
 import { Input } from "../../../src/components/Input";
 import { Card } from "../../../src/components/Card";
@@ -28,6 +29,7 @@ const colors = tokens.colors;
 export default function CreateObligationScreen(): React.JSX.Element {
   const router = useRouter();
   const { selectedAccountId } = useAuth();
+  const { tokens: userThemeTokens } = useUserTheme();
   const { dictionary } = useCopy();
 
   const [name, setName] = useState("");
@@ -171,7 +173,10 @@ export default function CreateObligationScreen(): React.JSX.Element {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: userThemeTokens.background }]}
+      contentContainerStyle={styles.content}
+    >
       <Card
         title={t(dictionary, "obligations.create.title")}
         description={t(dictionary, "obligations.create.description")}
@@ -257,7 +262,6 @@ export default function CreateObligationScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
   },
   content: {
     padding: tokens.spacing.lg,

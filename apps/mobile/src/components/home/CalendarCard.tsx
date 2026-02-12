@@ -14,6 +14,7 @@ import {
 } from "@poleursus/shared";
 import { WeekView, WEEK_VIEW_HEIGHT } from "./WeekView";
 import { MonthOverlay } from "./MonthOverlay";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 type CalendarCardProps = {
   locale: string;
@@ -58,6 +59,7 @@ export function CalendarCard({
   viewWeekCta,
   onResetToToday,
 }: CalendarCardProps) {
+  const { primaryActionColor } = useUserTheme();
   const [mode, setMode] = useState<"week" | "month">("week");
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
 
@@ -177,12 +179,12 @@ export function CalendarCard({
             accessibilityLabel={isMonthOpen ? viewWeekCta : viewMonthCta}
             accessibilityState={{ expanded: isMonthOpen }}
           >
-            <Text style={styles.toggleText}>
+            <Text style={[styles.toggleText, { color: primaryActionColor }]}>
               {isMonthOpen ? viewWeekCta : viewMonthCta}
             </Text>
             <CaretDown
               size={16}
-              color={colors.action.primary}
+              color={primaryActionColor}
               style={{
                 transform: [{ rotate: isMonthOpen ? "180deg" : "0deg" }],
               }}
@@ -260,7 +262,7 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: tokens.typography.size.sm,
-    color: colors.action.primary,
+    color: colors.text.primary,
   },
   body: {
     position: "relative",

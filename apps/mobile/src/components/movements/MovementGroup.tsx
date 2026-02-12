@@ -4,6 +4,7 @@ import { formatMinorToMoney } from "@poleursus/shared";
 import { movementsDesignTokens, type Movement, type UserProfile } from "../../types/movements";
 import { MovementRow } from "./MovementRow";
 import { DateSeparator } from "./DateSeparator";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 type MovementGroupProps = {
   label: string;
@@ -19,8 +20,6 @@ type MovementGroupProps = {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 };
-
-const colors = movementsDesignTokens.colors;
 
 const formatDateLabel = (value: string, locale?: string) => {
   const date = new Date(`${value}T00:00:00`);
@@ -44,6 +43,7 @@ export function MovementGroup({
   isCollapsed = false,
   onToggleCollapse,
 }: MovementGroupProps) {
+  const { tokens: userTokens } = useUserTheme();
   const grouped = useMemo(() => {
     const map = new Map<string, Movement[]>();
     movements.forEach((movement) => {
@@ -66,13 +66,19 @@ export function MovementGroup({
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={[styles.dot, { backgroundColor: dotColor }]} />
-        <Text style={styles.headerLabel}>{label.toUpperCase()}</Text>
-        <Text style={styles.headerCount}>— {movements.length} movimientos</Text>
+        <Text style={[styles.headerLabel, { color: userTokens.textPrimary }]}>
+          {label.toUpperCase()}
+        </Text>
+        <Text style={[styles.headerCount, { color: userTokens.textSecondary }]}>
+          — {movements.length} movimientos
+        </Text>
         <View style={styles.headerRight}>
-          <Text style={styles.headerAmount}>{formattedTotalLabel}</Text>
+          <Text style={[styles.headerAmount, { color: userTokens.textPrimary }]}>
+            {formattedTotalLabel}
+          </Text>
           {onToggleCollapse && (
             <Pressable onPress={onToggleCollapse} hitSlop={8}>
-              <Text style={styles.collapseText}>
+              <Text style={[styles.collapseText, { color: userTokens.textSecondary }]}>
                 {isCollapsed ? "Mostrar" : "Ocultar"}
               </Text>
             </Pressable>
@@ -118,17 +124,14 @@ const styles = StyleSheet.create({
   },
   headerLabel: {
     fontSize: movementsDesignTokens.typography.sizes.sm,
-    color: colors.textPrimary,
     fontFamily: "DMSans-Bold",
   },
   headerCount: {
     fontSize: movementsDesignTokens.typography.sizes.sm,
-    color: colors.textSecondary,
     fontFamily: "DMSans",
   },
   headerAmount: {
     fontSize: movementsDesignTokens.typography.sizes.sm,
-    color: colors.textPrimary,
     fontFamily: "DMSans-SemiBold",
   },
   headerRight: {
@@ -139,7 +142,6 @@ const styles = StyleSheet.create({
   },
   collapseText: {
     fontSize: movementsDesignTokens.typography.sizes.sm,
-    color: colors.textSecondary,
     fontFamily: "DMSans-Medium",
   },
 });

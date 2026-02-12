@@ -11,6 +11,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
+import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { Button } from "../../../src/components/Button";
 import { Input } from "../../../src/components/Input";
 import { Card } from "../../../src/components/Card";
@@ -32,6 +33,7 @@ export default function EditObligationScreen(): React.JSX.Element {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { selectedAccountId } = useAuth();
+  const { tokens: userThemeTokens } = useUserTheme();
   const { dictionary } = useCopy();
 
   const [obligation, setObligation] = useState<Obligation | null>(null);
@@ -203,7 +205,7 @@ export default function EditObligationScreen(): React.JSX.Element {
 
   if (isLoading) {
     return (
-      <View style={styles.loading}>
+      <View style={[styles.loading, { backgroundColor: userThemeTokens.background }]}>
         <ActivityIndicator size="large" />
       </View>
     );
@@ -211,14 +213,17 @@ export default function EditObligationScreen(): React.JSX.Element {
 
   if (!obligation) {
     return (
-      <View style={styles.loading}>
+      <View style={[styles.loading, { backgroundColor: userThemeTokens.background }]}>
         <Text style={styles.helper}>{t(dictionary, "obligations.loadError")}</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: userThemeTokens.background }]}
+      contentContainerStyle={styles.content}
+    >
       <Card
         title={t(dictionary, "obligations.edit.title")}
         description={t(dictionary, "obligations.edit.description")}
@@ -304,7 +309,6 @@ export default function EditObligationScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
   },
   content: {
     padding: tokens.spacing.lg,
@@ -313,7 +317,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.bg.primary,
   },
   form: {
     gap: tokens.spacing.md,

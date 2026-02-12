@@ -15,11 +15,13 @@ import {
   shouldExpandByDefault,
   formatMoneyWithSymbol,
   themeTokens,
+  type UserThemeTokens,
   type MonthStatus,
   type SavingsCandidateTx,
   type CategoryIconKey,
 } from "@poleursus/shared";
 import { CategoryIcon } from "../CategoryIcon";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -54,34 +56,40 @@ type GoalSimulatorProps = {
   copy: SimulatorCopy;
 };
 
-const getCardStyles = (variant: "danger" | "warning" | "neutral") => {
+const getCardStyles = (
+  variant: "danger" | "warning" | "neutral",
+  userTokens: UserThemeTokens
+) => {
   switch (variant) {
     case "danger":
       return {
-        backgroundColor: "#fef2f2",
-        borderColor: "#fecaca",
+        backgroundColor: userTokens.dangerBackground,
+        borderColor: userTokens.dangerBorder,
       };
     case "warning":
       return {
-        backgroundColor: "#fffbeb",
-        borderColor: "#fde68a",
+        backgroundColor: userTokens.surfaceAlt,
+        borderColor: userTokens.border,
       };
     default:
       return {
-        backgroundColor: colors.bg.secondary,
-        borderColor: colors.state.neutral,
+        backgroundColor: userTokens.surfaceAlt,
+        borderColor: userTokens.border,
       };
   }
 };
 
-const getSubtitleColor = (variant: "danger" | "warning" | "neutral") => {
+const getSubtitleColor = (
+  variant: "danger" | "warning" | "neutral",
+  userTokens: UserThemeTokens
+) => {
   switch (variant) {
     case "danger":
-      return "#dc2626";
+      return userTokens.dangerText;
     case "warning":
-      return "#d97706";
+      return colors.state.warning;
     default:
-      return colors.text.secondary;
+      return userTokens.textSecondary;
   }
 };
 
@@ -94,6 +102,7 @@ export function GoalSimulator({
   categoriesById,
   copy,
 }: GoalSimulatorProps) {
+  const { tokens: userTokens } = useUserTheme();
   const variant = getSimulatorCardVariant(monthStatus);
   const defaultExpanded = shouldExpandByDefault(monthStatus);
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
@@ -137,8 +146,8 @@ export function GoalSimulator({
     });
   };
 
-  const cardStyles = getCardStyles(variant);
-  const subtitleColor = getSubtitleColor(variant);
+  const cardStyles = getCardStyles(variant, userTokens);
+  const subtitleColor = getSubtitleColor(variant, userTokens);
   const hasSelection = impact.disabledCount > 0;
   const formattedSavings = formatMoneyWithSymbol(
     impact.totalSavedMinor,
@@ -179,11 +188,13 @@ export function GoalSimulator({
         accessibilityRole="button"
         accessibilityLabel={copy.linkText}
       >
-        <Text style={styles.linkText}>{copy.linkText}</Text>
+        <Text style={[styles.linkText, { color: userTokens.textSecondary }]}>
+          {copy.linkText}
+        </Text>
         <MaterialCommunityIcons
           name="chevron-down"
           size={16}
-          color={colors.text.secondary}
+          color={userTokens.textSecondary}
         />
       </TouchableOpacity>
     );
@@ -208,7 +219,9 @@ export function GoalSimulator({
         accessibilityState={{ expanded: isExpanded }}
       >
         <View style={styles.headerText}>
-          <Text style={styles.title}>{copy.title}</Text>
+          <Text style={[styles.title, { color: userTokens.textPrimary }]}>
+            {copy.title}
+          </Text>
           <Text style={[styles.subtitle, { color: subtitleColor }]}>
             {subtitle}
           </Text>
@@ -216,13 +229,14 @@ export function GoalSimulator({
         <View
           style={[
             styles.chevronContainer,
+            { backgroundColor: userTokens.surface },
             { transform: [{ rotate: isExpanded ? "180deg" : "0deg" }] },
           ]}
         >
           <MaterialCommunityIcons
             name="chevron-down"
             size={16}
-            color={colors.text.secondary}
+            color={userTokens.textSecondary}
           />
         </View>
       </TouchableOpacity>
@@ -231,20 +245,24 @@ export function GoalSimulator({
       {isExpanded && (
         <View style={styles.content}>
           {/* Impact Preview */}
-          <View style={styles.impactPanel}>
+          <View style={[styles.impactPanel, { backgroundColor: userTokens.surface }]}>
             {hasSelection ? (
               <>
                 <Text style={[styles.impactDays, { color: impactTitleColor }]}>
                   {impactTitle}
                 </Text>
                 {impactSubtitle && (
-                  <Text style={styles.impactSavings}>{impactSubtitle}</Text>
+                  <Text style={[styles.impactSavings, { color: userTokens.textSecondary }]}>
+                    {impactSubtitle}
+                  </Text>
                 )}
               </>
             ) : (
               <>
-                <Text style={styles.impactEmpty}>{copy.impact.empty}</Text>
-                <Text style={styles.impactEmptyDetail}>
+                <Text style={[styles.impactEmpty, { color: userTokens.textSecondary }]}>
+                  {copy.impact.empty}
+                </Text>
+                <Text style={[styles.impactEmptyDetail, { color: userTokens.textSecondary }]}>
                   {copy.impact.emptyDetail}
                 </Text>
               </>
@@ -265,23 +283,38 @@ export function GoalSimulator({
               return (
                 <View
                   key={tx.id}
-                  style={[styles.listItem, isDisabled && styles.listItemDisabled]}
+                  style={[
+                    styles.listItem,
+                    {
+                      backgroundColor: userTokens.surface,
+                      borderColor: userTokens.border,
+                    },
+                    isDisabled && styles.listItemDisabled,
+                  ]}
                 >
                   <View style={styles.listItemLeft}>
-                    <View style={styles.iconContainer}>
+                    <View
+                      style={[
+                        styles.iconContainer,
+                        { backgroundColor: userTokens.surfaceAlt },
+                      ]}
+                    >
                       {iconKey ? (
                         <CategoryIcon iconKey={iconKey} size={20} tone="muted" />
                       ) : (
-                        <Text style={styles.iconFallback}>
+                        <Text style={[styles.iconFallback, { color: userTokens.textSecondary }]}>
                           {displayName.charAt(0).toUpperCase()}
                         </Text>
                       )}
                     </View>
                     <View style={styles.itemInfo}>
-                      <Text style={styles.itemName} numberOfLines={1}>
+                      <Text
+                        style={[styles.itemName, { color: userTokens.textPrimary }]}
+                        numberOfLines={1}
+                      >
                         {displayName}
                       </Text>
-                      <Text style={styles.itemAmount}>
+                      <Text style={[styles.itemAmount, { color: userTokens.textSecondary }]}>
                         {formatMoneyWithSymbol(
                           tx.amountBaseMinor,
                           baseCurrency,
@@ -301,10 +334,10 @@ export function GoalSimulator({
                       value={!isDisabled}
                       onValueChange={() => toggleItem(tx.id)}
                       trackColor={{
-                        false: colors.state.neutral,
+                        false: userTokens.border,
                         true: colors.state.positive,
                       }}
-                      thumbColor={colors.bg.surface}
+                      thumbColor={userTokens.surface}
                       accessibilityLabel={`Toggle ${displayName}`}
                     />
                   </View>
@@ -328,7 +361,6 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: tokens.typography.size.sm,
-    color: colors.text.secondary,
   },
   card: {
     borderRadius: tokens.radii.lg,
@@ -347,7 +379,6 @@ const styles = StyleSheet.create({
   title: {
     fontWeight: String(tokens.typography.weight.semibold) as "600",
     fontSize: tokens.typography.size.base,
-    color: colors.text.primary,
   },
   subtitle: {
     fontSize: tokens.typography.size.sm,
@@ -358,7 +389,6 @@ const styles = StyleSheet.create({
     height: 32,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.bg.surface,
     borderRadius: tokens.radii.md,
   },
   content: {
@@ -366,7 +396,6 @@ const styles = StyleSheet.create({
     paddingBottom: tokens.spacing.md,
   },
   impactPanel: {
-    backgroundColor: colors.bg.surface,
     borderRadius: tokens.radii.md,
     padding: tokens.spacing.md,
     marginBottom: tokens.spacing.md,
@@ -379,16 +408,13 @@ const styles = StyleSheet.create({
   },
   impactSavings: {
     fontSize: tokens.typography.size.sm,
-    color: colors.text.secondary,
     marginTop: tokens.spacing.xs,
   },
   impactEmpty: {
     fontSize: tokens.typography.size.sm,
-    color: colors.text.secondary,
   },
   impactEmptyDetail: {
     fontSize: tokens.typography.size.xs,
-    color: colors.text.muted,
     marginTop: tokens.spacing.xs,
   },
   list: {
@@ -400,7 +426,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     padding: tokens.spacing.sm,
     paddingHorizontal: tokens.spacing.md,
-    backgroundColor: colors.bg.surface,
+    borderWidth: 1,
     borderRadius: tokens.radii.md,
   },
   listItemDisabled: {
@@ -415,14 +441,12 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 36,
     height: 36,
-    backgroundColor: colors.bg.secondary,
     borderRadius: tokens.radii.md,
     alignItems: "center",
     justifyContent: "center",
   },
   iconFallback: {
     fontSize: tokens.typography.size.sm,
-    color: colors.text.secondary,
   },
   itemInfo: {
     flex: 1,
@@ -430,11 +454,9 @@ const styles = StyleSheet.create({
   itemName: {
     fontWeight: String(tokens.typography.weight.medium) as "500",
     fontSize: tokens.typography.size.sm,
-    color: colors.text.primary,
   },
   itemAmount: {
     fontSize: tokens.typography.size.xs,
-    color: colors.text.secondary,
   },
   listItemRight: {
     flexDirection: "row",

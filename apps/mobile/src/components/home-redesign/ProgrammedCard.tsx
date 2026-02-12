@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { themeTokens } from "@poleursus/shared";
 import { formatCurrencyParts } from "./utils";
 import { useCopy, t } from "../../lib/i18n";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -22,14 +23,24 @@ type ProgrammedCardProps = {
 
 export function ProgrammedCard({ items, onViewAll, currencySymbol }: ProgrammedCardProps) {
   const { dictionary } = useCopy();
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   if (!items || items.length === 0) return null;
 
   return (
-    <View style={styles.card}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: userTokens.surface, borderColor: userTokens.border },
+      ]}
+    >
       <View style={styles.headerRow}>
-        <Text style={styles.title}>{t(dictionary, "mobile.home.programmedTitle")}</Text>
+        <Text style={[styles.title, { color: userTokens.textPrimary }]}>
+          {t(dictionary, "mobile.home.programmedTitle")}
+        </Text>
         <TouchableOpacity onPress={onViewAll}>
-          <Text style={styles.link}>{t(dictionary, "mobile.home.programmedViewAll")}</Text>
+          <Text style={[styles.link, { color: primaryActionColor }]}>
+            {t(dictionary, "mobile.home.programmedViewAll")}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -40,20 +51,39 @@ export function ProgrammedCard({ items, onViewAll, currencySymbol }: ProgrammedC
           return (
             <View
               key={item.id}
-              style={[styles.row, index > 0 && styles.rowBorder]}
+              style={[
+                styles.row,
+                index > 0 && styles.rowBorder,
+                index > 0 && { borderTopColor: userTokens.border },
+              ]}
             >
               <View style={styles.rowInfo}>
                 <View
                   style={[
                     styles.rowIcon,
-                    isIncome ? styles.rowIconIncome : styles.rowIconExpense,
+                    { backgroundColor: userTokens.surfaceAlt },
                   ]}
                 >
-                  <Text style={styles.rowIconText}>{isIncome ? "↑" : "↓"}</Text>
+                  <Text
+                    style={[
+                      styles.rowIconText,
+                      {
+                        color: isIncome
+                          ? colors.state.positive
+                          : colors.state.negative,
+                      },
+                    ]}
+                  >
+                    {isIncome ? "↑" : "↓"}
+                  </Text>
                 </View>
                 <View>
-                  <Text style={styles.rowTitle}>{item.name}</Text>
-                  <Text style={styles.rowDate}>{item.dateLabel}</Text>
+                  <Text style={[styles.rowTitle, { color: userTokens.textPrimary }]}>
+                    {item.name}
+                  </Text>
+                  <Text style={[styles.rowDate, { color: userTokens.textSecondary }]}>
+                    {item.dateLabel}
+                  </Text>
                 </View>
               </View>
               <Text
@@ -76,9 +106,7 @@ export function ProgrammedCard({ items, onViewAll, currencySymbol }: ProgrammedC
 const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
-    borderColor: colors.state.neutral,
     borderRadius: tokens.radii.lg,
-    backgroundColor: colors.bg.surface,
     padding: tokens.spacing.lg,
   },
   headerRow: {
@@ -90,13 +118,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
     fontFamily: "DMSans-SemiBold",
   },
   link: {
     fontSize: 13,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.action.primary,
     fontFamily: "DMSans-Medium",
   },
   list: {},
@@ -108,7 +134,6 @@ const styles = StyleSheet.create({
   },
   rowBorder: {
     borderTopWidth: 1,
-    borderTopColor: colors.state.neutral,
   },
   rowInfo: {
     flexDirection: "row",
@@ -123,25 +148,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: tokens.spacing.sm,
   },
-  rowIconIncome: {
-    backgroundColor: "#F0FDF4",
-  },
-  rowIconExpense: {
-    backgroundColor: "#FEF2F2",
-  },
   rowIconText: {
     fontSize: 16,
-    color: colors.text.primary,
   },
   rowTitle: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.text.primary,
     fontFamily: "DMSans-Medium",
   },
   rowDate: {
     fontSize: tokens.typography.size.xs,
-    color: colors.text.muted,
     fontFamily: "DMSans",
   },
   rowAmount: {

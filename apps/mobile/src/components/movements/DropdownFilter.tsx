@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { movementsDesignTokens } from "../../types/movements";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 type Option = { id: string; name: string };
 
@@ -30,6 +31,7 @@ export function DropdownFilter({
   onSelect,
   onDeselect,
 }: DropdownFilterProps) {
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -46,17 +48,24 @@ export function DropdownFilter({
   return (
     <>
       <Pressable
-        style={({ pressed }) => [styles.trigger, pressed && styles.triggerPressed]}
+        style={({ pressed }) => [
+          styles.trigger,
+          {
+            backgroundColor: userTokens.surface,
+            borderColor: userTokens.border,
+          },
+          pressed && styles.triggerPressed,
+        ]}
         onPress={() => setVisible(true)}
       >
-        <Text style={styles.triggerText}>
+        <Text style={[styles.triggerText, { color: userTokens.textSecondary }]}>
           {label}
           {selectedCount > 0 ? ` (${selectedCount})` : ""}
         </Text>
         <MaterialCommunityIcons
           name="chevron-down"
           size={18}
-          color={colors.textSecondary}
+          color={userTokens.textSecondary}
         />
       </Pressable>
 
@@ -67,23 +76,33 @@ export function DropdownFilter({
         onRequestClose={() => setVisible(false)}
       >
         <Pressable style={styles.overlay} onPress={() => setVisible(false)}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+          <Pressable
+            style={[
+              styles.sheet,
+              { backgroundColor: userTokens.surface, borderColor: userTokens.border },
+            ]}
+            onPress={() => {}}
+          >
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>{label}</Text>
+              <Text style={[styles.sheetTitle, { color: userTokens.textPrimary }]}>
+                {label}
+              </Text>
               <Pressable onPress={() => setVisible(false)}>
-                <Text style={styles.sheetDone}>Listo</Text>
+                <Text style={[styles.sheetDone, { color: primaryActionColor }]}>
+                  Listo
+                </Text>
               </Pressable>
             </View>
-            <View style={styles.searchRow}>
+            <View style={[styles.searchRow, { backgroundColor: userTokens.surfaceAlt }]}>
               <MaterialCommunityIcons
                 name="magnify"
                 size={18}
-                color={colors.textTertiary}
+                color={userTokens.textSecondary}
               />
               <TextInput
-                style={styles.searchInput}
+                style={[styles.searchInput, { color: userTokens.textPrimary }]}
                 placeholder={`Buscar ${label.toLowerCase()}...`}
-                placeholderTextColor={colors.textTertiary}
+                placeholderTextColor={userTokens.textSecondary}
                 value={query}
                 onChangeText={setQuery}
               />
@@ -96,18 +115,21 @@ export function DropdownFilter({
                     key={option.id}
                     style={({ pressed }) => [
                       styles.optionRow,
+                      { borderBottomColor: userTokens.border },
                       pressed && styles.optionPressed,
                     ]}
                     onPress={() =>
                       isSelected ? onDeselect(option.id) : onSelect(option.id)
                     }
                   >
-                    <Text style={styles.optionText}>{option.name}</Text>
+                    <Text style={[styles.optionText, { color: userTokens.textPrimary }]}>
+                      {option.name}
+                    </Text>
                     {isSelected && (
                       <MaterialCommunityIcons
                         name="check"
                         size={18}
-                        color={colors.textPrimary}
+                        color={primaryActionColor}
                       />
                     )}
                   </Pressable>
@@ -138,7 +160,6 @@ const styles = StyleSheet.create({
   },
   triggerText: {
     fontSize: movementsDesignTokens.typography.sizes.sm,
-    color: colors.textSecondary,
     fontFamily: "DMSans-Medium",
   },
   overlay: {
@@ -147,7 +168,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: colors.surface,
+    borderTopWidth: 1,
     paddingTop: 12,
     paddingHorizontal: 16,
     paddingBottom: 24,
@@ -164,19 +185,16 @@ const styles = StyleSheet.create({
   },
   sheetTitle: {
     fontSize: movementsDesignTokens.typography.sizes.lg,
-    color: colors.textPrimary,
     fontFamily: "DMSans-SemiBold",
   },
   sheetDone: {
     fontSize: movementsDesignTokens.typography.sizes.sm,
-    color: colors.accentBlue,
     fontFamily: "DMSans-Medium",
   },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: colors.chipBg,
     borderRadius: movementsDesignTokens.radius.md,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -184,7 +202,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: movementsDesignTokens.typography.sizes.sm,
-    color: colors.textPrimary,
     fontFamily: "DMSans",
   },
   optionsList: {
@@ -196,14 +213,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderStrong,
   },
   optionPressed: {
     opacity: 0.8,
   },
   optionText: {
     fontSize: movementsDesignTokens.typography.sizes.md,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
     fontFamily: "DMSans",
   },
 });

@@ -7,6 +7,7 @@ import {
   type TextInputFocusEventData,
 } from "react-native";
 import { themeTokens } from "@poleursus/shared";
+import { useUserTheme } from "../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -40,19 +41,28 @@ export function Input({
   numberOfLines,
   onFocus,
 }: InputProps) {
+  const { tokens: userTokens } = useUserTheme();
+
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: userTokens.textPrimary }]}>{label}</Text>
       <TextInput
         style={[
           styles.input,
+          {
+            borderColor: userTokens.border,
+            backgroundColor: userTokens.surface,
+            color: userTokens.textPrimary,
+          },
           error && styles.inputError,
           disabled && styles.inputDisabled,
+          disabled && { backgroundColor: userTokens.surfaceAlt },
           multiline && styles.inputMultiline,
         ]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
+        placeholderTextColor={userTokens.textSecondary}
         keyboardType={keyboardType}
         maxLength={maxLength}
         editable={!disabled}
@@ -63,7 +73,11 @@ export function Input({
         onFocus={onFocus}
       />
       {error && <Text style={styles.errorText}>{error}</Text>}
-      {helperText && !error && <Text style={styles.helperText}>{helperText}</Text>}
+      {helperText && !error && (
+        <Text style={[styles.helperText, { color: userTokens.textSecondary }]}>
+          {helperText}
+        </Text>
+      )}
     </View>
   );
 }
@@ -76,23 +90,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: tokens.typography.weight.semibold,
     marginBottom: 8,
-    color: colors.text.primary,
   },
   input: {
     borderWidth: 1,
-    borderColor: colors.state.neutral,
     borderRadius: tokens.radii.md,
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 16,
-    backgroundColor: colors.bg.surface,
-    color: colors.text.primary,
   },
   inputError: {
     borderColor: colors.state.negative,
   },
   inputDisabled: {
-    backgroundColor: colors.bg.secondary,
     opacity: 0.6,
   },
   inputMultiline: {
@@ -106,7 +115,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   helperText: {
-    color: colors.text.secondary,
     fontSize: 12,
     fontWeight: tokens.typography.weight.medium,
     marginTop: 4,

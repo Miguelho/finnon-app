@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import {
+  getAvatarInitials,
+  getUserAvatarColor,
   resolveAvatarColor,
   resolveAvatarFallback,
   themeTokens,
   type AvatarColorToken,
+  type UserAvatarColorId,
+  USER_AVATAR_COLORS,
 } from "@poleursus/shared";
 import { supabase } from "../lib/supabase";
 
@@ -14,6 +18,7 @@ type UserAvatarProps = {
   avatarPath?: string | null;
   fallbackText?: string | null;
   fallbackBgToken?: AvatarColorToken | null;
+  avatarColor?: UserAvatarColorId | null;
   size?: number;
   label?: string;
   cacheKey?: string | number;
@@ -29,6 +34,7 @@ export function UserAvatar({
   avatarPath,
   fallbackText,
   fallbackBgToken,
+  avatarColor,
   size = 26,
   label,
   cacheKey,
@@ -51,6 +57,15 @@ export function UserAvatar({
   const backgroundColor = useMemo(
     () => resolveAvatarColor(tokens, fallback.bgToken),
     [fallback.bgToken]
+  );
+  const avatarPalette = useMemo(
+    () =>
+      avatarColor ? USER_AVATAR_COLORS[getUserAvatarColor(avatarColor)] : null,
+    [avatarColor]
+  );
+  const preferredFallbackText = useMemo(
+    () => (avatarPalette ? getAvatarInitials(email) : fallback.text),
+    [avatarPalette, email, fallback.text]
   );
 
   useEffect(() => {
@@ -104,7 +119,7 @@ export function UserAvatar({
         source={{ uri: avatarUrl }}
         style={[styles.image, { width: size, height: size }]}
         resizeMode="cover"
-        accessibilityLabel={label ?? fallback.text}
+        accessibilityLabel={label ?? preferredFallbackText}
         onError={() => setLoadFailed(true)}
       />
     );
@@ -114,11 +129,22 @@ export function UserAvatar({
     <View
       style={[
         styles.fallback,
-        { width: size, height: size, backgroundColor },
+        {
+          width: size,
+          height: size,
+          backgroundColor: avatarPalette?.bg ?? backgroundColor,
+        },
       ]}
-      accessibilityLabel={label ?? fallback.text}
+      accessibilityLabel={label ?? preferredFallbackText}
     >
-      <Text style={styles.initial}>{fallback.text}</Text>
+      <Text
+        style={[
+          styles.initial,
+          avatarPalette ? { color: avatarPalette.fg } : null,
+        ]}
+      >
+        {preferredFallbackText}
+      </Text>
     </View>
   );
 }

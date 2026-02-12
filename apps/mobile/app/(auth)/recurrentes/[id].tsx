@@ -13,6 +13,7 @@ import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
+import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { Card } from "../../../src/components/Card";
 import { Button } from "../../../src/components/Button";
 import { DatePickerField } from "../../../src/components/DatePickerField";
@@ -46,6 +47,7 @@ export default function EditRecurringScreen(): React.JSX.Element {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { selectedAccountId } = useAuth();
+  const { tokens: userThemeTokens } = useUserTheme();
   const { dictionary } = useCopy();
 
   const [loading, setLoading] = useState(true);
@@ -225,7 +227,7 @@ export default function EditRecurringScreen(): React.JSX.Element {
     return (
       <>
         <Stack.Screen options={screenOptions} />
-        <View style={styles.loading}>
+        <View style={[styles.loading, { backgroundColor: userThemeTokens.background }]}>
           <ActivityIndicator size="large" />
         </View>
       </>
@@ -236,7 +238,7 @@ export default function EditRecurringScreen(): React.JSX.Element {
     return (
       <>
         <Stack.Screen options={screenOptions} />
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: userThemeTokens.background }]}>
           <Card
             title={t(dictionary, "common.errorTitle")}
             description={error || t(dictionary, "recurrentes.loadError")}
@@ -251,7 +253,7 @@ export default function EditRecurringScreen(): React.JSX.Element {
   return (
     <>
       <Stack.Screen options={screenOptions} />
-      <View style={styles.screen}>
+      <View style={[styles.screen, { backgroundColor: userThemeTokens.background }]}>
         <ScrollView
           style={styles.container}
           contentContainerStyle={styles.content}
@@ -363,7 +365,6 @@ export default function EditRecurringScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
   },
   container: {
     flex: 1,
@@ -375,7 +376,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: colors.bg.primary,
   },
   header: {
     paddingHorizontal: spacing.lg,

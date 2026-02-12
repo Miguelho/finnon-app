@@ -19,6 +19,7 @@ import {
   type DateRange,
 } from "@poleursus/shared";
 import { useAuth } from "../../../../src/contexts/AuthContext";
+import { useUserTheme } from "../../../../src/contexts/UserThemeContext";
 import { useNetworkNotice } from "../../../../src/contexts/NetworkNoticeContext";
 import { useCopy, t } from "../../../../src/lib/i18n";
 import { supabase } from "../../../../src/lib/supabase";
@@ -32,7 +33,7 @@ import type {
   Period,
   Transaction,
 } from "../../../../src/components/account-redesign/types/account";
-import { colors, spacing, typography } from "../../../../src/components/account-redesign/theme/tokens";
+import { spacing, typography } from "../../../../src/components/account-redesign/theme/tokens";
 
 const MONTH_LABELS: Record<string, string[]> = {
   es: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"],
@@ -386,6 +387,7 @@ export default function AccountTabScreen() {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const { user, selectedAccountId, isInitialized } = useAuth();
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const { reportNetworkIssue } = useNetworkNotice();
   const { dictionary, locale } = useCopy();
 
@@ -480,8 +482,8 @@ export default function AccountTabScreen() {
 
   if (!isInitialized) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color={colors.textSecondary} />
+      <View style={[styles.loading, { backgroundColor: userTokens.background }]}>
+        <ActivityIndicator size="large" color={primaryActionColor} />
       </View>
     );
   }
@@ -492,31 +494,39 @@ export default function AccountTabScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color={colors.textSecondary} />
+      <View style={[styles.loading, { backgroundColor: userTokens.background }]}>
+        <ActivityIndicator size="large" color={primaryActionColor} />
       </View>
     );
   }
 
   if (error || !screenData) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>{t(dictionary, "account.errorTitle")}</Text>
-        <Text style={styles.errorText}>{error ?? t(dictionary, "account.loadError")}</Text>
+      <View style={[styles.errorContainer, { backgroundColor: userTokens.background }]}>
+        <Text style={[styles.errorTitle, { color: userTokens.textPrimary }]}>
+          {t(dictionary, "account.errorTitle")}
+        </Text>
+        <Text style={[styles.errorText, { color: userTokens.textSecondary }]}>
+          {error ?? t(dictionary, "account.loadError")}
+        </Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: userTokens.background }]}>
       <ScrollView
-        style={styles.scrollView}
+        style={[styles.scrollView, { backgroundColor: userTokens.background }]}
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: spacing["6xl"] + insets.bottom + 40 },
         ]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={primaryActionColor}
+          />
         }
       >
         <AccountScreen
@@ -550,11 +560,9 @@ export default function AccountTabScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.bg,
   },
   scrollView: {
     flex: 1,
-    backgroundColor: colors.bg,
   },
   scrollContent: {
     paddingTop: spacing["2xl"],
@@ -563,25 +571,21 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.bg,
   },
   errorContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: spacing["4xl"],
-    backgroundColor: colors.bg,
   },
   errorTitle: {
     fontFamily: typography.family.sansBold,
     fontSize: typography.size.xl,
-    color: colors.textPrimary,
     marginBottom: spacing.md,
   },
   errorText: {
     fontFamily: typography.family.sans,
     fontSize: typography.size.md,
-    color: colors.textSecondary,
     textAlign: "center",
   },
 });

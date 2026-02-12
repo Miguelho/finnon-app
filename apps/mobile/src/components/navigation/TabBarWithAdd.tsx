@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { themeTokens, type AddActionKey } from "@poleursus/shared";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 import { AddActionSheet } from "../AddActionSheet";
 import { useCopy, t } from "../../lib/i18n";
 
@@ -28,6 +29,11 @@ export function TabBarWithAdd({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { dictionary } = useCopy();
+  const {
+    tokens: userTokens,
+    primaryActionColor,
+    primaryActionTextColor,
+  } = useUserTheme();
 
   const handleAddAction = (key: AddActionKey) => {
     switch (key) {
@@ -84,12 +90,12 @@ export function TabBarWithAdd({ state, navigation }: BottomTabBarProps) {
         <MaterialCommunityIcons
           name={iconName}
           size={tokens.typography.size.lg}
-          color={isFocused ? colors.action.primary : colors.text.secondary}
+          color={isFocused ? primaryActionColor : userTokens.textSecondary}
         />
         <Text
           style={[
             styles.tabLabel,
-            { color: isFocused ? colors.action.primary : colors.text.secondary },
+            { color: isFocused ? primaryActionColor : userTokens.textSecondary },
           ]}
           numberOfLines={1}
         >
@@ -103,6 +109,10 @@ export function TabBarWithAdd({ state, navigation }: BottomTabBarProps) {
     <View
       style={[
         styles.container,
+        {
+          backgroundColor: userTokens.background,
+          borderTopColor: userTokens.border,
+        },
         { paddingBottom: Math.max(insets.bottom, tokens.spacing.md) },
       ]}
     >
@@ -114,11 +124,11 @@ export function TabBarWithAdd({ state, navigation }: BottomTabBarProps) {
         renderTrigger={(open) => (
           <TouchableOpacity
             onPress={open}
-            style={styles.addButton}
+            style={[styles.addButton, { backgroundColor: primaryActionColor }]}
             accessibilityRole="button"
             accessibilityLabel={t(dictionary, "home.addCta")}
           >
-            <MaterialCommunityIcons name="plus" size={22} color={colors.bg.primary} />
+            <MaterialCommunityIcons name="plus" size={22} color={primaryActionTextColor} />
           </TouchableOpacity>
         )}
       />
@@ -134,9 +144,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     paddingTop: tokens.spacing.xs,
     paddingHorizontal: tokens.spacing.md,
-    backgroundColor: colors.bg.primary,
     borderTopWidth: 1,
-    borderTopColor: colors.state.neutral,
   },
   tabButton: {
     flex: 1,
@@ -154,7 +162,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.text.primary,
     alignItems: "center",
     justifyContent: "center",
     marginTop: -12,

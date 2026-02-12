@@ -14,6 +14,7 @@ import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { useNetworkNotice } from "../../../../src/contexts/NetworkNoticeContext";
+import { useUserTheme } from "../../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../../src/lib/i18n";
 import { supabase } from "../../../../src/lib/supabase";
 import { CURRENCIES, themeTokens } from "@poleursus/shared";
@@ -34,6 +35,11 @@ export default function AccountGeneralSettingsScreen() {
   const { dictionary } = useCopy();
   const insets = useSafeAreaInsets();
   const { reportNetworkIssue } = useNetworkNotice();
+  const {
+    tokens: userThemeTokens,
+    primaryActionColor,
+    primaryActionTextColor,
+  } = useUserTheme();
 
   const [account, setAccount] = useState<AccountRecord | null>(null);
   const [name, setName] = useState("");
@@ -172,7 +178,7 @@ export default function AccountGeneralSettingsScreen() {
 
   if (!isInitialized) {
     return (
-      <View style={styles.loading}>
+      <View style={[styles.loading, { backgroundColor: userThemeTokens.background }]}>
         <ActivityIndicator size="large" color={colors.text.muted} />
       </View>
     );
@@ -184,7 +190,7 @@ export default function AccountGeneralSettingsScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.loading}>
+      <View style={[styles.loading, { backgroundColor: userThemeTokens.background }]}>
         <ActivityIndicator size="large" color={colors.text.muted} />
       </View>
     );
@@ -192,7 +198,7 @@ export default function AccountGeneralSettingsScreen() {
 
   if (error || !account) {
     return (
-      <View style={styles.errorContainer}>
+      <View style={[styles.errorContainer, { backgroundColor: userThemeTokens.background }]}>
         <Text style={styles.errorTitle}>{t(dictionary, "common.errorTitle")}</Text>
         <Text style={styles.errorText}>
           {error ?? t(dictionary, "account.loadError")}
@@ -203,7 +209,7 @@ export default function AccountGeneralSettingsScreen() {
 
   return (
     <ScrollView
-      style={styles.scrollContainer}
+      style={[styles.scrollContainer, { backgroundColor: userThemeTokens.background }]}
       contentContainerStyle={[
         styles.scrollContent,
         { paddingBottom: insets.bottom + tokens.spacing.xxl },
@@ -280,10 +286,13 @@ export default function AccountGeneralSettingsScreen() {
             disabled={!canEdit || isSaving || !hasChanges}
             style={[
               styles.saveButton,
+              { backgroundColor: primaryActionColor },
               (!canEdit || isSaving || !hasChanges) && styles.saveButtonDisabled,
             ]}
           >
-            <Text style={styles.saveButtonText}>
+            <Text
+              style={[styles.saveButtonText, { color: primaryActionTextColor }]}
+            >
               {isSaving ? t(dictionary, "common.saving") : t(dictionary, "common.saveChanges")}
             </Text>
           </Pressable>
@@ -317,7 +326,6 @@ export default function AccountGeneralSettingsScreen() {
 const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
   },
   scrollContent: {
     paddingTop: tokens.spacing.lg,
@@ -327,14 +335,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.bg.primary,
   },
   errorContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: tokens.spacing.xl,
-    backgroundColor: colors.bg.primary,
   },
   errorTitle: {
     fontSize: tokens.typography.size.lg,
@@ -433,7 +439,6 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.sm,
   },
   saveButton: {
-    backgroundColor: colors.text.primary,
     borderRadius: tokens.radii.sm,
     alignItems: "center",
     justifyContent: "center",
@@ -446,7 +451,6 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   saveButtonText: {
-    color: colors.bg.primary,
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.semibold,
   },

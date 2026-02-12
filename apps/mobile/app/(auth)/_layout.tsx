@@ -92,7 +92,7 @@ export default function AuthLayout() {
         name="settings/user-details"
         options={{
           headerShown: true,
-          title: t(dictionary, "settings.userDetails.title"),
+          title: t(dictionary, "settings.userProfile.title"),
           headerLeft: (props) => <SettingsHeaderBackButton {...props} />,
         }}
       />

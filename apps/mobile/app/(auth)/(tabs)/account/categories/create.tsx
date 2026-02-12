@@ -10,6 +10,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../../../../../src/lib/supabase";
 import { useAuth } from "../../../../../src/contexts/AuthContext";
+import { useUserTheme } from "../../../../../src/contexts/UserThemeContext";
 import { Button } from "../../../../../src/components/Button";
 import { Input } from "../../../../../src/components/Input";
 import { Card } from "../../../../../src/components/Card";
@@ -35,6 +36,7 @@ export default function CreateCategoryScreen() {
   const [type, setType] = useState<CategoryType>("expense");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userSelectedIcon, setUserSelectedIcon] = useState(false);
+  const { tokens: userThemeTokens } = useUserTheme();
   const { dictionary } = useCopy();
   const normalizedNameValue = normalizeCategoryName(name);
   const canSubmit = Boolean(normalizedNameValue) && !isSubmitting;
@@ -162,7 +164,10 @@ export default function CreateCategoryScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: userThemeTokens.background }]}
+      contentContainerStyle={styles.content}
+    >
       <Card
         title={t(dictionary, "categories.newTitle")}
         description={t(dictionary, "categories.createDescription")}
@@ -177,12 +182,22 @@ export default function CreateCategoryScreen() {
           />
 
           <View style={styles.field}>
-            <Text style={styles.label}>{t(dictionary, "categories.typeLabel")}</Text>
-            <View style={styles.pickerContainer}>
+            <Text style={[styles.label, { color: userThemeTokens.textPrimary }]}>
+              {t(dictionary, "categories.typeLabel")}
+            </Text>
+            <View
+              style={[
+                styles.pickerContainer,
+                {
+                  borderColor: userThemeTokens.border,
+                  backgroundColor: userThemeTokens.surface,
+                },
+              ]}
+            >
               <Picker
                 selectedValue={type}
                 onValueChange={(value) => setType(value as CategoryType)}
-                style={styles.picker}
+                style={[styles.picker, { color: userThemeTokens.textPrimary }]}
               >
                 <Picker.Item label={t(dictionary, "categories.expenseLabel")} value="expense" />
                 <Picker.Item label={t(dictionary, "categories.incomeLabel")} value="income" />
@@ -191,7 +206,9 @@ export default function CreateCategoryScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>{t(dictionary, "categories.iconLabel")}</Text>
+            <Text style={[styles.label, { color: userThemeTokens.textPrimary }]}>
+              {t(dictionary, "categories.iconLabel")}
+            </Text>
             <IconPicker
               value={iconKey}
               onChange={handleIconChange}
@@ -230,7 +247,6 @@ export default function CreateCategoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
   },
   content: {
     padding: 16,
@@ -244,14 +260,11 @@ const styles = StyleSheet.create({
   label: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: colors.state.neutral,
     borderRadius: tokens.radii.md,
     overflow: "hidden",
-    backgroundColor: colors.bg.surface,
   },
   picker: {
     height: 50,

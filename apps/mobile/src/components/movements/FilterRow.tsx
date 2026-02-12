@@ -1,6 +1,7 @@
 import { ScrollView, View, Text, Pressable, StyleSheet } from "react-native";
 import { movementsDesignTokens } from "../../types/movements";
 import { DropdownFilter } from "./DropdownFilter";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 type FilterCounts = {
   income: number;
@@ -23,8 +24,6 @@ type FilterRowProps = {
   onMerchantDeselect: (id: string) => void;
 };
 
-const colors = movementsDesignTokens.colors;
-
 export function FilterRow({
   counts,
   activeTypes,
@@ -38,6 +37,8 @@ export function FilterRow({
   onMerchantSelect,
   onMerchantDeselect,
 }: FilterRowProps) {
+  const { tokens: userTokens } = useUserTheme();
+
   return (
     <ScrollView
       horizontal
@@ -56,7 +57,7 @@ export function FilterRow({
         isActive={activeTypes.includes("expense")}
         onPress={() => onToggleType("expense")}
       />
-      <View style={styles.separator} />
+      <View style={[styles.separator, { backgroundColor: userTokens.border }]} />
       <DropdownFilter
         label="Categoría"
         options={categories}
@@ -83,19 +84,44 @@ type FilterChipProps = {
 };
 
 function FilterChip({ label, count, isActive, onPress }: FilterChipProps) {
+  const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
+    useUserTheme();
+
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,
+        {
+          backgroundColor: userTokens.surface,
+          borderColor: userTokens.border,
+        },
         isActive && styles.chipActive,
+        isActive && {
+          backgroundColor: primaryActionColor,
+          borderColor: primaryActionColor,
+        },
         pressed && styles.chipPressed,
       ]}
     >
-      <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+      <Text
+        style={[
+          styles.chipText,
+          { color: userTokens.textSecondary },
+          isActive && styles.chipTextActive,
+          isActive && { color: primaryActionTextColor },
+        ]}
+      >
         {label}
       </Text>
-      <Text style={[styles.chipCount, isActive && styles.chipTextActive]}>
+      <Text
+        style={[
+          styles.chipCount,
+          { color: userTokens.textSecondary },
+          isActive && styles.chipTextActive,
+          isActive && { color: primaryActionTextColor },
+        ]}
+      >
         {count}
       </Text>
     </Pressable>
@@ -112,37 +138,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: colors.surface,
     borderRadius: movementsDesignTokens.radius.full,
     borderWidth: 1,
-    borderColor: colors.borderStrong,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   chipActive: {
-    backgroundColor: colors.textPrimary,
-    borderColor: colors.textPrimary,
   },
   chipPressed: {
     opacity: 0.8,
   },
   chipText: {
     fontSize: movementsDesignTokens.typography.sizes.sm,
-    color: colors.textSecondary,
     fontFamily: "DMSans-Medium",
   },
   chipTextActive: {
-    color: colors.surface,
   },
   chipCount: {
     fontSize: movementsDesignTokens.typography.sizes.xs,
-    color: colors.textTertiary,
     fontFamily: "DMSans",
   },
   separator: {
     width: 1,
     height: 24,
-    backgroundColor: colors.borderStrong,
     marginHorizontal: 4,
   },
 });

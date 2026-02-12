@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing, radii } from '../../theme/tokens';
+import { typography, spacing, radii } from '../../theme/tokens';
 import type { Account } from '../../types/account';
+import { useUserTheme } from '../../../../contexts/UserThemeContext';
 
 interface AccountHeaderProps {
   account: Account;
@@ -14,15 +15,17 @@ export function AccountHeader({
   onSettingsPress,
   onSearchPress,
 }: AccountHeaderProps) {
+  const { tokens: userTokens } = useUserTheme();
+
   return (
     <View style={styles.container}>
       <View style={styles.left}>
-        <View style={styles.iconContainer}>
+        <View style={[styles.iconContainer, { backgroundColor: userTokens.surfaceAlt }]}>
           <Text style={styles.icon}>{account.icon}</Text>
         </View>
         <View>
-          <Text style={styles.name}>{account.name}</Text>
-          <Text style={styles.type}>
+          <Text style={[styles.name, { color: userTokens.textPrimary }]}>{account.name}</Text>
+          <Text style={[styles.type, { color: userTokens.textSecondary }]}>
             {account.type} · {account.currency}
           </Text>
         </View>
@@ -30,18 +33,34 @@ export function AccountHeader({
 
       <View style={styles.actions}>
         <Pressable
-          style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
+          style={({ pressed }) => [
+            styles.iconBtn,
+            {
+              borderColor: userTokens.border,
+              backgroundColor: userTokens.surface,
+            },
+            pressed && styles.iconBtnPressed,
+            pressed && { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.textSecondary },
+          ]}
           onPress={onSearchPress}
           hitSlop={8}
         >
-          <Ionicons name="search-outline" size={16} color={colors.textSecondary} />
+          <Ionicons name="search-outline" size={16} color={userTokens.textSecondary} />
         </Pressable>
         <Pressable
-          style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
+          style={({ pressed }) => [
+            styles.iconBtn,
+            {
+              borderColor: userTokens.border,
+              backgroundColor: userTokens.surface,
+            },
+            pressed && styles.iconBtnPressed,
+            pressed && { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.textSecondary },
+          ]}
           onPress={onSettingsPress}
           hitSlop={8}
         >
-          <Ionicons name="settings-outline" size={16} color={colors.textSecondary} />
+          <Ionicons name="settings-outline" size={16} color={userTokens.textSecondary} />
         </Pressable>
       </View>
     </View>
@@ -66,7 +85,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: radii.md,
-    backgroundColor: colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -76,13 +94,11 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: typography.family.sansBold,
     fontSize: typography.size['2xl'],
-    color: colors.textPrimary,
     letterSpacing: -0.3,
   },
   type: {
     fontFamily: typography.family.sansMedium,
     fontSize: typography.size.sm,
-    color: colors.textTertiary,
     marginTop: 1,
   },
   actions: {
@@ -94,13 +110,10 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconBtnPressed: {
-    borderColor: colors.textSecondary,
-    backgroundColor: colors.surfaceAlt,
+    opacity: 0.95,
   },
 });

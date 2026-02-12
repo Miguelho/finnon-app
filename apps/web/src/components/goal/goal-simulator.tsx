@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { CategoryIcon } from "@/components/category-icon";
+import { useWebUserTheme } from "@/components/theme/web-user-theme-provider";
 import {
   computeSimulatorImpact,
   filterSimulatorCandidates,
@@ -11,6 +12,7 @@ import {
   shouldExpandByDefault,
   formatMoneyWithSymbol,
   themeTokens,
+  type UserThemeTokens,
   type MonthStatus,
   type SavingsCandidateTx,
   type CategoryIconKey,
@@ -49,34 +51,40 @@ type GoalSimulatorProps = {
   copy: SimulatorCopy;
 };
 
-const getCardStyles = (variant: "danger" | "warning" | "neutral") => {
+const getCardStyles = (
+  variant: "danger" | "warning" | "neutral",
+  userTokens: UserThemeTokens
+) => {
   switch (variant) {
     case "danger":
       return {
-        backgroundColor: "#fef2f2",
-        borderColor: "#fecaca",
+        backgroundColor: userTokens.dangerBackground,
+        borderColor: userTokens.dangerBorder,
       };
     case "warning":
       return {
-        backgroundColor: "#fffbeb",
-        borderColor: "#fde68a",
+        backgroundColor: userTokens.surfaceAlt,
+        borderColor: userTokens.border,
       };
     default:
       return {
-        backgroundColor: colors.bg.secondary,
-        borderColor: colors.state.neutral,
+        backgroundColor: userTokens.surfaceAlt,
+        borderColor: userTokens.border,
       };
   }
 };
 
-const getSubtitleColor = (variant: "danger" | "warning" | "neutral") => {
+const getSubtitleColor = (
+  variant: "danger" | "warning" | "neutral",
+  userTokens: UserThemeTokens
+) => {
   switch (variant) {
     case "danger":
-      return "#dc2626";
+      return userTokens.dangerText;
     case "warning":
-      return "#d97706";
+      return colors.state.warning;
     default:
-      return colors.text.secondary;
+      return userTokens.textSecondary;
   }
 };
 
@@ -89,6 +97,7 @@ export function GoalSimulator({
   categoriesById,
   copy,
 }: GoalSimulatorProps) {
+  const { tokens: userTokens } = useWebUserTheme();
   const variant = getSimulatorCardVariant(monthStatus);
   const defaultExpanded = shouldExpandByDefault(monthStatus);
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
@@ -132,8 +141,8 @@ export function GoalSimulator({
     });
   };
 
-  const cardStyles = getCardStyles(variant);
-  const subtitleColor = getSubtitleColor(variant);
+  const cardStyles = getCardStyles(variant, userTokens);
+  const subtitleColor = getSubtitleColor(variant, userTokens);
   const hasSelection = impact.disabledCount > 0;
   const formattedSavings = formatMoneyWithSymbol(
     impact.totalSavedMinor,
@@ -180,16 +189,16 @@ export function GoalSimulator({
           width: "100%",
           border: "none",
           background: "transparent",
-          color: colors.text.secondary,
+          color: userTokens.textSecondary,
           fontSize: tokens.typography.size.sm,
           cursor: "pointer",
           transition: "color 0.2s ease",
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.color = colors.text.primary;
+          e.currentTarget.style.color = userTokens.textPrimary;
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.color = colors.text.secondary;
+          e.currentTarget.style.color = userTokens.textSecondary;
         }}
       >
         <span>{copy.linkText}</span>
@@ -232,7 +241,7 @@ export function GoalSimulator({
             style={{
               fontWeight: tokens.typography.weight.semibold,
               fontSize: tokens.typography.size.md,
-              color: colors.text.primary,
+              color: userTokens.textPrimary,
             }}
           >
             {copy.title}
@@ -254,13 +263,13 @@ export function GoalSimulator({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: colors.bg.surface,
+            backgroundColor: userTokens.surface,
             borderRadius: tokens.radii.md,
             transition: "transform 0.3s ease",
             transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
           }}
         >
-          <ChevronDown size={16} color={colors.text.secondary} />
+          <ChevronDown size={16} color={userTokens.textSecondary} />
         </div>
       </button>
 
@@ -270,7 +279,7 @@ export function GoalSimulator({
           {/* Impact Preview */}
           <div
             style={{
-              backgroundColor: colors.bg.surface,
+              backgroundColor: userTokens.surface,
               borderRadius: tokens.radii.md,
               padding: tokens.spacing.md,
               marginBottom: tokens.spacing.md,
@@ -292,7 +301,7 @@ export function GoalSimulator({
                   <div
                     style={{
                       fontSize: tokens.typography.size.sm,
-                      color: colors.text.secondary,
+                      color: userTokens.textSecondary,
                       marginTop: tokens.spacing.xs,
                     }}
                   >
@@ -305,7 +314,7 @@ export function GoalSimulator({
                 <div
                   style={{
                     fontSize: tokens.typography.size.sm,
-                    color: colors.text.secondary,
+                    color: userTokens.textSecondary,
                   }}
                 >
                   {copy.impact.empty}
@@ -313,7 +322,7 @@ export function GoalSimulator({
                 <div
                   style={{
                     fontSize: tokens.typography.size.xs,
-                    color: colors.text.muted,
+                    color: userTokens.textTertiary,
                     marginTop: tokens.spacing.xs,
                   }}
                 >
@@ -348,7 +357,8 @@ export function GoalSimulator({
                     alignItems: "center",
                     justifyContent: "space-between",
                     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
-                    backgroundColor: colors.bg.surface,
+                    backgroundColor: userTokens.surface,
+                    border: `1px solid ${userTokens.border}`,
                     borderRadius: tokens.radii.md,
                     opacity: isDisabled ? 0.5 : 1,
                     transition: "opacity 0.2s ease",
@@ -365,7 +375,7 @@ export function GoalSimulator({
                       style={{
                         width: 36,
                         height: 36,
-                        backgroundColor: colors.bg.secondary,
+                        backgroundColor: userTokens.surfaceAlt,
                         borderRadius: tokens.radii.md,
                         display: "flex",
                         alignItems: "center",
@@ -378,7 +388,7 @@ export function GoalSimulator({
                         <span
                           style={{
                             fontSize: tokens.typography.size.sm,
-                            color: colors.text.secondary,
+                            color: userTokens.textSecondary,
                           }}
                         >
                           {displayName.charAt(0).toUpperCase()}
@@ -390,7 +400,7 @@ export function GoalSimulator({
                         style={{
                           fontWeight: tokens.typography.weight.medium,
                           fontSize: tokens.typography.size.sm,
-                          color: colors.text.primary,
+                          color: userTokens.textPrimary,
                         }}
                       >
                         {displayName}
@@ -398,7 +408,7 @@ export function GoalSimulator({
                       <div
                         style={{
                           fontSize: tokens.typography.size.xs,
-                          color: colors.text.secondary,
+                          color: userTokens.textSecondary,
                         }}
                       >
                         {formatMoneyWithSymbol(

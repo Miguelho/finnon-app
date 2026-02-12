@@ -62,6 +62,7 @@ import {
   isFutureDay,
   ConfirmationModal,
   type AvatarColorToken,
+  type UserAvatarColorId,
   type TopCategory,
   type MerchantSuggestion,
 } from "@poleursus/shared";
@@ -128,6 +129,7 @@ type Profile = {
   avatar_path: string | null;
   avatar_fallback_text: string | null;
   avatar_fallback_bg_token: AvatarColorToken | null;
+  avatar_color: UserAvatarColorId | null;
 };
 
 type TransactionsClientProps = {
@@ -1369,6 +1371,7 @@ export function TransactionsClient({
                           fallbackBgToken:
                             (profile?.avatar_fallback_bg_token as AvatarColorToken | null) ??
                             null,
+                          avatarColor: profile?.avatar_color ?? null,
                           label: creatorLabel,
                         },
                         type: transaction.type,

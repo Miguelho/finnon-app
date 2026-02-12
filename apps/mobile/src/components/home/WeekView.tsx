@@ -8,6 +8,7 @@ import {
   type DayMarkerData,
 } from "@poleursus/shared";
 import { DayMarker } from "./DayMarker";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 type WeekViewProps = {
   days: WeekDay[];
@@ -48,6 +49,7 @@ export const WeekView = forwardRef<WeekViewHandle, WeekViewProps>(
     { days, locale, markerData, selectedDate, onSelectDate },
     ref
   ) {
+    const { primaryActionColor } = useUserTheme();
     const dayRefs = useRef<Map<string, View | null>>(new Map());
     const dayNames = getDayNames(locale);
 
@@ -87,7 +89,7 @@ export const WeekView = forwardRef<WeekViewHandle, WeekViewProps>(
               style={[
                 styles.dayCell,
                 isSelected && styles.dayCellSelected,
-                isToday && styles.dayCellToday,
+                isToday && { borderColor: primaryActionColor },
               ]}
               accessibilityLabel={`${dayNames[index]} ${day.dayOfMonth}`}
               accessibilityState={{ selected: isSelected }}
@@ -99,7 +101,7 @@ export const WeekView = forwardRef<WeekViewHandle, WeekViewProps>(
               <Text
                 style={[
                   styles.dayNumber,
-                  isToday && styles.dayNumberToday,
+                  isToday && { color: primaryActionColor },
                 ]}
               >
                 {day.dayOfMonth}
@@ -146,9 +148,6 @@ const styles = StyleSheet.create({
   dayCellSelected: {
     backgroundColor: colors.action.secondary,
   },
-  dayCellToday: {
-    borderColor: colors.action.primary,
-  },
   dayName: {
     fontSize: tokens.typography.size.xs,
     fontWeight: "500",
@@ -158,9 +157,6 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.sm,
     fontWeight: "600",
     color: colors.text.primary,
-  },
-  dayNumberToday: {
-    color: colors.action.primary,
   },
   markerContainer: {
     marginTop: 4,

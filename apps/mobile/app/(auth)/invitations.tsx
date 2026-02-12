@@ -14,6 +14,7 @@ import { Stack, useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import { supabase } from "../../src/lib/supabase";
 import { useAuth } from "../../src/contexts/AuthContext";
+import { useUserTheme } from "../../src/contexts/UserThemeContext";
 import { Button } from "../../src/components/Button";
 import { useCopy, t } from "../../src/lib/i18n";
 import {
@@ -52,6 +53,7 @@ type ProfileRow = {
 
 export default function InvitationsScreen() {
   const { user, session } = useAuth();
+  const { tokens: userThemeTokens } = useUserTheme();
   const { dictionary, locale } = useCopy();
   const isFocused = useIsFocused();
   const router = useRouter();
@@ -300,7 +302,7 @@ export default function InvitationsScreen() {
   }
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: userThemeTokens.background }]}>
       <Stack.Screen
         options={{
           title: t(dictionary, "invitations.title"),
@@ -459,7 +461,6 @@ export default function InvitationsScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
   },
   content: {
     padding: tokens.spacing.lg,

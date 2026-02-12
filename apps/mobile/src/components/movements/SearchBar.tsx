@@ -7,7 +7,9 @@ import {
   Pressable,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { withAlpha } from "@poleursus/shared";
 import { movementsDesignTokens } from "../../types/movements";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 type SearchBarProps = {
   value: string;
@@ -15,24 +17,31 @@ type SearchBarProps = {
   onClear: () => void;
 };
 
-const colors = movementsDesignTokens.colors;
-
 export function SearchBar({ value, onChange, onClear }: SearchBarProps) {
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const [isFocused, setIsFocused] = useState(false);
   const showBadge = isFocused || value.trim().length > 0;
 
   return (
     <View style={styles.container}>
-      <View style={styles.inputWrapper}>
+      <View
+        style={[
+          styles.inputWrapper,
+          {
+            backgroundColor: userTokens.surface,
+            borderColor: userTokens.border,
+          },
+        ]}
+      >
         <MaterialCommunityIcons
           name="magnify"
           size={18}
-          color={colors.textTertiary}
+          color={userTokens.textSecondary}
         />
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: userTokens.textPrimary }]}
           placeholder="Buscar movimiento, comercio, importe..."
-          placeholderTextColor={colors.textTertiary}
+          placeholderTextColor={userTokens.textSecondary}
           value={value}
           onChangeText={onChange}
           onFocus={() => setIsFocused(true)}
@@ -42,8 +51,15 @@ export function SearchBar({ value, onChange, onClear }: SearchBarProps) {
           returnKeyType="search"
         />
         {showBadge && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>Búsqueda en periodo</Text>
+          <View
+            style={[
+              styles.badge,
+              { backgroundColor: withAlpha(primaryActionColor, 0.14) },
+            ]}
+          >
+            <Text style={[styles.badgeText, { color: primaryActionColor }]}>
+              Búsqueda en periodo
+            </Text>
           </View>
         )}
         {value.trim().length > 0 && (
@@ -51,7 +67,7 @@ export function SearchBar({ value, onChange, onClear }: SearchBarProps) {
             <MaterialCommunityIcons
               name="close-circle"
               size={18}
-              color={colors.textTertiary}
+              color={userTokens.textSecondary}
             />
           </Pressable>
         )}
@@ -68,10 +84,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: colors.surface,
     borderRadius: movementsDesignTokens.radius.md,
     borderWidth: 1,
-    borderColor: colors.borderStrong,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -79,17 +93,14 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: movementsDesignTokens.typography.sizes.md,
     fontFamily: "DMSans",
-    color: colors.textPrimary,
   },
   badge: {
-    backgroundColor: colors.accentBlueBg,
     borderRadius: movementsDesignTokens.radius.full,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
   badgeText: {
     fontSize: movementsDesignTokens.typography.sizes.xs,
-    color: colors.accentBlue,
     fontFamily: "DMSans-Medium",
   },
 });

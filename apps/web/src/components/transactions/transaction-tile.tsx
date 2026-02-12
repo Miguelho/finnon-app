@@ -6,6 +6,7 @@ import { MoreHorizontal } from "lucide-react";
 import {
   CURRENCIES,
   formatMinorToMoney,
+  type UserAvatarColorId,
   themeTokens,
   withAlpha,
   isFutureDay,
@@ -38,6 +39,7 @@ type TransactionTileProps = {
       avatarPath?: string | null;
       fallbackText?: string | null;
       fallbackBgToken?: AvatarColorToken | null;
+      avatarColor?: UserAvatarColorId | null;
       label?: string;
     };
     accountName?: string;
@@ -223,6 +225,7 @@ export function TransactionTile({
                 null
               }
               fallbackBgToken={transaction.createdBy.fallbackBgToken ?? null}
+              avatarColor={transaction.createdBy.avatarColor ?? null}
               size={24}
               label={transaction.createdBy.label}
             />

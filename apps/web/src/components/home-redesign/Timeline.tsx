@@ -23,7 +23,7 @@ export function Timeline({
   monoClassName,
 }: TimelineProps) {
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center rounded-xl border border-gray-200 bg-white px-4 py-5 sm:px-6">
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center rounded-xl border border-border bg-card px-4 py-5 sm:px-6">
       <TimelineItem
         label="Último"
         movement={last}
@@ -34,13 +34,13 @@ export function Timeline({
       />
 
       <div className="flex flex-col items-center gap-1 px-3 sm:px-6">
-        <div className="h-5 w-px bg-gray-200" />
-        <div className="h-2 w-2 rounded-full bg-gray-900" />
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+        <div className="h-5 w-px bg-border" />
+        <div className="h-2 w-2 rounded-full bg-foreground" />
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           Hoy
         </span>
-        <div className="h-2 w-2 rounded-full bg-gray-200" />
-        <div className="h-5 w-px bg-gray-200" />
+        <div className="h-2 w-2 rounded-full bg-border" />
+        <div className="h-5 w-px bg-border" />
       </div>
 
       <TimelineItem
@@ -77,10 +77,10 @@ function TimelineItem({
   if (!movement) {
     return (
       <div className={`flex flex-col gap-0.5 ${alignClass}`}>
-        <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
           {label}
         </span>
-        <span className="text-sm text-gray-400">—</span>
+        <span className="text-sm text-muted-foreground">—</span>
       </div>
     );
   }
@@ -94,10 +94,10 @@ function TimelineItem({
 
   return (
     <div className={`flex flex-col gap-0.5 ${alignClass}`}>
-      <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
-      <span className="text-sm font-medium text-gray-900">
+      <span className="text-sm font-medium text-foreground">
         {movement.name}
       </span>
       <span
@@ -108,7 +108,7 @@ function TimelineItem({
         {isIncome ? "+" : "-"}
         {integer},{decimals}
       </span>
-      <span className="text-xs text-gray-400">
+      <span className="text-xs text-muted-foreground">
         {formatShortDate(movement.date, locale)}
       </span>
     </div>

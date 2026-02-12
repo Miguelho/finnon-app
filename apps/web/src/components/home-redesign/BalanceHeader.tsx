@@ -23,18 +23,18 @@ export function BalanceHeader({
 
   return (
     <div className="mb-8 text-center">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         Balance del mes
       </p>
       <p
-        className={`text-[42px] font-medium leading-tight text-gray-900 sm:text-[42px] ${
+        className={`text-[42px] font-medium leading-tight text-foreground sm:text-[42px] ${
           monoClassName ?? ""
         }`}
       >
         {integer}
-        <span className="text-2xl text-gray-400">,{decimals}</span>
+        <span className="text-2xl text-muted-foreground">,{decimals}</span>
       </p>
-      <p className="mt-1 text-sm text-gray-400">{monthLabel}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{monthLabel}</p>
     </div>
   );
 }

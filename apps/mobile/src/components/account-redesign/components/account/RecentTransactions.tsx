@@ -3,6 +3,7 @@ import { CategoryIcon } from '../../../CategoryIcon';
 import { colors, typography, spacing, radii } from '../../theme/tokens';
 import { formatCurrency } from '../../utils/currency';
 import type { Transaction } from '../../types/account';
+import { useUserTheme } from '../../../../contexts/UserThemeContext';
 
 interface RecentTransactionsProps {
   transactions: Transaction[];
@@ -19,6 +20,7 @@ export function RecentTransactions({
   limit = 4,
   onViewAllPress,
 }: RecentTransactionsProps) {
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const visible = transactions.slice(0, limit);
 
   // Formatear fecha relativa sencilla
@@ -37,9 +39,13 @@ export function RecentTransactions({
     <View>
       {/* Section header */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Últimos movimientos</Text>
+        <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
+          Últimos movimientos
+        </Text>
         <Pressable onPress={onViewAllPress} hitSlop={8}>
-          <Text style={styles.sectionAction}>Ver todos →</Text>
+          <Text style={[styles.sectionAction, { color: primaryActionColor }]}>
+            Ver todos →
+          </Text>
         </Pressable>
       </View>
 
@@ -51,6 +57,8 @@ export function RecentTransactions({
             decimals: currencyDecimals,
           });
           const isIncome = tx.amount > 0;
+          const iconBg = isIncome ? colors.incomeBg : colors.expenseBg;
+          const iconBorder = isIncome ? colors.incomeLight : colors.expenseLight;
 
           return (
             <View
@@ -58,23 +66,29 @@ export function RecentTransactions({
               style={[
                 styles.item,
                 i < visible.length - 1 && styles.itemBorder,
+                i < visible.length - 1 && { borderBottomColor: userTokens.border },
               ]}
             >
               {/* Icon */}
-              <View style={styles.icon}>
+              <View
+                style={[
+                  styles.icon,
+                  { backgroundColor: iconBg, borderColor: iconBorder },
+                ]}
+              >
                 <CategoryIcon
                   iconKey={(tx.categoryIconId ?? 'Tag') as any}
                   size={14}
-                  tone="primary"
+                  tone={isIncome ? 'positive' : 'negative'}
                 />
               </View>
 
               {/* Info */}
               <View style={styles.info}>
-                <Text style={styles.name} numberOfLines={1}>
+                <Text style={[styles.name, { color: userTokens.textPrimary }]} numberOfLines={1}>
                   {tx.description}
                 </Text>
-                <Text style={styles.meta}>
+                <Text style={[styles.meta, { color: userTokens.textSecondary }]}>
                   {tx.categoryName} · {formatDate(tx.date)}
                 </Text>
               </View>
@@ -111,13 +125,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: typography.family.sansBold,
     fontSize: typography.size.lg,
-    color: colors.textPrimary,
     letterSpacing: -0.2,
   },
   sectionAction: {
     fontFamily: typography.family.sansSemiBold,
     fontSize: typography.size.base,
-    color: colors.accent,
   },
   list: {
     paddingHorizontal: spacing['4xl'],
@@ -131,13 +143,12 @@ const styles = StyleSheet.create({
   },
   itemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
   },
   icon: {
     width: 32,
     height: 32,
     borderRadius: radii.sm,
-    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -148,12 +159,10 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: typography.family.sansMedium,
     fontSize: typography.size.md,
-    color: colors.textPrimary,
   },
   meta: {
     fontFamily: typography.family.sans,
     fontSize: typography.size.sm,
-    color: colors.textTertiary,
     marginTop: 1,
   },
   amount: {

@@ -37,17 +37,17 @@ export function ObjectiveCard({
   > = {
     "on-track": {
       icon: "✓",
-      bgClass: "bg-green-50",
+      bgClass: "bg-green-500/15",
       progressClass: "bg-green-600",
     },
     "at-risk": {
       icon: "⚠",
-      bgClass: "bg-amber-50",
+      bgClass: "bg-amber-500/15",
       progressClass: "bg-amber-500",
     },
     "off-track": {
       icon: "✕",
-      bgClass: "bg-red-50",
+      bgClass: "bg-red-500/15",
       progressClass: "bg-red-600",
     },
   };
@@ -65,13 +65,13 @@ export function ObjectiveCard({
   );
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5">
+    <div className="rounded-xl border border-border bg-card p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-[15px] font-semibold text-gray-900">Objetivo</h3>
+        <h3 className="text-[15px] font-semibold text-foreground">Objetivo</h3>
         <button
           type="button"
           onClick={onNavigate}
-          className="text-[13px] font-medium text-blue-600 hover:underline"
+          className="text-[13px] font-medium text-primary hover:underline"
         >
           Ver detalle →
         </button>
@@ -86,15 +86,15 @@ export function ObjectiveCard({
           {config.icon}
         </div>
         <div>
-          <p className="text-sm font-semibold text-gray-900">
+          <p className="text-sm font-semibold text-foreground">
             {objective.statusLabel}
           </p>
-          <p className="text-xs text-gray-500">{objective.description}</p>
+          <p className="text-xs text-muted-foreground">{objective.description}</p>
         </div>
       </div>
 
       <div className="mb-3">
-        <div className="relative h-1.5 rounded-full bg-gray-100">
+        <div className="relative h-1.5 rounded-full bg-muted/50">
           <div
             className={`h-full rounded-full transition-all duration-500 ${
               config.progressClass
@@ -102,28 +102,28 @@ export function ObjectiveCard({
             style={{ width: `${objective.progressPercent}%` }}
           />
           <div
-            className="absolute -top-0.5 h-2.5 w-0.5 rounded-sm bg-gray-400"
+            className="absolute -top-0.5 h-2.5 w-0.5 rounded-sm bg-muted-foreground"
             style={{ left: `${objective.expectedPercent}%` }}
           />
         </div>
         <div className="mt-1.5 flex justify-between">
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-muted-foreground">
             <strong
-              className={`font-semibold text-gray-900 ${monoClassName ?? ""}`}
+              className={`font-semibold text-foreground ${monoClassName ?? ""}`}
             >
               {current.full}
             </strong>{" "}
             ahorrado
           </span>
-          <span className={`text-xs text-gray-400 ${monoClassName ?? ""}`}>
+          <span className={`text-xs text-muted-foreground ${monoClassName ?? ""}`}>
             de {target.full}
           </span>
         </div>
       </div>
 
-      <div className="rounded-lg bg-gray-50 px-3 py-2.5">
+      <div className="rounded-lg bg-muted/40 px-3 py-2.5">
         <p
-          className="text-[13px] leading-relaxed text-gray-500"
+          className="text-[13px] leading-relaxed text-muted-foreground"
           dangerouslySetInnerHTML={{ __html: objective.messageHtml }}
         />
       </div>
@@ -134,11 +134,11 @@ export function ObjectiveCard({
             <span
               key={i}
               className={`h-2 w-2 rounded-full ${
-                month.hit ? "bg-green-600" : "bg-gray-200"
+                month.hit ? "bg-green-600" : "bg-border"
               }`}
             />
           ))}
-          <span className="ml-1 text-[11px] text-gray-400">
+          <span className="ml-1 text-[11px] text-muted-foreground">
             {objective.streak.filter((m) => m.hit).length} de{" "}
             {objective.streak.length} meses
           </span>

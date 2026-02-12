@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../../../src/lib/supabase";
+import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { Button } from "../../../src/components/Button";
 import { Card } from "../../../src/components/Card";
 import { useCopy, t } from "../../../src/lib/i18n";
@@ -48,6 +49,7 @@ type AccountOption = {
 
 export default function InvitationsSettingsScreen() {
   const { dictionary, locale } = useCopy();
+  const { tokens: userThemeTokens } = useUserTheme();
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [invites, setInvites] = useState<InviteRow[]>([]);
@@ -229,7 +231,13 @@ export default function InvitationsSettingsScreen() {
   });
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: userThemeTokens.background }}
+      contentContainerStyle={[
+        styles.container,
+        { backgroundColor: userThemeTokens.background },
+      ]}
+    >
       {loading ? (
         <ActivityIndicator size="large" color={colors.text.muted} />
       ) : accounts.length === 0 ? (
@@ -349,7 +357,6 @@ const styles = StyleSheet.create({
   container: {
     padding: tokens.spacing.lg,
     gap: tokens.spacing.lg,
-    backgroundColor: colors.bg.primary,
   },
   label: {
     ...typography.meta,

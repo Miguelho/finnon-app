@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { PERIODS, type Period } from "@poleursus/shared";
-import { colors, typography, spacing, radii } from "../../theme/tokens";
+import { typography, spacing, radii } from "../../theme/tokens";
+import { useUserTheme } from "../../../../contexts/UserThemeContext";
 
 interface PeriodSelectorProps {
   selected: Period;
@@ -8,6 +9,9 @@ interface PeriodSelectorProps {
 }
 
 export function PeriodSelector({ selected, onSelect }: PeriodSelectorProps) {
+  const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
+    useUserTheme();
+
   return (
     <View style={styles.container}>
       {PERIODS.map(({ key, label }) => {
@@ -15,10 +19,19 @@ export function PeriodSelector({ selected, onSelect }: PeriodSelectorProps) {
         return (
           <Pressable
             key={key}
-            style={[styles.chip, isActive && styles.chipActive]}
+            style={[
+              styles.chip,
+              isActive && { backgroundColor: primaryActionColor },
+            ]}
             onPress={() => onSelect(key)}
           >
-            <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+            <Text
+            style={[
+              styles.chipText,
+              { color: userTokens.textSecondary },
+              isActive && { color: primaryActionTextColor },
+            ]}
+          >
               {label}
             </Text>
           </Pressable>
@@ -41,15 +54,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing['2xl'],
     borderRadius: radii.full,
   },
-  chipActive: {
-    backgroundColor: colors.textPrimary,
-  },
   chipText: {
     fontFamily: typography.family.sansMedium,
     fontSize: typography.size.base,
-    color: colors.textTertiary,
-  },
-  chipTextActive: {
-    color: '#FFFFFF',
   },
 });

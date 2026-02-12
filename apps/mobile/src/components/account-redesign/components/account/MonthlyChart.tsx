@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { colors, typography, spacing, radii, shadows } from '../../theme/tokens';
 import type { MonthlyDataPoint } from '../../types/account';
+import { useUserTheme } from '../../../../contexts/UserThemeContext';
 
 type ChartMode = 'both' | 'expenses' | 'net';
 
@@ -18,18 +19,26 @@ const MODE_LABELS: Record<ChartMode, string> = {
 
 export function MonthlyChart({ data }: MonthlyChartProps) {
   const [mode, setMode] = useState<ChartMode>('both');
+  const { tokens: userTokens } = useUserTheme();
 
   // Estado vacío
   if (data.length === 0) {
     return (
       <View style={styles.wrapper}>
-        <View style={styles.container}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: userTokens.surface, borderColor: userTokens.border },
+          ]}
+        >
           <View style={styles.header}>
-            <Text style={styles.title}>Evolución mensual</Text>
+            <Text style={[styles.title, { color: userTokens.textPrimary }]}>
+              Evolución mensual
+            </Text>
           </View>
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>📊</Text>
-            <Text style={styles.emptyText}>
+            <Text style={[styles.emptyText, { color: userTokens.textSecondary }]}>
               Aparecerá aquí cuando tengas datos de al menos un mes
             </Text>
           </View>
@@ -52,21 +61,34 @@ export function MonthlyChart({ data }: MonthlyChartProps) {
 
   return (
     <View style={styles.wrapper}>
-      <View style={styles.container}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: userTokens.surface, borderColor: userTokens.border },
+        ]}
+      >
         {/* Header con toggle */}
         <View style={styles.header}>
-          <Text style={styles.title}>Evolución mensual</Text>
-          <View style={styles.toggle}>
+          <Text style={[styles.title, { color: userTokens.textPrimary }]}>
+            Evolución mensual
+          </Text>
+          <View style={[styles.toggle, { backgroundColor: userTokens.surfaceAlt }]}>
             {(Object.keys(MODE_LABELS) as ChartMode[]).map((m) => (
               <Pressable
                 key={m}
-                style={[styles.toggleBtn, mode === m && styles.toggleBtnActive]}
+                style={[
+                  styles.toggleBtn,
+                  mode === m && styles.toggleBtnActive,
+                  mode === m && { backgroundColor: userTokens.surface },
+                ]}
                 onPress={() => setMode(m)}
               >
                 <Text
                   style={[
                     styles.toggleText,
+                    { color: userTokens.textSecondary },
                     mode === m && styles.toggleTextActive,
+                    mode === m && { color: userTokens.textPrimary },
                   ]}
                 >
                   {MODE_LABELS[m]}
@@ -131,7 +153,9 @@ export function MonthlyChart({ data }: MonthlyChartProps) {
               <Text
                 style={[
                   styles.barLabel,
+                  { color: userTokens.textSecondary },
                   point.isCurrent && styles.barLabelCurrent,
+                  point.isCurrent && { color: userTokens.textPrimary },
                 ]}
               >
                 {point.label}
@@ -150,9 +174,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing['4xl'],
   },
   container: {
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: radii.lg,
     padding: spacing['3xl'],
     ...shadows.sm,
@@ -166,12 +188,10 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: typography.family.sansSemiBold,
     fontSize: typography.size.md,
-    color: colors.textPrimary,
   },
   toggle: {
     flexDirection: 'row',
     gap: 2,
-    backgroundColor: colors.surfaceAlt,
     borderRadius: radii.sm,
     padding: 2,
   },
@@ -181,16 +201,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   toggleBtnActive: {
-    backgroundColor: colors.surface,
     ...shadows.sm,
   },
   toggleText: {
     fontFamily: typography.family.sansSemiBold,
     fontSize: typography.size.xs,
-    color: colors.textTertiary,
   },
   toggleTextActive: {
-    color: colors.textPrimary,
   },
   chartArea: {
     height: CHART_HEIGHT + 24, // extra para labels
@@ -232,14 +249,12 @@ const styles = StyleSheet.create({
   barLabel: {
     fontFamily: typography.family.sansMedium,
     fontSize: 9,
-    color: colors.textTertiary,
     marginTop: spacing.xs,
     position: 'absolute',
     bottom: -18,
   },
   barLabelCurrent: {
     fontFamily: typography.family.sansBold,
-    color: colors.textPrimary,
   },
   emptyState: {
     height: CHART_HEIGHT,
@@ -254,7 +269,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontFamily: typography.family.sans,
     fontSize: typography.size.base,
-    color: colors.textTertiary,
     textAlign: 'center',
   },
 });

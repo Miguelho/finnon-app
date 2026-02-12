@@ -2,9 +2,33 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { themeTokens } from "@poleursus/shared";
 import { formatCurrencyParts } from "./utils";
 import { useCopy, t } from "../../lib/i18n";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
+
+function withAlpha(hexColor: string, alpha: number): string {
+  const normalized = hexColor.replace("#", "");
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((chunk) => chunk + chunk)
+          .join("")
+      : normalized;
+
+  if (expanded.length !== 6) return hexColor;
+
+  const red = parseInt(expanded.slice(0, 2), 16);
+  const green = parseInt(expanded.slice(2, 4), 16);
+  const blue = parseInt(expanded.slice(4, 6), 16);
+
+  if ([red, green, blue].some((value) => Number.isNaN(value))) {
+    return hexColor;
+  }
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
 
 export type CalendarDot = {
   type: "income" | "expense";
@@ -78,42 +102,84 @@ export function Calendar({
   currencySymbol,
 }: CalendarProps) {
   const { dictionary, locale } = useCopy();
+  const {
+    tokens: userTokens,
+    primaryActionColor,
+    primaryActionTextColor,
+  } = useUserTheme();
   const isWeek = view === "week";
   const selectedKey = selectedDay?.dateKey ?? "";
   const data = isWeek ? weekData : monthData;
   const monthLabels = locale === "en" ? ["M", "T", "W", "T", "F", "S", "S"] : ["L", "M", "X", "J", "V", "S", "D"];
 
   return (
-    <View style={styles.card}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: userTokens.surface, borderColor: userTokens.border },
+      ]}
+    >
       <View style={styles.headerRow}>
-        <Text style={styles.title}>{t(dictionary, "mobile.home.calendarTitle")}</Text>
+        <Text style={[styles.title, { color: userTokens.textPrimary }]}>
+          {t(dictionary, "mobile.home.calendarTitle")}
+        </Text>
       </View>
 
       <View style={styles.toggleRow}>
         <TouchableOpacity
-          style={[styles.toggleButton, isWeek && styles.toggleButtonActive]}
+          style={[
+            styles.toggleButton,
+            isWeek && { backgroundColor: primaryActionColor },
+          ]}
           onPress={() => onViewChange("week")}
         >
-          <Text style={[styles.toggleText, isWeek && styles.toggleTextActive]}>
+          <Text
+            style={[
+              styles.toggleText,
+              { color: userTokens.textSecondary },
+              isWeek && { color: primaryActionTextColor },
+            ]}
+          >
             {t(dictionary, "mobile.home.calendarWeek")}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.toggleButton, !isWeek && styles.toggleButtonActive]}
+          style={[
+            styles.toggleButton,
+            !isWeek && { backgroundColor: primaryActionColor },
+          ]}
           onPress={() => onViewChange("month")}
         >
-          <Text style={[styles.toggleText, !isWeek && styles.toggleTextActive]}>
+          <Text
+            style={[
+              styles.toggleText,
+              { color: userTokens.textSecondary },
+              !isWeek && { color: primaryActionTextColor },
+            ]}
+          >
             {t(dictionary, "mobile.home.calendarMonth")}
           </Text>
         </TouchableOpacity>
 
         <View style={styles.navRow}>
-          <TouchableOpacity style={styles.navButton} onPress={onPrevPeriod}>
-            <Text style={styles.navButtonText}>‹</Text>
+          <TouchableOpacity
+            style={[styles.navButton, { borderColor: userTokens.border }]}
+            onPress={onPrevPeriod}
+          >
+            <Text style={[styles.navButtonText, { color: userTokens.textSecondary }]}>
+              ‹
+            </Text>
           </TouchableOpacity>
-          <Text style={styles.navLabel}>{data?.period}</Text>
-          <TouchableOpacity style={styles.navButton} onPress={onNextPeriod}>
-            <Text style={styles.navButtonText}>›</Text>
+          <Text style={[styles.navLabel, { color: userTokens.textSecondary }]}>
+            {data?.period}
+          </Text>
+          <TouchableOpacity
+            style={[styles.navButton, { borderColor: userTokens.border }]}
+            onPress={onNextPeriod}
+          >
+            <Text style={[styles.navButtonText, { color: userTokens.textSecondary }]}>
+              ›
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -128,15 +194,25 @@ export function Calendar({
                   key={day.date}
                   style={[
                     styles.dayCell,
-                    day.isToday && styles.dayCellToday,
-                    isSelected && !day.isToday && styles.dayCellSelected,
+                    day.isToday && { backgroundColor: primaryActionColor },
+                    isSelected &&
+                      !day.isToday && {
+                        backgroundColor: withAlpha(primaryActionColor, 0.12),
+                        borderWidth: 1,
+                        borderColor: withAlpha(primaryActionColor, 0.3),
+                      },
                   ]}
                   onPress={() => onSelectDay(day.date)}
                 >
                   <Text
                     style={[
                       styles.dayLabel,
-                      day.isToday && styles.dayLabelToday,
+                      { color: userTokens.textSecondary },
+                      isSelected && !day.isToday && { color: primaryActionColor },
+                      day.isToday && {
+                        color: primaryActionTextColor,
+                        opacity: 0.7,
+                      },
                     ]}
                   >
                     {day.dayLabel}
@@ -144,7 +220,9 @@ export function Calendar({
                   <Text
                     style={[
                       styles.dayNumber,
-                      day.isToday && styles.dayNumberToday,
+                      { color: userTokens.textPrimary },
+                      isSelected && !day.isToday && { color: primaryActionColor },
+                      day.isToday && { color: primaryActionTextColor },
                     ]}
                   >
                     {day.dayNumber}
@@ -166,21 +244,27 @@ export function Calendar({
           </View>
 
           <View style={styles.weekSummary}>
-            <Text style={styles.weekSummaryText}>
+            <Text style={[styles.weekSummaryText, { color: userTokens.textSecondary }]}>
               {t(dictionary, "mobile.home.calendarIncome")}{" "}
               <Text style={[styles.weekSummaryValue, styles.amountPositive]}>
                 +{weekData.netIncome}
               </Text>
             </Text>
-            <Text style={styles.weekSummaryText}>
+            <Text style={[styles.weekSummaryText, { color: userTokens.textSecondary }]}>
               {t(dictionary, "mobile.home.calendarExpenses")}{" "}
               <Text style={[styles.weekSummaryValue, styles.amountNegative]}>
                 -{weekData.netExpense}
               </Text>
             </Text>
-            <Text style={styles.weekSummaryText}>
+            <Text style={[styles.weekSummaryText, { color: userTokens.textSecondary }]}>
               {t(dictionary, "mobile.home.calendarNet")}{" "}
-              <Text style={[styles.weekSummaryValue, styles.amountNet]}>
+              <Text
+                style={[
+                  styles.weekSummaryValue,
+                  styles.amountNet,
+                  { color: userTokens.textPrimary },
+                ]}
+              >
                 {weekData.net}
               </Text>
             </Text>
@@ -191,7 +275,10 @@ export function Calendar({
       {!isWeek && (
         <View style={styles.monthGrid}>
           {monthLabels.map((label, index) => (
-            <Text key={`${label}-${index}`} style={styles.monthLabel}>
+            <Text
+              key={`${label}-${index}`}
+              style={[styles.monthLabel, { color: userTokens.textSecondary }]}
+            >
               {label}
             </Text>
           ))}
@@ -203,15 +290,22 @@ export function Calendar({
                 style={[
                   styles.monthCell,
                   day.isOtherMonth && styles.monthCellMuted,
-                  day.isToday && styles.monthCellToday,
-                  isSelected && !day.isToday && styles.dayCellSelected,
+                  day.isToday && { backgroundColor: primaryActionColor },
+                  isSelected &&
+                    !day.isToday && {
+                      backgroundColor: withAlpha(primaryActionColor, 0.12),
+                      borderWidth: 1,
+                      borderColor: withAlpha(primaryActionColor, 0.3),
+                    },
                 ]}
                 onPress={() => !day.isOtherMonth && onSelectDay(day.date)}
               >
                 <Text
                   style={[
                     styles.monthNumber,
-                    day.isToday && styles.monthNumberToday,
+                    { color: userTokens.textPrimary },
+                    isSelected && !day.isToday && { color: primaryActionColor },
+                    day.isToday && { color: primaryActionTextColor },
                   ]}
                 >
                   {day.dayNumber}
@@ -238,6 +332,10 @@ export function Calendar({
           day={selectedDay}
           currencySymbol={currencySymbol}
           emptyLabel={t(dictionary, "mobile.home.calendarEmptyDay")}
+          primaryActionColor={primaryActionColor}
+          userTextPrimary={userTokens.textPrimary}
+          userTextSecondary={userTokens.textSecondary}
+          userBorder={userTokens.border}
         />
       )}
     </View>
@@ -248,22 +346,42 @@ type DayDetailProps = {
   day: DayDetailData;
   currencySymbol: string;
   emptyLabel: string;
+  primaryActionColor: string;
+  userTextPrimary: string;
+  userTextSecondary: string;
+  userBorder: string;
 };
 
-function DayDetail({ day, currencySymbol, emptyLabel }: DayDetailProps) {
+function DayDetail({
+  day,
+  currencySymbol,
+  emptyLabel,
+  primaryActionColor,
+  userTextPrimary,
+  userTextSecondary,
+  userBorder,
+}: DayDetailProps) {
   return (
-    <View style={styles.dayDetail}>
-      <Text style={styles.dayDetailLabel}>{day.formattedLabel}</Text>
+    <View style={[styles.dayDetail, { borderTopColor: userBorder }]}>
+      <Text style={[styles.dayDetailLabel, { color: userTextSecondary }]}>
+        {day.formattedLabel}
+      </Text>
       {day.movements.length > 0 ? (
         day.movements.map((movement) => (
           <MovementRow
             key={movement.id}
             movement={movement}
             currencySymbol={currencySymbol}
+            primaryActionColor={primaryActionColor}
+            userTextPrimary={userTextPrimary}
+            userTextSecondary={userTextSecondary}
+            userBorder={userBorder}
           />
         ))
       ) : (
-        <Text style={styles.dayDetailEmpty}>{emptyLabel}</Text>
+        <Text style={[styles.dayDetailEmpty, { color: userTextSecondary }]}>
+          {emptyLabel}
+        </Text>
       )}
     </View>
   );
@@ -272,9 +390,20 @@ function DayDetail({ day, currencySymbol, emptyLabel }: DayDetailProps) {
 type MovementRowProps = {
   movement: DayMovement;
   currencySymbol: string;
+  primaryActionColor: string;
+  userTextPrimary: string;
+  userTextSecondary: string;
+  userBorder: string;
 };
 
-function MovementRow({ movement, currencySymbol }: MovementRowProps) {
+function MovementRow({
+  movement,
+  currencySymbol,
+  primaryActionColor,
+  userTextPrimary,
+  userTextSecondary,
+  userBorder,
+}: MovementRowProps) {
   const isIncome = movement.type === "income";
   const { integer, decimals } = formatCurrencyParts(
     movement.amountMinor,
@@ -282,7 +411,7 @@ function MovementRow({ movement, currencySymbol }: MovementRowProps) {
   );
 
   return (
-    <View style={styles.movementRow}>
+    <View style={[styles.movementRow, { borderTopColor: userBorder }]}>
       <View style={styles.movementInfo}>
         <View
           style={[
@@ -290,16 +419,21 @@ function MovementRow({ movement, currencySymbol }: MovementRowProps) {
             isIncome ? styles.movementIconIncome : styles.movementIconExpense,
           ]}
         >
-          <Text style={styles.movementIconText}>{isIncome ? "↑" : "↓"}</Text>
+          <Text style={[styles.movementIconText, { color: userTextPrimary }]}>
+            {isIncome ? "↑" : "↓"}
+          </Text>
         </View>
         <View style={styles.movementText}>
-          <Text style={styles.movementTitle} numberOfLines={1}>
+          <Text style={[styles.movementTitle, { color: userTextPrimary }]} numberOfLines={1}>
             {movement.name}
             {movement.badge ? (
-              <Text style={styles.movementBadge}> {movement.badge}</Text>
+              <Text style={[styles.movementBadge, { color: primaryActionColor }]}>
+                {" "}
+                {movement.badge}
+              </Text>
             ) : null}
           </Text>
-          <Text style={styles.movementCategory} numberOfLines={1}>
+          <Text style={[styles.movementCategory, { color: userTextSecondary }]} numberOfLines={1}>
             {movement.category ?? ""}
           </Text>
         </View>
@@ -342,17 +476,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     marginRight: tokens.spacing.xs,
   },
-  toggleButtonActive: {
-    backgroundColor: colors.text.primary,
-  },
   toggleText: {
     fontSize: 13,
     fontWeight: tokens.typography.weight.medium,
     color: colors.text.muted,
     fontFamily: "DMSans-Medium",
-  },
-  toggleTextActive: {
-    color: colors.bg.primary,
   },
   navRow: {
     marginLeft: "auto",
@@ -392,12 +520,6 @@ const styles = StyleSheet.create({
     paddingVertical: tokens.spacing.sm,
     borderRadius: tokens.radii.md,
   },
-  dayCellToday: {
-    backgroundColor: colors.text.primary,
-  },
-  dayCellSelected: {
-    backgroundColor: colors.action.secondary,
-  },
   dayLabel: {
     fontSize: 11,
     textTransform: "uppercase",
@@ -405,17 +527,11 @@ const styles = StyleSheet.create({
     color: colors.text.muted,
     fontFamily: "DMSans-Medium",
   },
-  dayLabelToday: {
-    color: "rgba(255,255,255,0.6)",
-  },
   dayNumber: {
     fontSize: 18,
     fontWeight: tokens.typography.weight.semibold,
     color: colors.text.primary,
     fontFamily: "DMSans-SemiBold",
-  },
-  dayNumberToday: {
-    color: colors.bg.primary,
   },
   dotRow: {
     flexDirection: "row",
@@ -484,17 +600,11 @@ const styles = StyleSheet.create({
   monthCellMuted: {
     opacity: 0.3,
   },
-  monthCellToday: {
-    backgroundColor: colors.text.primary,
-  },
   monthNumber: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.medium,
     color: colors.text.primary,
     fontFamily: "DMSans-Medium",
-  },
-  monthNumberToday: {
-    color: colors.bg.primary,
   },
   dotRowSmall: {
     flexDirection: "row",
@@ -569,7 +679,6 @@ const styles = StyleSheet.create({
   },
   movementBadge: {
     fontSize: 10,
-    color: colors.action.primary,
   },
   movementCategory: {
     fontSize: tokens.typography.size.xs,

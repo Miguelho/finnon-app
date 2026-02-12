@@ -12,6 +12,7 @@ import { Plus, X, ImageSquare } from "phosphor-react-native";
 import * as ImagePicker from "expo-image-picker";
 import { themeTokens, type TransactionDraft, type PhotoAttachment } from "@poleursus/shared";
 import { useCopy, t } from "../../../lib/i18n";
+import { useUserTheme } from "../../../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -27,6 +28,7 @@ interface Step3NotesProps {
 
 export function Step3Notes({ draft, errors, onFieldChange }: Step3NotesProps) {
   const { dictionary } = useCopy();
+  const { tokens: userTokens, primaryActionTextColor } = useUserTheme();
   const [isPickingImage, setIsPickingImage] = useState(false);
 
   const handleAddPhotos = async () => {
@@ -38,7 +40,7 @@ export function Step3Notes({ draft, errors, onFieldChange }: Step3NotesProps) {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         Alert.alert(
-          t(dictionary, "common.error"),
+          t(dictionary, "common.errorTitle"),
           t(dictionary, "addTransaction.photosPermissionDenied")
         );
         return;
@@ -64,7 +66,7 @@ export function Step3Notes({ draft, errors, onFieldChange }: Step3NotesProps) {
     } catch (error) {
       console.error("Error picking image:", error);
       Alert.alert(
-        t(dictionary, "common.error"),
+        t(dictionary, "common.errorTitle"),
         t(dictionary, "addTransaction.photosError")
       );
     } finally {
@@ -82,16 +84,28 @@ export function Step3Notes({ draft, errors, onFieldChange }: Step3NotesProps) {
   return (
     <View style={styles.container}>
       {/* Notes field */}
-      <View style={styles.section}>
-        <Text style={styles.label}>
+      <View
+        style={[
+          styles.section,
+          { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+        ]}
+      >
+        <Text style={[styles.label, { color: userTokens.textPrimary }]}>
           {t(dictionary, "addTransaction.notesLabel")}
         </Text>
         <TextInput
-          style={styles.textArea}
+          style={[
+            styles.textArea,
+            {
+              borderColor: userTokens.border,
+              backgroundColor: userTokens.surface,
+              color: userTokens.textPrimary,
+            },
+          ]}
           value={draft.notes}
           onChangeText={(value) => onFieldChange("notes", value)}
           placeholder={t(dictionary, "addTransaction.notesPlaceholder")}
-          placeholderTextColor={colors.text.muted}
+          placeholderTextColor={userTokens.textTertiary}
           multiline
           numberOfLines={4}
           textAlignVertical="top"
@@ -99,8 +113,13 @@ export function Step3Notes({ draft, errors, onFieldChange }: Step3NotesProps) {
       </View>
 
       {/* Photos field */}
-      <View style={styles.section}>
-        <Text style={styles.label}>
+      <View
+        style={[
+          styles.section,
+          { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+        ]}
+      >
+        <Text style={[styles.label, { color: userTokens.textPrimary }]}>
           {t(dictionary, "addTransaction.photosLabel")}
         </Text>
 
@@ -120,7 +139,7 @@ export function Step3Notes({ draft, errors, onFieldChange }: Step3NotesProps) {
 
               {photo.status === "failed" && (
                 <View style={[styles.photoOverlay, styles.photoOverlayError]}>
-                  <X size={24} color={colors.bg.primary} weight="bold" />
+                  <X size={24} color={primaryActionTextColor} weight="bold" />
                 </View>
               )}
 
@@ -130,7 +149,7 @@ export function Step3Notes({ draft, errors, onFieldChange }: Step3NotesProps) {
                 style={styles.removeButton}
                 accessibilityLabel={t(dictionary, "addTransaction.photoRemove")}
               >
-                <X size={14} color={colors.bg.primary} weight="bold" />
+                <X size={14} color={primaryActionTextColor} weight="bold" />
               </TouchableOpacity>
             </View>
           ))}
@@ -138,12 +157,12 @@ export function Step3Notes({ draft, errors, onFieldChange }: Step3NotesProps) {
           {/* Add photo button */}
           <TouchableOpacity
             onPress={handleAddPhotos}
-            style={styles.addPhotoButton}
+            style={[styles.addPhotoButton, { borderColor: userTokens.border }]}
             disabled={isPickingImage}
             accessibilityLabel={t(dictionary, "addTransaction.photosAdd")}
           >
-            <Plus size={24} color={colors.text.muted} />
-            <Text style={styles.addPhotoText}>
+            <Plus size={24} color={userTokens.textTertiary} />
+            <Text style={[styles.addPhotoText, { color: userTokens.textTertiary }]}>
               {t(dictionary, "addTransaction.photosAdd")}
             </Text>
           </TouchableOpacity>
@@ -152,8 +171,8 @@ export function Step3Notes({ draft, errors, onFieldChange }: Step3NotesProps) {
         {/* Empty state */}
         {draft.photos.length === 0 && (
           <View style={styles.emptyState}>
-            <ImageSquare size={16} color={colors.text.muted} />
-            <Text style={styles.emptyText}>
+            <ImageSquare size={16} color={userTokens.textTertiary} />
+            <Text style={[styles.emptyText, { color: userTokens.textTertiary }]}>
               {t(dictionary, "addTransaction.photosEmpty")}
             </Text>
           </View>
@@ -171,25 +190,19 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.lg,
     padding: tokens.spacing.lg,
     borderRadius: tokens.radii.lg,
-    backgroundColor: colors.bg.secondary,
     borderWidth: 1,
-    borderColor: colors.state.neutral,
   },
   label: {
     fontSize: tokens.typography.size.lg,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
     marginBottom: tokens.spacing.sm,
   },
   textArea: {
     borderWidth: 1,
-    borderColor: colors.state.neutral,
     borderRadius: tokens.radii.lg,
     paddingVertical: tokens.spacing.xl,
     paddingHorizontal: tokens.spacing.xl,
     fontSize: tokens.typography.size.md,
-    backgroundColor: colors.bg.surface,
-    color: colors.text.primary,
     minHeight: 160,
     textAlignVertical: "top",
   },
@@ -219,7 +232,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.state.negative + "80",
   },
   uploadingText: {
-    color: colors.bg.primary,
+    color: "#FFFFFF",
     fontSize: tokens.typography.size.lg,
     fontWeight: tokens.typography.weight.bold,
   },
@@ -247,7 +260,6 @@ const styles = StyleSheet.create({
   },
   addPhotoText: {
     fontSize: tokens.typography.size.sm,
-    color: colors.text.muted,
   },
   emptyState: {
     flexDirection: "row",
@@ -257,6 +269,5 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: tokens.typography.size.md,
-    color: colors.text.muted,
   },
 });

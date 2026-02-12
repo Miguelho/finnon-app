@@ -16,6 +16,10 @@ import {
 import { themeTokens } from "@poleursus/shared";
 import { AuthProvider, useAuth } from "../src/contexts/AuthContext";
 import { NetworkNoticeProvider } from "../src/contexts/NetworkNoticeContext";
+import {
+  UserThemeProvider,
+  useUserTheme,
+} from "../src/contexts/UserThemeContext";
 import { SettingsDrawerContent } from "../src/components/settings/SettingsDrawerContent";
 import { LocaleProvider } from "../src/lib/i18n";
 
@@ -25,7 +29,10 @@ const colors = tokens.colors;
 function RootLayoutNav() {
   const { width } = useWindowDimensions();
   const { session } = useAuth();
+  const { tokens: userTokens } = useUserTheme();
   const drawerWidth = Math.round(width * 0.82);
+  const shellSurface = session ? userTokens.surface : colors.bg.surface;
+  const shellBackground = session ? userTokens.background : colors.bg.primary;
 
   return (
     <Drawer
@@ -33,8 +40,8 @@ function RootLayoutNav() {
         headerShown: false,
         drawerType: "front",
         overlayColor: "rgba(0,0,0,0.3)",
-        drawerStyle: { width: drawerWidth, backgroundColor: colors.bg.surface },
-        sceneContainerStyle: { backgroundColor: colors.bg.primary },
+        drawerStyle: { width: drawerWidth, backgroundColor: shellSurface },
+        sceneContainerStyle: { backgroundColor: shellBackground },
       }}
       drawerContent={(props) => <SettingsDrawerContent {...props} />}
     >
@@ -60,11 +67,13 @@ export default function RootLayout() {
   return (
     <LocaleProvider>
       <AuthProvider>
-        <ActionSheetProvider>
-          <NetworkNoticeProvider>
-            <RootLayoutNav />
-          </NetworkNoticeProvider>
-        </ActionSheetProvider>
+        <UserThemeProvider>
+          <ActionSheetProvider>
+            <NetworkNoticeProvider>
+              <RootLayoutNav />
+            </NetworkNoticeProvider>
+          </ActionSheetProvider>
+        </UserThemeProvider>
       </AuthProvider>
     </LocaleProvider>
   );

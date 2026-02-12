@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useWebUserTheme } from "@/components/theme/web-user-theme-provider";
 // InsightsCarousel removed - insights section no longer used
 import { GoalSimulator } from "@/components/goal/goal-simulator";
 import { GoalGamificationSection } from "@/components/goal/goal-gamification";
@@ -95,10 +96,13 @@ const formatSignedMoneyWithPlus = (
   return value < 0n ? `-${formatted}` : `+${formatted}`;
 };
 
-const getStatusColor = (status: "positive" | "negative" | "neutral") => {
+const getStatusColor = (
+  status: "positive" | "negative" | "neutral",
+  neutralColor: string = colors.state.neutral
+) => {
   if (status === "positive") return colors.state.positive;
   if (status === "negative") return colors.state.negative;
-  return colors.state.neutral;
+  return neutralColor;
 };
 
 type GoalRateTooltipProps = {
@@ -107,6 +111,7 @@ type GoalRateTooltipProps = {
 };
 
 function GoalRateTooltip({ label, body }: GoalRateTooltipProps) {
+  const { tokens: userTokens } = useWebUserTheme();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -153,9 +158,9 @@ function GoalRateTooltip({ label, body }: GoalRateTooltipProps) {
           ref={popoverRef}
           className="absolute left-0 top-full z-20 mt-2 w-64 whitespace-pre-line rounded-lg border px-3 py-2 text-xs shadow-sm"
           style={{
-            backgroundColor: colors.bg.surface,
-            borderColor: colors.state.neutral,
-            color: colors.text.secondary,
+            backgroundColor: userTokens.surface,
+            borderColor: userTokens.border,
+            color: userTokens.textSecondary,
           }}
         >
           {body}
@@ -172,6 +177,7 @@ type GoalHeroTooltipProps = {
 };
 
 function GoalHeroTooltip({ label, lines, conclusion }: GoalHeroTooltipProps) {
+  const { tokens: userTokens } = useWebUserTheme();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -218,9 +224,9 @@ function GoalHeroTooltip({ label, lines, conclusion }: GoalHeroTooltipProps) {
           ref={popoverRef}
           className="absolute left-0 top-full z-20 mt-2 w-72 rounded-lg border px-3 py-2 text-xs shadow-sm"
           style={{
-            backgroundColor: colors.bg.surface,
-            borderColor: colors.state.neutral,
-            color: colors.text.secondary,
+            backgroundColor: userTokens.surface,
+            borderColor: userTokens.border,
+            color: userTokens.textSecondary,
           }}
         >
           <div className="space-y-1">
@@ -230,7 +236,10 @@ function GoalHeroTooltip({ label, lines, conclusion }: GoalHeroTooltipProps) {
           </div>
           <p
             className="mt-2 pt-2 font-medium"
-            style={{ borderTop: `1px solid ${colors.state.neutral}` }}
+            style={{
+              borderTop: `1px solid ${userTokens.border}`,
+              color: userTokens.textPrimary,
+            }}
           >
             {conclusion}
           </p>
@@ -263,6 +272,8 @@ export function GoalClient({
   initialTransactions,
   initialPreviousExpenseTotalMinor,
 }: GoalClientProps) {
+  const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
+    useWebUserTheme();
   const locale = useLocale();
   const tGlobal = useTranslations();
   const tCommon = useTranslations("common");
@@ -626,7 +637,10 @@ export function GoalClient({
     ].join("\n");
   }, [baseCurrency, currencySymbol, goalSummary, tGoal]);
 
-  const progressColor = getStatusColor(displayProgress?.status ?? "neutral");
+  const progressColor = getStatusColor(
+    displayProgress?.status ?? "neutral",
+    userTokens.border
+  );
   const progressWidth = displayProgress
     ? `${Math.round(displayProgress.progressRatio * 100)}%`
     : "0%";
@@ -651,19 +665,19 @@ export function GoalClient({
   }, [summaryViewV2, tGoal]);
 
   const heroV2Color = useMemo(() => {
-    if (!summaryViewV2) return colors.text.primary;
+    if (!summaryViewV2) return userTokens.textPrimary;
     const { completionStatus } = summaryViewV2;
     switch (completionStatus) {
       case "completed_today":
         return colors.state.positive;
       case "completion_date":
-        return colors.text.primary;
+        return userTokens.textPrimary;
       case "not_achievable":
         return colors.state.negative;
       default:
-        return colors.text.primary;
+        return userTokens.textPrimary;
     }
-  }, [summaryViewV2]);
+  }, [summaryViewV2, userTokens.textPrimary]);
 
   const monthStatusText = useMemo(() => {
     if (!summaryViewV2?.monthStatus) return null;
@@ -681,7 +695,7 @@ export function GoalClient({
   }, [summaryViewV2, tGoal]);
 
   const monthStatusColor = useMemo(() => {
-    if (!summaryViewV2?.monthStatus) return colors.text.secondary;
+    if (!summaryViewV2?.monthStatus) return userTokens.textSecondary;
     const { monthStatus } = summaryViewV2;
     switch (monthStatus) {
       case "adelantado":
@@ -690,9 +704,9 @@ export function GoalClient({
         return colors.state.negative;
       case "en_riesgo":
       default:
-        return colors.text.secondary;
+        return userTokens.textSecondary;
     }
-  }, [summaryViewV2]);
+  }, [summaryViewV2, userTokens.textSecondary]);
 
   const heroTooltipData = useMemo(() => {
     if (!summaryViewV2 || !goalSummary) return null;
@@ -790,11 +804,11 @@ export function GoalClient({
 
   const currentComparison = useMemo(() => {
     if (!isViewingCurrentMonth || !gamification || !summaryViewV2) return null;
+    const estimatedDayPart = summaryViewV2.estimatedCompletionDate?.split("-")[2];
+    const estimatedDay = estimatedDayPart ? parseInt(estimatedDayPart, 10) : null;
     return computeCurrentMonthComparison(
       goalSummary?.savedRealMinor ?? 0n,
-      summaryViewV2.estimatedCompletionDate
-        ? parseInt(summaryViewV2.estimatedCompletionDate.split('-')[2], 10)
-        : null,
+      estimatedDay,
       gamification
     );
   }, [isViewingCurrentMonth, gamification, summaryViewV2, goalSummary]);
@@ -886,7 +900,7 @@ export function GoalClient({
         display: "flex",
         alignItems: "center",
         gap: tokens.spacing.sm,
-        color: colors.text.secondary,
+        color: userTokens.textSecondary,
         fontSize: typography.body.fontSize,
         fontWeight: typography.body.fontWeight,
       }}
@@ -898,7 +912,7 @@ export function GoalClient({
         disabled={!canGoBack}
         aria-label="Previous month"
         style={{
-          color: canGoBack ? colors.text.primary : colors.text.muted,
+          color: canGoBack ? userTokens.textPrimary : userTokens.textTertiary,
         }}
       >
         <ChevronLeft className="h-4 w-4" />
@@ -915,7 +929,9 @@ export function GoalClient({
         disabled={!canGoForward}
         aria-label="Next month"
         style={{
-          color: canGoForward ? colors.text.primary : colors.text.muted,
+          color: canGoForward
+            ? userTokens.textPrimary
+            : userTokens.textTertiary,
         }}
       >
         <ChevronRight className="h-4 w-4" />
@@ -930,7 +946,7 @@ export function GoalClient({
           style={{
             fontSize: typography.display.fontSize,
             fontWeight: typography.display.fontWeight,
-            color: colors.text.primary,
+            color: userTokens.textPrimary,
           }}
         >
           {tGoal("pageTitle")}
@@ -949,9 +965,9 @@ export function GoalClient({
                 variant="outline"
                 size="sm"
                 style={{
-                  borderColor: colors.state.neutral,
-                  backgroundColor: colors.bg.surface,
-                  color: colors.text.primary,
+                  borderColor: userTokens.border,
+                  backgroundColor: userTokens.surface,
+                  color: userTokens.textPrimary,
                 }}
                 onClick={handleOpenEditor}
                 disabled={!canEdit}
@@ -967,7 +983,9 @@ export function GoalClient({
                   fontSize: "2.5rem",
                   fontWeight: typography.display.fontWeight,
                   color: (() => {
-                    if (!heroDisplay || !goalSummary) return colors.text.primary;
+                    if (!heroDisplay || !goalSummary) {
+                      return userTokens.textPrimary;
+                    }
 
                     const savedReal = heroDisplay.savedRealMinor;
                     const savedTotal = goalSummary.savedTotalMinor ?? savedReal;
@@ -995,7 +1013,7 @@ export function GoalClient({
               </h2>
               <p
                 className="text-sm"
-                style={{ color: colors.text.secondary }}
+                style={{ color: userTokens.textSecondary }}
               >
                 {tGoal("heroTargetContext", { amount: formattedTarget })}
               </p>
@@ -1004,7 +1022,7 @@ export function GoalClient({
             {/* Progress bar based on real savings */}
             <div
               className="h-2 w-full rounded-full"
-              style={{ backgroundColor: colors.state.neutral }}
+              style={{ backgroundColor: userTokens.border }}
               aria-hidden
             >
               <div
@@ -1018,7 +1036,7 @@ export function GoalClient({
                       ? colors.state.positive
                       : heroDisplay.barStatus === "negative"
                       ? colors.state.negative
-                      : colors.state.neutral
+                      : userTokens.border
                     : progressColor,
                 }}
               />
@@ -1048,7 +1066,10 @@ export function GoalClient({
             )}
 
             {!hasTransactions && (
-              <p className="text-sm text-center" style={{ color: colors.text.secondary }}>
+              <p
+                className="text-sm text-center"
+                style={{ color: userTokens.textSecondary }}
+              >
                 {tGoal("noTransactions")}
               </p>
             )}
@@ -1103,7 +1124,7 @@ export function GoalClient({
               >
                 {monthNavigator}
               </div>
-              <p className="text-sm" style={{ color: colors.text.secondary }}>
+              <p className="text-sm" style={{ color: userTokens.textSecondary }}>
                 {tGoal('history.noHistory')}
               </p>
             </CardContent>
@@ -1118,21 +1139,21 @@ export function GoalClient({
                 style={{
                   fontSize: typography.h2.fontSize,
                   fontWeight: typography.h2.fontWeight,
-                  color: colors.text.primary,
+                  color: userTokens.textPrimary,
                 }}
               >
                 {tGoal("emptyTitle")}
               </h2>
-              <p className="text-sm" style={{ color: colors.text.secondary }}>
+              <p className="text-sm" style={{ color: userTokens.textSecondary }}>
                 {tGoal("emptyDescription")}
               </p>
             </div>
             <Button
               variant="outline"
               style={{
-                borderColor: colors.state.neutral,
-                backgroundColor: colors.bg.surface,
-                color: colors.text.primary,
+                borderColor: userTokens.border,
+                backgroundColor: userTokens.surface,
+                color: userTokens.textPrimary,
               }}
               onClick={handleOpenEditor}
               disabled={!canEdit}
@@ -1174,9 +1195,9 @@ export function GoalClient({
               variant="outline"
               onClick={() => setIsEditorOpen(false)}
               style={{
-                borderColor: colors.state.neutral,
-                backgroundColor: colors.bg.surface,
-                color: colors.text.primary,
+                borderColor: userTokens.border,
+                backgroundColor: userTokens.surface,
+                color: userTokens.textPrimary,
               }}
             >
               {tCommon("cancel")}
@@ -1185,8 +1206,8 @@ export function GoalClient({
               onClick={handleSave}
               disabled={!canEdit || isSaving}
               style={{
-                backgroundColor: colors.text.primary,
-                color: colors.bg.primary,
+                backgroundColor: primaryActionColor,
+                color: primaryActionTextColor,
               }}
             >
               {isSaving ? tGoal("savingCta") : tGoal("saveCta")}

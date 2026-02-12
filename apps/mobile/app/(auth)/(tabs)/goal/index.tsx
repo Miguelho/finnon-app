@@ -19,6 +19,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { supabase } from "../../../../src/lib/supabase";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { useNetworkNotice } from "../../../../src/contexts/NetworkNoticeContext";
+import { useUserTheme } from "../../../../src/contexts/UserThemeContext";
 import { Button } from "../../../../src/components/Button";
 import { Card } from "../../../../src/components/Card";
 import { Input } from "../../../../src/components/Input";
@@ -128,6 +129,8 @@ function GoalSheet({
   title: string;
   children: ReactNode;
 }) {
+  const { tokens: userTokens } = useUserTheme();
+
   return (
     <Modal
       transparent
@@ -137,10 +140,21 @@ function GoalSheet({
     >
       <View style={styles.sheetOverlay}>
         <Pressable style={styles.sheetBackdrop} onPress={onClose} />
-        <View style={styles.sheetContainer}>
-          <View style={styles.sheetHandle} />
+        <View
+          style={[
+            styles.sheetContainer,
+            {
+              backgroundColor: userTokens.surface,
+              borderTopColor: userTokens.border,
+              borderTopWidth: 1,
+            },
+          ]}
+        >
+          <View style={[styles.sheetHandle, { backgroundColor: userTokens.border }]} />
           <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>{title}</Text>
+            <Text style={[styles.sheetTitle, { color: userTokens.textPrimary }]}>
+              {title}
+            </Text>
           </View>
           {children}
         </View>
@@ -155,6 +169,7 @@ type RateTooltipProps = {
 };
 
 function RateTooltip({ label, body }: RateTooltipProps) {
+  const { tokens: userTokens } = useUserTheme();
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{
     x: number;
@@ -205,7 +220,7 @@ function RateTooltip({ label, body }: RateTooltipProps) {
         <MaterialCommunityIcons
           name="information-outline"
           size={16}
-          color={colors.text.muted}
+          color={userTokens.textSecondary}
         />
       </Pressable>
       <Modal
@@ -218,11 +233,17 @@ function RateTooltip({ label, body }: RateTooltipProps) {
           <Pressable
             style={[
               styles.rateTooltipPopover,
+              {
+                backgroundColor: userTokens.surface,
+                borderColor: userTokens.border,
+              },
               { top: topOffset, left: leftOffset, width: tooltipWidth },
             ]}
             onPress={() => {}}
           >
-            <Text style={styles.rateTooltipText}>{body}</Text>
+            <Text style={[styles.rateTooltipText, { color: userTokens.textSecondary }]}>
+              {body}
+            </Text>
           </Pressable>
         </Pressable>
       </Modal>
@@ -237,6 +258,7 @@ type HeroTooltipProps = {
 };
 
 function HeroTooltip({ label, lines, conclusion }: HeroTooltipProps) {
+  const { tokens: userTokens } = useUserTheme();
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{
     x: number;
@@ -287,7 +309,7 @@ function HeroTooltip({ label, lines, conclusion }: HeroTooltipProps) {
         <MaterialCommunityIcons
           name="information-outline"
           size={16}
-          color={colors.text.muted}
+          color={userTokens.textSecondary}
         />
       </Pressable>
       <Modal
@@ -300,18 +322,32 @@ function HeroTooltip({ label, lines, conclusion }: HeroTooltipProps) {
           <Pressable
             style={[
               styles.heroTooltipPopover,
+              {
+                backgroundColor: userTokens.surface,
+                borderColor: userTokens.border,
+              },
               { top: topOffset, left: leftOffset, width: tooltipWidth },
             ]}
             onPress={() => {}}
           >
             <View style={styles.heroTooltipLines}>
               {lines.map((line, index) => (
-                <Text key={`${line}-${index}`} style={styles.heroTooltipText}>
+                <Text
+                  key={`${line}-${index}`}
+                  style={[styles.heroTooltipText, { color: userTokens.textSecondary }]}
+                >
                   {line}
                 </Text>
               ))}
             </View>
-            <Text style={styles.heroTooltipConclusion}>{conclusion}</Text>
+            <Text
+              style={[
+                styles.heroTooltipConclusion,
+                { color: userTokens.textPrimary, borderTopColor: userTokens.border },
+              ]}
+            >
+              {conclusion}
+            </Text>
           </Pressable>
         </Pressable>
       </Modal>
@@ -321,6 +357,7 @@ function HeroTooltip({ label, lines, conclusion }: HeroTooltipProps) {
 
 export default function GoalScreen() {
   const { user, selectedAccountId } = useAuth();
+  const { tokens: userThemeTokens, primaryActionColor } = useUserTheme();
   const { dictionary, locale } = useCopy();
   const { reportNetworkIssue } = useNetworkNotice();
   const insets = useSafeAreaInsets();
@@ -579,11 +616,11 @@ export default function GoalScreen() {
 
   const currentComparison = useMemo(() => {
     if (!isViewingCurrentMonth || !gamification || !summaryViewV2) return null;
+    const estimatedDayPart = summaryViewV2.estimatedCompletionDate?.split("-")[2];
+    const estimatedDay = estimatedDayPart ? parseInt(estimatedDayPart, 10) : null;
     return computeCurrentMonthComparison(
       goalSummary?.savedRealMinor ?? 0n,
-      summaryViewV2.estimatedCompletionDate
-        ? parseInt(summaryViewV2.estimatedCompletionDate.split('-')[2], 10)
-        : null,
+      estimatedDay,
       gamification
     );
   }, [isViewingCurrentMonth, gamification, summaryViewV2, goalSummary]);
@@ -750,19 +787,19 @@ export default function GoalScreen() {
   }, [dictionary, summaryViewV2]);
 
   const heroV2Color = useMemo(() => {
-    if (!summaryViewV2) return colors.text.primary;
+    if (!summaryViewV2) return userThemeTokens.textPrimary;
     const { completionStatus } = summaryViewV2;
     switch (completionStatus) {
       case "completed_today":
         return colors.state.positive;
       case "completion_date":
-        return colors.text.primary;
+        return userThemeTokens.textPrimary;
       case "not_achievable":
         return colors.state.negative;
       default:
-        return colors.text.primary;
+        return userThemeTokens.textPrimary;
     }
-  }, [summaryViewV2]);
+  }, [summaryViewV2, userThemeTokens.textPrimary]);
 
   const monthStatusText = useMemo(() => {
     if (!summaryViewV2?.monthStatus) return null;
@@ -780,7 +817,7 @@ export default function GoalScreen() {
   }, [dictionary, summaryViewV2]);
 
   const monthStatusColor = useMemo(() => {
-    if (!summaryViewV2?.monthStatus) return colors.text.secondary;
+    if (!summaryViewV2?.monthStatus) return userThemeTokens.textSecondary;
     const { monthStatus } = summaryViewV2;
     switch (monthStatus) {
       case "adelantado":
@@ -789,9 +826,9 @@ export default function GoalScreen() {
         return colors.state.negative;
       case "en_riesgo":
       default:
-        return colors.text.secondary;
+        return userThemeTokens.textSecondary;
     }
-  }, [summaryViewV2]);
+  }, [summaryViewV2, userThemeTokens.textSecondary]);
 
   const monthNavigator = goal ? (
     <View style={styles.monthNavRow}>
@@ -801,15 +838,25 @@ export default function GoalScreen() {
         accessibilityLabel="Previous month"
         style={[
           styles.monthNavButton,
+          {
+            backgroundColor: userThemeTokens.surface,
+            borderColor: userThemeTokens.border,
+          },
           !canGoBack && styles.monthNavButtonDisabled,
         ]}
       >
         <ChevronLeft
           size={18}
-          color={canGoBack ? colors.text.primary : colors.text.muted}
+          color={canGoBack ? userThemeTokens.textPrimary : userThemeTokens.textSecondary}
         />
       </TouchableOpacity>
-      <Text style={[styles.subtitle, styles.monthNavLabel]}>
+      <Text
+        style={[
+          styles.subtitle,
+          styles.monthNavLabel,
+          { color: userThemeTokens.textSecondary },
+        ]}
+      >
         {isViewingCurrentMonth
           ? monthLabel
           : formatMonthLabel(selectedMonth, locale)}
@@ -820,12 +867,16 @@ export default function GoalScreen() {
         accessibilityLabel="Next month"
         style={[
           styles.monthNavButton,
+          {
+            backgroundColor: userThemeTokens.surface,
+            borderColor: userThemeTokens.border,
+          },
           !canGoForward && styles.monthNavButtonDisabled,
         ]}
       >
         <ChevronRight
           size={18}
-          color={canGoForward ? colors.text.primary : colors.text.muted}
+          color={canGoForward ? userThemeTokens.textPrimary : userThemeTokens.textSecondary}
         />
       </TouchableOpacity>
     </View>
@@ -1033,19 +1084,44 @@ export default function GoalScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.loading, { paddingTop: tokens.spacing.lg }]}>
-        <ActivityIndicator size="large" color={colors.text.muted} />
+      <View
+        style={[
+          styles.loading,
+          { paddingTop: tokens.spacing.lg, backgroundColor: userThemeTokens.background },
+        ]}
+      >
+        <ActivityIndicator size="large" color={primaryActionColor} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.errorContainer, { paddingTop: tokens.spacing.lg }]}>
-        <Text style={styles.errorTitle}>{t(dictionary, "common.errorTitle")}</Text>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadData}>
-          <Text style={styles.retryButtonText}>{t(dictionary, "common.retry")}</Text>
+      <View
+        style={[
+          styles.errorContainer,
+          { paddingTop: tokens.spacing.lg, backgroundColor: userThemeTokens.background },
+        ]}
+      >
+        <Text style={[styles.errorTitle, { color: userThemeTokens.textPrimary }]}>
+          {t(dictionary, "common.errorTitle")}
+        </Text>
+        <Text style={[styles.errorText, { color: userThemeTokens.textSecondary }]}>
+          {error}
+        </Text>
+        <TouchableOpacity
+          style={[
+            styles.retryButton,
+            {
+              borderColor: userThemeTokens.border,
+              backgroundColor: userThemeTokens.surface,
+            },
+          ]}
+          onPress={loadData}
+        >
+          <Text style={[styles.retryButtonText, { color: userThemeTokens.textPrimary }]}>
+            {t(dictionary, "common.retry")}
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -1053,9 +1129,9 @@ export default function GoalScreen() {
 
   return (
     <>
-      <View style={styles.root}>
+      <View style={[styles.root, { backgroundColor: userThemeTokens.background }]}>
         <ScrollView
-          style={styles.scrollView}
+          style={[styles.scrollView, { backgroundColor: userThemeTokens.background }]}
           contentContainerStyle={[
             styles.scrollContent,
             { paddingTop: tokens.spacing.lg, paddingBottom: 120 + insets.bottom },
@@ -1082,6 +1158,7 @@ export default function GoalScreen() {
               <Text
                 style={[
                   styles.heroMainAmount,
+                  { color: userThemeTokens.textPrimary },
                   (() => {
                     if (!heroDisplay || !goalSummary) return null;
 
@@ -1108,13 +1185,23 @@ export default function GoalScreen() {
                     )
                   : formattedSaved}
               </Text>
-              <Text style={styles.heroTargetContext}>
+              <Text
+                style={[
+                  styles.heroTargetContext,
+                  { color: userThemeTokens.textSecondary },
+                ]}
+              >
                 {t(dictionary, "goal.heroTargetContext", { amount: formattedTarget })}
               </Text>
             </View>
 
             {/* Progress bar based on real savings */}
-            <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressTrack,
+                { backgroundColor: userThemeTokens.border },
+              ]}
+            >
               <View
                 style={[
                   styles.progressFill,
@@ -1152,7 +1239,14 @@ export default function GoalScreen() {
             )}
 
             {!hasTransactions && (
-              <Text style={styles.helperTextCentered}>{t(dictionary, "goal.noTransactions")}</Text>
+              <Text
+                style={[
+                  styles.helperTextCentered,
+                  { color: userThemeTokens.textSecondary },
+                ]}
+              >
+                {t(dictionary, "goal.noTransactions")}
+              </Text>
             )}
           </Card>
 
@@ -1198,7 +1292,7 @@ export default function GoalScreen() {
           <>
             <Card style={styles.emptyCard}>
               <View style={styles.monthNavContainer}>{monthNavigator}</View>
-              <Text style={styles.emptyText}>
+              <Text style={[styles.emptyText, { color: userThemeTokens.textSecondary }]}>
                 {t(dictionary, 'goal.history.noHistory')}
               </Text>
             </Card>
@@ -1207,8 +1301,17 @@ export default function GoalScreen() {
             /* NO GOAL - EMPTY STATE */
             <Card>
               <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>{t(dictionary, "goal.emptyTitle")}</Text>
-                <Text style={styles.emptyDescription}>{t(dictionary, "goal.emptyDescription")}</Text>
+                <Text style={[styles.emptyTitle, { color: userThemeTokens.textPrimary }]}>
+                  {t(dictionary, "goal.emptyTitle")}
+                </Text>
+                <Text
+                  style={[
+                    styles.emptyDescription,
+                    { color: userThemeTokens.textSecondary },
+                  ]}
+                >
+                  {t(dictionary, "goal.emptyDescription")}
+                </Text>
                 <Button
                   title={t(dictionary, "goal.createCta")}
                   onPress={handleOpenEditor}
@@ -1227,7 +1330,9 @@ export default function GoalScreen() {
         title={t(dictionary, "goal.editorTitle")}
       >
         <View style={styles.sheetContent}>
-          <Text style={styles.sheetDescription}>{t(dictionary, "goal.editorDescription")}</Text>
+          <Text style={[styles.sheetDescription, { color: userThemeTokens.textSecondary }]}>
+            {t(dictionary, "goal.editorDescription")}
+          </Text>
           <Input
             label={t(dictionary, "goal.amountLabel")}
             value={amountInput}
@@ -1259,11 +1364,9 @@ export default function GoalScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
   },
   scrollView: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
   },
   scrollContent: {
     paddingHorizontal: tokens.spacing.lg,
@@ -1293,6 +1396,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 8,
+    borderWidth: 1,
   },
   monthNavButtonDisabled: {
     opacity: 0.5,
@@ -1546,7 +1650,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.bg.primary,
   },
   errorContainer: {
     flex: 1,
@@ -1554,7 +1657,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: tokens.spacing.lg,
     gap: tokens.spacing.sm,
-    backgroundColor: colors.bg.primary,
   },
   errorTitle: {
     fontSize: tokens.typography.size.lg,

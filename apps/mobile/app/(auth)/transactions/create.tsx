@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowDownRight, ArrowUpRight } from "phosphor-react-native";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
+import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { Button } from "../../../src/components/Button";
 import { AddTransactionForm } from "../../../src/components/add-transaction";
 import { Input } from "../../../src/components/Input";
@@ -63,6 +64,7 @@ function CreateMovementTransactionScreen(): React.JSX.Element {
   const router = useRouter();
   const params = useLocalSearchParams<{ type?: string }>();
   const { selectedAccountId } = useAuth();
+  const { tokens: userThemeTokens } = useUserTheme();
   const { dictionary } = useCopy();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
@@ -172,7 +174,12 @@ function CreateMovementTransactionScreen(): React.JSX.Element {
 
   if (!selectedAccountId) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View
+        style={[
+          styles.container,
+          { paddingTop: insets.top, backgroundColor: userThemeTokens.background },
+        ]}
+      >
         <View style={styles.loadingContainer}>
           <Text style={styles.loadErrorText}>
             {t(dictionary, "transactions.noAccountSelected")}
@@ -183,7 +190,12 @@ function CreateMovementTransactionScreen(): React.JSX.Element {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.container,
+        { paddingTop: insets.top, backgroundColor: userThemeTokens.background },
+      ]}
+    >
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.action.primary} />
@@ -209,6 +221,7 @@ function CreateRecurringTransactionScreen(): React.JSX.Element {
   const router = useRouter();
   const params = useLocalSearchParams<{ type?: string; kind?: string }>();
   const { selectedAccountId } = useAuth();
+  const { tokens: userThemeTokens } = useUserTheme();
   const { dictionary } = useCopy();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
@@ -602,7 +615,7 @@ function CreateRecurringTransactionScreen(): React.JSX.Element {
 
   return (
     <KeyboardAwareScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: userThemeTokens.background }]}
       contentContainerStyle={[
         styles.content,
         { paddingBottom: insets.bottom + 24 },
@@ -951,7 +964,6 @@ const colors = themeTokens.light.colors;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
   },
   loadingContainer: {
     flex: 1,

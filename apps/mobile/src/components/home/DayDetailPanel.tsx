@@ -15,6 +15,7 @@ import {
   themeTokens,
   type DaySummary,
 } from "@poleursus/shared";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 type DayDetailPanelProps = {
   visible: boolean;
@@ -63,6 +64,7 @@ export function DayDetailPanel({
   onViewMonth,
   copy,
 }: DayDetailPanelProps) {
+  const { primaryActionColor, primaryActionTextColor } = useUserTheme();
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -191,7 +193,7 @@ export function DayDetailPanel({
                           styles.obligationButton,
                           item.status === "paid"
                             ? styles.obligationButtonSecondary
-                            : styles.obligationButtonPrimary,
+                            : { backgroundColor: primaryActionColor },
                           !canEdit && styles.disabled,
                         ]}
                         disabled={!canEdit}
@@ -205,6 +207,9 @@ export function DayDetailPanel({
                         <Text
                           style={[
                             styles.obligationButtonText,
+                            item.status !== "paid" && {
+                              color: primaryActionTextColor,
+                            },
                             item.status === "paid" &&
                               styles.obligationButtonTextSecondary,
                           ]}
@@ -286,10 +291,14 @@ export function DayDetailPanel({
             <View style={styles.actionsSection}>
               {canEdit && onAddForDay && copy.addForDayCta && (
                 <TouchableOpacity
-                  style={styles.addButton}
+                  style={[styles.addButton, { backgroundColor: primaryActionColor }]}
                   onPress={() => onAddForDay(summary.date)}
                 >
-                  <Text style={styles.addButtonText}>{copy.addForDayCta}</Text>
+                  <Text
+                    style={[styles.addButtonText, { color: primaryActionTextColor }]}
+                  >
+                    {copy.addForDayCta}
+                  </Text>
                 </TouchableOpacity>
               )}
               {onViewMonth && copy.viewMonthCta && (
@@ -297,7 +306,11 @@ export function DayDetailPanel({
                   style={styles.viewMonthLink}
                   onPress={onViewMonth}
                 >
-                  <Text style={styles.viewMonthText}>{copy.viewMonthCta}</Text>
+                  <Text
+                    style={[styles.viewMonthText, { color: primaryActionColor }]}
+                  >
+                    {copy.viewMonthCta}
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -424,9 +437,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.spacing.sm,
     paddingVertical: 6,
   },
-  obligationButtonPrimary: {
-    backgroundColor: colors.action.primary,
-  },
   obligationButtonSecondary: {
     backgroundColor: colors.bg.primary,
     borderWidth: 1,
@@ -455,7 +465,6 @@ const styles = StyleSheet.create({
     borderTopColor: colors.state.neutral,
   },
   addButton: {
-    backgroundColor: colors.action.primary,
     borderRadius: tokens.radii.md,
     paddingVertical: tokens.spacing.sm,
     paddingHorizontal: tokens.spacing.md,
@@ -464,7 +473,6 @@ const styles = StyleSheet.create({
   addButtonText: {
     ...typography.body,
     fontWeight: "600",
-    color: colors.bg.primary,
   },
   viewMonthLink: {
     alignItems: "center",
@@ -472,6 +480,5 @@ const styles = StyleSheet.create({
   },
   viewMonthText: {
     ...typography.meta,
-    color: colors.action.primary,
   },
 });

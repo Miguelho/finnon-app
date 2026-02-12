@@ -2,10 +2,12 @@ import { View, Text, StyleSheet } from "react-native";
 import { TrendingUp, Target, Activity } from "lucide-react-native";
 import {
   formatMoneyWithSymbol,
+  withAlpha,
   themeTokens,
   type GoalGamification,
   type CurrentMonthComparison,
 } from "@poleursus/shared";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -40,6 +42,7 @@ export function GoalGamificationSection({
   currencySymbol,
   copy,
 }: GoalGamificationProps) {
+  const { tokens: userTokens } = useUserTheme();
   const hasComparison = comparison !== null && gamification.totalGoals > 0;
 
   const formatSavedVsAvg = () => {
@@ -72,42 +75,58 @@ export function GoalGamificationSection({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{copy.gamificationTitle}</Text>
+      <Text style={[styles.title, { color: userTokens.textPrimary }]}>
+        {copy.gamificationTitle}
+      </Text>
 
       {/* Main gamification cards */}
       <View style={styles.grid}>
         {/* Streak Card */}
-        <View style={styles.card}>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: userTokens.surface, borderColor: userTokens.border },
+          ]}
+        >
           <View style={styles.cardHeader}>
             <View
               style={[
                 styles.iconContainer,
-                { backgroundColor: `${colors.state.positive}15` },
+                { backgroundColor: withAlpha(colors.state.positive, 0.15) },
               ]}
             >
               <TrendingUp size={16} color={colors.state.positive} />
             </View>
-            <Text style={styles.cardLabel}>{copy.streakLabel}</Text>
+            <Text style={[styles.cardLabel, { color: userTokens.textSecondary }]}>
+              {copy.streakLabel}
+            </Text>
           </View>
-          <Text style={styles.cardValue}>
+          <Text style={[styles.cardValue, { color: userTokens.textPrimary }]}>
             {copy.streak(gamification.currentStreak)}
           </Text>
         </View>
 
         {/* History Card */}
-        <View style={styles.card}>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: userTokens.surface, borderColor: userTokens.border },
+          ]}
+        >
           <View style={styles.cardHeader}>
             <View
               style={[
                 styles.iconContainer,
-                { backgroundColor: `${colors.state.positive}15` },
+                { backgroundColor: withAlpha(colors.state.positive, 0.15) },
               ]}
             >
               <Target size={16} color={colors.state.positive} />
             </View>
-            <Text style={styles.cardLabel}>{copy.historyLabel}</Text>
+            <Text style={[styles.cardLabel, { color: userTokens.textSecondary }]}>
+              {copy.historyLabel}
+            </Text>
           </View>
-          <Text style={styles.cardValue}>
+          <Text style={[styles.cardValue, { color: userTokens.textPrimary }]}>
             {copy.history(gamification.totalCompleted, gamification.totalGoals)}
           </Text>
         </View>
@@ -115,24 +134,31 @@ export function GoalGamificationSection({
 
       {/* Comparison Card - Only show if there's history */}
       {hasComparison && (
-        <View style={styles.comparisonCard}>
+        <View
+          style={[
+            styles.comparisonCard,
+            { backgroundColor: userTokens.surface, borderColor: userTokens.border },
+          ]}
+        >
           <View style={styles.cardHeader}>
             <View
               style={[
                 styles.iconContainer,
-                { backgroundColor: `${colors.text.secondary}15` },
+                { backgroundColor: withAlpha(userTokens.textSecondary, 0.15) },
               ]}
             >
-              <Activity size={16} color={colors.text.secondary} />
+              <Activity size={16} color={userTokens.textSecondary} />
             </View>
-            <Text style={styles.comparisonTitle}>{copy.comparisonTitle}</Text>
+            <Text style={[styles.comparisonTitle, { color: userTokens.textPrimary }]}>
+              {copy.comparisonTitle}
+            </Text>
           </View>
 
           <View style={styles.comparisonGrid}>
             {/* Savings comparison */}
             {savedVsAvg && (
               <View style={styles.comparisonItem}>
-                <Text style={styles.comparisonLabel}>
+                <Text style={[styles.comparisonLabel, { color: userTokens.textSecondary }]}>
                   {copy.comparisonSaved}
                 </Text>
                 <Text style={[styles.comparisonValue, { color: savedVsAvg.color }]}>
@@ -144,7 +170,7 @@ export function GoalGamificationSection({
             {/* Velocity comparison */}
             {velocityVsAvg && (
               <View style={styles.comparisonItem}>
-                <Text style={styles.comparisonLabel}>
+                <Text style={[styles.comparisonLabel, { color: userTokens.textSecondary }]}>
                   {copy.comparisonVelocity}
                 </Text>
                 <Text
@@ -168,7 +194,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: "600",
-    color: colors.text.primary,
   },
   grid: {
     flexDirection: "row",
@@ -176,12 +201,10 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    backgroundColor: colors.bg.surface,
     borderRadius: 12,
     padding: 16,
     gap: 8,
     borderWidth: 1,
-    borderColor: colors.state.neutral,
   },
   cardHeader: {
     flexDirection: "row",
@@ -197,25 +220,20 @@ const styles = StyleSheet.create({
   },
   cardLabel: {
     fontSize: 12,
-    color: colors.text.secondary,
   },
   cardValue: {
     fontSize: 20,
     fontWeight: "700",
-    color: colors.text.primary,
   },
   comparisonCard: {
-    backgroundColor: colors.bg.surface,
     borderRadius: 12,
     padding: 16,
     gap: 12,
     borderWidth: 1,
-    borderColor: colors.state.neutral,
   },
   comparisonTitle: {
     fontSize: 14,
     fontWeight: "500",
-    color: colors.text.primary,
   },
   comparisonGrid: {
     flexDirection: "row",
@@ -226,7 +244,6 @@ const styles = StyleSheet.create({
   },
   comparisonLabel: {
     fontSize: 11,
-    color: colors.text.secondary,
     marginBottom: 4,
   },
   comparisonValue: {

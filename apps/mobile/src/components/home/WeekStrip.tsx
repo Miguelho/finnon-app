@@ -15,6 +15,7 @@ import {
   type WeekDay,
   type DotColorKey,
 } from "@poleursus/shared";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 type WeekStripProps = {
   days: WeekDay[];
@@ -62,6 +63,7 @@ export function WeekStrip({
   dotsLegend,
 }: WeekStripProps) {
   const [showLegend, setShowLegend] = useState(false);
+  const { primaryActionColor } = useUserTheme();
   const dayNames = getDayNames(locale);
 
   return (
@@ -78,7 +80,9 @@ export function WeekStrip({
           </TouchableOpacity>
         </View>
         <TouchableOpacity onPress={onViewMonth}>
-          <Text style={styles.viewMonthCta}>{viewMonthCta}</Text>
+          <Text style={[styles.viewMonthCta, { color: primaryActionColor }]}>
+            {viewMonthCta}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -105,7 +109,7 @@ export function WeekStrip({
               style={[
                 styles.dayCell,
                 isSelected && styles.dayCellSelected,
-                isToday && styles.dayCellToday,
+                isToday && { borderColor: primaryActionColor },
               ]}
             >
               {/* Day name */}
@@ -115,7 +119,7 @@ export function WeekStrip({
               <Text
                 style={[
                   styles.dayNumber,
-                  isToday && styles.dayNumberToday,
+                  isToday && { color: primaryActionColor },
                 ]}
               >
                 {day.dayOfMonth}
@@ -185,7 +189,6 @@ const styles = StyleSheet.create({
   },
   viewMonthCta: {
     fontSize: typography.caption.fontSize,
-    color: colors.action.primary,
   },
   weekNavRow: {
     flexDirection: "row",
@@ -215,9 +218,6 @@ const styles = StyleSheet.create({
   dayCellSelected: {
     backgroundColor: colors.action.secondary,
   },
-  dayCellToday: {
-    borderColor: colors.action.primary,
-  },
   dayName: {
     fontSize: typography.caption.fontSize,
     fontWeight: "500",
@@ -228,9 +228,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.text.primary,
     marginTop: 2,
-  },
-  dayNumberToday: {
-    color: colors.action.primary,
   },
   dotsRow: {
     flexDirection: "row",

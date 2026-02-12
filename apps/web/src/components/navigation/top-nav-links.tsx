@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale } from "next-intl";
-import { themeTokens } from "@poleursus/shared";
 import { cn } from "@/lib/utils";
 
 type NavIconKey = "home" | "transactions" | "goal" | "account";
@@ -19,7 +18,9 @@ type TopNavLinksProps = {
   className?: string;
 };
 
-const colors = themeTokens.light.colors;
+const primaryColor = "hsl(var(--primary))";
+const primarySoftBackground = "hsl(var(--primary) / 0.14)";
+const inactiveColor = "hsl(var(--muted-foreground))";
 function normalizePath(pathname: string, locale: string) {
   if (pathname.startsWith(`/${locale}`)) {
     const trimmed = pathname.slice(locale.length + 1);
@@ -51,8 +52,8 @@ export function TopNavLinks({ items, className }: TopNavLinksProps) {
           isActive ? "opacity-100" : "hover:opacity-80"
         )}
         style={{
-          backgroundColor: isActive ? colors.action.secondary : "transparent",
-          color: isActive ? colors.text.primary : colors.text.secondary,
+          backgroundColor: isActive ? primarySoftBackground : "transparent",
+          color: isActive ? primaryColor : inactiveColor,
         }}
       >
         <span>{item.label}</span>

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale } from "next-intl";
 import { Bookmark, ClipboardList, Flag, Home, Plus } from "lucide-react";
-import { themeTokens } from "@poleursus/shared";
 import { AddActionTrigger } from "./add-action-trigger";
 
 type NavIconKey = "home" | "transactions" | "goal" | "account";
@@ -26,7 +25,10 @@ type BottomNavProps = {
   };
 };
 
-const colors = themeTokens.light.colors;
+const primaryColor = "hsl(var(--primary))";
+const inactiveColor = "hsl(var(--muted-foreground))";
+const shellBackgroundColor = "hsl(var(--background))";
+const shellBorderColor = "hsl(var(--border))";
 const navIconMap: Record<NavIconKey, typeof Home> = {
   home: Home,
   transactions: ClipboardList,
@@ -59,8 +61,8 @@ export function BottomNav({
       aria-label="Primary navigation"
       className="fixed inset-x-0 bottom-0 z-40 border-t sm:hidden"
       style={{
-        backgroundColor: colors.bg.primary,
-        borderColor: colors.state.neutral,
+        backgroundColor: shellBackgroundColor,
+        borderColor: shellBorderColor,
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
@@ -79,7 +81,7 @@ export function BottomNav({
               aria-current={isActive ? "page" : undefined}
               className="flex flex-1 flex-col items-center gap-1 py-2 transition-opacity"
               style={{
-                color: isActive ? colors.action.primary : colors.text.secondary,
+                color: isActive ? primaryColor : inactiveColor,
               }}
             >
               <Icon className="h-5 w-5" aria-hidden="true" />
@@ -99,7 +101,7 @@ export function BottomNav({
         ) : (
           <Link
             href={addHref}
-            className="relative -mt-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-900 text-white shadow-lg"
+            className="relative -mt-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-primary/90"
             aria-label="Añadir movimiento"
           >
             <Plus className="h-5 w-5" />
@@ -120,7 +122,7 @@ export function BottomNav({
               aria-current={isActive ? "page" : undefined}
               className="flex flex-1 flex-col items-center gap-1 py-2 transition-opacity"
               style={{
-                color: isActive ? colors.action.primary : colors.text.secondary,
+                color: isActive ? primaryColor : inactiveColor,
               }}
             >
               <Icon className="h-5 w-5" aria-hidden="true" />

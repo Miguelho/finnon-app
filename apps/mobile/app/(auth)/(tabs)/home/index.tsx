@@ -24,6 +24,7 @@ import {
 } from "@poleursus/shared";
 import { supabase } from "../../../../src/lib/supabase";
 import { useAuth } from "../../../../src/contexts/AuthContext";
+import { useUserTheme } from "../../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../../src/lib/i18n";
 import { BalanceHeader } from "../../../../src/components/home-redesign/BalanceHeader";
 import { Timeline } from "../../../../src/components/home-redesign/Timeline";
@@ -111,6 +112,7 @@ const MONTHS_LONG = {
 export default function HomeScreen() {
   const router = useRouter();
   const { user, session, selectedAccountId, setSelectedAccountId } = useAuth();
+  const { tokens: userThemeTokens } = useUserTheme();
   const { dictionary, locale } = useCopy();
   const isFocused = useIsFocused();
   const localeKey = locale === "en" ? "en" : "es";
@@ -750,7 +752,7 @@ export default function HomeScreen() {
 
   if (showError) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: userThemeTokens.background }]}>
         <View style={styles.errorCard}>
           <Text style={styles.errorTitle}>{t(dictionary, "common.errorTitle")}</Text>
           <Text style={styles.errorText}>{error}</Text>
@@ -771,7 +773,7 @@ export default function HomeScreen() {
 
   if (showLoading || showAccountMissing) {
     return (
-      <View style={styles.loading}>
+      <View style={[styles.loading, { backgroundColor: userThemeTokens.background }]}>
         <ActivityIndicator size="large" />
       </View>
     );
@@ -817,7 +819,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: userThemeTokens.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -892,18 +894,15 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
   },
   loading: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: colors.bg.primary,
   },
   container: {
     flex: 1,
     padding: tokens.spacing.lg,
-    backgroundColor: colors.bg.primary,
     justifyContent: "center",
   },
   scrollView: {

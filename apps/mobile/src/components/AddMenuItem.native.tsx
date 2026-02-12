@@ -11,9 +11,9 @@ import {
   type AddActionIconName,
   type AddActionMeta,
 } from "@poleursus/shared";
+import { useUserTheme } from "../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
-const colors = tokens.colors;
 
 const iconMap: Record<AddActionIconName, typeof HelpCircle> = {
   PlusCircle,
@@ -38,6 +38,7 @@ export function AddMenuItem({
   onPress,
   disabled = false,
 }: AddMenuItemProps) {
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const Icon = resolveIcon(meta);
 
   return (
@@ -48,22 +49,41 @@ export function AddMenuItem({
       disabled={disabled}
       style={({ pressed }) => [
         styles.card,
+        {
+          borderColor: userTokens.border,
+          backgroundColor: userTokens.surface,
+        },
         pressed && styles.cardPressed,
         disabled && styles.cardDisabled,
       ]}
     >
       {({ pressed }) => (
         <>
-          <View style={[styles.badge, pressed && styles.badgePressed]}>
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor: pressed
+                  ? userTokens.surface
+                  : userTokens.surfaceAlt,
+                borderColor: primaryActionColor,
+              },
+              pressed && styles.badgePressed,
+            ]}
+          >
             <Icon
-              color={pressed ? colors.text.primary : colors.text.muted}
+              color={pressed ? userTokens.textPrimary : userTokens.textTertiary}
               size={20}
               strokeWidth={2}
             />
           </View>
           <View style={styles.textBlock}>
-            <Text style={styles.title}>{meta.title}</Text>
-            <Text style={styles.description}>{meta.description}</Text>
+            <Text style={[styles.title, { color: userTokens.textPrimary }]}>
+              {meta.title}
+            </Text>
+            <Text style={[styles.description, { color: userTokens.textSecondary }]}>
+              {meta.description}
+            </Text>
           </View>
         </>
       )}
@@ -81,11 +101,9 @@ const styles = StyleSheet.create({
     paddingVertical: tokens.spacing.md,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.state.neutral,
-    backgroundColor: colors.bg.surface,
   },
   cardPressed: {
-    opacity: 0.96,
+    opacity: 0.95,
   },
   cardDisabled: {
     opacity: 0.6,
@@ -96,10 +114,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.bg.secondary,
   },
   badgePressed: {
-    backgroundColor: colors.action.secondary,
+    borderWidth: 1,
   },
   textBlock: {
     flex: 1,
@@ -108,11 +125,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
   },
   description: {
     fontSize: 13,
     fontWeight: tokens.typography.weight.regular,
-    color: colors.text.muted,
   },
 });

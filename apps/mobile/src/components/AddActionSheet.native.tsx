@@ -13,7 +13,8 @@ import {
   themeTokens,
   type AddActionKey,
 } from "@poleursus/shared";
-import { AddMenuItem } from "./AddMenuItem";
+import { useUserTheme } from "../contexts/UserThemeContext";
+import { AddMenuItem } from "./AddMenuItem.native";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -48,6 +49,8 @@ export function AddActionSheet({
   renderTrigger,
 }: AddActionSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
+    useUserTheme();
 
   const handleOpen = () => {
     if (disabled) return;
@@ -72,6 +75,7 @@ export function AddActionSheet({
           onPress={handleOpen}
           style={[
             styles.fab,
+            { backgroundColor: primaryActionColor },
             { bottom: spacing.lg + bottomOffset },
             disabled && styles.fabDisabled,
           ]}
@@ -79,7 +83,9 @@ export function AddActionSheet({
           accessibilityLabel={fabLabel}
           disabled={disabled}
         >
-          <Text style={styles.fabText}>+ {fabLabel}</Text>
+          <Text style={[styles.fabText, { color: primaryActionTextColor }]}>
+            + {fabLabel}
+          </Text>
         </TouchableOpacity>
       )}
 
@@ -91,10 +97,20 @@ export function AddActionSheet({
       >
         <View style={styles.overlay}>
           <Pressable style={styles.backdrop} onPress={handleClose} />
-          <View style={styles.container}>
-            <View style={styles.handle} />
-            <View style={styles.header}>
-              <Text style={styles.title}>{sheetTitle}</Text>
+          <View
+            style={[
+              styles.container,
+              {
+                backgroundColor: userTokens.surface,
+                borderColor: userTokens.border,
+              },
+            ]}
+          >
+            <View style={[styles.handle, { backgroundColor: userTokens.border }]} />
+            <View style={[styles.header, { borderBottomColor: userTokens.border }]}>
+              <Text style={[styles.title, { color: userTokens.textPrimary }]}>
+                {sheetTitle}
+              </Text>
             </View>
             <ScrollView contentContainerStyle={styles.content}>
               {notice}
@@ -123,7 +139,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: radii.pill,
-    backgroundColor: colors.action.primary,
     shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -136,7 +151,6 @@ const styles = StyleSheet.create({
   fabText: {
     fontSize: typography.size.md,
     fontWeight: typography.weight.medium,
-    color: colors.bg.primary,
   },
   overlay: {
     flex: 1,
@@ -148,11 +162,9 @@ const styles = StyleSheet.create({
   },
   container: {
     maxHeight: "80%",
-    backgroundColor: colors.bg.surface,
     borderTopLeftRadius: radii.lg,
     borderTopRightRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.state.neutral,
     paddingBottom: spacing.lg,
   },
   handle: {
@@ -172,7 +184,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.size.lg,
     fontWeight: typography.weight.semibold,
-    color: colors.text.primary,
   },
   content: {
     padding: spacing.lg,

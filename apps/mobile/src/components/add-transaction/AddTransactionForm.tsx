@@ -28,6 +28,7 @@ import {
 } from "@poleursus/shared";
 import { useCopy, t } from "../../lib/i18n";
 import { useAuth } from "../../contexts/AuthContext";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 import { supabase } from "../../lib/supabase";
 import { Button } from "../Button";
 import { TransactionStepperBreadcrumb } from "./TransactionStepperBreadcrumb";
@@ -108,6 +109,7 @@ export function AddTransactionForm({
 }: AddTransactionFormProps) {
   const { dictionary } = useCopy();
   const { user } = useAuth();
+  const { tokens: userTokens } = useUserTheme();
 
   // Form state
   const [draft, setDraft] = useState<TransactionDraft>(() =>
@@ -244,8 +246,8 @@ export function AddTransactionForm({
 
     if (!user) {
       Alert.alert(
-        t(dictionary, "common.error"),
-        t(dictionary, "common.notAuthenticated")
+        t(dictionary, "common.errorTitle"),
+        t(dictionary, "errors.authRequired")
       );
       return;
     }
@@ -329,7 +331,7 @@ export function AddTransactionForm({
     } catch (error: any) {
       console.error("Failed to create transaction:", error);
       Alert.alert(
-        t(dictionary, "common.error"),
+        t(dictionary, "common.errorTitle"),
         error?.message ||
           (mode === "edit"
             ? t(dictionary, "transactions.updateError")
@@ -356,9 +358,9 @@ export function AddTransactionForm({
   // Panels mode
   if (formMode === "panels") {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: userTokens.background }]}>
         {/* Header with stepper and mode toggle */}
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: userTokens.border }]}>
           <TransactionStepperBreadcrumb
             steps={steps}
             onStepClick={(step) => step < currentStep && goToStep(step)}
@@ -427,7 +429,7 @@ export function AddTransactionForm({
         </View>
 
         {/* Footer with navigation buttons */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { borderTopColor: userTokens.border }]}>
           {currentStep > 1 ? (
             <Button
               onPress={handleBack}
@@ -473,9 +475,9 @@ export function AddTransactionForm({
 
   // List mode - all steps in one scroll
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: userTokens.background }]}>
       {/* Header with mode toggle */}
-      <View style={styles.headerList}>
+      <View style={[styles.headerList, { borderBottomColor: userTokens.border }]}>
         <FormModeToggle mode={formMode} onChange={handleFormModeChange} />
       </View>
 
@@ -516,7 +518,7 @@ export function AddTransactionForm({
       </KeyboardAwareScrollView>
 
       {/* Footer with submit button */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { borderTopColor: userTokens.border }]}>
         <Button
           onPress={() => onCancel?.()}
           title={t(dictionary, "addTransaction.cancel")}

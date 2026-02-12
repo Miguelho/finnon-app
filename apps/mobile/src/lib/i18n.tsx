@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, createContext, useContext, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getDictionary, t, pluralize, formatParticipantCount } from "@poleursus/shared";
-import type { CopyDictionary } from "@poleursus/shared";
+import { supabase } from "./supabase";
 
 const LOCALE_KEY = "@finnon/locale";
 const fallbackLocale = "es";
@@ -11,9 +11,14 @@ export const getDeviceLocale = () => {
   return resolved || fallbackLocale;
 };
 
+const normalizeLocaleCode = (value?: string | null): string => {
+  const normalized = (value || "").toLowerCase();
+  return normalized.startsWith("en") ? "en" : "es";
+};
+
 type LocaleContextType = {
   locale: string;
-  dictionary: CopyDictionary;
+  dictionary: ReturnType<typeof getDictionary>;
   setLocale: (locale: string) => Promise<void>;
   isLoading: boolean;
 };
@@ -27,13 +32,31 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loadLocale = async () => {
       try {
+        const { data } = await supabase.auth.getUser();
+        const profileUserId = data.user?.id;
+
+        if (profileUserId) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("locale")
+            .eq("user_id", profileUserId)
+            .maybeSingle();
+
+          if (profile?.locale) {
+            const remoteLocale = normalizeLocaleCode(profile.locale);
+            setLocaleState(remoteLocale);
+            await AsyncStorage.setItem(LOCALE_KEY, remoteLocale);
+            return;
+          }
+        }
+
         const stored = await AsyncStorage.getItem(LOCALE_KEY);
         if (stored) {
-          setLocaleState(stored);
+          setLocaleState(normalizeLocaleCode(stored));
         } else {
           // Use device locale as default
           const deviceLocale = getDeviceLocale();
-          const normalizedLocale = deviceLocale.startsWith("en") ? "en" : "es";
+          const normalizedLocale = normalizeLocaleCode(deviceLocale);
           setLocaleState(normalizedLocale);
         }
       } catch (err) {
@@ -47,8 +70,9 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
 
   const setLocale = async (newLocale: string) => {
     try {
-      await AsyncStorage.setItem(LOCALE_KEY, newLocale);
-      setLocaleState(newLocale);
+      const normalizedLocale = normalizeLocaleCode(newLocale);
+      await AsyncStorage.setItem(LOCALE_KEY, normalizedLocale);
+      setLocaleState(normalizedLocale);
     } catch (err) {
       console.error("[i18n] Error saving locale:", err);
     }
@@ -63,7 +87,10 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export const useCopy = (): { locale: string; dictionary: CopyDictionary } => {
+export const useCopy = (): {
+  locale: string;
+  dictionary: ReturnType<typeof getDictionary>;
+} => {
   const context = useContext(LocaleContext);
   // Fallback values for when outside provider (shouldn't happen but just in case)
   const fallbackLocale = useMemo(() => getDeviceLocale(), []);

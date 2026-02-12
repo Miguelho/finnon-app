@@ -1,9 +1,9 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Check } from "phosphor-react-native";
 import { themeTokens, type StepStatus } from "@poleursus/shared";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
-const colors = tokens.colors;
 
 interface Step {
   number: 1 | 2 | 3;
@@ -20,6 +20,9 @@ export function TransactionStepperBreadcrumb({
   steps,
   onStepClick,
 }: TransactionStepperBreadcrumbProps) {
+  const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
+    useUserTheme();
+
   return (
     <View style={styles.container}>
       {steps.map((step, index) => (
@@ -29,7 +32,10 @@ export function TransactionStepperBreadcrumb({
             <View
               style={[
                 styles.connector,
-                step.status !== "pending" && styles.connectorCompleted,
+                { backgroundColor: userTokens.border },
+                step.status !== "pending" && {
+                  backgroundColor: primaryActionColor,
+                },
               ]}
             />
           )}
@@ -40,19 +46,31 @@ export function TransactionStepperBreadcrumb({
             disabled={step.status === "pending"}
             style={[
               styles.stepButton,
-              step.status === "active" && styles.stepButtonActive,
-              step.status === "completed" && styles.stepButtonCompleted,
+              {
+                borderColor: userTokens.border,
+                backgroundColor: userTokens.surface,
+              },
+              step.status === "active" && {
+                borderColor: primaryActionColor,
+              },
+              step.status === "completed" && {
+                borderColor: primaryActionColor,
+                backgroundColor: primaryActionColor,
+              },
             ]}
             accessibilityRole="button"
             accessibilityLabel={`${step.label} - ${step.status}`}
           >
             {step.status === "completed" ? (
-              <Check size={14} color={colors.bg.primary} weight="bold" />
+              <Check size={14} color={primaryActionTextColor} weight="bold" />
             ) : (
               <Text
                 style={[
                   styles.stepNumber,
-                  step.status === "active" && styles.stepNumberActive,
+                  { color: userTokens.textTertiary },
+                  step.status === "active" && {
+                    color: primaryActionColor,
+                  },
                 ]}
               >
                 {step.number}
@@ -62,7 +80,7 @@ export function TransactionStepperBreadcrumb({
 
           {/* Step label (only show for active step on small screens) */}
           {step.status === "active" && (
-            <Text style={styles.stepLabel} numberOfLines={1}>
+            <Text style={[styles.stepLabel, { color: userTokens.textPrimary }]} numberOfLines={1}>
               {step.label}
             </Text>
           )}
@@ -86,42 +104,23 @@ const styles = StyleSheet.create({
   connector: {
     width: 28,
     height: 2,
-    backgroundColor: colors.state.neutral,
     marginRight: tokens.spacing.md,
-  },
-  connectorCompleted: {
-    backgroundColor: colors.action.primary,
   },
   stepButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: colors.state.neutral,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.bg.surface,
-  },
-  stepButtonActive: {
-    borderColor: colors.action.primary,
-    backgroundColor: colors.bg.surface,
-  },
-  stepButtonCompleted: {
-    borderColor: colors.action.primary,
-    backgroundColor: colors.action.primary,
   },
   stepNumber: {
     fontSize: tokens.typography.size.md,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.muted,
-  },
-  stepNumberActive: {
-    color: colors.action.primary,
   },
   stepLabel: {
     fontSize: tokens.typography.size.md,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.text.primary,
     maxWidth: 120,
   },
 });

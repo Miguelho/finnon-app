@@ -15,11 +15,13 @@ export type NotificationItem = {
 type NotificationDropdownProps = {
   notifications: NotificationItem[];
   viewHref?: string;
+  badgeCount?: number;
 };
 
 export function NotificationDropdown({
   notifications,
   viewHref = "/transactions",
+  badgeCount,
 }: NotificationDropdownProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -35,7 +37,7 @@ export function NotificationDropdown({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const unreadCount = notifications?.length ?? 0;
+  const unreadCount = Math.max(0, badgeCount ?? notifications?.length ?? 0);
 
   return (
     <div className="relative" ref={ref}>

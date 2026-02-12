@@ -19,10 +19,10 @@
 }
 
 .chip:hover {
-  color: var(--period-text-primary, var(--text-primary, #1A1A18));
+  color: hsl(var(--primary));
 }
 
 .chipActive {
-  background: var(--period-active-bg, var(--text-primary, #1A1A18));
-  color: #fff;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
 }

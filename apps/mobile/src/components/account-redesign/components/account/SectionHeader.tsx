@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { colors, typography, spacing } from '../../theme/tokens';
+import { typography, spacing } from '../../theme/tokens';
+import { useUserTheme } from '../../../../contexts/UserThemeContext';
 
 interface SectionHeaderProps {
   title: string;
@@ -12,12 +13,14 @@ export function SectionHeader({
   actionLabel,
   onActionPress,
 }: SectionHeaderProps) {
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
+      <Text style={[styles.title, { color: userTokens.textPrimary }]}>{title}</Text>
       {actionLabel && (
         <Pressable onPress={onActionPress} hitSlop={8}>
-          <Text style={styles.action}>{actionLabel}</Text>
+          <Text style={[styles.action, { color: primaryActionColor }]}>{actionLabel}</Text>
         </Pressable>
       )}
     </View>
@@ -36,12 +39,10 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: typography.family.sansBold,
     fontSize: typography.size.lg,
-    color: colors.textPrimary,
     letterSpacing: -0.2,
   },
   action: {
     fontFamily: typography.family.sansSemiBold,
     fontSize: typography.size.base,
-    color: colors.accent,
   },
 });

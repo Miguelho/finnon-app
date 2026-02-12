@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { PERIODS, type Period } from "@poleursus/shared";
+import { PERIODS, withAlpha, type Period } from "@poleursus/shared";
 import { movementsDesignTokens } from "../types/movements";
 import { useMovements } from "../hooks/useMovements";
 import { useMovementsStore } from "../stores/useMovementsStore";
@@ -25,11 +25,14 @@ import { SearchBar } from "../components/movements/SearchBar";
 import { FilterRow } from "../components/movements/FilterRow";
 import { MovementGroup } from "../components/movements/MovementGroup";
 import { PeriodSelector } from "../components/movements/PeriodSelector";
+import { useUserTheme } from "../contexts/UserThemeContext";
 
-const colors = movementsDesignTokens.colors;
+const movementColors = movementsDesignTokens.colors;
 
 export default function MovementsScreen() {
   const router = useRouter();
+  const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
+    useUserTheme();
   const params = useLocalSearchParams<{
     period?: string | string[];
     category?: string | string[];
@@ -183,26 +186,33 @@ export default function MovementsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color={colors.accentBlue} />
+      <View style={[styles.loading, { backgroundColor: userTokens.background }]}>
+        <ActivityIndicator size="large" color={primaryActionColor} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>Ups</Text>
-        <Text style={styles.errorText}>{error}</Text>
-        <Pressable style={styles.retryButton} onPress={refresh}>
-          <Text style={styles.retryText}>Reintentar</Text>
+      <View style={[styles.errorContainer, { backgroundColor: userTokens.background }]}>
+        <Text style={[styles.errorTitle, { color: userTokens.textPrimary }]}>Ups</Text>
+        <Text style={[styles.errorText, { color: userTokens.textSecondary }]}>
+          {error}
+        </Text>
+        <Pressable
+          style={[styles.retryButton, { backgroundColor: primaryActionColor }]}
+          onPress={refresh}
+        >
+          <Text style={[styles.retryText, { color: primaryActionTextColor }]}>
+            Reintentar
+          </Text>
         </Pressable>
       </View>
     );
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: userTokens.background }]}>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -229,7 +239,12 @@ export default function MovementsScreen() {
           }}
           pointerEvents={isSearchMode ? "none" : "auto"}
         >
-          <View style={styles.periodNav}>
+          <View
+            style={[
+              styles.periodNav,
+              { backgroundColor: userTokens.surface, borderColor: userTokens.border },
+            ]}
+          >
             <PeriodSelector selected={selectedPeriod} onSelect={setPeriod} />
           </View>
         </Animated.View>
@@ -244,7 +259,9 @@ export default function MovementsScreen() {
           style={styles.recurrentLink}
           onPress={() => router.push("/(auth)/recurrentes")}
         >
-          <Text style={styles.recurrentLinkText}>Recurrentes →</Text>
+          <Text style={[styles.recurrentLinkText, { color: primaryActionColor }]}>
+            Recurrentes →
+          </Text>
         </Pressable>
 
         {unregisteredRecurrents.length > 0 ? (
@@ -268,12 +285,21 @@ export default function MovementsScreen() {
         />
 
         {isSearchMode && (
-          <View style={styles.searchModeBar}>
-            <Text style={styles.searchModeText}>
+          <View
+            style={[
+              styles.searchModeBar,
+              { backgroundColor: withAlpha(primaryActionColor, 0.14) },
+            ]}
+          >
+            <Text style={[styles.searchModeText, { color: primaryActionColor }]}>
               🔍 Mostrando resultados del periodo seleccionado
             </Text>
             <Pressable onPress={() => setSearchQuery("")}>
-              <MaterialCommunityIcons name="close" size={16} color={colors.accentBlue} />
+              <MaterialCommunityIcons
+                name="close"
+                size={16}
+                color={primaryActionColor}
+              />
             </Pressable>
           </View>
         )}
@@ -305,7 +331,10 @@ export default function MovementsScreen() {
             {activeTags.map((tag) => (
               <Pressable
                 key={`${tag.type}:${tag.id}`}
-                style={styles.activeTag}
+                style={[
+                  styles.activeTag,
+                  { backgroundColor: withAlpha(primaryActionColor, 0.14) },
+                ]}
                 onPress={() => {
                   if (tag.type === "type") {
                     toggleTypeFilter(tag.id as "income" | "expense");
@@ -320,12 +349,20 @@ export default function MovementsScreen() {
                   }
                 }}
               >
-                <Text style={styles.activeTagText}>{tag.label}</Text>
-                <MaterialCommunityIcons name="close" size={12} color={colors.accentBlue} />
+                <Text style={[styles.activeTagText, { color: primaryActionColor }]}>
+                  {tag.label}
+                </Text>
+                <MaterialCommunityIcons
+                  name="close"
+                  size={12}
+                  color={primaryActionColor}
+                />
               </Pressable>
             ))}
             <Pressable style={styles.clearAll} onPress={clearFilters}>
-              <Text style={styles.clearAllText}>Limpiar todo</Text>
+              <Text style={[styles.clearAllText, { color: userTokens.textSecondary }]}>
+                Limpiar todo
+              </Text>
             </Pressable>
           </View>
         )}
@@ -342,7 +379,7 @@ export default function MovementsScreen() {
                   : acc - movement.amountMinor,
               0n
             )}
-            dotColor={colors.pendingAmber}
+            dotColor={movementColors.pendingAmber}
             currencyCode={currencyCode}
             currencySymbol={currencySymbol}
             profilesById={profilesById}
@@ -364,7 +401,7 @@ export default function MovementsScreen() {
                 : acc - movement.amountMinor,
             0n
           )}
-          dotColor={colors.incomeGreen}
+          dotColor={movementColors.incomeGreen}
           currencyCode={currencyCode}
           currencySymbol={currencySymbol}
           profilesById={profilesById}
@@ -382,7 +419,6 @@ export default function MovementsScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.bg,
   },
   content: {
     padding: 16,
@@ -393,46 +429,38 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: colors.bg,
   },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
-    backgroundColor: colors.bg,
   },
   errorTitle: {
     fontSize: movementsDesignTokens.typography.sizes.xl,
     fontFamily: "DMSans-Bold",
-    color: colors.textPrimary,
   },
   errorText: {
     marginTop: 8,
     fontSize: movementsDesignTokens.typography.sizes.sm,
-    color: colors.textSecondary,
     textAlign: "center",
     fontFamily: "DMSans",
   },
   retryButton: {
     marginTop: 12,
-    backgroundColor: colors.accentBlue,
     borderRadius: movementsDesignTokens.radius.md,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
   retryText: {
-    color: colors.surface,
     fontFamily: "DMSans-SemiBold",
   },
   periodNavWrapper: {
     overflow: "hidden",
   },
   periodNav: {
-    backgroundColor: colors.surface,
     borderRadius: movementsDesignTokens.radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
     paddingVertical: 10,
     paddingHorizontal: 8,
   },
@@ -443,21 +471,18 @@ const styles = StyleSheet.create({
   },
   recurrentLinkText: {
     fontSize: movementsDesignTokens.typography.sizes.sm,
-    color: colors.accentBlue,
     fontFamily: "DMSans-Medium",
   },
   searchModeBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: colors.accentBlueBg,
     borderRadius: movementsDesignTokens.radius.md,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   searchModeText: {
     fontSize: movementsDesignTokens.typography.sizes.sm,
-    color: colors.accentBlue,
     fontFamily: "DMSans-Medium",
   },
   activeTags: {
@@ -470,14 +495,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: colors.accentBlueBg,
     borderRadius: movementsDesignTokens.radius.full,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   activeTagText: {
     fontSize: movementsDesignTokens.typography.sizes.xs,
-    color: colors.accentBlue,
     fontFamily: "DMSans-Medium",
   },
   clearAll: {
@@ -486,7 +509,6 @@ const styles = StyleSheet.create({
   },
   clearAllText: {
     fontSize: movementsDesignTokens.typography.sizes.xs,
-    color: colors.textSecondary,
     fontFamily: "DMSans-Medium",
   },
 });

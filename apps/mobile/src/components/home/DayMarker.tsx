@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from "react-native";
 import { themeTokens, formatMarkerBadge, type DayMarkerData } from "@poleursus/shared";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 type DayMarkerProps = DayMarkerData & {
   variant: "week" | "month";
@@ -26,6 +27,7 @@ export function DayMarker({
   isSelected = false,
   isToday = false,
 }: DayMarkerProps) {
+  const { primaryActionColor } = useUserTheme();
   // Don't render if no activity
   if (total === 0) return null;
 
@@ -78,7 +80,10 @@ export function DayMarker({
       <Text
         style={[
           styles.badge,
-          { color: isSelected ? colors.action.primary : colors.text.secondary },
+          {
+            color:
+              isSelected || isToday ? primaryActionColor : colors.text.secondary,
+          },
         ]}
       >
         {badgeText}

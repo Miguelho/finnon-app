@@ -712,8 +712,8 @@ export const es = {
           title: "Usuario",
           items: {
             details: {
-              title: "Detalles del usuario",
-              description: "Ver información de tu cuenta",
+              title: "Tu perfil",
+              description: "Avatar, invitaciones, tema e idioma",
             },
             language: {
               title: "Idioma",
@@ -785,6 +785,51 @@ export const es = {
       },
       loading: "Cargando datos del usuario...",
       error: "No se pudo cargar la información del usuario",
+    },
+    userProfile: {
+      title: "Tu perfil",
+      subtitle: "Personaliza tu experiencia en Finnon",
+      avatar: {
+        title: "Avatar",
+        hint: "Se muestra junto a tus movimientos",
+        colorLabel: "Color del avatar",
+      },
+      invitations: {
+        title: "Invitaciones pendientes",
+        from: "de {email}",
+        empty: "No tienes invitaciones pendientes",
+        unknownAccount: "Cuenta sin nombre",
+        unknownInviter: "Invitante desconocido",
+      },
+      theme: {
+        title: "Tema",
+        options: {
+          grafito: {
+            name: "Grafito",
+            description: "Neutro y sobrio",
+          },
+          oceano: {
+            name: "Océano",
+            description: "Calma y confianza",
+          },
+        },
+        modes: {
+          light: "Claro",
+          dark: "Oscuro",
+          system: "Sistema",
+        },
+      },
+      language: {
+        title: "Idioma",
+      },
+      errors: {
+        loadProfile: "No se pudo cargar tu perfil.",
+        notAuthenticated: "No hay sesión activa.",
+        saveAvatarColor: "No se pudo guardar el color del avatar.",
+        saveTheme: "No se pudo guardar el tema.",
+        saveColorMode: "No se pudo guardar el modo de color.",
+        saveLocale: "No se pudo guardar el idioma.",
+      },
     },
     language: {
       title: "Idioma",

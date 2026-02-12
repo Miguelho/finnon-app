@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { useWebUserTheme } from "@/components/theme/web-user-theme-provider";
 import {
   formatMoneyWithSymbol,
   themeTokens,
@@ -39,10 +40,10 @@ export function GoalHistoryHero({
   copy,
   monthNavigator,
 }: GoalHistoryHeroProps) {
+  const { tokens: userTokens } = useWebUserTheme();
   const isCompleted = view.completed;
-  const completionDay = view.completedAt
-    ? parseInt(view.completedAt.split("-")[2], 10)
-    : null;
+  const completionDayPart = view.completedAt?.split("-")[2];
+  const completionDay = completionDayPart ? parseInt(completionDayPart, 10) : null;
 
   const statusColor = isCompleted ? colors.state.positive : colors.state.negative;
   const statusBgColor = isCompleted
@@ -101,7 +102,7 @@ export function GoalHistoryHero({
               alignItems: "center",
               gap: tokens.spacing.xs,
               padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
-              borderRadius: tokens.radii.full,
+              borderRadius: tokens.radii.pill,
               backgroundColor: statusBgColor,
               color: statusColor,
               fontSize: tokens.typography.size.sm,
@@ -124,7 +125,7 @@ export function GoalHistoryHero({
               fontSize: tokens.typography.size.xs,
               textTransform: "uppercase",
               letterSpacing: "0.05em",
-              color: colors.text.secondary,
+              color: userTokens.textSecondary,
               fontWeight: tokens.typography.weight.medium,
             }}
           >
@@ -142,7 +143,7 @@ export function GoalHistoryHero({
           </h2>
           <p
             className="text-sm"
-            style={{ color: colors.text.secondary }}
+            style={{ color: userTokens.textSecondary }}
           >
             {copy.targetWas.replace("{amount}", formattedTarget)}
           </p>
@@ -151,7 +152,7 @@ export function GoalHistoryHero({
         {/* Progress bar */}
         <div
           className="h-2 w-full rounded-full"
-          style={{ backgroundColor: colors.state.neutral }}
+          style={{ backgroundColor: userTokens.border }}
           aria-hidden
         >
           <div
@@ -168,7 +169,7 @@ export function GoalHistoryHero({
           <p
             style={{
               fontSize: tokens.typography.size.sm,
-              color: colors.text.secondary,
+              color: userTokens.textSecondary,
             }}
           >
             {getDetailText()}

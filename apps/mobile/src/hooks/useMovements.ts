@@ -131,7 +131,7 @@ export function useMovements() {
       const { data, error: profileError } = await supabase
         .from("profiles")
         .select(
-          "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token"
+          "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
         )
         .in("user_id", userIds);
 

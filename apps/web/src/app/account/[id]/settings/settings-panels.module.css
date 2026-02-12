@@ -385,8 +385,8 @@
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  background: rgba(74, 108, 247, 0.12);
-  color: rgba(74, 108, 247, 1);
+  background: hsl(var(--primary) / 0.14);
+  color: hsl(var(--primary));
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;

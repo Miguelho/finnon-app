@@ -104,8 +104,8 @@ export function AddActionTrigger({
   const label = t("home.addCta");
   const triggerClassName =
     variant === "bottom-nav"
-      ? "relative -mt-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-900 text-white shadow-lg"
-      : "inline-flex items-center gap-2 rounded-full bg-gray-900 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-800 sm:px-4 sm:py-1.5";
+      ? "relative -mt-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+      : "inline-flex items-center gap-2 rounded-full bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70 sm:px-4 sm:py-1.5";
 
   return (
     <AddAction

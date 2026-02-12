@@ -11,6 +11,7 @@ import { supabase } from "../../src/lib/supabase";
 import { Card } from "../../src/components/Card";
 import { Button } from "../../src/components/Button";
 import { useAuth } from "../../src/contexts/AuthContext";
+import { useUserTheme } from "../../src/contexts/UserThemeContext";
 import { useRouter } from "expo-router";
 import { useCopy, t } from "../../src/lib/i18n";
 import { isExpired, themeTokens } from "@poleursus/shared";
@@ -32,6 +33,7 @@ export default function SelectAccountScreen() {
   const [isSwitching, setIsSwitching] = useState(false);
   const [inviteCount, setInviteCount] = useState(0);
   const { user, setSelectedAccountId } = useAuth();
+  const { tokens: userThemeTokens } = useUserTheme();
   const router = useRouter();
   const { dictionary } = useCopy();
   const { reportNetworkIssue } = useNetworkNotice();
@@ -126,7 +128,7 @@ export default function SelectAccountScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: userThemeTokens.background }]}>
         <ActivityIndicator size="large" color={colors.text.muted} />
       </View>
     );
@@ -134,7 +136,7 @@ export default function SelectAccountScreen() {
 
   if (error) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: userThemeTokens.background }]}>
         <Card title={t(dictionary, "mobile.selectAccount.errorTitle")} description={error}>
           <Text style={styles.errorText}>
             {t(dictionary, "mobile.selectAccount.errorDescription")}
@@ -146,7 +148,13 @@ export default function SelectAccountScreen() {
 
   if (accounts.length === 0) {
     return (
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={{ backgroundColor: userThemeTokens.background }}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { backgroundColor: userThemeTokens.background },
+        ]}
+      >
         <Card
           title={t(dictionary, "mobile.selectAccount.emptyTitle")}
           description={t(dictionary, "mobile.selectAccount.emptyDescription")}
@@ -173,7 +181,13 @@ export default function SelectAccountScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.scrollContent}>
+    <ScrollView
+      style={{ backgroundColor: userThemeTokens.background }}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { backgroundColor: userThemeTokens.background },
+      ]}
+    >
       <Card
         title={t(dictionary, "mobile.selectAccount.title")}
         description={t(dictionary, "mobile.selectAccount.description")}
@@ -212,14 +226,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: colors.bg.primary,
     padding: tokens.spacing.lg,
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
     padding: tokens.spacing.lg,
-    backgroundColor: colors.bg.primary,
   },
   accountsList: {
     gap: tokens.spacing.sm,

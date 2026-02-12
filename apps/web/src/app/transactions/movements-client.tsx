@@ -18,6 +18,7 @@ import {
   type TopCategory,
   type TransactionDraft,
   type AvatarColorToken,
+  type UserAvatarColorId,
 } from "@poleursus/shared";
 import { ChevronDown, Check, X, Search, Repeat } from "lucide-react";
 import { AddTransactionForm } from "@/components/add-transaction";
@@ -77,6 +78,7 @@ type Profile = {
   avatar_path: string | null;
   avatar_fallback_text: string | null;
   avatar_fallback_bg_token: AvatarColorToken | null;
+  avatar_color: UserAvatarColorId | null;
 };
 
 type MovementsClientProps = {
@@ -256,7 +258,7 @@ function FilterDropdown({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-[#6B6B6B] transition hover:bg-[#F5F5F5]"
+          className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted/60"
         >
           {label}
           {selectedIds.length > 0 ? ` (${selectedIds.length})` : ""}
@@ -277,7 +279,7 @@ function FilterDropdown({
               <button
                 key={option.id}
                 type="button"
-                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-[#F5F5F5]"
+                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted/60"
                 onClick={() => onToggle(option.id)}
               >
                 <span className="truncate">{option.name}</span>
@@ -377,25 +379,24 @@ function MovementsSummary({
   return (
     <div className="space-y-2">
       <div className="mb-[14px] text-center">
-        <div className="text-[11px] font-medium uppercase tracking-[0.5px] text-[#9B9B9B]">
+        <div className="text-[11px] font-medium uppercase tracking-[0.5px] text-muted-foreground">
           BALANCE
         </div>
         <div
-          className="text-[30px] font-bold tracking-[-1px]"
+          className="text-[30px] font-bold tracking-[-1px] text-foreground"
           style={{
-            color:
-              summary.balance < 0n ? design.colors.expenseRed : design.colors.textPrimary,
+            color: summary.balance < 0n ? design.colors.expenseRed : undefined,
           }}
         >
           {formatSignedAmount(summary.balance, currencyCode, currencySymbol)}
         </div>
-        <div className="text-xs text-[#9B9B9B]">
+        <div className="text-xs text-muted-foreground">
           {formatSignedAmount(summary.confirmedBalance, currencyCode, currencySymbol)} confirmado
         </div>
       </div>
 
       {summary.isEmpty ? (
-        <p className="mb-2 text-center text-sm font-medium text-[#9B9B9B]">
+        <p className="mb-2 text-center text-sm font-medium text-muted-foreground">
           Sin movimientos en este periodo
         </p>
       ) : (
@@ -470,7 +471,7 @@ function MovementsSummary({
             <button
               ref={infoButtonRef}
               type="button"
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#E5E5E5] text-[11px] font-semibold text-[#9B9B9B] transition hover:border-[#9B9B9B] hover:text-[#6B6B6B]"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] border-border text-[11px] font-semibold text-muted-foreground transition hover:border-muted-foreground hover:text-foreground"
               onClick={() => setIsTooltipOpen((prev) => !prev)}
               aria-label="Mostrar leyenda de colores"
             >
@@ -480,15 +481,15 @@ function MovementsSummary({
             {isTooltipOpen && (
               <div
                 ref={tooltipRef}
-                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[220px] rounded-[8px] bg-[#1A1A1A] px-[14px] py-[10px] text-white shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
+                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[220px] rounded-[8px] border border-border bg-card px-[14px] py-[10px] text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
               >
-                <span className="absolute right-[5px] top-[-5px] h-[10px] w-[10px] rotate-45 bg-[#1A1A1A]" />
+                <span className="absolute right-[5px] top-[-5px] h-[10px] w-[10px] rotate-45 border-l border-t border-border bg-card" />
                 <div className="flex items-center gap-2 py-0.5 text-xs">
-                  <span className="h-[6px] w-[10px] rounded-[3px] bg-white opacity-90" />
+                  <span className="h-[6px] w-[10px] rounded-[3px] bg-foreground opacity-90" />
                   <span>Color sólido = confirmado</span>
                 </div>
                 <div className="flex items-center gap-2 py-0.5 text-xs">
-                  <span className="h-[6px] w-[10px] rounded-[3px] bg-white opacity-35" />
+                  <span className="h-[6px] w-[10px] rounded-[3px] bg-foreground opacity-35" />
                   <span>Color suave = pendiente</span>
                 </div>
               </div>
@@ -510,7 +511,7 @@ function MovementsSummary({
                     ? formatIncomeAmount(summary.totalIncome, currencyCode, currencySymbol)
                     : formatExpenseAmount(summary.totalExpense, currencyCode, currencySymbol)}
                 </span>
-                <span className="text-[11px] text-[#9B9B9B]">
+                <span className="text-[11px] text-muted-foreground">
                   {summary.hasIncome
                     ? formatIncomeAmount(
                         summary.confirmedIncome,
@@ -526,7 +527,7 @@ function MovementsSummary({
                 </span>
               </div>
               <div className="flex flex-col items-end">
-                <span className="text-[13px] text-[#9B9B9B]">{movementCountLabel}</span>
+                <span className="text-[13px] text-muted-foreground">{movementCountLabel}</span>
               </div>
             </div>
           ) : (
@@ -535,7 +536,7 @@ function MovementsSummary({
                 <span className="text-sm font-bold" style={{ color: design.colors.incomeGreen }}>
                   {formatIncomeAmount(summary.totalIncome, currencyCode, currencySymbol)}
                 </span>
-                <span className="text-[11px] text-[#9B9B9B]">
+                <span className="text-[11px] text-muted-foreground">
                   {formatIncomeAmount(summary.confirmedIncome, currencyCode, currencySymbol)} confirmados
                 </span>
               </div>
@@ -543,7 +544,7 @@ function MovementsSummary({
                 <span className="text-sm font-bold" style={{ color: design.colors.expenseRed }}>
                   {formatExpenseAmount(summary.totalExpense, currencyCode, currencySymbol)}
                 </span>
-                <span className="text-[11px] text-[#9B9B9B]">
+                <span className="text-[11px] text-muted-foreground">
                   {formatExpenseAmount(summary.confirmedExpense, currencyCode, currencySymbol)} confirmados
                 </span>
               </div>
@@ -585,13 +586,13 @@ function MovementRow({
     <button
       type="button"
       className={cn(
-        "flex w-full items-center justify-between gap-4 rounded-xl border px-3 py-2 text-left transition hover:bg-[#F5F5F5]",
-        variant === "pending" && "bg-[#FFF8E6] border-[#F5D990]"
+        "flex w-full items-center justify-between gap-4 rounded-xl border border-border bg-card px-3 py-2 text-left transition hover:bg-muted/50",
+        variant === "pending" && "bg-amber-500/15 border-amber-500/35"
       )}
       onClick={() => onClick?.(movement.id)}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F5F5F5]">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
           <CategoryIcon
             iconKey={movement.categoryIconId ?? "Receipt"}
             size={18}
@@ -600,10 +601,10 @@ function MovementRow({
           />
         </div>
         <div className="min-w-0">
-          <div className="truncate text-sm font-medium text-[#1A1A1A]">
+          <div className="truncate text-sm font-medium text-foreground">
             {movement.title}
           </div>
-          <div className="truncate text-xs text-[#6B6B6B]">
+          <div className="truncate text-xs text-muted-foreground">
             {movement.categoryName}
             {movement.subcategory ? ` · ${movement.subcategory}` : ""}
           </div>
@@ -619,6 +620,7 @@ function MovementRow({
           avatarPath={profile?.avatar_path ?? null}
           fallbackText={profile?.avatar_fallback_text ?? null}
           fallbackBgToken={profile?.avatar_fallback_bg_token ?? null}
+          avatarColor={profile?.avatar_color ?? null}
           size={20}
         />
       </div>
@@ -668,20 +670,20 @@ function MovementGroup({
           className="h-2 w-2 rounded-full"
           style={{ backgroundColor: dotColor }}
         />
-        <span className="text-xs font-bold text-[#1A1A1A]">
+        <span className="text-xs font-bold text-foreground">
           {label.toUpperCase()}
         </span>
-        <span className="text-xs text-[#6B6B6B]">
+        <span className="text-xs text-muted-foreground">
           — {movements.length} movimientos
         </span>
         <div className="ml-auto flex items-center gap-3">
-          <span className="text-xs font-semibold text-[#1A1A1A]">
+          <span className="text-xs font-semibold text-foreground">
             {formattedTotalLabel}
           </span>
           {onToggleCollapse && (
             <button
               type="button"
-              className="text-xs font-medium text-[#6B6B6B]"
+              className="text-xs font-medium text-muted-foreground"
               onClick={onToggleCollapse}
             >
               {isCollapsed ? "Mostrar" : "Ocultar"}
@@ -692,9 +694,9 @@ function MovementGroup({
       {!isCollapsed &&
         grouped.map(([date, items]) => (
           <div key={date} className="space-y-2">
-            <div className="flex items-center gap-2 text-xs text-[#6B6B6B]">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>{formatDateLabel(date, locale)}</span>
-              <span className="h-px flex-1 bg-[#F0F0F0]" />
+              <span className="h-px flex-1 bg-border" />
             </div>
             <div className="space-y-2">
               {items.map((movement) => (
@@ -769,7 +771,7 @@ function RecurrentSection({
           </span>
           <button
             type="button"
-            className="text-xs text-[#6B6B6B]"
+            className="text-xs text-muted-foreground"
             onClick={onToggleCollapse}
           >
             {isCollapsed ? "Mostrar" : "Ocultar"}
@@ -856,7 +858,7 @@ function RecurrentCard({
       }}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
           <CategoryIcon
             iconKey={item.categoryIconId ?? "Receipt"}
             size={16}
@@ -865,16 +867,16 @@ function RecurrentCard({
           />
         </div>
         <div className="min-w-0">
-          <div className="truncate text-sm font-medium text-[#1A1A1A]">
+          <div className="truncate text-sm font-medium text-foreground">
             {item.title}
           </div>
-          <div className="truncate text-xs text-[#6B6B6B]">
+          <div className="truncate text-xs text-muted-foreground">
             {metaParts.join(" · ")}
           </div>
         </div>
       </div>
       <div className="flex flex-col items-end gap-2">
-        <span className="text-sm font-semibold text-[#1A1A1A]">{amountLabel}</span>
+        <span className="text-sm font-semibold text-foreground">{amountLabel}</span>
         <button
           type="button"
           className="rounded-full px-3 py-1 text-[11px] font-semibold text-white disabled:opacity-60"
@@ -1272,7 +1274,7 @@ export function MovementsClient({
   return (
     <PageContainer className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-[#1A1A1A]">Movimientos</h1>
+        <h1 className="text-3xl font-bold text-foreground">Movimientos</h1>
       </div>
 
       <div
@@ -1293,7 +1295,7 @@ export function MovementsClient({
         <div className="flex justify-end">
           <button
             type="button"
-            className="text-xs font-medium text-[#0065FF]"
+            className="text-xs font-medium text-primary"
             onClick={() => router.push("/recurrentes")}
           >
             Recurrentes →
@@ -1317,10 +1319,10 @@ export function MovementsClient({
       ) : null}
 
       <div className="space-y-3">
-        <div className="relative flex items-center gap-2 rounded-xl border bg-white px-3 py-2">
-          <Search size={16} className="text-[#9B9B9B]" />
+        <div className="relative flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
+          <Search size={16} className="text-muted-foreground" />
           <input
-            className="flex-1 text-sm outline-none placeholder:text-[#9B9B9B]"
+            className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
             placeholder="Buscar movimiento, comercio, importe..."
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
@@ -1328,19 +1330,19 @@ export function MovementsClient({
             onBlur={() => setIsSearchFocused(false)}
           />
           {(isSearchFocused || searchQuery.trim().length > 0) && (
-            <span className="rounded-full bg-[#E6F0FF] px-2 py-1 text-[10px] font-semibold text-[#0065FF]">
+            <span className="rounded-full bg-primary/15 px-2 py-1 text-[10px] font-semibold text-primary">
               Búsqueda en periodo
             </span>
           )}
           {searchQuery.trim().length > 0 && (
             <button type="button" onClick={() => setSearchQuery("")}>
-              <X size={14} className="text-[#9B9B9B]" />
+              <X size={14} className="text-muted-foreground" />
             </button>
           )}
         </div>
 
         {isSearchMode && (
-          <div className="flex items-center justify-between rounded-xl bg-[#E6F0FF] px-3 py-2 text-xs font-medium text-[#0065FF]">
+          <div className="flex items-center justify-between rounded-xl bg-primary/15 px-3 py-2 text-xs font-medium text-primary">
             🔍 Mostrando resultados del periodo seleccionado
             <button type="button" onClick={() => setSearchQuery("")}>
               <X size={12} />
@@ -1354,8 +1356,8 @@ export function MovementsClient({
             className={cn(
               "flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium",
               typeFilters.includes("income")
-                ? "border-[#1A1A1A] bg-[#1A1A1A] text-white"
-                : "border-neutral-200 bg-white text-[#6B6B6B]"
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-muted-foreground"
             )}
             onClick={() => toggleTypeFilter("income")}
           >
@@ -1366,14 +1368,14 @@ export function MovementsClient({
             className={cn(
               "flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium",
               typeFilters.includes("expense")
-                ? "border-[#1A1A1A] bg-[#1A1A1A] text-white"
-                : "border-neutral-200 bg-white text-[#6B6B6B]"
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-muted-foreground"
             )}
             onClick={() => toggleTypeFilter("expense")}
           >
             Gastos <span className="text-[10px]">{counts.expense}</span>
           </button>
-          <span className="mx-1 h-5 w-px bg-[#E5E5E5]" />
+          <span className="mx-1 h-5 w-px bg-border" />
           <FilterDropdown
             label="Categoría"
             options={categoryOptions}
@@ -1402,7 +1404,7 @@ export function MovementsClient({
               <button
                 key={`${tag.type}:${tag.id}`}
                 type="button"
-                className="flex items-center gap-2 rounded-full bg-[#E6F0FF] px-3 py-1 text-[11px] font-semibold text-[#0065FF]"
+                className="flex items-center gap-2 rounded-full bg-primary/15 px-3 py-1 text-[11px] font-semibold text-primary"
                 onClick={() => {
                   if (tag.type === "type") {
                     toggleTypeFilter(tag.id as "income" | "expense");
@@ -1421,7 +1423,7 @@ export function MovementsClient({
             ))}
             <button
               type="button"
-              className="text-[11px] font-medium text-[#6B6B6B]"
+              className="text-[11px] font-medium text-muted-foreground"
               onClick={clearFilters}
             >
               Limpiar todo

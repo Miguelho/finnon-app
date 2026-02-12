@@ -3,10 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
+  getAvatarInitials,
+  getUserAvatarColor,
   resolveAvatarColor,
   resolveAvatarFallback,
   themeTokens,
   type AvatarColorToken,
+  type UserAvatarColorId,
+  USER_AVATAR_COLORS,
 } from "@poleursus/shared";
 
 type UserAvatarProps = {
@@ -15,6 +19,7 @@ type UserAvatarProps = {
   avatarPath?: string | null;
   fallbackText?: string | null;
   fallbackBgToken?: AvatarColorToken | null;
+  avatarColor?: UserAvatarColorId | null;
   size?: number;
   label?: string;
   className?: string;
@@ -31,6 +36,7 @@ export function UserAvatar({
   avatarPath,
   fallbackText,
   fallbackBgToken,
+  avatarColor,
   size = 26,
   label,
   className,
@@ -54,6 +60,15 @@ export function UserAvatar({
   const background = useMemo(
     () => resolveAvatarColor(tokens, fallback.bgToken),
     [fallback.bgToken]
+  );
+  const avatarPalette = useMemo(
+    () =>
+      avatarColor ? USER_AVATAR_COLORS[getUserAvatarColor(avatarColor)] : null,
+    [avatarColor]
+  );
+  const preferredFallbackText = useMemo(
+    () => (avatarPalette ? getAvatarInitials(email) : fallback.text),
+    [avatarPalette, email, fallback.text]
   );
 
   useEffect(() => {
@@ -106,7 +121,7 @@ export function UserAvatar({
     return (
       <img
         src={avatarUrl}
-        alt={label ?? fallback.text}
+        alt={label ?? preferredFallbackText}
         title={label}
         width={size}
         height={size}
@@ -119,7 +134,7 @@ export function UserAvatar({
 
   return (
     <div
-      aria-label={label ?? fallback.text}
+      aria-label={label ?? preferredFallbackText}
       title={label}
       className={`flex items-center justify-center rounded-full text-xs font-semibold uppercase ${
         className ?? ""
@@ -127,11 +142,11 @@ export function UserAvatar({
       style={{
         width: size,
         height: size,
-        backgroundColor: background,
-        color: colors.text.primary,
+        backgroundColor: avatarPalette?.bg ?? background,
+        color: avatarPalette?.fg ?? colors.text.primary,
       }}
     >
-      {fallback.text}
+      {preferredFallbackText}
     </div>
   );
 }

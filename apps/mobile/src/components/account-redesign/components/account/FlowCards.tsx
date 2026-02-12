@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, radii } from '../../theme/tokens';
 import { formatCurrency, formatDelta } from '../../utils/currency';
 import type { FlowSummary } from '../../types/account';
+import { useUserTheme } from '../../../../contexts/UserThemeContext';
 
 interface FlowCardsProps {
   flow: FlowSummary;
@@ -19,6 +20,7 @@ export function FlowCards({
   onIncomePress,
   onExpensePress,
 }: FlowCardsProps) {
+  const { tokens: userTokens } = useUserTheme();
   const income = formatCurrency(flow.totalIncome, { currency, decimals });
   const expense = formatCurrency(flow.totalExpense, { currency, decimals });
   const incomeDelta = formatDelta(flow.incomeDelta);
@@ -30,7 +32,7 @@ export function FlowCards({
       <Pressable
         style={({ pressed }) => [
           styles.card,
-          styles.incomeCard,
+          { backgroundColor: userTokens.surface, borderColor: userTokens.border },
           pressed && styles.cardPressed,
         ]}
         onPress={onIncomePress}
@@ -56,7 +58,7 @@ export function FlowCards({
       <Pressable
         style={({ pressed }) => [
           styles.card,
-          styles.expenseCard,
+          { backgroundColor: userTokens.surface, borderColor: userTokens.border },
           pressed && styles.cardPressed,
         ]}
         onPress={onExpensePress}
@@ -93,14 +95,6 @@ const styles = StyleSheet.create({
     padding: spacing['2xl'],
     borderRadius: radii.lg,
     borderWidth: 1,
-  },
-  incomeCard: {
-    backgroundColor: colors.incomeBg,
-    borderColor: colors.incomeLight,
-  },
-  expenseCard: {
-    backgroundColor: colors.expenseBg,
-    borderColor: colors.expenseLight,
   },
   cardPressed: {
     opacity: 0.85,

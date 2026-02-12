@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { themeTokens } from "@poleursus/shared";
+import { useUserTheme } from "../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -24,11 +25,22 @@ export function Button({
   loading,
   variant = "primary",
 }: ButtonProps) {
+  const {
+    tokens: userTokens,
+    primaryActionColor,
+    primaryActionTextColor,
+  } = useUserTheme();
+
   return (
     <TouchableOpacity
       style={[
         styles.button,
+        variant === "primary" && { backgroundColor: primaryActionColor },
         variant === "secondary" && styles.buttonSecondary,
+        variant === "secondary" && {
+          borderColor: userTokens.border,
+          backgroundColor: userTokens.surface,
+        },
         disabled && styles.buttonDisabled,
       ]}
       onPress={onPress}
@@ -36,13 +48,17 @@ export function Button({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === "primary" ? colors.bg.primary : colors.text.primary}
+          color={
+            variant === "primary" ? primaryActionTextColor : userTokens.textPrimary
+          }
         />
       ) : (
         <Text
           style={[
             styles.buttonText,
+            variant === "primary" && { color: primaryActionTextColor },
             variant === "secondary" && styles.buttonTextSecondary,
+            variant === "secondary" && { color: userTokens.textPrimary },
           ]}
         >
           {title}
@@ -54,16 +70,13 @@ export function Button({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: colors.text.primary,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: tokens.radii.md,
     alignItems: "center",
   },
   buttonSecondary: {
-    backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: colors.state.neutral,
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -74,6 +87,5 @@ const styles = StyleSheet.create({
     fontWeight: tokens.typography.weight.semibold,
   },
   buttonTextSecondary: {
-    color: colors.text.primary,
   },
 });

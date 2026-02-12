@@ -10,9 +10,9 @@ import { cn } from "@/lib/utils";
 import {
   buildSettingsMenuVM,
   getDictionary,
+  isExpired,
   navigationItems,
   t,
-  themeTokens,
   type AvatarColorToken,
 } from "@poleursus/shared";
 import { Plus } from "lucide-react";
@@ -70,8 +70,8 @@ export async function TopNav({ containerClassName }: TopNavProps) {
     .maybeSingle();
 
   const cookieStore = await cookies();
-  const locale = cookieStore.get("NEXT_LOCALE")?.value || "es";
-  const dictionary = getDictionary(locale);
+  const locale = cookieStore.get("NEXT_LOCALE")?.value === "en" ? "en" : "es";
+  const dictionary = getDictionary(locale) as any;
   const homeAriaLabel = locale === "es" ? "Ir a inicio" : "Go to home";
   const activeAccountId =
     cookieStore.get("finnon:activeAccountId")?.value ??
@@ -87,12 +87,36 @@ export async function TopNav({ containerClassName }: TopNavProps) {
   const settingsLabelKey =
     navigationItems.find((item) => item.key === "settings")?.labelKey ??
     ("navigation.settings" as const);
-  const settingsLabel = t(dictionary, settingsLabelKey);
+  const settingsLabel = t(dictionary as any, settingsLabelKey as any) as string;
   const openSettingsLabel = locale === "es" ? "Abrir ajustes" : "Open settings";
   const actionsLabel = locale === "es" ? "Acciones" : "Actions";
-  const settingsMenu = buildSettingsMenuVM(dictionary, "web", {
+  const settingsMenu = buildSettingsMenuVM(dictionary as any, "web", {
     accountId: activeAccountId,
   });
+  const inviteEmail = user.email?.trim().toLowerCase();
+  const inviteFilters: string[] = [];
+
+  if (inviteEmail) {
+    inviteFilters.push(
+      `invited_email.ilike.${inviteEmail}`,
+      `invitee_email.ilike.${inviteEmail}`
+    );
+  }
+
+  if (user.id) {
+    inviteFilters.push(`invitee_user_id.eq.${user.id}`);
+  }
+
+  const { data: pendingInviteRows } = inviteFilters.length
+    ? await supabase
+        .from("invites")
+        .select("id, expires_at, status, invited_email, invitee_email, invitee_user_id")
+        .or(inviteFilters.join(","))
+        .eq("status", "pending")
+    : { data: [] as Array<{ expires_at: string }> };
+  const pendingInviteCount = (pendingInviteRows ?? []).filter(
+    (invite) => !isExpired(invite.expires_at)
+  ).length;
 
   const formatTimeAgo = (value: Date, currentLocale: string) => {
     const diffMs = Date.now() - value.getTime();
@@ -119,8 +143,14 @@ export async function TopNav({ containerClassName }: TopNavProps) {
       : `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
   };
 
-  const colors = themeTokens.light.colors;
-  const navItems = [
+  const shellBackgroundColor = "hsl(var(--background))";
+  const shellBorderColor = "hsl(var(--border))";
+  const shellTextColor = "hsl(var(--foreground))";
+  const navItems: Array<{
+    href: string;
+    label: string;
+    iconKey: "home" | "transactions" | "goal" | "account";
+  }> = [
     { href: "/", label: t(dictionary, "navigation.home"), iconKey: "home" },
     {
       href: "/transactions",
@@ -232,8 +262,8 @@ export async function TopNav({ containerClassName }: TopNavProps) {
     <div
       className="sticky top-0 z-10 w-full border-b"
       style={{
-        backgroundColor: colors.bg.primary,
-        borderColor: colors.state.neutral,
+        backgroundColor: shellBackgroundColor,
+        borderColor: shellBorderColor,
       }}
     >
       <div className={containerClasses}>
@@ -243,7 +273,7 @@ export async function TopNav({ containerClassName }: TopNavProps) {
             href="/"
             aria-label={homeAriaLabel}
             className="flex items-center gap-2 rounded-md px-2 py-1"
-            style={{ color: colors.text.primary }}
+            style={{ color: shellTextColor }}
           >
             <FinnonMark mode="iconWordmark" size="lg" />
           </Link>
@@ -264,14 +294,17 @@ export async function TopNav({ containerClassName }: TopNavProps) {
             ) : (
               <Link
                 href="/transactions?new=1"
-                className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-800 sm:px-4 sm:py-1.5"
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 sm:px-4 sm:py-1.5"
               >
                 <Plus className="h-4 w-4" />
                 <span className="hidden sm:inline">Añadir</span>
               </Link>
             )}
           </div>
-          <NotificationDropdown notifications={notifications} />
+          <NotificationDropdown
+            notifications={notifications}
+            badgeCount={pendingInviteCount}
+          />
           <SettingsDrawer
             settingsLabel={settingsLabel}
             openLabel={openSettingsLabel}

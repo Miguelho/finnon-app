@@ -83,9 +83,9 @@ export function Calendar({
   const data = isWeek ? weekData : monthData;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
       <div className="flex items-center justify-between px-5 pt-4">
-        <h3 className="text-[15px] font-semibold text-gray-900">Calendario</h3>
+        <h3 className="text-[15px] font-semibold text-foreground">Calendario</h3>
       </div>
 
       <div className="mt-3 flex items-center gap-1.5 px-5">
@@ -94,8 +94,8 @@ export function Calendar({
           onClick={() => onViewChange("week")}
           className={`rounded-2xl px-3 py-1 text-[13px] font-medium transition-all ${
             isWeek
-              ? "bg-gray-900 text-white"
-              : "text-gray-400 hover:text-gray-600"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-primary"
           }`}
         >
           Semana
@@ -105,8 +105,8 @@ export function Calendar({
           onClick={() => onViewChange("month")}
           className={`rounded-2xl px-3 py-1 text-[13px] font-medium transition-all ${
             !isWeek
-              ? "bg-gray-900 text-white"
-              : "text-gray-400 hover:text-gray-600"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-primary"
           }`}
         >
           Mes
@@ -116,17 +116,17 @@ export function Calendar({
           <button
             type="button"
             onClick={onPrevPeriod}
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-colors hover:bg-gray-50"
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted/50"
           >
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
-          <span className="text-[13px] font-medium text-gray-500">
+          <span className="text-[13px] font-medium text-muted-foreground">
             {data?.period}
           </span>
           <button
             type="button"
             onClick={onNextPeriod}
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-colors hover:bg-gray-50"
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted/50"
           >
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
@@ -146,22 +146,30 @@ export function Calendar({
                   onClick={() => onSelectDay(day.date)}
                   className={`flex flex-col items-center rounded-lg px-1 py-2 transition-all ${
                     isToday
-                      ? "bg-gray-900 text-white"
+                      ? "bg-primary text-primary-foreground"
                       : isSelected
-                      ? "bg-blue-50"
-                      : "hover:bg-gray-50"
+                      ? "bg-primary/10"
+                      : "hover:bg-muted/50"
                   }`}
                 >
                   <span
                     className={`text-[11px] font-medium uppercase tracking-wide ${
-                      isToday ? "text-white/60" : "text-gray-400"
+                      isToday
+                        ? "text-primary-foreground/70"
+                        : isSelected
+                        ? "text-primary"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {day.dayLabel}
                   </span>
                   <span
                     className={`text-lg font-semibold leading-tight ${
-                      isToday ? "text-white" : "text-gray-900"
+                      isToday
+                        ? "text-primary-foreground"
+                        : isSelected
+                        ? "text-primary"
+                        : "text-foreground"
                     }`}
                   >
                     {day.dayNumber}
@@ -182,7 +190,7 @@ export function Calendar({
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4 px-5 pb-1">
-            <span className="flex items-center gap-1 text-xs text-gray-400">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
               Ingresos{" "}
               <span
                 className={`font-medium text-green-600 ${monoClassName ?? ""}`}
@@ -190,7 +198,7 @@ export function Calendar({
                 +{weekData.netIncome}
               </span>
             </span>
-            <span className="flex items-center gap-1 text-xs text-gray-400">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
               Gastos{" "}
               <span
                 className={`font-medium text-red-600 ${monoClassName ?? ""}`}
@@ -198,10 +206,10 @@ export function Calendar({
                 -{weekData.netExpense}
               </span>
             </span>
-            <span className="flex items-center gap-1 text-xs text-gray-400">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
               Neto{" "}
               <span
-                className={`font-semibold text-gray-900 ${monoClassName ?? ""}`}
+                className={`font-semibold text-foreground ${monoClassName ?? ""}`}
               >
                 {weekData.net}
               </span>
@@ -215,7 +223,7 @@ export function Calendar({
           {["L", "M", "X", "J", "V", "S", "D"].map((label) => (
             <div
               key={label}
-              className="py-1 text-center text-[10px] font-medium uppercase tracking-wide text-gray-400"
+              className="py-1 text-center text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
             >
               {label}
             </div>
@@ -231,15 +239,19 @@ export function Calendar({
                   day.isOtherMonth
                     ? "opacity-30"
                     : day.isToday
-                    ? "bg-gray-900"
+                    ? "bg-primary"
                     : isSelected
-                    ? "bg-blue-50"
-                    : "hover:bg-gray-50"
+                    ? "bg-primary/10 ring-1 ring-primary/20"
+                    : "hover:bg-muted/50"
                 }`}
               >
                 <span
                   className={`text-sm font-medium ${
-                    day.isToday ? "text-white" : "text-gray-900"
+                    day.isToday
+                      ? "text-primary-foreground"
+                      : isSelected
+                      ? "text-primary"
+                      : "text-foreground"
                   }`}
                 >
                   {day.dayNumber}
@@ -281,8 +293,8 @@ type DayDetailProps = {
 
 function DayDetail({ day, currencySymbol, locale, monoClassName }: DayDetailProps) {
   return (
-    <div className="border-t border-gray-200 px-5 py-4">
-      <p className="mb-3 text-xs font-medium uppercase tracking-wide text-gray-400">
+    <div className="border-t border-border px-5 py-4">
+      <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {day.formattedLabel}
       </p>
       {day.movements.length > 0 ? (
@@ -296,7 +308,7 @@ function DayDetail({ day, currencySymbol, locale, monoClassName }: DayDetailProp
           />
         ))
       ) : (
-        <p className="text-sm text-gray-400">No hay movimientos este día.</p>
+        <p className="text-sm text-muted-foreground">No hay movimientos este día.</p>
       )}
     </div>
   );
@@ -318,25 +330,25 @@ function MovementRow({ movement, currencySymbol, locale, monoClassName }: Moveme
   );
 
   return (
-    <div className="flex items-center justify-between border-t border-gray-50 py-2.5 first:border-t-0">
+    <div className="flex items-center justify-between border-t border-border/50 py-2.5 first:border-t-0">
       <div className="flex items-center gap-3">
         <div
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-base ${
-            isIncome ? "bg-green-50" : "bg-red-50"
+            isIncome ? "bg-green-500/15" : "bg-red-500/15"
           }`}
         >
           {isIncome ? "↑" : "↓"}
         </div>
         <div>
-          <p className="text-sm font-medium text-gray-900">
+          <p className="text-sm font-medium text-foreground">
             {movement.name}
             {movement.badge ? (
-              <span className="ml-2 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
+              <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                 {movement.badge}
               </span>
             ) : null}
           </p>
-          <p className="text-xs text-gray-400">{movement.category ?? ""}</p>
+          <p className="text-xs text-muted-foreground">{movement.category ?? ""}</p>
         </div>
       </div>
       <span

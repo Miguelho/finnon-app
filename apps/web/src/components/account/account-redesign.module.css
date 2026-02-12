@@ -509,11 +509,22 @@
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: var(--surface-alt);
+  background: var(--surface);
+  border: 1px solid var(--border-light);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.txIconIncome {
+  background: var(--income-bg);
+  border-color: var(--income-light);
+}
+
+.txIconExpense {
+  background: var(--expense-bg);
+  border-color: var(--expense-light);
 }
 
 .txInfo {

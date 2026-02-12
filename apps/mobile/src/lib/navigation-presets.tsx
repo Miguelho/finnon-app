@@ -1,8 +1,11 @@
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { type HeaderBackButtonProps } from "@react-navigation/elements";
 import { themeTokens } from "@poleursus/shared";
+import { useAuth } from "../contexts/AuthContext";
+import { useUserTheme } from "../contexts/UserThemeContext";
 import { AppHeaderAvatar } from "../components/navigation/AppHeaderAvatar";
 import { AppHeaderBackButton } from "../components/navigation/AppHeaderBackButton";
+import { AppHeaderInvitesButton } from "../components/navigation/AppHeaderInvitesButton";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -10,14 +13,19 @@ const colors = tokens.colors;
 type HeaderTitleProps = {
   children?: string;
   maxWidth: number;
+  textColor: string;
 };
 
-function HeaderTitle({ children, maxWidth }: HeaderTitleProps) {
+function HeaderTitle({ children, maxWidth, textColor }: HeaderTitleProps) {
   const title = typeof children === "string" ? children : "";
 
   return (
     <View style={[styles.headerTitleContainer, { maxWidth }]}>
-      <Text numberOfLines={1} ellipsizeMode="tail" style={styles.headerTitleText}>
+      <Text
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        style={[styles.headerTitleText, { color: textColor }]}
+      >
         {title}
       </Text>
     </View>
@@ -26,11 +34,17 @@ function HeaderTitle({ children, maxWidth }: HeaderTitleProps) {
 
 export function useStackScreenOptions() {
   const { width } = useWindowDimensions();
+  const { session } = useAuth();
+  const { tokens: userTokens } = useUserTheme();
   const titleMaxWidth = Math.max(0, width - tokens.spacing.xxxl * 2);
+  const shellBackground = session ? userTokens.background : colors.bg.primary;
+  const shellTextPrimary = session ? userTokens.textPrimary : colors.text.primary;
 
   return {
     headerTitle: ({ children }: { children?: string }) => (
-      <HeaderTitle maxWidth={titleMaxWidth}>{children}</HeaderTitle>
+      <HeaderTitle maxWidth={titleMaxWidth} textColor={shellTextPrimary}>
+        {children}
+      </HeaderTitle>
     ),
     headerTitleContainerStyle: {
       maxWidth: titleMaxWidth,
@@ -40,13 +54,18 @@ export function useStackScreenOptions() {
     headerTitleStyle: {
       fontSize: tokens.typography.size.lg,
       fontWeight: tokens.typography.weight.bold,
-      color: colors.text.primary,
+      color: shellTextPrimary,
     },
     headerLeft: (props: HeaderBackButtonProps) => <AppHeaderBackButton {...props} />,
-    headerRight: () => <AppHeaderAvatar />,
-    headerTintColor: colors.text.primary,
+    headerRight: () => (
+      <View style={styles.headerRight}>
+        <AppHeaderInvitesButton />
+        <AppHeaderAvatar />
+      </View>
+    ),
+    headerTintColor: shellTextPrimary,
     headerStyle: {
-      backgroundColor: colors.bg.primary,
+      backgroundColor: shellBackground,
     },
     headerShadowVisible: false,
     headerBackTitleVisible: false,
@@ -84,6 +103,10 @@ export const tabBarBaseOptions = {
 };
 
 const styles = StyleSheet.create({
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   headerTitleContainer: {
     flexShrink: 1,
     alignItems: "flex-start",
@@ -91,6 +114,5 @@ const styles = StyleSheet.create({
   headerTitleText: {
     fontSize: tokens.typography.size.lg,
     fontWeight: tokens.typography.weight.bold,
-    color: colors.text.primary,
   },
 });

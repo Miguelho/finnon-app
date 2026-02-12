@@ -7,9 +7,10 @@ import {
   Animated,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { isCategoryIconKey, formatMinorToMoney } from "@poleursus/shared";
+import { isCategoryIconKey, formatMinorToMoney, withAlpha } from "@poleursus/shared";
 import { CategoryIcon } from "../CategoryIcon";
 import { movementsDesignTokens, type RecurringTemplate } from "../../types/movements";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 type RecurrentSectionProps = {
   recurrents: RecurringTemplate[];
@@ -23,8 +24,6 @@ type RecurrentSectionProps = {
   locale?: string;
 };
 
-const colors = movementsDesignTokens.colors;
-
 export function RecurrentSection({
   recurrents,
   totalAmount,
@@ -36,6 +35,8 @@ export function RecurrentSection({
   onToggleCollapse,
   locale,
 }: RecurrentSectionProps) {
+  const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
+    useUserTheme();
   const count = recurrents.length;
   const formattedTotal = useMemo(() => {
     const absoluteValue = totalAmount < 0n ? -totalAmount : totalAmount;
@@ -47,21 +48,35 @@ export function RecurrentSection({
   if (count === 0) return null;
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: withAlpha(primaryActionColor, 0.1),
+          borderColor: withAlpha(primaryActionColor, 0.35),
+        },
+      ]}
+    >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <MaterialCommunityIcons
             name="repeat"
             size={18}
-            color={colors.recurrentPurple}
+            color={primaryActionColor}
           />
-          <Text style={styles.headerTitle}>Por registrar</Text>
-          <Text style={styles.headerCount}>{count}</Text>
+          <Text style={[styles.headerTitle, { color: primaryActionColor }]}>
+            Por registrar
+          </Text>
+          <Text style={[styles.headerCount, { color: primaryActionColor }]}>
+            {count}
+          </Text>
         </View>
         <View style={styles.headerRight}>
-          <Text style={styles.headerAmount}>({formattedTotal})</Text>
+          <Text style={[styles.headerAmount, { color: primaryActionColor }]}>
+            ({formattedTotal})
+          </Text>
           <Pressable onPress={onToggleCollapse} hitSlop={8}>
-            <Text style={styles.headerToggle}>
+            <Text style={[styles.headerToggle, { color: userTokens.textSecondary }]}>
               {isCollapsed ? "Mostrar" : "Ocultar"}
             </Text>
           </Pressable>
@@ -82,8 +97,11 @@ export function RecurrentSection({
               />
             ))}
           </View>
-          <Pressable style={styles.registerAll} onPress={onRegisterAll}>
-            <Text style={styles.registerAllText}>
+          <Pressable
+            style={[styles.registerAll, { backgroundColor: primaryActionColor }]}
+            onPress={onRegisterAll}
+          >
+            <Text style={[styles.registerAllText, { color: primaryActionTextColor }]}>
               Registrar todos ({count})
             </Text>
           </Pressable>
@@ -108,6 +126,8 @@ function RecurrentCard({
   onRegister,
   locale,
 }: RecurrentCardProps) {
+  const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
+    useUserTheme();
   const [isRemoving, setIsRemoving] = useState(false);
   const translateX = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(1)).current;
@@ -153,9 +173,17 @@ function RecurrentCard({
 
   return (
     <Animated.View style={{ transform: [{ translateX }], opacity }}>
-      <View style={styles.card}>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: withAlpha(primaryActionColor, 0.08),
+            borderColor: withAlpha(primaryActionColor, 0.32),
+          },
+        ]}
+      >
         <View style={styles.cardLeft}>
-          <View style={styles.iconBox}>
+          <View style={[styles.iconBox, { backgroundColor: userTokens.surface }]}>
             <CategoryIcon
               iconKey={iconKey}
               size={16}
@@ -164,18 +192,25 @@ function RecurrentCard({
             />
           </View>
           <View style={styles.cardInfo}>
-            <Text style={styles.cardTitle} numberOfLines={1}>
+            <Text style={[styles.cardTitle, { color: userTokens.textPrimary }]} numberOfLines={1}>
               {item.title}
             </Text>
-            <Text style={styles.cardMeta} numberOfLines={1}>
+            <Text style={[styles.cardMeta, { color: userTokens.textSecondary }]} numberOfLines={1}>
               {metaParts.join(" · ")}
             </Text>
           </View>
         </View>
         <View style={styles.cardRight}>
-          <Text style={styles.cardAmount}>{amountLabel}</Text>
-          <Pressable style={styles.registerButton} onPress={handleRegister}>
-            <Text style={styles.registerButtonText}>Registrar</Text>
+          <Text style={[styles.cardAmount, { color: userTokens.textPrimary }]}>
+            {amountLabel}
+          </Text>
+          <Pressable
+            style={[styles.registerButton, { backgroundColor: primaryActionColor }]}
+            onPress={handleRegister}
+          >
+            <Text style={[styles.registerButtonText, { color: primaryActionTextColor }]}>
+              Registrar
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -185,10 +220,8 @@ function RecurrentCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.recurrentPurpleBg,
     borderRadius: movementsDesignTokens.radius.md,
     borderWidth: 1,
-    borderColor: colors.recurrentPurpleBorder,
     padding: 12,
   },
   header: {
@@ -209,22 +242,18 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: movementsDesignTokens.typography.sizes.md,
-    color: colors.recurrentPurple,
     fontFamily: "DMSans-SemiBold",
   },
   headerCount: {
     fontSize: movementsDesignTokens.typography.sizes.sm,
-    color: colors.recurrentPurple,
     fontFamily: "DMSans",
   },
   headerAmount: {
     fontSize: movementsDesignTokens.typography.sizes.sm,
-    color: colors.recurrentPurple,
     fontFamily: "DMSans-SemiBold",
   },
   headerToggle: {
     fontSize: movementsDesignTokens.typography.sizes.sm,
-    color: colors.textSecondary,
     fontFamily: "DMSans-Medium",
   },
   cards: {
@@ -235,10 +264,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 10,
-    backgroundColor: colors.recurrentPurpleBg,
     borderRadius: movementsDesignTokens.radius.md,
     borderWidth: 1,
-    borderColor: colors.recurrentPurpleBorder,
     padding: 10,
   },
   cardLeft: {
@@ -251,7 +278,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: movementsDesignTokens.radius.sm,
-    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -260,13 +286,11 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: movementsDesignTokens.typography.sizes.md,
-    color: colors.textPrimary,
     fontFamily: "DMSans-Medium",
   },
   cardMeta: {
     marginTop: 2,
     fontSize: movementsDesignTokens.typography.sizes.xs,
-    color: colors.textSecondary,
     fontFamily: "DMSans",
   },
   cardRight: {
@@ -275,29 +299,24 @@ const styles = StyleSheet.create({
   },
   cardAmount: {
     fontSize: movementsDesignTokens.typography.sizes.md,
-    color: colors.textPrimary,
     fontFamily: "DMSans-SemiBold",
   },
   registerButton: {
-    backgroundColor: colors.recurrentPurple,
     borderRadius: movementsDesignTokens.radius.full,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   registerButtonText: {
     fontSize: movementsDesignTokens.typography.sizes.xs,
-    color: colors.surface,
     fontFamily: "DMSans-SemiBold",
   },
   registerAll: {
     marginTop: 12,
-    backgroundColor: colors.recurrentPurple,
     borderRadius: movementsDesignTokens.radius.md,
     paddingVertical: 10,
     alignItems: "center",
   },
   registerAllText: {
-    color: colors.surface,
     fontFamily: "DMSans-SemiBold",
   },
 });

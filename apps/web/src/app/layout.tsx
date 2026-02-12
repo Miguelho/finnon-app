@@ -3,6 +3,8 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
 import { NetworkNoticeProvider } from "@/components/network/network-notice";
+import { WebUserThemeProvider } from "@/components/theme/web-user-theme-provider";
+import { getThemePrehydrateScript } from "@/components/theme/theme-prehydrate-script";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -63,12 +65,22 @@ export default async function RootLayout({
 }>) {
   const locale = await getLocale();
   const messages = await getMessages();
+  const themePrehydrateScript = getThemePrehydrateScript();
 
   return (
-    <html lang={locale}>
+    <html lang={locale} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: themePrehydrateScript,
+          }}
+        />
+      </head>
       <body>
         <NextIntlClientProvider messages={messages}>
-          <NetworkNoticeProvider>{children}</NetworkNoticeProvider>
+          <NetworkNoticeProvider>
+            <WebUserThemeProvider>{children}</WebUserThemeProvider>
+          </NetworkNoticeProvider>
           <Toaster />
         </NextIntlClientProvider>
       </body>

@@ -2,9 +2,9 @@ import { TouchableOpacity, StyleSheet } from "react-native";
 import { SquaresFour, List } from "phosphor-react-native";
 import { themeTokens, type FormMode } from "@poleursus/shared";
 import { useCopy, t } from "../../lib/i18n";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
-const colors = tokens.colors;
 
 interface FormModeToggleProps {
   mode: FormMode;
@@ -13,6 +13,7 @@ interface FormModeToggleProps {
 
 export function FormModeToggle({ mode, onChange }: FormModeToggleProps) {
   const { dictionary } = useCopy();
+  const { tokens: userTokens } = useUserTheme();
 
   const toggleMode = () => {
     onChange(mode === "panels" ? "list" : "panels");
@@ -20,8 +21,8 @@ export function FormModeToggle({ mode, onChange }: FormModeToggleProps) {
 
   const Icon = mode === "panels" ? SquaresFour : List;
   const label = mode === "panels"
-    ? t(dictionary, "addTransaction.modePanels")
-    : t(dictionary, "addTransaction.modeList");
+    ? (t(dictionary, "addTransaction.modePanels" as any) as string)
+    : (t(dictionary, "addTransaction.modeList" as any) as string);
 
   return (
     <TouchableOpacity
@@ -30,7 +31,7 @@ export function FormModeToggle({ mode, onChange }: FormModeToggleProps) {
       accessibilityLabel={label}
       accessibilityRole="button"
     >
-      <Icon size={20} color={colors.text.muted} />
+      <Icon size={20} color={userTokens.textTertiary} />
     </TouchableOpacity>
   );
 }

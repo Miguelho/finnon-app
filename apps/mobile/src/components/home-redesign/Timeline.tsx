@@ -2,6 +2,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { themeTokens } from "@poleursus/shared";
 import { formatCurrencyParts, formatShortDate } from "./utils";
 import { useCopy, t } from "../../lib/i18n";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -22,8 +23,14 @@ type TimelineProps = {
 
 export function Timeline({ last, next, currencySymbol, locale = "es" }: TimelineProps) {
   const { dictionary } = useCopy();
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   return (
-    <View style={styles.card}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: userTokens.surface, borderColor: userTokens.border },
+      ]}
+    >
       <TimelineItem
         label={t(dictionary, "mobile.home.timelineLast")}
         movement={last}
@@ -33,11 +40,19 @@ export function Timeline({ last, next, currencySymbol, locale = "es" }: Timeline
       />
 
       <View style={styles.divider}>
-        <View style={styles.dividerLine} />
-        <View style={[styles.dividerDot, styles.dividerDotActive]} />
-        <Text style={styles.dividerLabel}>{t(dictionary, "mobile.home.timelineToday")}</Text>
-        <View style={styles.dividerDot} />
-        <View style={styles.dividerLine} />
+        <View style={[styles.dividerLine, { backgroundColor: userTokens.border }]} />
+        <View
+          style={[
+            styles.dividerDot,
+            styles.dividerDotActive,
+            { backgroundColor: primaryActionColor },
+          ]}
+        />
+        <Text style={[styles.dividerLabel, { color: userTokens.textSecondary }]}>
+          {t(dictionary, "mobile.home.timelineToday")}
+        </Text>
+        <View style={[styles.dividerDot, { backgroundColor: userTokens.border }]} />
+        <View style={[styles.dividerLine, { backgroundColor: userTokens.border }]} />
       </View>
 
       <TimelineItem
@@ -66,13 +81,18 @@ function TimelineItem({
   currencySymbol,
   locale,
 }: TimelineItemProps) {
+  const { tokens: userTokens } = useUserTheme();
   const alignStyle = align === "right" ? styles.alignRight : styles.alignLeft;
 
   if (!movement) {
     return (
       <View style={[styles.item, alignStyle]}>
-        <Text style={styles.itemLabel}>{label}</Text>
-        <Text style={styles.itemPlaceholder}>—</Text>
+        <Text style={[styles.itemLabel, { color: userTokens.textSecondary }]}>
+          {label}
+        </Text>
+        <Text style={[styles.itemPlaceholder, { color: userTokens.textSecondary }]}>
+          —
+        </Text>
       </View>
     );
   }
@@ -82,15 +102,17 @@ function TimelineItem({
 
   return (
     <View style={[styles.item, alignStyle]}>
-      <Text style={styles.itemLabel}>{label}</Text>
-      <Text style={styles.itemName} numberOfLines={1}>
+      <Text style={[styles.itemLabel, { color: userTokens.textSecondary }]}>{label}</Text>
+      <Text style={[styles.itemName, { color: userTokens.textPrimary }]} numberOfLines={1}>
         {movement.name}
       </Text>
       <Text style={[styles.itemAmount, isIncome ? styles.amountPositive : styles.amountNegative]}>
         {isIncome ? "+" : "-"}
         {integer},{decimals}
       </Text>
-      <Text style={styles.itemDate}>{formatShortDate(movement.date, locale)}</Text>
+      <Text style={[styles.itemDate, { color: userTokens.textSecondary }]}>
+        {formatShortDate(movement.date, locale)}
+      </Text>
     </View>
   );
 }
@@ -100,9 +122,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: colors.state.neutral,
     borderRadius: tokens.radii.lg,
-    backgroundColor: colors.bg.surface,
     paddingHorizontal: tokens.spacing.lg,
     paddingVertical: tokens.spacing.md,
   },
@@ -121,18 +141,15 @@ const styles = StyleSheet.create({
     fontWeight: tokens.typography.weight.medium,
     textTransform: "uppercase",
     letterSpacing: 0.8,
-    color: colors.text.muted,
     fontFamily: "DMSans-Medium",
   },
   itemPlaceholder: {
     fontSize: tokens.typography.size.sm,
-    color: colors.text.muted,
     fontFamily: "DMSans",
   },
   itemName: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.text.primary,
     fontFamily: "DMSans-Medium",
   },
   itemAmount: {
@@ -142,7 +159,6 @@ const styles = StyleSheet.create({
   },
   itemDate: {
     fontSize: tokens.typography.size.xs,
-    color: colors.text.muted,
     fontFamily: "DMSans",
   },
   amountPositive: {
@@ -158,24 +174,19 @@ const styles = StyleSheet.create({
   dividerLine: {
     width: 1,
     height: 18,
-    backgroundColor: colors.state.neutral,
   },
   dividerDot: {
     width: 6,
     height: 6,
     borderRadius: 999,
-    backgroundColor: colors.state.neutral,
     marginVertical: 2,
   },
-  dividerDotActive: {
-    backgroundColor: colors.text.primary,
-  },
+  dividerDotActive: {},
   dividerLabel: {
     fontSize: 10,
     fontWeight: tokens.typography.weight.semibold,
     textTransform: "uppercase",
     letterSpacing: 1,
-    color: colors.text.muted,
     fontFamily: "DMSans-SemiBold",
     marginVertical: 2,
   },

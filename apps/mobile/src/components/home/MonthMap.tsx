@@ -14,6 +14,7 @@ import {
   type DateRange,
   type DayMarkerData,
 } from "@poleursus/shared";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 type DayRenderContext = {
   date: Date;
@@ -51,6 +52,7 @@ export function MonthMap({
   markerData,
   renderDayContent,
 }: MonthMapProps) {
+  const { primaryActionColor } = useUserTheme();
   const monthStart = startOfMonth(month);
   const monthEnd = endOfMonth(month);
   const weekdayStart = toMondayIndex(monthStart.getDay());
@@ -147,22 +149,24 @@ export function MonthMap({
               return (
                 <TouchableOpacity
                   key={dayKey}
-                  style={[
-                    styles.cell,
-                    dayIndex < 6 && styles.cellGap,
-                    isHighlighted && styles.cellHighlight,
-                    isSelected && styles.cellSelected,
-                  ]}
-                  onPress={() => isCurrentMonth && onSelectDate(date)}
-                  disabled={!isCurrentMonth}
-                >
-                  <Text
-                    style={[
-                      styles.dayLabel,
-                      !isCurrentMonth && styles.dayLabelMuted,
-                    ]}
-                  >
-                    {date.getDate()}
+              style={[
+                styles.cell,
+                dayIndex < 6 && styles.cellGap,
+                isHighlighted && styles.cellHighlight,
+                isSelected && { borderColor: primaryActionColor },
+                isToday && { borderColor: primaryActionColor },
+              ]}
+              onPress={() => isCurrentMonth && onSelectDate(date)}
+              disabled={!isCurrentMonth}
+            >
+              <Text
+                style={[
+                  styles.dayLabel,
+                  !isCurrentMonth && styles.dayLabelMuted,
+                  isToday && { color: primaryActionColor },
+                ]}
+              >
+                {date.getDate()}
                   </Text>
                   {customContent ?? (
                     <View style={styles.markerRow}>
@@ -251,9 +255,6 @@ const styles = StyleSheet.create({
   cellHighlight: {
     backgroundColor: colors.action.secondary,
     borderColor: colors.action.secondary,
-  },
-  cellSelected: {
-    borderColor: colors.action.primary,
   },
   dayLabel: {
     ...typography.meta,

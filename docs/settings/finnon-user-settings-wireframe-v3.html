@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon — User Settings Wireframe v3</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F7F5;
+    --surface: #FFFFFF;
+    --surface-alt: #F0EFEC;
+    --border: #E5E4E0;
+    --border-light: #EEEDEA;
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B6B6B;
+    --text-tertiary: #9A9A9A;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+
+    --av-blue-bg: #D4E4F7; --av-blue-fg: #3A6EA5;
+    --av-green-bg: #D4EDDA; --av-green-fg: #2D7A3F;
+    --av-coral-bg: #FAD9D4; --av-coral-fg: #B85450;
+    --av-purple-bg: #E8D8F0; --av-purple-fg: #7B4F9E;
+    --av-amber-bg: #F5E6CC; --av-amber-fg: #9A7030;
+    --av-slate-bg: #DDE1E8; --av-slate-fg: #4A5568;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding-bottom: 80px;
+  }
+
+  .page-container {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  .page-header { margin-bottom: 28px; }
+  .page-header h1 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .page-header p { font-size: 14px; color: var(--text-secondary); }
+
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    margin-bottom: 14px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .section-header h2 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+
+  /* ─── Avatar ─── */
+  .avatar-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .avatar-circle {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700;
+    font-size: 17px;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    letter-spacing: 0.02em;
+  }
+  .av-blue { background: var(--av-blue-bg); color: var(--av-blue-fg); }
+  .av-green { background: var(--av-green-bg); color: var(--av-green-fg); }
+  .av-coral { background: var(--av-coral-bg); color: var(--av-coral-fg); }
+  .av-purple { background: var(--av-purple-bg); color: var(--av-purple-fg); }
+  .av-amber { background: var(--av-amber-bg); color: var(--av-amber-fg); }
+  .av-slate { background: var(--av-slate-bg); color: var(--av-slate-fg); }
+
+  .avatar-info { flex: 1; }
+  .avatar-info .email {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 1px;
+  }
+  .avatar-info .hint {
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+
+  .color-selector-label {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    margin-top: 16px;
+  }
+  .color-selector { display: flex; gap: 10px; }
+  .color-dot {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 2.5px solid transparent;
+  }
+  .color-dot:hover { transform: scale(1.15); }
+  .color-dot.selected { box-shadow: 0 0 0 2px white, 0 0 0 4px currentColor; }
+  .color-dot.d-blue { background: var(--av-blue-fg); color: var(--av-blue-fg); }
+  .color-dot.d-green { background: var(--av-green-fg); color: var(--av-green-fg); }
+  .color-dot.d-coral { background: var(--av-coral-fg); color: var(--av-coral-fg); }
+  .color-dot.d-purple { background: var(--av-purple-fg); color: var(--av-purple-fg); }
+  .color-dot.d-amber { background: var(--av-amber-fg); color: var(--av-amber-fg); }
+  .color-dot.d-slate { background: var(--av-slate-fg); color: var(--av-slate-fg); }
+
+  /* ─── Invitations ─── */
+  .invitation-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--surface-alt);
+    border-radius: var(--radius-md);
+    margin-bottom: 8px;
+  }
+  .invitation-card:last-of-type { margin-bottom: 0; }
+  .inv-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12px;
+    flex-shrink: 0;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+  .inv-info { flex: 1; min-width: 0; }
+  .inv-info .inv-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .inv-info .inv-from { font-size: 12px; color: var(--text-secondary); }
+  .inv-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .inv-btn {
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.12s;
+    border: none;
+    font-family: inherit;
+  }
+  .inv-btn.accept { background: var(--text-primary); color: white; }
+  .inv-btn.accept:hover { opacity: 0.85; }
+  .inv-btn.decline { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+  .inv-btn.decline:hover { background: var(--surface); }
+
+  .empty-state {
+    text-align: center;
+    padding: 18px 12px;
+    color: var(--text-tertiary);
+    font-size: 13px;
+  }
+  .empty-state .es-icon { font-size: 20px; margin-bottom: 4px; opacity: 0.45; }
+
+  /* ─── Theme ─── */
+  .theme-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .theme-card {
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+    position: relative;
+  }
+  .theme-card:hover { border-color: var(--text-tertiary); }
+  .theme-card.selected { border-color: var(--text-primary); border-width: 2px; }
+  .theme-card.selected::after {
+    content: '✓';
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .theme-preview {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 10px;
+    height: 36px;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .theme-preview .swatch { flex: 1; border-radius: 5px; }
+  .theme-card .theme-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .theme-card .theme-desc { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+
+  .mode-toggle {
+    display: flex;
+    background: var(--surface-alt);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+    margin-top: 14px;
+  }
+  .mode-btn {
+    flex: 1;
+    text-align: center;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text-secondary);
+    border: none;
+    background: transparent;
+    font-family: inherit;
+  }
+  .mode-btn.active {
+    background: var(--surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ─── Language ─── */
+  .language-options { display: flex; flex-direction: column; gap: 6px; }
+  .language-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.12s;
+    border: 1.5px solid transparent;
+  }
+  .language-option:hover { background: var(--surface-alt); }
+  .language-option.selected { border-color: var(--text-primary); background: var(--surface-alt); }
+  .language-option .flag { font-size: 18px; width: 24px; text-align: center; }
+  .language-option .lang-name { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+  .language-option .check { margin-left: auto; font-size: 14px; font-weight: 700; color: var(--text-primary); }
+
+  /* ─── Logout ─── */
+  .logout-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 14px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.12s;
+    font-family: inherit;
+    margin-top: 8px;
+  }
+  .logout-btn:hover { background: #FEF2F2; border-color: #FCA5A5; }
+  .logout-text { font-size: 14px; font-weight: 600; color: #DC2626; }
+  .logout-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 1px; }
+  .logout-icon { font-size: 15px; color: #DC2626; }
+
+  /* ─── Wireframe badge ─── */
+  .wireframe-badge {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1A1A1A;
+    color: white;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    z-index: 200;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+</style>
+</head>
+<body>
+
+<div class="wireframe-badge">Wireframe v3 — Finnon User Settings</div>
+
+<div class="page-container" style="margin-top: 44px;">
+
+  <div class="page-header">
+    <h1>Tu perfil</h1>
+    <p>Personaliza tu experiencia en Finnon</p>
+  </div>
+
+  <!-- ① AVATAR -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Avatar</h2>
+    </div>
+    <div class="avatar-row">
+      <div class="avatar-circle av-blue" id="mainAvatar">MI</div>
+      <div class="avatar-info">
+        <div class="email">miguel@poleursus.com</div>
+        <div class="hint">Se muestra junto a tus movimientos</div>
+      </div>
+    </div>
+    <div class="color-selector-label">Color del avatar</div>
+    <div class="color-selector">
+      <div class="color-dot d-blue selected" onclick="pickColor(this,'blue')"></div>
+      <div class="color-dot d-green" onclick="pickColor(this,'green')"></div>
+      <div class="color-dot d-coral" onclick="pickColor(this,'coral')"></div>
+      <div class="color-dot d-purple" onclick="pickColor(this,'purple')"></div>
+      <div class="color-dot d-amber" onclick="pickColor(this,'amber')"></div>
+      <div class="color-dot d-slate" onclick="pickColor(this,'slate')"></div>
+    </div>
+  </div>
+
+  <!-- ② INVITACIONES -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Invitaciones pendientes</h2>
+    </div>
+    <div class="invitation-card">
+      <div class="inv-avatar av-coral" style="font-size:12px;">AN</div>
+      <div class="inv-info">
+        <div class="inv-title">Gastos del piso</div>
+        <div class="inv-from">de ana@ejemplo.com</div>
+      </div>
+      <div class="inv-actions">
+        <button class="inv-btn decline">Rechazar</button>
+        <button class="inv-btn accept">Aceptar</button>
+      </div>
+    </div>
+    <div class="invitation-card">
+      <div class="inv-avatar av-green" style="font-size:12px;">LA</div>
+      <div class="inv-info">
+        <div class="inv-title">Viaje a Japón 2026</div>
+        <div class="inv-from">de laura@ejemplo.com</div>
+      </div>
+      <div class="inv-actions">
+        <button class="inv-btn decline">Rechazar</button>
+        <button class="inv-btn accept">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ TEMA -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Tema</h2>
+    </div>
+    <div class="theme-grid">
+      <div class="theme-card selected" onclick="pickTheme(this)">
+        <div class="theme-preview">
+          <div class="swatch" style="background:#1A1A1A;"></div>
+          <div class="swatch" style="background:#F7F7F5;"></div>
+          <div class="swatch" style="background:#E5E4E0;"></div>
+        </div>
+        <div class="theme-name">Grafito</div>
+        <div class="theme-desc">Neutro y sobrio</div>
+      </div>
+      <div class="theme-card" onclick="pickTheme(this)">
+        <div class="theme-preview">
+          <div class="swatch" style="background:#4A6FA5;"></div>
+          <div class="swatch" style="background:#EBF0F7;"></div>
+          <div class="swatch" style="background:#C8D8E8;"></div>
+        </div>
+        <div class="theme-name">Océano</div>
+        <div class="theme-desc">Calma y confianza</div>
+      </div>
+    </div>
+    <div class="mode-toggle">
+      <button class="mode-btn active" onclick="pickMode(this)">☀️ Claro</button>
+      <button class="mode-btn" onclick="pickMode(this)">🌙 Oscuro</button>
+      <button class="mode-btn" onclick="pickMode(this)">⚙️ Sistema</button>
+    </div>
+  </div>
+
+  <!-- ④ IDIOMA -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Idioma</h2>
+    </div>
+    <div class="language-options">
+      <div class="language-option selected" onclick="pickLang(this)">
+        <span class="flag">🇪🇸</span>
+        <span class="lang-name">Español</span>
+        <span class="check">✓</span>
+      </div>
+      <div class="language-option" onclick="pickLang(this)">
+        <span class="flag">🇬🇧</span>
+        <span class="lang-name">English</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑤ CERRAR SESIÓN -->
+  <button class="logout-btn">
+    <div>
+      <div class="logout-text">Cerrar sesión</div>
+      <div class="logout-sub">Cierra sesión en este dispositivo</div>
+    </div>
+    <span class="logout-icon">→</span>
+  </button>
+
+</div>
+
+<script>
+  function pickColor(el, color) {
+    document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('mainAvatar').className = 'avatar-circle av-' + color;
+  }
+  function pickTheme(el) {
+    document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+  function pickMode(el) {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+  }
+  function pickLang(el) {
+    document.querySelectorAll('.language-option').forEach(o => {
+      o.classList.remove('selected');
+      const chk = o.querySelector('.check');
+      if (chk) chk.remove();
+    });
+    el.classList.add('selected');
+    const check = document.createElement('span');
+    check.className = 'check';
+    check.textContent = '✓';
+    el.appendChild(check);
+  }
+</script>
+
+</body>
+</html>

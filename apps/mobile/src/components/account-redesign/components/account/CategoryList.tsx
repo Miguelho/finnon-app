@@ -4,6 +4,7 @@ import { CategoryIcon } from '../../../CategoryIcon';
 import { colors, typography, spacing, radii } from '../../theme/tokens';
 import { formatCurrency } from '../../utils/currency';
 import type { CategorySummary } from '../../types/account';
+import { useUserTheme } from '../../../../contexts/UserThemeContext';
 
 interface CategoryListProps {
   categories: CategorySummary[];
@@ -23,6 +24,7 @@ export function CategoryList({
   onCategoryPress,
   onViewAllPress,
 }: CategoryListProps) {
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   // Solo gastos, ordenados de mayor a menor
   const expenseCategories = categories
     .filter((c) => c.type === 'expense')
@@ -36,10 +38,14 @@ export function CategoryList({
     <View>
       {/* Section header */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Gastos por categoría</Text>
+        <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
+          Gastos por categoría
+        </Text>
         {hasMore && (
           <Pressable onPress={onViewAllPress} hitSlop={8}>
-            <Text style={styles.sectionAction}>Ver todas →</Text>
+            <Text style={[styles.sectionAction, { color: primaryActionColor }]}>
+              Ver todas →
+            </Text>
           </Pressable>
         )}
       </View>
@@ -62,6 +68,7 @@ export function CategoryList({
               style={({ pressed }) => [
                 styles.item,
                 i < visible.length - 1 && styles.itemBorder,
+                i < visible.length - 1 && { borderBottomColor: userTokens.border },
                 pressed && styles.itemPressed,
               ]}
               onPress={() => onCategoryPress?.(cat)}
@@ -77,8 +84,10 @@ export function CategoryList({
 
               {/* Info */}
               <View style={styles.info}>
-                <Text style={styles.name}>{cat.name}</Text>
-                <Text style={styles.count}>
+                <Text style={[styles.name, { color: userTokens.textPrimary }]}>
+                  {cat.name}
+                </Text>
+                <Text style={[styles.count, { color: userTokens.textSecondary }]}>
                   {cat.transactionCount} movimiento
                   {cat.transactionCount !== 1 ? 's' : ''}
                 </Text>
@@ -91,7 +100,7 @@ export function CategoryList({
                   {formatted.whole}
                   {formatted.cents}
                 </Text>
-                <View style={styles.barTrack}>
+                <View style={[styles.barTrack, { backgroundColor: userTokens.border }]}>
                   <View
                     style={[styles.barFill, { width: `${barWidth}%` }]}
                   />
@@ -102,7 +111,7 @@ export function CategoryList({
               <Ionicons
                 name="chevron-forward"
                 size={14}
-                color={colors.textTertiary}
+                color={userTokens.textSecondary}
                 style={styles.chevron}
               />
             </Pressable>
@@ -125,13 +134,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: typography.family.sansBold,
     fontSize: typography.size.lg,
-    color: colors.textPrimary,
     letterSpacing: -0.2,
   },
   sectionAction: {
     fontFamily: typography.family.sansSemiBold,
     fontSize: typography.size.base,
-    color: colors.accent,
   },
   list: {
     paddingHorizontal: spacing['4xl'],
@@ -145,7 +152,6 @@ const styles = StyleSheet.create({
   },
   itemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
   },
   itemPressed: {
     opacity: 0.7,
@@ -164,12 +170,10 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: typography.family.sansSemiBold,
     fontSize: typography.size.md,
-    color: colors.textPrimary,
   },
   count: {
     fontFamily: typography.family.sans,
     fontSize: typography.size.sm,
-    color: colors.textTertiary,
     marginTop: 1,
   },
   right: {
@@ -183,7 +187,6 @@ const styles = StyleSheet.create({
   barTrack: {
     width: 64,
     height: 3,
-    backgroundColor: colors.borderLight,
     borderRadius: 2,
     marginTop: spacing.sm,
     overflow: 'hidden',

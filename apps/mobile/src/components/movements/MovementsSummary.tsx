@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { formatMinorToMoney } from "@poleursus/shared";
 import { movementsDesignTokens, type Movement } from "../../types/movements";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 type MovementsSummaryProps = {
   movements: Movement[];
@@ -65,6 +66,7 @@ export function MovementsSummary({
   currencyCode,
   currencySymbol,
 }: MovementsSummaryProps) {
+  const { tokens: userTokens } = useUserTheme();
   const { width: windowWidth } = useWindowDimensions();
   const infoAnchorRef = useRef<View>(null);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
@@ -165,22 +167,27 @@ export function MovementsSummary({
   return (
     <View style={styles.container}>
       <View style={styles.hero}>
-        <Text style={styles.heroLabel}>BALANCE</Text>
+        <Text style={[styles.heroLabel, { color: userTokens.textSecondary }]}>
+          BALANCE
+        </Text>
         <Text
           style={[
             styles.heroAmount,
+            { color: userTokens.textPrimary },
             summary.balance < 0n && { color: colors.expenseRed },
           ]}
         >
           {formatSignedAmount(summary.balance, currencyCode, currencySymbol)}
         </Text>
-        <Text style={styles.heroSub}>
+        <Text style={[styles.heroSub, { color: userTokens.textSecondary }]}>
           {formatSignedAmount(summary.confirmedBalance, currencyCode, currencySymbol)} confirmado
         </Text>
       </View>
 
       {summary.isEmpty ? (
-        <Text style={styles.emptyText}>Sin movimientos en este periodo</Text>
+        <Text style={[styles.emptyText, { color: userTokens.textSecondary }]}>
+          Sin movimientos en este periodo
+        </Text>
       ) : (
         <View style={styles.proportionSection}>
           <View style={styles.barRow}>
@@ -246,13 +253,16 @@ export function MovementsSummary({
               <Pressable
                 style={({ pressed }) => [
                   styles.infoButton,
+                  { borderColor: userTokens.border },
                   pressed && styles.infoButtonPressed,
                 ]}
                 onPress={toggleTooltip}
                 accessibilityRole="button"
                 accessibilityLabel="Mostrar leyenda de colores"
               >
-                <Text style={styles.infoButtonText}>i</Text>
+                <Text style={[styles.infoButtonText, { color: userTokens.textSecondary }]}>
+                  i
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -270,7 +280,7 @@ export function MovementsSummary({
                     ? formatIncomeAmount(summary.totalIncome, currencyCode, currencySymbol)
                     : formatExpenseAmount(summary.totalExpense, currencyCode, currencySymbol)}
                 </Text>
-                <Text style={styles.confirmedLabel}>
+                <Text style={[styles.confirmedLabel, { color: userTokens.textSecondary }]}>
                   {summary.hasIncome
                     ? formatIncomeAmount(summary.confirmedIncome, currencyCode, currencySymbol)
                     : formatExpenseAmount(summary.confirmedExpense, currencyCode, currencySymbol)}{" "}
@@ -278,7 +288,9 @@ export function MovementsSummary({
                 </Text>
               </View>
               <View style={[styles.labelGroup, styles.labelGroupRight]}>
-                <Text style={styles.movementCount}>{movementCountLabel}</Text>
+                <Text style={[styles.movementCount, { color: userTokens.textSecondary }]}>
+                  {movementCountLabel}
+                </Text>
               </View>
             </View>
           ) : (
@@ -287,7 +299,7 @@ export function MovementsSummary({
                 <Text style={[styles.totalLabel, styles.totalIncome]}>
                   {formatIncomeAmount(summary.totalIncome, currencyCode, currencySymbol)}
                 </Text>
-                <Text style={styles.confirmedLabel}>
+                <Text style={[styles.confirmedLabel, { color: userTokens.textSecondary }]}>
                   {formatIncomeAmount(summary.confirmedIncome, currencyCode, currencySymbol)} confirmados
                 </Text>
               </View>
@@ -295,7 +307,7 @@ export function MovementsSummary({
                 <Text style={[styles.totalLabel, styles.totalExpense]}>
                   {formatExpenseAmount(summary.totalExpense, currencyCode, currencySymbol)}
                 </Text>
-                <Text style={styles.confirmedLabel}>
+                <Text style={[styles.confirmedLabel, { color: userTokens.textSecondary }]}>
                   {formatExpenseAmount(summary.confirmedExpense, currencyCode, currencySymbol)} confirmados
                 </Text>
               </View>
@@ -312,15 +324,46 @@ export function MovementsSummary({
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={closeTooltip} />
         {tooltipAnchor && (
-          <View style={[styles.tooltip, { top: tooltipTop, left: tooltipLeft }]}>
-            <View style={[styles.tooltipArrow, { left: tooltipArrowLeft - 5 }]} />
+          <View
+            style={[
+              styles.tooltip,
+              {
+                top: tooltipTop,
+                left: tooltipLeft,
+                backgroundColor: userTokens.surface,
+                borderColor: userTokens.border,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.tooltipArrow,
+                { left: tooltipArrowLeft - 5, backgroundColor: userTokens.surface },
+              ]}
+            />
             <View style={styles.tooltipRow}>
-              <View style={[styles.tooltipDot, styles.tooltipDotConfirmed]} />
-              <Text style={styles.tooltipText}>Color sólido = confirmado</Text>
+              <View
+                style={[
+                  styles.tooltipDot,
+                  styles.tooltipDotConfirmed,
+                  { backgroundColor: userTokens.textPrimary },
+                ]}
+              />
+              <Text style={[styles.tooltipText, { color: userTokens.textPrimary }]}>
+                Color sólido = confirmado
+              </Text>
             </View>
             <View style={styles.tooltipRow}>
-              <View style={[styles.tooltipDot, styles.tooltipDotPending]} />
-              <Text style={styles.tooltipText}>Color suave = pendiente</Text>
+              <View
+                style={[
+                  styles.tooltipDot,
+                  styles.tooltipDotPending,
+                  { backgroundColor: userTokens.textPrimary },
+                ]}
+              />
+              <Text style={[styles.tooltipText, { color: userTokens.textPrimary }]}>
+                Color suave = pendiente
+              </Text>
             </View>
           </View>
         )}
@@ -404,13 +447,12 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: colors.borderStrong,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "transparent",
   },
   infoButtonPressed: {
-    borderColor: colors.textTertiary,
+    opacity: 0.85,
   },
   infoButtonText: {
     fontSize: movementsDesignTokens.typography.sizes.xs,
@@ -452,7 +494,7 @@ const styles = StyleSheet.create({
   tooltip: {
     position: "absolute",
     width: TOOLTIP_WIDTH,
-    backgroundColor: colors.textPrimary,
+    borderWidth: 1,
     borderRadius: movementsDesignTokens.radius.sm,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -467,7 +509,7 @@ const styles = StyleSheet.create({
     top: -5,
     width: 10,
     height: 10,
-    backgroundColor: colors.textPrimary,
+    backgroundColor: colors.surface,
     transform: [{ rotate: "45deg" }],
   },
   tooltipRow: {
@@ -491,7 +533,6 @@ const styles = StyleSheet.create({
   },
   tooltipText: {
     fontSize: movementsDesignTokens.typography.sizes.sm,
-    color: colors.surface,
     fontFamily: "DMSans",
   },
 });

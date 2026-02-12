@@ -1,569 +1,837 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Text,
+  ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  Modal,
-  TouchableOpacity,
+  Text,
+  useColorScheme,
+  View,
 } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useIsFocused } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import {
-  ALLOWED_AVATAR_BG_TOKENS,
-  ConfirmationModal,
-  mapUserToUserDetailsVM,
-  normalizeAvatarFallbackText,
-  resolveAvatarColor,
-  resolveAvatarFallback,
+  DEFAULT_USER_THEME,
+  DEFAULT_USER_THEME_MODE,
+  getAvatarInitials,
+  getSupportedUserLocale,
+  getUserAvatarColor,
+  getUserThemeId,
+  getUserThemeMode,
+  isExpired,
   signOutAndReset,
   themeTokens,
-  type AvatarColorToken,
+  USER_AVATAR_COLORS,
+  USER_AVATAR_COLOR_ORDER,
+  USER_THEME_DEFINITIONS,
+  USER_THEME_MODE_ORDER,
+  USER_THEME_ORDER,
+  resolveUserThemeTokens,
+  type UserAvatarColorId,
+  type UserLocale,
+  type UserThemeId,
+  type UserThemeMode,
 } from "@poleursus/shared";
-import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../../src/contexts/AuthContext";
 import { useNetworkNotice } from "../../../src/contexts/NetworkNoticeContext";
-import { useCopy, t } from "../../../src/lib/i18n";
-import { Button } from "../../../src/components/Button";
-import { Input } from "../../../src/components/Input";
-import { UserAvatar } from "../../../src/components/UserAvatar";
+import { useUserTheme } from "../../../src/contexts/UserThemeContext";
+import { useCopy, useLocale, t } from "../../../src/lib/i18n";
 import { supabase } from "../../../src/lib/supabase";
-import { useRouter } from "expo-router";
 
 const tokens = themeTokens.light;
-const colors = tokens.colors;
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 
-export default function UserDetailsScreen() {
-  const { user, loading, clearSelectedAccount } = useAuth();
-  const { dictionary } = useCopy();
+type ProfileRow = {
+  email: string | null;
+  avatar_color: string | null;
+  theme: string | null;
+  color_mode: string | null;
+  locale: string | null;
+};
+
+type InviteRow = {
+  id: string;
+  status: "pending" | "accepted" | "rejected" | "revoked" | "expired" | null;
+  expires_at: string;
+  created_by: string;
+  accounts?: { name: string } | { name: string }[] | null;
+};
+
+type InviterProfile = {
+  user_id: string;
+  email: string | null;
+  avatar_color: string | null;
+};
+
+type PendingInvite = {
+  id: string;
+  accountName: string;
+  inviterEmail: string;
+  inviterColor: UserAvatarColorId;
+};
+
+type ProfileState = {
+  email: string;
+  avatarColor: UserAvatarColorId;
+  theme: UserThemeId;
+  colorMode: UserThemeMode;
+  locale: UserLocale;
+};
+
+type SavingField = "avatarColor" | "theme" | "colorMode" | "locale" | null;
+type InviteAction = "accept" | "reject" | null;
+
+export default function UserProfileScreen() {
+  const { user, loading, session, clearSelectedAccount } = useAuth();
+  const { dictionary, locale } = useCopy();
+  const { setLocale } = useLocale();
   const { reportNetworkIssue } = useNetworkNotice();
-  const [avatarPath, setAvatarPath] = useState<string | null>(null);
-  const [profileEmail, setProfileEmail] = useState<string | null>(null);
-  const [fallbackText, setFallbackText] = useState<string | null>(null);
-  const [fallbackBgToken, setFallbackBgToken] =
-    useState<AvatarColorToken | null>(null);
-  const [isProfileLoading, setIsProfileLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [avatarVersion, setAvatarVersion] = useState(0);
-  const [isFallbackEditorOpen, setIsFallbackEditorOpen] = useState(false);
-  const [draftText, setDraftText] = useState("");
-  const [draftBgToken, setDraftBgToken] =
-    useState<AvatarColorToken | null>(null);
+  const { primaryActionTextColor, setThemePreferences } = useUserTheme();
+  const isFocused = useIsFocused();
   const router = useRouter();
-  const [isSignOutOpen, setIsSignOutOpen] = useState(false);
+  const colorScheme = useColorScheme();
+
+  const runtimeLocale = locale.startsWith("en") ? "en" : "es";
+
+  const [profile, setProfile] = useState<ProfileState>({
+    email: "",
+    avatarColor: getUserAvatarColor(null),
+    theme: DEFAULT_USER_THEME,
+    colorMode: DEFAULT_USER_THEME_MODE,
+    locale: runtimeLocale,
+  });
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [savingField, setSavingField] = useState<SavingField>(null);
+
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [isInvitesLoading, setIsInvitesLoading] = useState(true);
+  const [inviteActionId, setInviteActionId] = useState<string | null>(null);
+  const [inviteAction, setInviteAction] = useState<InviteAction>(null);
+
+  const [notice, setNotice] = useState<string | null>(null);
+  const [noticeTone, setNoticeTone] = useState<"positive" | "negative" | null>(
+    null
+  );
   const [isSigningOut, setIsSigningOut] = useState(false);
 
-  const closeSignOutModal = () => {
-    if (!isSigningOut) setIsSignOutOpen(false);
-  };
+  const systemMode = colorScheme === "dark" ? "dark" : "light";
+  const activeTheme = useMemo(
+    () => resolveUserThemeTokens(profile.theme, profile.colorMode, systemMode),
+    [profile.colorMode, profile.theme, systemMode]
+  );
+
+  const loadProfile = useCallback(async () => {
+    if (!user?.id) {
+      setIsProfileLoading(false);
+      return;
+    }
+
+    setIsProfileLoading(true);
+    setProfileError(null);
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("email, avatar_color, theme, color_mode, locale")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      setProfileError(t(dictionary, "settings.userProfile.errors.loadProfile"));
+      reportNetworkIssue({
+        message: t(dictionary, "settings.userProfile.errors.loadProfile"),
+        onRetry: loadProfile,
+      });
+    }
+
+    const row = (data ?? {}) as ProfileRow;
+    const resolvedTheme = getUserThemeId(row.theme);
+    const resolvedColorMode = getUserThemeMode(row.color_mode);
+
+    setProfile({
+      email: row.email ?? user.email ?? "",
+      avatarColor: getUserAvatarColor(row.avatar_color),
+      theme: resolvedTheme,
+      colorMode: resolvedColorMode,
+      locale: getSupportedUserLocale(row.locale, runtimeLocale),
+    });
+    setThemePreferences({
+      theme: resolvedTheme,
+      colorMode: resolvedColorMode,
+    });
+
+    setIsProfileLoading(false);
+  }, [
+    dictionary,
+    reportNetworkIssue,
+    runtimeLocale,
+    setThemePreferences,
+    user?.email,
+    user?.id,
+  ]);
+
+  const loadPendingInvites = useCallback(async () => {
+    if (!user) {
+      setPendingInvites([]);
+      setIsInvitesLoading(false);
+      return;
+    }
+
+    setIsInvitesLoading(true);
+
+    const normalizedEmail = user.email?.trim().toLowerCase();
+    const filters: string[] = [];
+
+    if (normalizedEmail) {
+      filters.push(
+        `invited_email.ilike.${normalizedEmail}`,
+        `invitee_email.ilike.${normalizedEmail}`
+      );
+    }
+
+    if (user.id) {
+      filters.push(`invitee_user_id.eq.${user.id}`);
+    }
+
+    if (filters.length === 0) {
+      setPendingInvites([]);
+      setIsInvitesLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("invites")
+      .select("id, status, expires_at, created_by, accounts(name)")
+      .or(filters.join(","))
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setPendingInvites([]);
+      setIsInvitesLoading(false);
+      return;
+    }
+
+    const inviteRows = ((data ?? []) as InviteRow[]).filter(
+      (invite) => !isExpired(invite.expires_at)
+    );
+
+    const creatorIds = Array.from(
+      new Set(inviteRows.map((invite) => invite.created_by).filter(Boolean))
+    );
+
+    let creatorProfiles: Record<string, InviterProfile> = {};
+
+    if (creatorIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, email, avatar_color")
+        .in("user_id", creatorIds);
+
+      creatorProfiles = (profiles ?? []).reduce<Record<string, InviterProfile>>(
+        (acc, item) => {
+          acc[item.user_id] = item as InviterProfile;
+          return acc;
+        },
+        {}
+      );
+    }
+
+    const mapped = inviteRows.map((invite) => {
+      const inviter = creatorProfiles[invite.created_by];
+      const accountName = Array.isArray(invite.accounts)
+        ? invite.accounts[0]?.name
+        : invite.accounts?.name;
+
+      return {
+        id: invite.id,
+        accountName:
+          accountName ?? t(dictionary, "settings.userProfile.invitations.unknownAccount"),
+        inviterEmail:
+          inviter?.email ??
+          t(dictionary, "settings.userProfile.invitations.unknownInviter"),
+        inviterColor: getUserAvatarColor(inviter?.avatar_color),
+      };
+    });
+
+    setPendingInvites(mapped);
+    setIsInvitesLoading(false);
+  }, [dictionary, user]);
 
   useEffect(() => {
-    let cancelled = false;
+    if (!user?.id) return;
+    void loadProfile();
+  }, [loadProfile, user?.id]);
 
-    async function loadProfile() {
-      if (!user?.id) return;
-      setIsProfileLoading(true);
-      const { data, error: profileError } = await supabase
+  useEffect(() => {
+    if (isFocused) {
+      void loadPendingInvites();
+    }
+  }, [isFocused, loadPendingInvites]);
+
+  const saveProfilePatch = useCallback(
+    async (patch: Record<string, unknown>) => {
+      if (!user?.id) return false;
+      const { error } = await supabase
         .from("profiles")
-        .select(
-          "avatar_path, email, avatar_fallback_text, avatar_fallback_bg_token"
-        )
-        .eq("user_id", user.id)
-        .maybeSingle();
+        .update(patch)
+        .eq("user_id", user.id);
+      return !error;
+    },
+    [user?.id]
+  );
 
-      if (cancelled) return;
+  const updateAvatarColor = async (nextColor: UserAvatarColorId) => {
+    if (!user?.id || nextColor === profile.avatarColor || savingField) return;
 
-      if (profileError) {
-        setError(t(dictionary, "settings.userDetails.avatar.uploadError"));
-        setIsProfileLoading(false);
+    const previous = profile.avatarColor;
+    setSavingField("avatarColor");
+    setProfile((current) => ({ ...current, avatarColor: nextColor }));
+
+    const ok = await saveProfilePatch({ avatar_color: nextColor });
+    if (!ok) {
+      setProfile((current) => ({ ...current, avatarColor: previous }));
+      reportNetworkIssue({
+        message: t(dictionary, "settings.userProfile.errors.saveAvatarColor"),
+        onRetry: () => {
+          void updateAvatarColor(nextColor);
+        },
+      });
+    }
+
+    setSavingField(null);
+  };
+
+  const updateTheme = async (nextTheme: UserThemeId) => {
+    if (!user?.id || nextTheme === profile.theme || savingField) return;
+
+    const previous = profile.theme;
+    setSavingField("theme");
+    setProfile((current) => ({ ...current, theme: nextTheme }));
+    setThemePreferences({ theme: nextTheme });
+
+    const ok = await saveProfilePatch({ theme: nextTheme });
+    if (!ok) {
+      setProfile((current) => ({ ...current, theme: previous }));
+      setThemePreferences({ theme: previous });
+      reportNetworkIssue({
+        message: t(dictionary, "settings.userProfile.errors.saveTheme"),
+        onRetry: () => {
+          void updateTheme(nextTheme);
+        },
+      });
+    }
+
+    setSavingField(null);
+  };
+
+  const updateColorMode = async (nextMode: UserThemeMode) => {
+    if (!user?.id || nextMode === profile.colorMode || savingField) return;
+
+    const previous = profile.colorMode;
+    setSavingField("colorMode");
+    setProfile((current) => ({ ...current, colorMode: nextMode }));
+    setThemePreferences({ colorMode: nextMode });
+
+    const ok = await saveProfilePatch({ color_mode: nextMode });
+    if (!ok) {
+      setProfile((current) => ({ ...current, colorMode: previous }));
+      setThemePreferences({ colorMode: previous });
+      reportNetworkIssue({
+        message: t(dictionary, "settings.userProfile.errors.saveColorMode"),
+        onRetry: () => {
+          void updateColorMode(nextMode);
+        },
+      });
+    }
+
+    setSavingField(null);
+  };
+
+  const updateLanguage = async (nextLocale: UserLocale) => {
+    if (!user?.id || nextLocale === profile.locale || savingField) return;
+
+    const previous = profile.locale;
+    setSavingField("locale");
+    setProfile((current) => ({ ...current, locale: nextLocale }));
+    await setLocale(nextLocale);
+
+    const ok = await saveProfilePatch({ locale: nextLocale });
+    if (!ok) {
+      setProfile((current) => ({ ...current, locale: previous }));
+      await setLocale(previous);
+      reportNetworkIssue({
+        message: t(dictionary, "settings.userProfile.errors.saveLocale"),
+        onRetry: () => {
+          void updateLanguage(nextLocale);
+        },
+      });
+    }
+
+    setSavingField(null);
+  };
+
+  const handleInviteAction = async (
+    inviteId: string,
+    action: Exclude<InviteAction, null>
+  ) => {
+    if (!session?.access_token || inviteActionId) return;
+
+    setInviteActionId(inviteId);
+    setInviteAction(action);
+    setNotice(null);
+    setNoticeTone(null);
+
+    try {
+      const response = await fetch(`${API_URL}/api/invites/${action}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ inviteId }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const message =
+          typeof payload?.errorKey === "string"
+            ? t(dictionary, payload.errorKey as any, payload.errorParams)
+            : t(dictionary, "errors.internalServer");
+        setNotice(message);
+        setNoticeTone("negative");
         return;
       }
 
-      setAvatarPath(data?.avatar_path ?? null);
-      setFallbackText(data?.avatar_fallback_text ?? null);
-      const bgToken = ALLOWED_AVATAR_BG_TOKENS.includes(
-        data?.avatar_fallback_bg_token as AvatarColorToken
-      )
-        ? (data?.avatar_fallback_bg_token as AvatarColorToken)
-        : null;
-      setFallbackBgToken(bgToken);
-      setProfileEmail(data?.email ?? null);
-      setIsProfileLoading(false);
+      setNotice(
+        action === "accept"
+          ? t(dictionary, "invitations.joinSuccess")
+          : t(dictionary, "common.successTitle")
+      );
+      setNoticeTone("positive");
+      await loadPendingInvites();
+    } catch (error) {
+      console.error("[UserProfile] Invite action error:", error);
+      setNotice(t(dictionary, "errors.internalServer"));
+      setNoticeTone("negative");
+    } finally {
+      setInviteActionId(null);
+      setInviteAction(null);
     }
+  };
 
-    loadProfile();
-    return () => {
-      cancelled = true;
-    };
-  }, [dictionary, user?.id]);
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
 
-  if (loading) {
+    try {
+      await signOutAndReset({
+        signOut: async () => {
+          const { error } = await supabase.auth.signOut();
+          if (error) throw error;
+        },
+        clearLocalSessionArtifacts: clearSelectedAccount,
+        onNavigate: () => {
+          router.replace("/(auth)/login");
+        },
+      });
+    } catch (error) {
+      console.error("[UserProfile] Sign out failed:", error);
+      reportNetworkIssue({ message: t(dictionary, "settings.signOut.error") });
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
+  if (loading || isProfileLoading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={tokens.colors.text.muted} />
-        <Text style={styles.loadingText}>
-          {t(dictionary, "settings.userDetails.loading")}
-        </Text>
+      <View style={[styles.centered, { backgroundColor: activeTheme.background }]}>
+        <ActivityIndicator size="large" color={activeTheme.primary} />
       </View>
     );
   }
 
   if (!user) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>
-          {t(dictionary, "settings.userDetails.error")}
+      <View style={[styles.centered, { backgroundColor: activeTheme.background }]}>
+        <Text style={[styles.errorText, { color: activeTheme.textSecondary }]}>
+          {t(dictionary, "settings.userProfile.errors.notAuthenticated")}
         </Text>
       </View>
     );
   }
 
-  const viewModel = mapUserToUserDetailsVM(user);
-  const emailValue = profileEmail ?? viewModel.email;
-  const fallbackPreview = resolveAvatarFallback(
-    {
-      avatar_fallback_text: draftText || null,
-      avatar_fallback_bg_token: draftBgToken ?? null,
-    },
-    emailValue,
-    user.id
-  );
-
-  const handlePickAvatar = async () => {
-    if (!user?.id) return;
-    setError(null);
-
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permission.status !== "granted") {
-      Alert.alert(
-        t(dictionary, "common.errorTitle"),
-        t(dictionary, "settings.userDetails.avatar.permissionError")
-      );
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.9,
-    });
-
-    if (result.canceled || result.assets.length === 0) return;
-
-    const asset = result.assets[0];
-    const mimeType = asset.mimeType || "image/jpeg";
-
-    if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
-      setError(t(dictionary, "settings.userDetails.avatar.typeError"));
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const response = await fetch(asset.uri);
-      const blob = await response.blob();
-
-      if (blob.size > MAX_AVATAR_BYTES) {
-        setError(t(dictionary, "settings.userDetails.avatar.sizeError"));
-        setIsSubmitting(false);
-        return;
-      }
-
-      const extension =
-        asset.fileName?.split(".").pop()?.toLowerCase() ||
-        asset.uri.split(".").pop()?.toLowerCase() ||
-        "jpg";
-      const path = `${user.id}/avatar.${extension}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(path, blob, { contentType: mimeType, upsert: true });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ avatar_path: path })
-        .eq("user_id", user.id);
-
-      if (updateError) {
-        await supabase.storage.from("avatars").remove([path]);
-        throw updateError;
-      }
-
-      setAvatarPath(path);
-      setAvatarVersion(Date.now());
-    } catch (err) {
-      console.error("[UserDetails] Avatar upload error:", err);
-      setError(t(dictionary, "settings.userDetails.avatar.uploadError"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleRemoveAvatar = async () => {
-    if (!user?.id || !avatarPath) return;
-    setError(null);
-    setAvatarPath(null);
-    setIsSubmitting(true);
-
-    try {
-      const previousPath = avatarPath;
-      const { error: removeError } = await supabase.storage
-        .from("avatars")
-        .remove([previousPath]);
-
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ avatar_path: null })
-        .eq("user_id", user.id);
-
-      if (updateError) {
-        setAvatarPath(previousPath);
-        throw updateError;
-      }
-
-      if (removeError) {
-        setError(t(dictionary, "settings.userDetails.avatar.removeError"));
-      }
-    } catch (err) {
-      console.error("[UserDetails] Avatar remove error:", err);
-      setError(t(dictionary, "settings.userDetails.avatar.removeError"));
-    } finally {
-      setAvatarVersion(Date.now());
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleOpenEditor = () => {
-    setError(null);
-    setDraftText(normalizeAvatarFallbackText(fallbackText) ?? "");
-    setDraftBgToken(fallbackBgToken ?? null);
-    setIsFallbackEditorOpen(true);
-  };
-
-  const handleDraftTextChange = (value: string) => {
-    const normalized = normalizeAvatarFallbackText(value);
-    setDraftText(normalized ?? "");
-  };
-
-  const handleRandomizeBg = () => {
-    const options = ALLOWED_AVATAR_BG_TOKENS.filter(
-      (token) => token !== draftBgToken
-    );
-    if (options.length === 0) return;
-    const next = options[Math.floor(Math.random() * options.length)];
-    setDraftBgToken(next);
-  };
-
-  const handleSaveFallback = async () => {
-    if (!user?.id) return;
-    setIsSubmitting(true);
-    setError(null);
-
-    const previousText = fallbackText;
-    const previousToken = fallbackBgToken;
-    const nextText = normalizeAvatarFallbackText(draftText);
-    const nextToken = ALLOWED_AVATAR_BG_TOKENS.includes(
-      draftBgToken as AvatarColorToken
-    )
-      ? draftBgToken
-      : null;
-
-    setFallbackText(nextText);
-    setFallbackBgToken(nextToken);
-
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({
-        avatar_fallback_text: nextText,
-        avatar_fallback_bg_token: nextToken,
-      })
-      .eq("user_id", user.id);
-
-    if (updateError) {
-      setFallbackText(previousText);
-      setFallbackBgToken(previousToken);
-      setError(t(dictionary, "settings.userDetails.avatar.fallbackError"));
-      setIsSubmitting(false);
-      return;
-    }
-
-    setIsSubmitting(false);
-    setIsFallbackEditorOpen(false);
-  };
-
-  const handleSignOut = async () => {
-    setIsSigningOut(true);
-
-    try {
-      await signOutAndReset({
-        signOut: () => supabase.auth.signOut(),
-        clearLocalSessionArtifacts: clearSelectedAccount,
-        onReset: () => {
-          setIsSignOutOpen(false);
-        },
-        onNavigate: () => {
-          router.replace("/(auth)/login");
-        },
-      });
-    } catch (err) {
-      console.error("[UserDetails] Sign out failed:", err);
-      reportNetworkIssue({
-        message: t(dictionary, "settings.signOut.error"),
-        onRetry: handleSignOut,
-      });
-    } finally {
-      setIsSigningOut(false);
-    }
-  };
+  const mainAvatar = USER_AVATAR_COLORS[profile.avatarColor];
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.subtitle}>
-          {t(dictionary, "settings.userDetails.subtitle")}
+    <ScrollView
+      style={[styles.container, { backgroundColor: activeTheme.background }]}
+      contentContainerStyle={styles.content}
+    >
+      <View style={styles.pageHeader}>
+        <Text style={[styles.pageTitle, { color: activeTheme.textPrimary }]}>
+          {t(dictionary, "settings.userProfile.title")}
         </Text>
+        <Text style={[styles.pageSubtitle, { color: activeTheme.textSecondary }]}>
+          {t(dictionary, "settings.userProfile.subtitle")}
+        </Text>
+        {profileError ? (
+          <Text style={[styles.errorLabel, { color: activeTheme.dangerText }]}>
+            {profileError}
+          </Text>
+        ) : null}
       </View>
 
-      <View style={styles.card}>
-        <View style={styles.avatarHeader}>
-          <Text style={styles.avatarTitle}>
-            {t(dictionary, "settings.userDetails.avatar.title")}
-          </Text>
-          <Text style={styles.avatarDescription}>
-            {t(dictionary, "settings.userDetails.avatar.description")}
-          </Text>
-        </View>
-        <View style={styles.avatarRow}>
-          <UserAvatar
-            email={emailValue}
-            userId={user.id}
-            avatarPath={avatarPath}
-            fallbackText={fallbackText}
-            fallbackBgToken={fallbackBgToken}
-            size={72}
-            label={emailValue}
-            cacheKey={avatarVersion}
-          />
-          <View style={styles.avatarActions}>
-            <Button
-              title={t(dictionary, "settings.userDetails.avatar.edit")}
-              onPress={handleOpenEditor}
-              disabled={isProfileLoading || isSubmitting}
-            />
-          </View>
-        </View>
-        {error ? <Text style={styles.avatarError}>{error}</Text> : null}
-      </View>
-
-      <View style={styles.card}>
-        <View style={styles.field}>
-          <Text style={styles.label}>
-            {t(dictionary, "settings.userDetails.fields.email")}
-          </Text>
-          <Text style={styles.value}>{emailValue}</Text>
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.field}>
-          <Text style={styles.label}>
-            {t(dictionary, "settings.userDetails.fields.id")}
-          </Text>
-          <Text style={styles.valueSmall}>{viewModel.userId}</Text>
-        </View>
-      </View>
-
-      <View style={styles.signOutSection}>
-        <View style={styles.signOutDivider} />
-        <TouchableOpacity
-          onPress={() => setIsSignOutOpen(true)}
-          disabled={isSigningOut}
-          style={styles.signOutRow}
-        >
-          <View>
-            <Text style={styles.signOutTitle}>
-              {t(dictionary, "settings.signOut.label")}
-            </Text>
-            <Text style={styles.signOutDescription}>
-              {t(dictionary, "settings.signOut.description")}
-            </Text>
-          </View>
-          <Text style={styles.signOutChevron}>›</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ConfirmationModal
-        open={isSignOutOpen}
-        title={t(dictionary, "settings.signOut.confirmTitle")}
-        description={t(dictionary, "settings.signOut.confirmDescription")}
-        confirmLabel={t(dictionary, "settings.signOut.confirmAction")}
-        cancelLabel={t(dictionary, "settings.signOut.confirmCancel")}
-        onConfirm={handleSignOut}
-        onCancel={closeSignOutModal}
-        confirmLoading={isSigningOut}
-        confirmDisabled={isSigningOut}
-        cancelDisabled={isSigningOut}
-        dismissOnBackdrop={!isSigningOut}
-        tone="destructive"
-      />
-
-      <Modal
-        transparent
-        visible={isFallbackEditorOpen}
-        animationType="slide"
-        onRequestClose={() => setIsFallbackEditorOpen(false)}
+      <View
+        style={[
+          styles.sectionCard,
+          { backgroundColor: activeTheme.surface, borderColor: activeTheme.border },
+        ]}
       >
-        <View style={styles.sheetOverlay}>
-          <Pressable
-            style={styles.sheetBackdrop}
-            onPress={() => setIsFallbackEditorOpen(false)}
+        <Text style={[styles.sectionTitle, { color: activeTheme.textPrimary }]}>
+          {t(dictionary, "settings.userProfile.avatar.title")}
+        </Text>
+        <View style={styles.avatarRow}>
+          <View
+            style={[
+              styles.mainAvatar,
+              { backgroundColor: mainAvatar.bg },
+            ]}
+          >
+            <Text style={[styles.mainAvatarText, { color: mainAvatar.fg }]}>
+              {getAvatarInitials(profile.email)}
+            </Text>
+          </View>
+          <View style={styles.avatarInfo}>
+            <Text style={[styles.emailValue, { color: activeTheme.textPrimary }]}>
+              {profile.email}
+            </Text>
+            <Text style={[styles.avatarHint, { color: activeTheme.textTertiary }]}>
+              {t(dictionary, "settings.userProfile.avatar.hint")}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={[styles.selectorLabel, { color: activeTheme.textTertiary }]}>
+          {t(dictionary, "settings.userProfile.avatar.colorLabel")}
+        </Text>
+
+        <View style={styles.colorSelector}>
+          {USER_AVATAR_COLOR_ORDER.map((colorId) => {
+            const color = USER_AVATAR_COLORS[colorId];
+            const selected = profile.avatarColor === colorId;
+            return (
+              <Pressable
+                key={colorId}
+                onPress={() => {
+                  void updateAvatarColor(colorId);
+                }}
+                disabled={savingField !== null}
+                style={[
+                  styles.colorDotOuter,
+                  selected && {
+                    borderColor: color.fg,
+                    borderWidth: 2,
+                  },
+                ]}
+              >
+                <View style={[styles.colorDot, { backgroundColor: color.fg }]} />
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.sectionCard,
+          { backgroundColor: activeTheme.surface, borderColor: activeTheme.border },
+        ]}
+      >
+        <Text style={[styles.sectionTitle, { color: activeTheme.textPrimary }]}>
+          {t(dictionary, "settings.userProfile.invitations.title")}
+        </Text>
+
+        {isInvitesLoading ? (
+          <ActivityIndicator
+            size="small"
+            color={activeTheme.textSecondary}
+            style={styles.invitesLoading}
           />
-          <View style={styles.sheetContainer}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>
-                {t(dictionary, "settings.userDetails.avatar.editorTitle")}
-              </Text>
-              <Text style={styles.sheetSubtitle}>
-                {t(dictionary, "settings.userDetails.avatar.editorDescription")}
-              </Text>
-            </View>
+        ) : pendingInvites.length === 0 ? (
+          <View style={styles.emptyState}>
+            <MaterialCommunityIcons
+              name="email-outline"
+              size={22}
+              color={activeTheme.textTertiary}
+            />
+            <Text style={[styles.emptyStateText, { color: activeTheme.textTertiary }]}>
+              {t(dictionary, "settings.userProfile.invitations.empty")}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.invitesList}>
+            {pendingInvites.map((invite) => {
+              const avatar = USER_AVATAR_COLORS[invite.inviterColor];
+              const isActing = inviteActionId === invite.id;
 
-            <View style={styles.sheetSection}>
-              <View style={styles.sheetRow}>
-                <UserAvatar
-                  email={emailValue}
-                  userId={user.id}
-                  avatarPath={null}
-                  fallbackText={fallbackPreview.text}
-                  fallbackBgToken={fallbackPreview.bgToken}
-                  size={64}
-                  label={emailValue}
-                />
-                <Text style={styles.sheetHint}>
-                  {t(dictionary, "settings.userDetails.avatar.fallbackHint")}
-                </Text>
-              </View>
-
-              <View style={styles.sheetField}>
-                <View style={styles.inlineHeader}>
-                  <Text style={styles.inlineLabel}>
-                    {t(dictionary, "settings.userDetails.avatar.letterLabel")}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setDraftText("")}
-                    disabled={isSubmitting}
-                  >
-                    <Text style={styles.inlineAction}>
-                      {t(dictionary, "settings.userDetails.avatar.letterReset")}
+              return (
+                <View
+                  key={invite.id}
+                  style={[
+                    styles.inviteCard,
+                    { backgroundColor: activeTheme.surfaceAlt },
+                  ]}
+                >
+                  <View style={[styles.inviteAvatar, { backgroundColor: avatar.bg }]}>
+                    <Text style={[styles.inviteAvatarText, { color: avatar.fg }]}>
+                      {getAvatarInitials(invite.inviterEmail)}
                     </Text>
-                  </TouchableOpacity>
-                </View>
-                <Input
-                  label=""
-                  value={draftText}
-                  onChangeText={handleDraftTextChange}
-                  maxLength={1}
-                  placeholder={fallbackPreview.text}
-                  disabled={isSubmitting}
-                />
-              </View>
+                  </View>
 
-              <View style={styles.sheetField}>
-                <View style={styles.inlineHeader}>
-                  <Text style={styles.inlineLabel}>
-                    {t(dictionary, "settings.userDetails.avatar.backgroundLabel")}
-                  </Text>
-                  <View style={styles.inlineActions}>
-                    <TouchableOpacity
-                      onPress={() => setDraftBgToken(null)}
-                      disabled={isSubmitting}
+                  <View style={styles.inviteInfo}>
+                    <Text style={[styles.inviteTitle, { color: activeTheme.textPrimary }]}>
+                      {invite.accountName}
+                    </Text>
+                    <Text style={[styles.inviteFrom, { color: activeTheme.textSecondary }]}>
+                      {t(dictionary, "settings.userProfile.invitations.from", {
+                        email: invite.inviterEmail,
+                      })}
+                    </Text>
+                  </View>
+
+                  <View style={styles.inviteActions}>
+                    <Pressable
+                      onPress={() => {
+                        void handleInviteAction(invite.id, "reject");
+                      }}
+                      disabled={isActing}
+                      style={[
+                        styles.inviteButton,
+                        styles.inviteButtonSecondary,
+                        { borderColor: activeTheme.border },
+                      ]}
                     >
-                      <Text style={styles.inlineAction}>
-                        {t(dictionary, "settings.userDetails.avatar.backgroundReset")}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={handleRandomizeBg}
-                      disabled={isSubmitting}
+                      {isActing && inviteAction === "reject" ? (
+                        <ActivityIndicator size="small" color={activeTheme.textSecondary} />
+                      ) : (
+                        <Text
+                          style={[
+                            styles.inviteButtonTextSecondary,
+                            { color: activeTheme.textSecondary },
+                          ]}
+                        >
+                          {t(dictionary, "invitations.rejectButton")}
+                        </Text>
+                      )}
+                    </Pressable>
+
+                    <Pressable
+                      onPress={() => {
+                        void handleInviteAction(invite.id, "accept");
+                      }}
+                      disabled={isActing}
+                      style={[
+                        styles.inviteButton,
+                        { backgroundColor: activeTheme.primary },
+                      ]}
                     >
-                      <Text style={styles.inlineAction}>
-                        {t(dictionary, "settings.userDetails.avatar.backgroundRandom")}
-                      </Text>
-                    </TouchableOpacity>
+                      {isActing && inviteAction === "accept" ? (
+                        <ActivityIndicator size="small" color={primaryActionTextColor} />
+                      ) : (
+                        <Text
+                          style={[
+                            styles.inviteButtonTextPrimary,
+                            { color: primaryActionTextColor },
+                          ]}
+                        >
+                          {t(dictionary, "invitations.acceptButton")}
+                        </Text>
+                      )}
+                    </Pressable>
                   </View>
                 </View>
-                <View style={styles.swatchGrid}>
-                  {ALLOWED_AVATAR_BG_TOKENS.map((token) => {
-                    const color = resolveAvatarColor(tokens, token);
-                    const isSelected = draftBgToken === token;
-                    return (
-                      <TouchableOpacity
-                        key={token}
-                        onPress={() =>
-                          setDraftBgToken(isSelected ? null : token)
-                        }
-                        style={[
-                          styles.swatch,
-                          { backgroundColor: color },
-                          isSelected && styles.swatchSelected,
-                        ]}
-                      />
-                    );
-                  })}
-                </View>
-              </View>
-
-              {avatarPath ? (
-                <View style={styles.photoActions}>
-                  <Button
-                    title={t(dictionary, "settings.userDetails.avatar.changePhoto")}
-                    onPress={handlePickAvatar}
-                    disabled={isSubmitting}
-                  />
-                  <Button
-                    title={t(dictionary, "settings.userDetails.avatar.removePhoto")}
-                    onPress={handleRemoveAvatar}
-                    disabled={isSubmitting}
-                    variant="secondary"
-                  />
-                </View>
-              ) : (
-                <Button
-                  title={t(dictionary, "settings.userDetails.avatar.changePhoto")}
-                  onPress={handlePickAvatar}
-                  disabled={isSubmitting}
-                />
-              )}
-            </View>
-
-            {error ? <Text style={styles.sheetError}>{error}</Text> : null}
-
-            <View style={styles.sheetActions}>
-              <Button
-                title={t(dictionary, "settings.userDetails.avatar.cancel")}
-                onPress={() => setIsFallbackEditorOpen(false)}
-                variant="secondary"
-                disabled={isSubmitting}
-              />
-              <Button
-                title={t(dictionary, "settings.userDetails.avatar.save")}
-                onPress={handleSaveFallback}
-                disabled={isSubmitting}
-                loading={isSubmitting}
-              />
-            </View>
+              );
+            })}
           </View>
+        )}
+      </View>
+
+      <View
+        style={[
+          styles.sectionCard,
+          { backgroundColor: activeTheme.surface, borderColor: activeTheme.border },
+        ]}
+      >
+        <Text style={[styles.sectionTitle, { color: activeTheme.textPrimary }]}>
+          {t(dictionary, "settings.userProfile.theme.title")}
+        </Text>
+
+        <View style={styles.themeGrid}>
+          {USER_THEME_ORDER.map((themeId) => {
+            const definition = USER_THEME_DEFINITIONS[themeId];
+            const selected = profile.theme === themeId;
+
+            return (
+              <Pressable
+                key={themeId}
+                onPress={() => {
+                  void updateTheme(themeId);
+                }}
+                disabled={savingField !== null}
+                style={[
+                  styles.themeCard,
+                  { borderColor: activeTheme.border, backgroundColor: activeTheme.surface },
+                  selected && { borderColor: activeTheme.primary, borderWidth: 2 },
+                ]}
+              >
+                <View style={styles.themePreview}>
+                  {definition.preview.map((swatch) => (
+                    <View
+                      key={`${themeId}-${swatch}`}
+                      style={[styles.themeSwatch, { backgroundColor: swatch }]}
+                    />
+                  ))}
+                </View>
+                <Text style={[styles.themeName, { color: activeTheme.textPrimary }]}>
+                  {t(dictionary, `settings.userProfile.theme.options.${themeId}.name` as any)}
+                </Text>
+                <Text style={[styles.themeDescription, { color: activeTheme.textTertiary }]}>
+                  {t(dictionary, `settings.userProfile.theme.options.${themeId}.description` as any)}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
-      </Modal>
+
+        <View
+          style={[
+            styles.modeToggle,
+            { backgroundColor: activeTheme.surfaceAlt, borderColor: activeTheme.border },
+          ]}
+        >
+          {USER_THEME_MODE_ORDER.map((mode) => {
+            const selected = profile.colorMode === mode;
+            return (
+              <Pressable
+                key={mode}
+                onPress={() => {
+                  void updateColorMode(mode);
+                }}
+                disabled={savingField !== null}
+                style={[
+                  styles.modeButton,
+                  selected && {
+                    backgroundColor: activeTheme.surface,
+                    borderColor: activeTheme.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.modeButtonText,
+                    { color: selected ? activeTheme.textPrimary : activeTheme.textSecondary },
+                  ]}
+                >
+                  {t(dictionary, `settings.userProfile.theme.modes.${mode}` as any)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.sectionCard,
+          { backgroundColor: activeTheme.surface, borderColor: activeTheme.border },
+        ]}
+      >
+        <Text style={[styles.sectionTitle, { color: activeTheme.textPrimary }]}>
+          {t(dictionary, "settings.userProfile.language.title")}
+        </Text>
+
+        <View style={styles.languageList}>
+          {([
+            { code: "es", flag: "🇪🇸" },
+            { code: "en", flag: "🇬🇧" },
+          ] as const).map((item) => {
+            const selected = profile.locale === item.code;
+
+            return (
+              <Pressable
+                key={item.code}
+                onPress={() => {
+                  void updateLanguage(item.code);
+                }}
+                disabled={savingField !== null}
+                style={[
+                  styles.languageOption,
+                  selected && {
+                    borderColor: activeTheme.textPrimary,
+                    backgroundColor: activeTheme.surfaceAlt,
+                  },
+                ]}
+              >
+                <Text style={styles.languageFlag}>{item.flag}</Text>
+                <Text style={[styles.languageLabel, { color: activeTheme.textPrimary }]}>
+                  {t(dictionary, `settings.language.options.${item.code}` as any)}
+                </Text>
+                {selected ? (
+                  <Text style={[styles.languageCheck, { color: activeTheme.textPrimary }]}>
+                    ✓
+                  </Text>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      {notice ? (
+        <Text
+          style={[
+            styles.notice,
+            {
+              color:
+                noticeTone === "negative"
+                  ? activeTheme.dangerText
+                  : activeTheme.textSecondary,
+            },
+          ]}
+        >
+          {notice}
+        </Text>
+      ) : null}
+
+      <Pressable
+        onPress={() => {
+          void handleSignOut();
+        }}
+        disabled={isSigningOut}
+        style={({ pressed }) => [
+          styles.signOutButton,
+          {
+            backgroundColor: pressed ? activeTheme.dangerBackground : activeTheme.surface,
+            borderColor: pressed ? activeTheme.dangerBorder : activeTheme.border,
+          },
+        ]}
+      >
+        <View style={styles.signOutCopy}>
+          <Text style={[styles.signOutTitle, { color: activeTheme.dangerText }]}>
+            {t(dictionary, "settings.signOut.label")}
+          </Text>
+          <Text style={[styles.signOutSubtitle, { color: activeTheme.textTertiary }]}>
+            {t(dictionary, "settings.signOut.description")}
+          </Text>
+        </View>
+        {isSigningOut ? (
+          <ActivityIndicator size="small" color={activeTheme.dangerText} />
+        ) : (
+          <Text style={[styles.signOutArrow, { color: activeTheme.dangerText }]}>→</Text>
+        )}
+      </Pressable>
     </ScrollView>
   );
 }
@@ -571,226 +839,280 @@ export default function UserDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.bg.primary,
+  },
+  content: {
+    paddingHorizontal: tokens.spacing.lg,
+    paddingTop: tokens.spacing.lg,
+    paddingBottom: tokens.spacing.xxxl,
   },
   centered: {
     flex: 1,
-    justifyContent: "center",
     alignItems: "center",
-    backgroundColor: tokens.colors.bg.primary,
-    padding: tokens.spacing.lg,
+    justifyContent: "center",
   },
-  loadingText: {
-    marginTop: tokens.spacing.md,
+  pageHeader: {
+    marginBottom: tokens.spacing.xl,
+    gap: tokens.spacing.xs,
+  },
+  pageTitle: {
+    fontSize: 24,
+    fontWeight: tokens.typography.weight.bold,
+  },
+  pageSubtitle: {
     fontSize: tokens.typography.size.sm,
-    color: tokens.colors.text.muted,
+  },
+  errorLabel: {
+    marginTop: tokens.spacing.xs,
+    fontSize: tokens.typography.size.xs,
   },
   errorText: {
     fontSize: tokens.typography.size.md,
-    color: tokens.colors.text.secondary,
     textAlign: "center",
   },
-  header: {
+  sectionCard: {
+    borderWidth: 1,
+    borderRadius: 16,
     paddingHorizontal: tokens.spacing.lg,
-    paddingTop: tokens.spacing.lg,
-    paddingBottom: tokens.spacing.md,
+    paddingVertical: tokens.spacing.lg,
+    marginBottom: tokens.spacing.md,
   },
-  subtitle: {
-    fontSize: tokens.typography.size.sm,
-    color: tokens.colors.text.secondary,
-  },
-  avatarHeader: {
-    paddingHorizontal: tokens.spacing.lg,
-    paddingTop: tokens.spacing.md,
-  },
-  avatarTitle: {
-    fontSize: tokens.typography.size.md,
-    fontWeight: tokens.typography.weight.semibold,
-    color: tokens.colors.text.primary,
-  },
-  avatarDescription: {
-    marginTop: tokens.spacing.xs,
-    fontSize: tokens.typography.size.sm,
-    color: tokens.colors.text.secondary,
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: tokens.typography.weight.bold,
+    marginBottom: tokens.spacing.md,
   },
   avatarRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: tokens.spacing.lg,
-    paddingHorizontal: tokens.spacing.lg,
-    paddingVertical: tokens.spacing.md,
+    gap: tokens.spacing.md,
   },
-  avatarActions: {
-    flex: 1,
-    gap: tokens.spacing.sm,
-  },
-  avatarError: {
-    paddingHorizontal: tokens.spacing.lg,
-    paddingBottom: tokens.spacing.md,
-    fontSize: tokens.typography.size.sm,
-    color: tokens.colors.state.negative,
-  },
-  sheetOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  sheetBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-  },
-  sheetContainer: {
-    backgroundColor: tokens.colors.bg.surface,
-    borderTopLeftRadius: tokens.radii.lg,
-    borderTopRightRadius: tokens.radii.lg,
-    paddingBottom: tokens.spacing.lg,
-    paddingHorizontal: tokens.spacing.lg,
-  },
-  sheetHandle: {
-    width: 40,
-    height: 4,
+  mainAvatar: {
+    width: 52,
+    height: 52,
     borderRadius: tokens.radii.pill,
-    backgroundColor: tokens.colors.state.neutral,
-    alignSelf: "center",
-    marginTop: tokens.spacing.sm,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  sheetHeader: {
-    paddingTop: tokens.spacing.lg,
-    paddingBottom: tokens.spacing.sm,
-  },
-  sheetTitle: {
-    fontSize: tokens.typography.size.lg,
+  mainAvatarText: {
+    fontSize: 17,
     fontWeight: tokens.typography.weight.bold,
-    color: tokens.colors.text.primary,
+    letterSpacing: 0.3,
   },
-  sheetSubtitle: {
-    marginTop: tokens.spacing.xs,
-    fontSize: tokens.typography.size.sm,
-    color: tokens.colors.text.secondary,
-  },
-  sheetSection: {
-    gap: tokens.spacing.md,
-  },
-  sheetRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: tokens.spacing.md,
-  },
-  sheetHint: {
+  avatarInfo: {
     flex: 1,
+  },
+  emailValue: {
     fontSize: tokens.typography.size.sm,
-    color: tokens.colors.text.secondary,
-  },
-  sheetField: {
-    gap: tokens.spacing.sm,
-  },
-  inlineHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  inlineLabel: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: tokens.typography.weight.semibold,
-    color: tokens.colors.text.primary,
-  },
-  inlineActions: {
-    flexDirection: "row",
-    gap: tokens.spacing.md,
-  },
-  inlineAction: {
-    fontSize: tokens.typography.size.sm,
-    color: tokens.colors.text.secondary,
-  },
-  swatchGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: tokens.spacing.sm,
-  },
-  swatch: {
-    width: 36,
-    height: 36,
-    borderRadius: tokens.radii.pill,
-    borderWidth: 1,
-    borderColor: tokens.colors.state.neutral,
-  },
-  swatchSelected: {
-    borderColor: tokens.colors.text.primary,
-    borderWidth: 2,
-  },
-  photoActions: {
-    gap: tokens.spacing.sm,
-  },
-  sheetError: {
-    marginTop: tokens.spacing.sm,
-    fontSize: tokens.typography.size.sm,
-    color: tokens.colors.state.negative,
-  },
-  sheetActions: {
-    marginTop: tokens.spacing.md,
-    gap: tokens.spacing.sm,
-  },
-  card: {
-    backgroundColor: tokens.colors.bg.surface,
-    marginTop: tokens.spacing.md,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: tokens.colors.state.neutral,
-  },
-  field: {
-    paddingVertical: tokens.spacing.md,
-    paddingHorizontal: tokens.spacing.lg,
-  },
-  label: {
-    fontSize: tokens.typography.size.xs,
     fontWeight: tokens.typography.weight.medium,
-    color: tokens.colors.text.muted,
+  },
+  avatarHint: {
+    marginTop: 2,
+    fontSize: tokens.typography.size.xs,
+  },
+  selectorLabel: {
+    marginTop: tokens.spacing.lg,
+    marginBottom: tokens.spacing.sm,
+    fontSize: 11,
+    fontWeight: tokens.typography.weight.semibold,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    marginBottom: tokens.spacing.xs,
   },
-  value: {
-    fontSize: tokens.typography.size.md,
-    color: tokens.colors.text.primary,
+  colorSelector: {
+    flexDirection: "row",
+    gap: tokens.spacing.sm,
+    flexWrap: "wrap",
   },
-  valueSmall: {
+  colorDotOuter: {
+    width: 30,
+    height: 30,
+    borderRadius: tokens.radii.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    borderColor: "transparent",
+    borderWidth: 1,
+  },
+  colorDot: {
+    width: 22,
+    height: 22,
+    borderRadius: tokens.radii.pill,
+  },
+  invitesLoading: {
+    marginVertical: tokens.spacing.md,
+  },
+  invitesList: {
+    gap: tokens.spacing.sm,
+  },
+  inviteCard: {
+    borderRadius: tokens.radii.md,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+  },
+  inviteAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: tokens.radii.pill,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  inviteAvatarText: {
+    fontSize: tokens.typography.size.xs,
+    fontWeight: tokens.typography.weight.bold,
+  },
+  inviteInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  inviteTitle: {
     fontSize: tokens.typography.size.sm,
-    color: tokens.colors.text.secondary,
-    fontFamily: "monospace",
+    fontWeight: tokens.typography.weight.semibold,
   },
-  divider: {
-    height: 1,
-    backgroundColor: tokens.colors.state.neutral,
-    marginHorizontal: tokens.spacing.lg,
+  inviteFrom: {
+    marginTop: 2,
+    fontSize: tokens.typography.size.xs,
   },
-  signOutSection: {
+  inviteActions: {
+    flexDirection: "row",
+    gap: tokens.spacing.xs,
+  },
+  inviteButton: {
+    minWidth: 80,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  inviteButtonSecondary: {
+    borderWidth: 1,
+    backgroundColor: "transparent",
+  },
+  inviteButtonTextPrimary: {
+    fontSize: 12,
+    fontWeight: tokens.typography.weight.semibold,
+  },
+  inviteButtonTextSecondary: {
+    fontSize: 12,
+    fontWeight: tokens.typography.weight.semibold,
+  },
+  emptyState: {
+    paddingVertical: tokens.spacing.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: tokens.spacing.xs,
+  },
+  emptyStateText: {
+    fontSize: 13,
+  },
+  themeGrid: {
+    flexDirection: "row",
+    gap: tokens.spacing.sm,
+  },
+  themeCard: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderRadius: tokens.radii.md,
+    padding: tokens.spacing.md,
+  },
+  themePreview: {
+    flexDirection: "row",
+    gap: 4,
+    height: 36,
+    marginBottom: tokens.spacing.sm,
+  },
+  themeSwatch: {
+    flex: 1,
+    borderRadius: tokens.radii.sm,
+  },
+  themeName: {
+    fontSize: 13,
+    fontWeight: tokens.typography.weight.semibold,
+    textAlign: "center",
+  },
+  themeDescription: {
+    marginTop: 2,
+    fontSize: 11,
+    textAlign: "center",
+  },
+  modeToggle: {
     marginTop: tokens.spacing.md,
+    borderRadius: tokens.radii.sm,
+    borderWidth: 1,
+    padding: 3,
+    flexDirection: "row",
+    gap: 3,
   },
-  signOutDivider: {
-    height: 1,
-    backgroundColor: tokens.colors.state.neutral,
-    marginBottom: tokens.spacing.md,
-    marginHorizontal: tokens.spacing.lg,
+  modeButton: {
+    flex: 1,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: tokens.spacing.sm,
   },
-  signOutRow: {
+  modeButtonText: {
+    fontSize: 13,
+    fontWeight: tokens.typography.weight.medium,
+  },
+  languageList: {
+    gap: tokens.spacing.xs,
+  },
+  languageOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+    borderRadius: tokens.radii.sm,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: tokens.spacing.sm,
+  },
+  languageFlag: {
+    fontSize: 18,
+    width: 24,
+    textAlign: "center",
+  },
+  languageLabel: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.medium,
+  },
+  languageCheck: {
+    marginLeft: "auto",
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.bold,
+  },
+  notice: {
+    marginTop: tokens.spacing.xs,
+    marginBottom: tokens.spacing.sm,
+    fontSize: tokens.typography.size.xs,
+    textAlign: "center",
+  },
+  signOutButton: {
+    marginTop: tokens.spacing.sm,
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: tokens.spacing.sm,
-    paddingHorizontal: tokens.spacing.lg,
+  },
+  signOutCopy: {
+    flex: 1,
   },
   signOutTitle: {
-    fontSize: tokens.typography.size.md,
-    fontWeight: tokens.typography.weight.semibold,
-    color: colors.state.negative,
-  },
-  signOutDescription: {
     fontSize: tokens.typography.size.sm,
-    color: tokens.colors.text.secondary,
-    marginTop: tokens.spacing.xs,
+    fontWeight: tokens.typography.weight.semibold,
   },
-  signOutChevron: {
-    fontSize: tokens.typography.size.xl,
-    color: tokens.colors.text.muted,
-    marginLeft: tokens.spacing.md,
+  signOutSubtitle: {
+    fontSize: tokens.typography.size.xs,
+    marginTop: 2,
+  },
+  signOutArrow: {
+    fontSize: 16,
+    marginLeft: tokens.spacing.sm,
   },
 });

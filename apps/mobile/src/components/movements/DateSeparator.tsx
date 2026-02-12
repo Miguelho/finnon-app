@@ -1,17 +1,17 @@
 import { View, Text, StyleSheet } from "react-native";
 import { movementsDesignTokens } from "../../types/movements";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 type DateSeparatorProps = {
   label: string;
 };
 
-const colors = movementsDesignTokens.colors;
-
 export function DateSeparator({ label }: DateSeparatorProps) {
+  const { tokens: userTokens } = useUserTheme();
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.line} />
+      <Text style={[styles.label, { color: userTokens.textSecondary }]}>{label}</Text>
+      <View style={[styles.line, { backgroundColor: userTokens.border }]} />
     </View>
   );
 }
@@ -26,12 +26,10 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: movementsDesignTokens.typography.sizes.sm,
-    color: colors.textSecondary,
     fontFamily: "DMSans-Medium",
   },
   line: {
     flex: 1,
     height: 1,
-    backgroundColor: colors.border,
   },
 });

@@ -320,10 +320,17 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
                 decimals: currencyDecimals,
               });
               const isIncome = tx.amount > 0;
+              const txIconClassName = isIncome
+                ? `${styles.txIcon} ${styles.txIconIncome}`
+                : `${styles.txIcon} ${styles.txIconExpense}`;
               return (
                 <div key={tx.id} className={styles.transactionItem}>
-                  <div className={styles.txIcon}>
-                    <CategoryIcon iconId={tx.categoryIconId ?? "Tag"} size={14} tone="primary" />
+                  <div className={txIconClassName}>
+                    <CategoryIcon
+                      iconId={tx.categoryIconId ?? "Tag"}
+                      size={14}
+                      tone={isIncome ? "positive" : "negative"}
+                    />
                   </div>
                   <div className={styles.txInfo}>
                     <div className={styles.txName}>{tx.description}</div>

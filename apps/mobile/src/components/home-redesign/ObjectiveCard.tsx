@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { themeTokens } from "@poleursus/shared";
 import { formatCurrencyParts, toMinor } from "./utils";
 import { useCopy, t } from "../../lib/i18n";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -32,6 +33,7 @@ export function ObjectiveCard({
   currencySymbol,
 }: ObjectiveCardProps) {
   const { dictionary } = useCopy();
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   if (!objective) return null;
 
   const statusConfig: Record<
@@ -66,27 +68,42 @@ export function ObjectiveCard({
   );
 
   return (
-    <View style={styles.card}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: userTokens.surface, borderColor: userTokens.border },
+      ]}
+    >
       <View style={styles.headerRow}>
-        <Text style={styles.title}>{t(dictionary, "mobile.home.objectiveTitle")}</Text>
+        <Text style={[styles.title, { color: userTokens.textPrimary }]}>
+          {t(dictionary, "mobile.home.objectiveTitle")}
+        </Text>
         <TouchableOpacity onPress={onNavigate}>
-          <Text style={styles.link}>{t(dictionary, "mobile.home.objectiveViewDetail")}</Text>
+          <Text style={[styles.link, { color: primaryActionColor }]}>
+            {t(dictionary, "mobile.home.objectiveViewDetail")}
+          </Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.statusRow}>
         <View style={[styles.statusIcon, { backgroundColor: config.bgColor }]}
         >
-          <Text style={styles.statusIconText}>{config.icon}</Text>
+          <Text style={[styles.statusIconText, { color: userTokens.textPrimary }]}>
+            {config.icon}
+          </Text>
         </View>
         <View>
-          <Text style={styles.statusLabel}>{objective.statusLabel}</Text>
-          <Text style={styles.statusDescription}>{objective.description}</Text>
+          <Text style={[styles.statusLabel, { color: userTokens.textPrimary }]}>
+            {objective.statusLabel}
+          </Text>
+          <Text style={[styles.statusDescription, { color: userTokens.textSecondary }]}>
+            {objective.description}
+          </Text>
         </View>
       </View>
 
       <View style={styles.progressSection}>
-        <View style={styles.progressTrack}>
+        <View style={[styles.progressTrack, { backgroundColor: userTokens.surfaceAlt }]}>
           <View
             style={[
               styles.progressFill,
@@ -96,23 +113,26 @@ export function ObjectiveCard({
           <View
             style={[
               styles.progressMarker,
+              { backgroundColor: userTokens.textSecondary },
               { left: `${objective.expectedPercent}%` },
             ]}
           />
         </View>
         <View style={styles.progressMeta}>
-          <Text style={styles.progressText}>
-            <Text style={styles.progressStrong}>{current.full}</Text>{" "}
+          <Text style={[styles.progressText, { color: userTokens.textSecondary }]}>
+            <Text style={[styles.progressStrong, { color: userTokens.textPrimary }]}>
+              {current.full}
+            </Text>{" "}
             {t(dictionary, "mobile.home.objectiveSavedSuffix")}
           </Text>
-          <Text style={styles.progressText}>
+          <Text style={[styles.progressText, { color: userTokens.textSecondary }]}>
             {t(dictionary, "mobile.home.objectiveOfPrefix")} {target.full}
           </Text>
         </View>
       </View>
 
-      <View style={styles.messageBox}>
-        <Text style={styles.messageText}>
+      <View style={[styles.messageBox, { backgroundColor: userTokens.surfaceAlt }]}>
+        <Text style={[styles.messageText, { color: userTokens.textSecondary }]}>
           {objective.messageHtml.replace(/<[^>]+>/g, "")}
         </Text>
       </View>
@@ -125,10 +145,11 @@ export function ObjectiveCard({
               style={[
                 styles.streakDot,
                 month.hit ? styles.streakDotHit : styles.streakDotMiss,
+                !month.hit && { backgroundColor: userTokens.border },
               ]}
             />
           ))}
-          <Text style={styles.streakLabel}>
+          <Text style={[styles.streakLabel, { color: userTokens.textSecondary }]}>
             {t(dictionary, "mobile.home.objectiveStreak", {
               hit: objective.streak.filter((m) => m.hit).length,
               total: objective.streak.length,
@@ -143,9 +164,7 @@ export function ObjectiveCard({
 const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
-    borderColor: colors.state.neutral,
     borderRadius: tokens.radii.lg,
-    backgroundColor: colors.bg.surface,
     padding: tokens.spacing.lg,
   },
   headerRow: {
@@ -157,13 +176,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
     fontFamily: "DMSans-SemiBold",
   },
   link: {
     fontSize: 13,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.action.primary,
     fontFamily: "DMSans-Medium",
   },
   statusRow: {
@@ -181,17 +198,14 @@ const styles = StyleSheet.create({
   },
   statusIconText: {
     fontSize: 16,
-    color: colors.text.primary,
   },
   statusLabel: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
     fontFamily: "DMSans-SemiBold",
   },
   statusDescription: {
     fontSize: tokens.typography.size.xs,
-    color: colors.text.secondary,
     fontFamily: "DMSans",
   },
   progressSection: {
@@ -200,7 +214,6 @@ const styles = StyleSheet.create({
   progressTrack: {
     height: 6,
     borderRadius: 999,
-    backgroundColor: colors.bg.secondary,
     overflow: "hidden",
   },
   progressFill: {
@@ -212,7 +225,6 @@ const styles = StyleSheet.create({
     top: -2,
     width: 2,
     height: 10,
-    backgroundColor: colors.text.secondary,
     borderRadius: 2,
   },
   progressMeta: {
@@ -221,16 +233,13 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: tokens.typography.size.xs,
-    color: colors.text.secondary,
     fontFamily: "DMSans",
   },
   progressStrong: {
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
     fontFamily: "JetBrainsMono-Medium",
   },
   messageBox: {
-    backgroundColor: colors.bg.secondary,
     borderRadius: tokens.radii.md,
     paddingHorizontal: tokens.spacing.md,
     paddingVertical: tokens.spacing.sm,
@@ -238,7 +247,6 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 13,
-    color: colors.text.secondary,
     lineHeight: 18,
     fontFamily: "DMSans",
   },
@@ -261,7 +269,6 @@ const styles = StyleSheet.create({
   streakLabel: {
     marginLeft: tokens.spacing.xs,
     fontSize: 11,
-    color: colors.text.secondary,
     fontFamily: "DMSans",
   },
 });

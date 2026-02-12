@@ -74,6 +74,7 @@ type PhosphorIconProps = {
   size?: number;
   weight?: IconWeight;
   color?: string;
+  accessibilityLabel?: string;
 };
 
 const iconComponents: Record<CategoryIconKey, ComponentType<PhosphorIconProps>> = {
@@ -138,7 +139,6 @@ export function CategoryIcon({
 }: CategoryIconProps) {
   const resolvedKey = resolveCategoryIconKey(iconKey);
   const IconComponent = iconComponents[resolvedKey] ?? Tag;
-
   const color = toneColors[tone];
 
   return (

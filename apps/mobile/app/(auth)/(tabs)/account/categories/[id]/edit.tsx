@@ -10,6 +10,7 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../../../../../../src/lib/supabase";
+import { useUserTheme } from "../../../../../../src/contexts/UserThemeContext";
 import { Button } from "../../../../../../src/components/Button";
 import { Input } from "../../../../../../src/components/Input";
 import { Card } from "../../../../../../src/components/Card";
@@ -38,6 +39,7 @@ const colors = tokens.colors;
 export default function EditCategoryScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { tokens: userThemeTokens } = useUserTheme();
   const [category, setCategory] = useState<Category | null>(null);
   const [name, setName] = useState("");
   const [iconKey, setIconKey] = useState<CategoryIconKey>("Tag");
@@ -176,7 +178,7 @@ export default function EditCategoryScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.loading}>
+      <View style={[styles.loading, { backgroundColor: userThemeTokens.background }]}>
         <ActivityIndicator size="large" />
       </View>
     );
@@ -184,7 +186,7 @@ export default function EditCategoryScreen() {
 
   if (!category) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: userThemeTokens.background }]}>
         <Card
           title={t(dictionary, "categories.notFoundTitle")}
           description={t(dictionary, "categories.notFoundDescription")}
@@ -196,7 +198,10 @@ export default function EditCategoryScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: userThemeTokens.background }]}
+      contentContainerStyle={styles.content}
+    >
       <Card description={t(dictionary, "categories.editDescription")}>
         <View style={styles.form}>
           <Input
@@ -263,11 +268,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: colors.bg.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
   },
   content: {
     padding: 16,

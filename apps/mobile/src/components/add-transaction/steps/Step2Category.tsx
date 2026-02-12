@@ -8,6 +8,7 @@ import {
   type CategoryIconKey,
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../lib/i18n";
+import { useUserTheme } from "../../../contexts/UserThemeContext";
 import { TopCategorySelector } from "../../TopCategorySelector";
 import { MerchantAutocomplete } from "../../MerchantAutocomplete";
 import { CategoryIcon } from "../../CategoryIcon";
@@ -43,6 +44,7 @@ export function Step2Category({
   onFieldChange,
 }: Step2CategoryProps) {
   const { dictionary } = useCopy();
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const [showAllCategories, setShowAllCategories] = useState(false);
 
   // Filter categories by transaction type
@@ -61,8 +63,13 @@ export function Step2Category({
   return (
     <View style={styles.container}>
       {/* Category field */}
-      <View style={styles.section}>
-        <Text style={styles.label}>
+      <View
+        style={[
+          styles.section,
+          { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+        ]}
+      >
+        <Text style={[styles.label, { color: userTokens.textPrimary }]}>
           {t(dictionary, "addTransaction.categoryLabel")}
         </Text>
 
@@ -92,7 +99,15 @@ export function Step2Category({
                   accessibilityState={{ selected: isSelected }}
                   style={[
                     styles.categoryItem,
+                    {
+                      borderColor: userTokens.border,
+                      backgroundColor: userTokens.surface,
+                    },
                     isSelected && styles.categoryItemSelected,
+                    isSelected && {
+                      borderColor: primaryActionColor,
+                      backgroundColor: userTokens.surfaceAlt,
+                    },
                   ]}
                 >
                   <CategoryIcon
@@ -104,7 +119,9 @@ export function Step2Category({
                   <Text
                     style={[
                       styles.categoryItemText,
+                      { color: userTokens.textPrimary },
                       isSelected && styles.categoryItemTextSelected,
+                      isSelected && { color: primaryActionColor },
                     ]}
                     numberOfLines={1}
                   >
@@ -118,12 +135,14 @@ export function Step2Category({
 
         {/* Selected category display */}
         {selectedCategory && !showAllCategories && topCategories.length > 0 && (
-          <Text style={styles.selectedText}>{selectedCategory.name}</Text>
+          <Text style={[styles.selectedText, { color: userTokens.textSecondary }]}>
+            {selectedCategory.name}
+          </Text>
         )}
 
         {/* Empty state */}
         {filteredCategories.length === 0 && (
-          <Text style={styles.emptyText}>
+          <Text style={[styles.emptyText, { color: userTokens.textTertiary }]}>
             {t(dictionary, "addTransaction.categoryEmpty")}
           </Text>
         )}
@@ -137,7 +156,13 @@ export function Step2Category({
       </View>
 
       {/* Merchant field */}
-      <View style={[styles.section, styles.merchantField]}>
+      <View
+        style={[
+          styles.section,
+          styles.merchantField,
+          { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+        ]}
+      >
         <MerchantAutocomplete
           label={t(dictionary, "addTransaction.merchantLabel")}
           helperText={
@@ -163,9 +188,7 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.lg,
     padding: tokens.spacing.lg,
     borderRadius: tokens.radii.lg,
-    backgroundColor: colors.bg.secondary,
     borderWidth: 1,
-    borderColor: colors.state.neutral,
   },
   merchantField: {
     zIndex: 10,
@@ -174,7 +197,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: tokens.typography.size.lg,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
     marginBottom: tokens.spacing.sm,
   },
   allCategoriesGrid: {
@@ -191,33 +213,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.spacing.lg,
     borderRadius: tokens.radii.lg,
     borderWidth: 1,
-    borderColor: colors.state.neutral,
-    backgroundColor: colors.bg.surface,
     minWidth: "45%",
     flexGrow: 1,
     minHeight: 56,
   },
   categoryItemSelected: {
-    borderColor: colors.action.primary,
-    backgroundColor: colors.action.secondary,
   },
   categoryItemText: {
     fontSize: tokens.typography.size.md,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.text.primary,
     flex: 1,
   },
   categoryItemTextSelected: {
-    color: colors.action.primary,
   },
   selectedText: {
     fontSize: tokens.typography.size.md,
-    color: colors.text.secondary,
     marginTop: tokens.spacing.sm,
   },
   emptyText: {
     fontSize: tokens.typography.size.md,
-    color: colors.text.muted,
     paddingVertical: tokens.spacing.xl,
   },
   errorText: {

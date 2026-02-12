@@ -27,8 +27,8 @@ const SlidePanelContent = React.forwardRef<
         className={cn(
           // Base - always applied
           "fixed z-50 flex flex-col",
-          // Finnon Color Tokens (color-guide.md)
-          "bg-[#FFFFFF] text-[#1C1E21] border-[#DADCE0]",
+          // Theme-aware colors from CSS variables
+          "bg-background text-foreground border-border",
           "border shadow-xl",
           // Mobile (default): bottom sheet
           "bottom-0 left-0 right-0 h-[90vh] w-full",

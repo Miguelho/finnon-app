@@ -3,9 +3,11 @@ import type { ReactNode } from "react";
 import { CheckCircle2, XCircle } from "lucide-react-native";
 import {
   formatMoneyWithSymbol,
+  withAlpha,
   themeTokens,
   type GoalHistoryView,
 } from "@poleursus/shared";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -37,15 +39,15 @@ export function GoalHistoryHero({
   copy,
   monthNavigator,
 }: GoalHistoryHeroProps) {
+  const { tokens: userTokens } = useUserTheme();
   const isCompleted = view.completed;
-  const completionDay = view.completedAt
-    ? parseInt(view.completedAt.split("-")[2], 10)
-    : null;
+  const completionDayPart = view.completedAt?.split("-")[2];
+  const completionDay = completionDayPart ? parseInt(completionDayPart, 10) : null;
 
   const statusColor = isCompleted ? colors.state.positive : colors.state.negative;
   const statusBgColor = isCompleted
-    ? `${colors.state.positive}15`
-    : `${colors.state.negative}15`;
+    ? withAlpha(colors.state.positive, 0.15)
+    : withAlpha(colors.state.negative, 0.15);
   const statusLabel = isCompleted ? copy.completedLabel : copy.failedLabel;
 
   const formattedFinal = formatMoneyWithSymbol(
@@ -93,7 +95,12 @@ export function GoalHistoryHero({
   );
 
   return (
-    <View style={styles.card}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: userTokens.surface, borderColor: userTokens.border },
+      ]}
+    >
       {/* Header row */}
       <View style={styles.headerRow}>
         <View>{monthNavigator ?? null}</View>
@@ -111,17 +118,19 @@ export function GoalHistoryHero({
 
       {/* Main amount - centered */}
       <View style={styles.amountContainer}>
-        <Text style={styles.amountLabel}>{copy.finalAmount}</Text>
+        <Text style={[styles.amountLabel, { color: userTokens.textSecondary }]}>
+          {copy.finalAmount}
+        </Text>
         <Text style={[styles.amountValue, { color: statusColor }]}>
           {formattedFinal}
         </Text>
-        <Text style={styles.targetText}>
+        <Text style={[styles.targetText, { color: userTokens.textSecondary }]}>
           {copy.targetWas.replace("{amount}", formattedTarget)}
         </Text>
       </View>
 
       {/* Progress bar */}
-      <View style={styles.progressBarContainer}>
+      <View style={[styles.progressBarContainer, { backgroundColor: userTokens.border }]}>
         <View
           style={[
             styles.progressBar,
@@ -134,19 +143,19 @@ export function GoalHistoryHero({
       </View>
 
       {/* Detail text */}
-      <Text style={styles.detailText}>{getDetailText()}</Text>
+      <Text style={[styles.detailText, { color: userTokens.textSecondary }]}>
+        {getDetailText()}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.bg.surface,
     borderRadius: 12,
     padding: 20,
     gap: 16,
     borderWidth: 1,
-    borderColor: colors.state.neutral,
   },
   headerRow: {
     flexDirection: "row",
@@ -173,7 +182,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    color: colors.text.secondary,
     fontWeight: "500",
   },
   amountValue: {
@@ -183,12 +191,10 @@ const styles = StyleSheet.create({
   },
   targetText: {
     fontSize: 14,
-    color: colors.text.secondary,
   },
   progressBarContainer: {
     height: 8,
     width: "100%",
-    backgroundColor: colors.state.neutral,
     borderRadius: 4,
     overflow: "hidden",
   },
@@ -198,7 +204,6 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 14,
-    color: colors.text.secondary,
     textAlign: "center",
   },
 });

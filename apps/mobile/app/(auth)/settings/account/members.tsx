@@ -15,6 +15,7 @@ import { PencilSimple, X } from "phosphor-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { useNetworkNotice } from "../../../../src/contexts/NetworkNoticeContext";
+import { useUserTheme } from "../../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../../src/lib/i18n";
 import { supabase } from "../../../../src/lib/supabase";
 import {
@@ -90,6 +91,11 @@ export default function AccountMembersSettingsScreen() {
   const { dictionary, locale } = useCopy();
   const insets = useSafeAreaInsets();
   const { reportNetworkIssue } = useNetworkNotice();
+  const {
+    tokens: userThemeTokens,
+    primaryActionColor,
+    primaryActionTextColor,
+  } = useUserTheme();
   const roleLocale = locale.startsWith("en") ? "en" : "es";
 
   const [accountRole, setAccountRole] = useState<MemberRole>("viewer");
@@ -441,7 +447,7 @@ export default function AccountMembersSettingsScreen() {
 
   if (!isInitialized) {
     return (
-      <View style={styles.loading}>
+      <View style={[styles.loading, { backgroundColor: userThemeTokens.background }]}>
         <ActivityIndicator size="large" color={colors.text.muted} />
       </View>
     );
@@ -453,7 +459,7 @@ export default function AccountMembersSettingsScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.loading}>
+      <View style={[styles.loading, { backgroundColor: userThemeTokens.background }]}>
         <ActivityIndicator size="large" color={colors.text.muted} />
       </View>
     );
@@ -461,7 +467,7 @@ export default function AccountMembersSettingsScreen() {
 
   if (error) {
     return (
-      <View style={styles.errorContainer}>
+      <View style={[styles.errorContainer, { backgroundColor: userThemeTokens.background }]}>
         <Text style={styles.errorTitle}>{t(dictionary, "common.errorTitle")}</Text>
         <Text style={styles.errorText}>{error}</Text>
       </View>
@@ -470,7 +476,7 @@ export default function AccountMembersSettingsScreen() {
 
   return (
     <ScrollView
-      style={styles.scrollContainer}
+      style={[styles.scrollContainer, { backgroundColor: userThemeTokens.background }]}
       contentContainerStyle={[
         styles.scrollContent,
         { paddingBottom: insets.bottom + tokens.spacing.xxl },
@@ -593,10 +599,16 @@ export default function AccountMembersSettingsScreen() {
                               disabled={isUpdatingMember}
                               style={[
                                 styles.smallActionButton,
+                                { backgroundColor: primaryActionColor },
                                 isUpdatingMember && styles.smallActionButtonDisabled,
                               ]}
                             >
-                              <Text style={styles.smallActionButtonText}>
+                              <Text
+                                style={[
+                                  styles.smallActionButtonText,
+                                  { color: primaryActionTextColor },
+                                ]}
+                              >
                                 {t(dictionary, "common.save")}
                               </Text>
                             </Pressable>
@@ -662,9 +674,14 @@ export default function AccountMembersSettingsScreen() {
           {canManageMembers ? (
             <Pressable
               onPress={() => setIsInviteComposerOpen((current) => !current)}
-              style={styles.inviteButton}
+              style={[styles.inviteButton, { backgroundColor: primaryActionColor }]}
             >
-              <Text style={styles.inviteButtonText}>
+              <Text
+                style={[
+                  styles.inviteButtonText,
+                  { color: primaryActionTextColor },
+                ]}
+              >
                 + {t(dictionary, "accountSettings.members.inviteButton")}
               </Text>
             </Pressable>
@@ -704,11 +721,17 @@ export default function AccountMembersSettingsScreen() {
               disabled={isSendingInvite || inviteEmail.trim().length === 0}
               style={[
                 styles.sendInviteButton,
+                { backgroundColor: primaryActionColor },
                 (isSendingInvite || inviteEmail.trim().length === 0) &&
                   styles.sendInviteButtonDisabled,
               ]}
             >
-              <Text style={styles.sendInviteButtonText}>
+              <Text
+                style={[
+                  styles.sendInviteButtonText,
+                  { color: primaryActionTextColor },
+                ]}
+              >
                 {isSendingInvite
                   ? t(dictionary, "common.saving")
                   : t(dictionary, "invites.createButton")}
@@ -811,11 +834,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.bg.primary,
   },
   scrollContainer: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
   },
   scrollContent: {
     paddingTop: tokens.spacing.lg,
@@ -827,7 +848,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: tokens.spacing.xl,
-    backgroundColor: colors.bg.primary,
   },
   errorTitle: {
     fontSize: tokens.typography.size.lg,
@@ -1003,7 +1023,6 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.sm,
   },
   smallActionButton: {
-    backgroundColor: colors.text.primary,
     borderRadius: tokens.radii.sm,
     paddingHorizontal: tokens.spacing.sm,
     paddingVertical: 6,
@@ -1014,7 +1033,6 @@ const styles = StyleSheet.create({
   smallActionButtonText: {
     fontSize: tokens.typography.size.xs,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.bg.primary,
   },
   smallActionGhost: {
     paddingHorizontal: tokens.spacing.xs,
@@ -1040,7 +1058,6 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
   inviteButton: {
-    backgroundColor: "#EEF3FF",
     borderRadius: tokens.radii.sm,
     paddingHorizontal: tokens.spacing.sm,
     paddingVertical: 7,
@@ -1048,7 +1065,6 @@ const styles = StyleSheet.create({
   inviteButtonText: {
     fontSize: tokens.typography.size.xs,
     fontWeight: tokens.typography.weight.semibold,
-    color: "#4A6CF7",
   },
   inviteComposer: {
     backgroundColor: colors.bg.surface,
@@ -1080,7 +1096,6 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
   },
   sendInviteButton: {
-    backgroundColor: colors.text.primary,
     borderRadius: tokens.radii.sm,
     paddingHorizontal: tokens.spacing.md,
     paddingVertical: 10,
@@ -1092,7 +1107,6 @@ const styles = StyleSheet.create({
   sendInviteButtonText: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.bg.primary,
   },
   inviteRow: {
     flexDirection: "row",

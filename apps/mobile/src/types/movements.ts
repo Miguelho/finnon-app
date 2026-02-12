@@ -1,4 +1,8 @@
-import { movementsTokens } from "@poleursus/shared";
+import {
+  movementsTokens,
+  type AvatarColorToken,
+  type UserAvatarColorId,
+} from "@poleursus/shared";
 
 export type MovementType = "income" | "expense";
 export type MovementStatus = "confirmed" | "pending";
@@ -9,7 +13,8 @@ export interface UserProfile {
   display_name: string | null;
   avatar_path: string | null;
   avatar_fallback_text: string | null;
-  avatar_fallback_bg_token: string | null;
+  avatar_fallback_bg_token: AvatarColorToken | null;
+  avatar_color: UserAvatarColorId | null;
 }
 
 export interface Category {

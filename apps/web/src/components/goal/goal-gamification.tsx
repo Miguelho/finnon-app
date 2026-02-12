@@ -2,6 +2,7 @@
 
 import { TrendingUp, Target, Activity } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useWebUserTheme } from "@/components/theme/web-user-theme-provider";
 import {
   formatMoneyWithSymbol,
   themeTokens,
@@ -42,6 +43,7 @@ export function GoalGamificationSection({
   currencySymbol,
   copy,
 }: GoalGamificationProps) {
+  const { tokens: userTokens } = useWebUserTheme();
   const hasComparison = comparison !== null && gamification.totalGoals > 0;
 
   const formatSavedVsAvg = () => {
@@ -75,7 +77,7 @@ export function GoalGamificationSection({
         style={{
           fontSize: tokens.typography.size.lg,
           fontWeight: tokens.typography.weight.semibold,
-          color: colors.text.primary,
+          color: userTokens.textPrimary,
         }}
       >
         {copy.gamificationTitle}
@@ -103,7 +105,7 @@ export function GoalGamificationSection({
               <span
                 style={{
                   fontSize: tokens.typography.size.sm,
-                  color: colors.text.secondary,
+                  color: userTokens.textSecondary,
                 }}
               >
                 {copy.streakLabel}
@@ -113,7 +115,7 @@ export function GoalGamificationSection({
               style={{
                 fontSize: tokens.typography.size.xl,
                 fontWeight: tokens.typography.weight.bold,
-                color: colors.text.primary,
+                color: userTokens.textPrimary,
               }}
             >
               {copy.streak(gamification.currentStreak)}
@@ -141,7 +143,7 @@ export function GoalGamificationSection({
               <span
                 style={{
                   fontSize: tokens.typography.size.sm,
-                  color: colors.text.secondary,
+                  color: userTokens.textSecondary,
                 }}
               >
                 {copy.historyLabel}
@@ -151,7 +153,7 @@ export function GoalGamificationSection({
               style={{
                 fontSize: tokens.typography.size.xl,
                 fontWeight: tokens.typography.weight.bold,
-                color: colors.text.primary,
+                color: userTokens.textPrimary,
               }}
             >
               {copy.history(gamification.totalCompleted, gamification.totalGoals)}
@@ -170,19 +172,19 @@ export function GoalGamificationSection({
                   width: 32,
                   height: 32,
                   borderRadius: tokens.radii.md,
-                  backgroundColor: `${colors.text.secondary}15`,
+                  backgroundColor: `${userTokens.textSecondary}15`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <Activity size={16} style={{ color: colors.text.secondary }} />
+                <Activity size={16} style={{ color: userTokens.textSecondary }} />
               </div>
               <span
                 style={{
                   fontSize: tokens.typography.size.sm,
                   fontWeight: tokens.typography.weight.medium,
-                  color: colors.text.primary,
+                  color: userTokens.textPrimary,
                 }}
               >
                 {copy.comparisonTitle}
@@ -196,7 +198,7 @@ export function GoalGamificationSection({
                   <div
                     style={{
                       fontSize: tokens.typography.size.xs,
-                      color: colors.text.secondary,
+                      color: userTokens.textSecondary,
                       marginBottom: 4,
                     }}
                   >
@@ -220,7 +222,7 @@ export function GoalGamificationSection({
                   <div
                     style={{
                       fontSize: tokens.typography.size.xs,
-                      color: colors.text.secondary,
+                      color: userTokens.textSecondary,
                       marginBottom: 4,
                     }}
                   >
