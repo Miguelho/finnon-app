@@ -18,6 +18,7 @@ import { CategoryFormPanel } from "@/components/categories/category-form-panel";
 import { createCategory, deleteCategory, updateCategory } from "@/app/categories/actions";
 import { cn } from "@/lib/utils";
 import styles from "../settings-panels.module.css";
+import { JSX } from "react";
 
 type Category = {
   id: string;
@@ -36,7 +37,7 @@ type AccountSettingsCategoriesPanelProps = {
 export function AccountSettingsCategoriesPanel({
   accountId,
   canEdit,
-}: AccountSettingsCategoriesPanelProps) {
+}: AccountSettingsCategoriesPanelProps): JSX.Element {
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();

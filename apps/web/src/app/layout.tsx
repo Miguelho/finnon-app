@@ -1,3 +1,4 @@
+import type { ReactElement, ReactNode } from "react";
 import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
@@ -61,8 +62,8 @@ export const metadata: Metadata = {
 export default async function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
-}>) {
+  children: ReactNode;
+}>): Promise<ReactElement> {
   const locale = await getLocale();
   const messages = await getMessages();
   const themePrehydrateScript = getThemePrehydrateScript();

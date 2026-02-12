@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Pencil, Plus, RefreshCw, X } from "lucide-react";
 import { humanizeRole, type MemberRole } from "@poleursus/shared";
 import { useLocale, useTranslations } from "next-intl";
@@ -68,7 +68,7 @@ export function AccountSettingsMembersPanel({
   accountId,
   currentUserId,
   canManageMembers,
-}: AccountSettingsMembersPanelProps) {
+}: AccountSettingsMembersPanelProps): JSX.Element {
   const t = useTranslations();
   const locale = useLocale();
   const roleLocale = locale.startsWith("en") ? "en" : "es";

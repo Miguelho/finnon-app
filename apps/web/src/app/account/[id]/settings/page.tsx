@@ -6,7 +6,7 @@ type AccountSettingsRedirectPageProps = {
 
 export default async function AccountSettingsRedirectPage({
   params,
-}: AccountSettingsRedirectPageProps) {
+}: AccountSettingsRedirectPageProps): Promise<never> {
   const { id } = await params;
   redirect(`/account/${id}/settings/general`);
 }

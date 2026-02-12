@@ -2,6 +2,7 @@ import { t } from "@poleursus/shared";
 import { getAccountSettingsContext } from "../_lib/account-settings";
 import { AccountSettingsCategoriesPanel } from "../components/account-settings-categories-panel";
 import styles from "../settings-panels.module.css";
+import { JSX } from "react";
 
 type AccountSettingsCategoriesPageProps = {
   params: Promise<{ id: string }>;
@@ -9,7 +10,7 @@ type AccountSettingsCategoriesPageProps = {
 
 export default async function AccountSettingsCategoriesPage({
   params,
-}: AccountSettingsCategoriesPageProps) {
+}: AccountSettingsCategoriesPageProps): Promise<JSX.Element> {
   const { id } = await params;
   const context = await getAccountSettingsContext(id);
 

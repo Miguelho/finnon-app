@@ -19,6 +19,7 @@ import type {
 } from "@/components/account/account-redesign-types";
 import { getCategoryColorKey } from "@/components/account/account-redesign-utils";
 import { cn } from "@/lib/utils";
+import { JSX } from "react";
 
 type TransactionRow = {
   id: string;
@@ -33,6 +34,15 @@ type TransactionRow = {
     icon_id: string | null;
     type?: "income" | "expense" | null;
   } | null;
+};
+
+const normalizeTransactionCategory = (
+  category: TransactionRow["category"] | NonNullable<TransactionRow["category"]>[]
+): TransactionRow["category"] => {
+  if (Array.isArray(category)) {
+    return category[0] ?? null;
+  }
+  return category ?? null;
 };
 
 const dmSans = DM_Sans({
@@ -68,8 +78,16 @@ const endOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() 
 
 
 const parseISODate = (value: string) => {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, (month ?? 1) - 1, day ?? 1);
+  const [yearPart, monthPart, dayPart] = value.split("-");
+  const year = Number(yearPart);
+  const month = Number(monthPart);
+  const day = Number(dayPart);
+
+  return new Date(
+    Number.isFinite(year) ? year : 1970,
+    (Number.isFinite(month) ? month : 1) - 1,
+    Number.isFinite(day) ? day : 1
+  );
 };
 
 const isWithinRange = (date: Date, range: { start: Date; end: Date }) =>
@@ -142,7 +160,7 @@ const buildBuckets = (
       const start = startOfDay(day);
       const end = endOfDay(day);
       buckets.push({
-        label: dayLabels[day.getDay()] ?? dayLabels[0],
+        label: dayLabels[day.getDay()] ?? "Dom",
         start,
         end,
         isCurrent: isWithinRange(now, { start, end }),
@@ -176,7 +194,7 @@ const buildBuckets = (
     let end = endOfDay(endOfMonth(cursor));
     if (end > range.end) end = range.end;
     buckets.push({
-      label: monthLabels[cursor.getMonth()] ?? monthLabels[0],
+      label: monthLabels[cursor.getMonth()] ?? "Ene",
       start,
       end,
       isCurrent: isWithinRange(now, { start, end }),
@@ -331,7 +349,7 @@ function buildAccountRedesignData(params: {
   };
 }
 
-export default async function AccountPage() {
+export default async function AccountPage(): Promise<JSX.Element> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -375,7 +393,10 @@ export default async function AccountPage() {
   if (rowsError) {
     console.error("[AccountPage] Transactions query error:", rowsError);
   }
-  const transactions = (rows ?? []) as TransactionRow[];
+  const transactions: TransactionRow[] = (rows ?? []).map((row) => ({
+    ...row,
+    category: normalizeTransactionCategory(row.category),
+  }));
   const dataByPeriod: Record<AccountRedesignPeriod, AccountRedesignData> = {
     week: buildAccountRedesignData({
       summary: summaryData as AccountSummaryData,

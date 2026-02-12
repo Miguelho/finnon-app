@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { JSX, useMemo, useState } from "react";
 import { CURRENCIES } from "@poleursus/shared";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -21,7 +21,7 @@ export function AccountSettingsGeneralPanel({
   initialCurrency,
   icon,
   canEdit,
-}: AccountSettingsGeneralPanelProps) {
+}: AccountSettingsGeneralPanelProps): JSX.Element {
   const t = useTranslations();
   const supabase = useMemo(() => createClient(), []);
   const [name, setName] = useState(initialName);

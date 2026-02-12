@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { TopNav } from "@/components/navigation/top-nav";
 import styles from "./settings-layout.module.css";
 
@@ -10,7 +10,7 @@ type AccountSettingsLayoutProps = {
 export default async function AccountSettingsLayout({
   children,
   params: _params,
-}: AccountSettingsLayoutProps) {
+}: AccountSettingsLayoutProps): Promise<ReactElement> {
   await _params;
 
   return (
