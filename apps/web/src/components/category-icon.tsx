@@ -59,16 +59,13 @@ import {
   type CategoryIconProps,
   type CategoryIconTone,
   resolveCategoryIconKey,
-  themeTokens,
 } from "@poleursus/shared";
 
-const colors = themeTokens.light.colors;
-
 const toneColors: Record<CategoryIconTone, string> = {
-  primary: colors.text.primary,
-  muted: colors.text.muted,
-  positive: colors.state.positive,
-  negative: colors.state.negative,
+  primary: "hsl(var(--foreground))",
+  muted: "hsl(var(--muted-foreground))",
+  positive: "hsl(var(--state-positive))",
+  negative: "hsl(var(--state-negative))",
 };
 
 type PhosphorIconProps = {

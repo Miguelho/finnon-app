@@ -1428,7 +1428,7 @@ export function TransactionsClient({
                 <div
                   key={confirmKey}
                   className="border-b last:border-b-0"
-                  style={{ borderBottomColor: colors.state.neutral }}
+                  style={{ borderBottomColor: "hsl(var(--border))" }}
                 >
                   <div className="flex items-center justify-between gap-4 px-4 py-3.5">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -1438,7 +1438,7 @@ export function TransactionsClient({
                           width: 36,
                           height: 36,
                           borderRadius: 12,
-                          backgroundColor: colors.bg.secondary,
+                          backgroundColor: "hsl(var(--secondary))",
                         }}
                       >
                         <CategoryIcon
@@ -1451,13 +1451,13 @@ export function TransactionsClient({
                       <div className="flex-1 min-w-0">
                         <div
                           className="text-base font-semibold truncate"
-                          style={{ color: colors.text.primary }}
+                          style={{ color: "hsl(var(--foreground))" }}
                         >
                           {displayMerchant}
                         </div>
                         <div
                           className="text-sm truncate"
-                          style={{ color: colors.text.secondary }}
+                          style={{ color: "hsl(var(--muted-foreground))" }}
                         >
                           {recurringMeta.join(" • ")}
                         </div>
@@ -1468,7 +1468,7 @@ export function TransactionsClient({
                       <div className="flex items-baseline gap-1">
                         <span
                           className="text-sm font-medium"
-                          style={{ color: colors.text.muted }}
+                          style={{ color: "hsl(var(--muted-foreground))" }}
                         >
                           {recurring.item.type === "expense" ? "-" : ""}
                           {recurringCurrencySymbol}
@@ -1478,8 +1478,8 @@ export function TransactionsClient({
                           style={{
                             color:
                               recurring.item.type === "income"
-                                ? colors.state.positive
-                                : colors.state.negative,
+                                ? "hsl(var(--state-positive))"
+                                : "hsl(var(--state-negative))",
                           }}
                         >
                           {recurringAmount}
@@ -1494,9 +1494,9 @@ export function TransactionsClient({
                           disabled={confirmingKey === confirmKey}
                           className="h-7 px-3 text-xs font-semibold"
                           style={{
-                            backgroundColor: colors.bg.secondary,
-                            borderColor: colors.state.neutral,
-                            color: colors.text.primary,
+                            backgroundColor: "hsl(var(--secondary))",
+                            borderColor: "hsl(var(--border))",
+                            color: "hsl(var(--foreground))",
                           }}
                         >
                           {confirmingKey === confirmKey

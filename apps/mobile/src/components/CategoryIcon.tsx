@@ -60,15 +60,7 @@ import {
   resolveCategoryIconKey,
   themeTokens,
 } from "@poleursus/shared";
-
-const tokens = themeTokens.light;
-
-const toneColors: Record<CategoryIconTone, string> = {
-  primary: tokens.colors.text.primary,
-  muted: tokens.colors.text.muted,
-  positive: tokens.colors.state.positive,
-  negative: tokens.colors.state.negative,
-};
+import { useUserTheme } from "../contexts/UserThemeContext";
 
 type PhosphorIconProps = {
   size?: number;
@@ -137,8 +129,16 @@ export function CategoryIcon({
   weight = "regular",
   accessibilityLabel,
 }: CategoryIconProps) {
+  const { tokens: userTokens, resolvedMode } = useUserTheme();
+  const modeColors = themeTokens[resolvedMode].colors;
   const resolvedKey = resolveCategoryIconKey(iconKey);
   const IconComponent = iconComponents[resolvedKey] ?? Tag;
+  const toneColors: Record<CategoryIconTone, string> = {
+    primary: userTokens.textPrimary,
+    muted: userTokens.textSecondary,
+    positive: modeColors.state.positive,
+    negative: modeColors.state.negative,
+  };
   const color = toneColors[tone];
 
   return (

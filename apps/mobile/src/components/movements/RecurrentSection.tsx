@@ -7,7 +7,7 @@ import {
   Animated,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { isCategoryIconKey, formatMinorToMoney, withAlpha } from "@poleursus/shared";
+import { isCategoryIconKey, formatMinorToMoney } from "@poleursus/shared";
 import { CategoryIcon } from "../CategoryIcon";
 import { movementsDesignTokens, type RecurringTemplate } from "../../types/movements";
 import { useUserTheme } from "../../contexts/UserThemeContext";
@@ -52,8 +52,8 @@ export function RecurrentSection({
       style={[
         styles.container,
         {
-          backgroundColor: withAlpha(primaryActionColor, 0.1),
-          borderColor: withAlpha(primaryActionColor, 0.35),
+          backgroundColor: userTokens.surface,
+          borderColor: userTokens.border,
         },
       ]}
     >
@@ -64,7 +64,7 @@ export function RecurrentSection({
             size={18}
             color={primaryActionColor}
           />
-          <Text style={[styles.headerTitle, { color: primaryActionColor }]}>
+          <Text style={[styles.headerTitle, { color: userTokens.textPrimary }]}>
             Por registrar
           </Text>
           <Text style={[styles.headerCount, { color: primaryActionColor }]}>
@@ -72,7 +72,7 @@ export function RecurrentSection({
           </Text>
         </View>
         <View style={styles.headerRight}>
-          <Text style={[styles.headerAmount, { color: primaryActionColor }]}>
+          <Text style={[styles.headerAmount, { color: userTokens.textSecondary }]}>
             ({formattedTotal})
           </Text>
           <Pressable onPress={onToggleCollapse} hitSlop={8}>
@@ -177,8 +177,8 @@ function RecurrentCard({
         style={[
           styles.card,
           {
-            backgroundColor: withAlpha(primaryActionColor, 0.08),
-            borderColor: withAlpha(primaryActionColor, 0.32),
+            backgroundColor: userTokens.surfaceAlt,
+            borderColor: userTokens.border,
           },
         ]}
       >

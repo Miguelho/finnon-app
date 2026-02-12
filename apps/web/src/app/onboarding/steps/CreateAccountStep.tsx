@@ -53,14 +53,14 @@ export function CreateAccountStep({ onComplete }: CreateAccountStepProps) {
   };
 
   return (
-    <div className="w-full rounded-2xl border border-[#e5e7eb] bg-white p-8 shadow-sm">
+    <div className="w-full rounded-2xl border border-border bg-card p-8 shadow-sm">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-[#1a1f36]">{t("title")}</h2>
-        <p className="text-sm text-[#6b7280]">{t("description")}</p>
+        <h2 className="text-2xl font-bold text-foreground">{t("title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("description")}</p>
       </div>
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-2">
-          <Label htmlFor="accountName" className="text-sm font-semibold text-[#1a1f36]">
+          <Label htmlFor="accountName" className="text-sm font-semibold text-foreground">
             {t("accountNameLabel")}
           </Label>
           <Input
@@ -71,13 +71,13 @@ export function CreateAccountStep({ onComplete }: CreateAccountStepProps) {
             required
             disabled={loading}
             maxLength={255}
-            className="h-11 border-[#e5e7eb] text-sm text-[#1a1f36] placeholder:text-[#9ca3af] focus-visible:ring-0 focus-visible:border-[#1a1f36]"
+            className="h-11 border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-1"
           />
-          <p className="text-xs text-[#9ca3af]">{t("accountNameHelper")}</p>
+          <p className="text-xs text-muted-foreground">{t("accountNameHelper")}</p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="currency" className="text-sm font-semibold text-[#1a1f36]">
+          <Label htmlFor="currency" className="text-sm font-semibold text-foreground">
             {t("currencyLabel")}
           </Label>
           <select
@@ -85,7 +85,7 @@ export function CreateAccountStep({ onComplete }: CreateAccountStepProps) {
             name="currency"
             disabled={loading}
             defaultValue="EUR"
-            className="flex h-11 w-full rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-sm text-[#1a1f36] focus:outline-none focus:border-[#1a1f36] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           >
             {CURRENCIES.map((curr) => (
               <option key={curr.code} value={curr.code}>
@@ -93,11 +93,11 @@ export function CreateAccountStep({ onComplete }: CreateAccountStepProps) {
               </option>
             ))}
           </select>
-          <p className="text-xs text-[#9ca3af]">{t("currencyHelper")}</p>
+          <p className="text-xs text-muted-foreground">{t("currencyHelper")}</p>
         </div>
 
         {error && (
-          <div className="rounded-md bg-[#fef2f2] p-3 text-sm text-[#dc2626]">
+          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             {error}
           </div>
         )}

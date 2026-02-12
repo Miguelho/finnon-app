@@ -6,7 +6,6 @@ import { MoreHorizontal, Pause, Play, Square } from "lucide-react";
 import {
   CURRENCIES,
   formatMinorToMoney,
-  themeTokens,
   type RecurringItem,
   type CategoryIconKey,
   getNextOccurrence,
@@ -39,8 +38,16 @@ type RecurringTileProps = {
   onEnd?: (id: string) => void;
 };
 
-const tokens = themeTokens.light;
-const colors = tokens.colors;
+const recurringTileColors = {
+  tileHover: "hsl(var(--accent))",
+  badgeBg: "hsl(var(--secondary))",
+  textPrimary: "hsl(var(--foreground))",
+  textSecondary: "hsl(var(--muted-foreground))",
+  textMuted: "hsl(var(--muted-foreground))",
+  positive: "hsl(var(--state-positive))",
+  negative: "hsl(var(--state-negative))",
+  destructive: "hsl(var(--destructive))",
+};
 
 const densityStyles = {
   comfortable: {
@@ -90,8 +97,8 @@ export function RecurringTile({
   const amountValue = formatMinorToMoney(amountMinor, recurringItem.currency);
   const amountColor =
     recurringItem.type === "income"
-      ? colors.state.positive
-      : colors.state.negative;
+      ? recurringTileColors.positive
+      : recurringTileColors.negative;
 
   const displayName = recurringItem.merchant || t("namePlaceholder");
 
@@ -143,8 +150,8 @@ export function RecurringTile({
       style={
         onPress
           ? ({
-              "--tile-hover": colors.action.secondary,
-              "--tile-pressed": colors.action.secondary,
+              "--tile-hover": recurringTileColors.tileHover,
+              "--tile-pressed": recurringTileColors.tileHover,
             } as React.CSSProperties)
           : undefined
       }
@@ -160,7 +167,7 @@ export function RecurringTile({
             width: styles.badgeSize,
             height: styles.badgeSize,
             borderRadius: styles.badgeRadius,
-            backgroundColor: colors.bg.secondary,
+            backgroundColor: recurringTileColors.badgeBg,
           }}
         >
           <CategoryIcon
@@ -174,13 +181,13 @@ export function RecurringTile({
         <div className="min-w-0 flex-1">
           <div
             className="text-base font-semibold truncate"
-            style={{ color: colors.text.primary }}
+            style={{ color: recurringTileColors.textPrimary }}
           >
             {displayName}
           </div>
           <div
             className="text-sm truncate"
-            style={{ color: colors.text.secondary }}
+            style={{ color: recurringTileColors.textSecondary }}
           >
             {metaParts.join(" · ")}
           </div>
@@ -191,7 +198,7 @@ export function RecurringTile({
         <div className="flex items-baseline gap-1">
           <span
             className="text-sm font-medium"
-            style={{ color: colors.text.muted }}
+            style={{ color: recurringTileColors.textMuted }}
           >
             {recurringItem.type === "expense" ? "-" : ""}
             {currencySymbol}
@@ -259,7 +266,7 @@ export function RecurringTile({
                       event.stopPropagation();
                       onEnd(recurringItem.id);
                     }}
-                    style={{ color: colors.state.negative }}
+                    style={{ color: recurringTileColors.destructive }}
                   >
                     <Square className="mr-2 h-4 w-4" />
                     {t("end")}

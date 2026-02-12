@@ -14,9 +14,9 @@ import { Input } from "../../../src/components/Input";
 import { Button } from "../../../src/components/Button";
 import { CURRENCIES } from "@poleursus/shared";
 import { useAuth } from "../../../src/contexts/AuthContext";
+import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../src/lib/i18n";
 import { OnboardingSurface } from "./OnboardingSurface";
-import { onboardingColors } from "./onboarding-theme";
 
 interface CreateAccountStepProps {
   onComplete: (accountId: string, currency: string) => void;
@@ -28,6 +28,7 @@ export function CreateAccountStep({ onComplete }: CreateAccountStepProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user, signOut } = useAuth();
+  const { tokens: userTokens } = useUserTheme();
   const router = useRouter();
   const { dictionary } = useCopy();
 
@@ -92,12 +93,21 @@ export function CreateAccountStep({ onComplete }: CreateAccountStepProps) {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: userTokens.background }]}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <OnboardingSurface>
-          <Text style={styles.title}>{t(dictionary, "onboarding.title")}</Text>
-          <Text style={styles.subtitle}>{t(dictionary, "onboarding.description")}</Text>
+        <OnboardingSurface
+          style={{
+            backgroundColor: userTokens.surface,
+            borderColor: userTokens.border,
+          }}
+        >
+          <Text style={[styles.title, { color: userTokens.textPrimary }]}>
+            {t(dictionary, "onboarding.title")}
+          </Text>
+          <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
+            {t(dictionary, "onboarding.description")}
+          </Text>
 
           <Input
             label={t(dictionary, "onboarding.accountNameLabel")}
@@ -110,15 +120,24 @@ export function CreateAccountStep({ onComplete }: CreateAccountStepProps) {
           />
 
           <View style={styles.pickerContainer}>
-            <Text style={styles.pickerLabel}>
+            <Text style={[styles.pickerLabel, { color: userTokens.textPrimary }]}>
               {t(dictionary, "onboarding.currencyLabel")}
             </Text>
-            <View style={styles.pickerWrapper}>
+            <View
+              style={[
+                styles.pickerWrapper,
+                {
+                  borderColor: userTokens.border,
+                  backgroundColor: userTokens.surfaceAlt,
+                },
+              ]}
+            >
               <Picker
                 selectedValue={currency}
                 onValueChange={(itemValue) => setCurrency(itemValue)}
                 enabled={!loading}
-                style={styles.picker}
+                style={[styles.picker, { color: userTokens.textPrimary }]}
+                dropdownIconColor={userTokens.textSecondary}
               >
                 {CURRENCIES.map((curr) => (
                   <Picker.Item
@@ -129,14 +148,24 @@ export function CreateAccountStep({ onComplete }: CreateAccountStepProps) {
                 ))}
               </Picker>
             </View>
-            <Text style={styles.helperText}>
+            <Text style={[styles.helperText, { color: userTokens.textSecondary }]}>
               {t(dictionary, "onboarding.currencyHelper")}
             </Text>
           </View>
 
           {error && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
+            <View
+              style={[
+                styles.errorContainer,
+                {
+                  backgroundColor: userTokens.dangerBackground,
+                  borderColor: userTokens.dangerBorder,
+                },
+              ]}
+            >
+              <Text style={[styles.errorText, { color: userTokens.dangerText }]}>
+                {error}
+              </Text>
             </View>
           )}
 
@@ -157,7 +186,6 @@ export function CreateAccountStep({ onComplete }: CreateAccountStepProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: onboardingColors.bg,
   },
   scrollContent: {
     flexGrow: 1,
@@ -171,30 +199,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     marginBottom: 8,
-    color: onboardingColors.text,
   },
   pickerWrapper: {
     borderWidth: 1,
-    borderColor: "#ddd",
     borderRadius: 8,
-    backgroundColor: "#fff",
   },
   picker: {
     height: 50,
   },
   helperText: {
-    color: onboardingColors.textMuted,
     fontSize: 12,
     marginTop: 4,
   },
   errorContainer: {
-    backgroundColor: "#fef2f2",
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,
+    borderWidth: 1,
   },
   errorText: {
-    color: onboardingColors.red,
     fontSize: 14,
   },
   actions: {
@@ -203,11 +226,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "700",
-    color: onboardingColors.text,
   },
   subtitle: {
     fontSize: 14,
-    color: onboardingColors.textSecondary,
     marginBottom: 16,
   },
 });
