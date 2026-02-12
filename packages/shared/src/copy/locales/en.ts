@@ -91,6 +91,7 @@ export const en = {
     successDescription: "We've sent an access link to {email}",
     successMessage:
       "Click the link in the email to access your account. You can close this window.",
+    cooldownMessage: "Check your email. You can request it again in {seconds}s.",
     otpTitle: "Enter the code",
     otpDescription: "We sent a 6-digit code to {email}",
     otpLabel: "Verification code",
@@ -1111,6 +1112,7 @@ export const en = {
       magicLinkTitle: "Check your email",
       magicLinkDescription: "We sent a sign-in link to {email}",
       magicLinkMessage: "Open the email link to access your account.",
+      cooldownMessage: "Check your email. You can request it again in {seconds}s.",
     },
     onboarding: {
       title: "Set up your account",

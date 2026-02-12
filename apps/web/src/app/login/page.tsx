@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -21,14 +21,26 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
   const supabase = createClient();
+  const isCooldownActive = cooldownSeconds > 0;
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+
+    const timer = setInterval(() => {
+      setCooldownSeconds((previous) => (previous <= 1 ? 0 : previous - 1));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
+
+  const sendMagicLink = async () => {
+    if (loading || isCooldownActive || email.trim().length === 0) return;
+
     setLoading(true);
     setError(null);
-    setSuccess(false);
 
     try {
       const redirectTo = `${window.location.origin}/auth/confirm`;
@@ -45,14 +57,18 @@ export default function LoginPage() {
       if (error) throw error;
 
       setSuccess(true);
+      setCooldownSeconds(60);
     } catch (err) {
       console.error("Login error:", err);
-      setError(
-        err instanceof Error ? err.message : t("sendError")
-      );
+      setError(err instanceof Error ? err.message : t("sendError"));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    void sendMagicLink();
   };
 
   if (success) {
@@ -72,6 +88,24 @@ export default function LoginPage() {
             <p className="text-sm text-muted-foreground">
               {t("successMessage")}
             </p>
+            {error && (
+              <div className="mt-3 rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+            {isCooldownActive && (
+              <p className="mt-3 rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                {t("cooldownMessage", { seconds: cooldownSeconds })}
+              </p>
+            )}
+            <Button
+              type="button"
+              className="mt-4 w-full"
+              onClick={() => void sendMagicLink()}
+              disabled={loading || isCooldownActive}
+            >
+              {loading ? t("submitting") : t("submitButton")}
+            </Button>
           </CardContent>
         </Card>
       </div>

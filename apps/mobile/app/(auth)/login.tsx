@@ -27,10 +27,12 @@ export default function LoginScreen() {
   const [loadingAction, setLoadingAction] = useState<
     "otp" | "magic" | "verify" | null
   >(null);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const { dictionary } = useCopy();
   const isLoading = loadingAction !== null;
+  const isCooldown = cooldownSeconds > 0;
 
   useEffect(() => {
     if (session) {
@@ -38,7 +40,19 @@ export default function LoginScreen() {
     }
   }, [router, session]);
 
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+
+    const timer = setInterval(() => {
+      setCooldownSeconds((previous) => (previous <= 1 ? 0 : previous - 1));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
+
   const handleSendOtp = async () => {
+    if (isLoading || isCooldown || !email.trim()) return;
+
     setLoadingAction("otp");
     setError(null);
 
@@ -52,6 +66,7 @@ export default function LoginScreen() {
 
       if (error) throw error;
       setStep("otp");
+      setCooldownSeconds(60);
     } catch (err) {
       console.error("Send OTP error:", err);
       setError(err instanceof Error ? err.message : t(dictionary, "mobile.login.sendError"));
@@ -61,6 +76,8 @@ export default function LoginScreen() {
   };
 
   const handleSendMagicLink = async () => {
+    if (isLoading || isCooldown || !email.trim()) return;
+
     setLoadingAction("magic");
     setError(null);
 
@@ -76,6 +93,7 @@ export default function LoginScreen() {
 
       if (error) throw error;
       setStep("magicLinkSent");
+      setCooldownSeconds(60);
     } catch (err) {
       console.error("Send magic link error:", err);
       setError(
@@ -144,6 +162,11 @@ export default function LoginScreen() {
             <Text style={styles.helperText}>
               {t(dictionary, "mobile.login.magicLinkMessage")}
             </Text>
+            {isCooldown && (
+              <Text style={styles.cooldownText}>
+                {t(dictionary, "mobile.login.cooldownMessage", { seconds: cooldownSeconds })}
+              </Text>
+            )}
 
             <View style={styles.buttonStack}>
               <Button
@@ -183,6 +206,11 @@ export default function LoginScreen() {
               disabled={isLoading}
               error={error || undefined}
             />
+            {isCooldown && (
+              <Text style={styles.cooldownText}>
+                {t(dictionary, "mobile.login.cooldownMessage", { seconds: cooldownSeconds })}
+              </Text>
+            )}
 
             <View style={styles.buttonGroup}>
               <View style={styles.buttonHalf}>
@@ -231,18 +259,23 @@ export default function LoginScreen() {
             disabled={isLoading}
             error={error || undefined}
           />
+          {isCooldown && (
+            <Text style={styles.cooldownText}>
+              {t(dictionary, "mobile.login.cooldownMessage", { seconds: cooldownSeconds })}
+            </Text>
+          )}
 
           <View style={styles.buttonStack}>
             <Button
               title={t(dictionary, "mobile.login.sendButton")}
               onPress={handleSendOtp}
-              disabled={isLoading || !email}
+              disabled={isLoading || isCooldown || !email}
               loading={loadingAction === "otp"}
             />
             <Button
               title={t(dictionary, "mobile.login.sendMagicLinkButton")}
               onPress={handleSendMagicLink}
-              disabled={isLoading || !email}
+              disabled={isLoading || isCooldown || !email}
               loading={loadingAction === "magic"}
               variant="secondary"
             />
@@ -279,5 +312,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontSize: 13,
     color: "#555",
+  },
+  cooldownText: {
+    marginBottom: 12,
+    fontSize: 13,
+    color: colors.text.secondary,
   },
 });

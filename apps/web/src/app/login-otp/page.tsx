@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
@@ -23,11 +23,25 @@ export default function LoginOTPPage() {
   const [step, setStep] = useState<"email" | "otp">("email");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const router = useRouter();
   const supabase = createClient();
+  const isCooldownActive = cooldownSeconds > 0;
+
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+
+    const timer = setInterval(() => {
+      setCooldownSeconds((previous) => (previous <= 1 ? 0 : previous - 1));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading || isCooldownActive || email.trim().length === 0) return;
+
     setLoading(true);
     setError(null);
 
@@ -42,11 +56,10 @@ export default function LoginOTPPage() {
       if (error) throw error;
 
       setStep("otp");
+      setCooldownSeconds(60);
     } catch (err) {
       console.error("Send OTP error:", err);
-      setError(
-        err instanceof Error ? err.message : t("sendError")
-      );
+      setError(err instanceof Error ? err.message : t("sendError"));
     } finally {
       setLoading(false);
     }
@@ -116,6 +129,11 @@ export default function LoginOTPPage() {
                   {error}
                 </div>
               )}
+              {isCooldownActive && (
+                <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                  {t("cooldownMessage", { seconds: cooldownSeconds })}
+                </div>
+              )}
 
               <div className="flex gap-2">
                 <Button
@@ -178,8 +196,17 @@ export default function LoginOTPPage() {
                 {error}
               </div>
             )}
+            {isCooldownActive && (
+              <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                {t("cooldownMessage", { seconds: cooldownSeconds })}
+              </div>
+            )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || isCooldownActive}
+            >
               {loading ? t("otpSending") : t("otpSendButton")}
             </Button>
 
