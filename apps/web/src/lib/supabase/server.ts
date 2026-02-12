@@ -29,17 +29,13 @@ export async function createClient() {
 }
 
 /**
- * Crea un cliente de Supabase con sesión explícita para operaciones RLS críticas.
+ * Crea un cliente de Supabase autenticado con el JWT del usuario para operaciones RLS.
  *
- * Esta función fuerza el refresh de sesión para garantizar que el JWT token
- * se propague correctamente a PostgreSQL en Server Actions de Next.js 15.
- *
- * Usar este cliente cuando:
- * - Se ejecuten operaciones INSERT/UPDATE/DELETE con políticas RLS
- * - Se requiera garantizar que auth.uid() tenga el valor correcto en PostgreSQL
+ * Importante: la API key de Supabase siempre debe ser `anon` o `service_role`.
+ * El access token del usuario se envía en `Authorization: Bearer ...`.
  *
  * @throws {Error} Si no hay sesión activa válida
- * @returns Cliente de Supabase con JWT garantizado y usuario autenticado
+ * @returns Cliente de Supabase autenticado y usuario de la sesión
  */
 export async function createAuthenticatedClient() {
   const cookieStore = await cookies();
@@ -80,23 +76,27 @@ export async function createAuthenticatedClient() {
   //   expiresAt: session.expires_at,
   // });
 
-  // CRÍTICO: Usar el access_token del usuario como la API key
-  // Esto asegura que TODAS las peticiones usen el JWT del usuario autenticado
+  // Usar anon key como API key y JWT del usuario en Authorization.
   const authenticatedClient = createSupabaseClient(
     getSupabaseUrl(),
-    session.access_token, // <-- USAR ACCESS TOKEN COMO API KEY
+    getSupabaseAnonKey(),
     {
+      global: {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      },
       auth: {
-        persistSession: false, // No persistir en Server Actions
+        persistSession: false,
         autoRefreshToken: false,
       },
       db: {
-        schema: 'public',
+        schema: "public",
       },
     }
   );
 
-  //console.log("✅ Client created with access_token as API key (using @supabase/supabase-js)");
+  //console.log("✅ Client created with anon key + Authorization bearer token");
 
   return { client: authenticatedClient, user: session.user };
 }

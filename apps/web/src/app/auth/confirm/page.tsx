@@ -2,55 +2,36 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { useTranslations } from "next-intl";
 
 export default function AuthConfirmPage() {
+  const t = useTranslations("authConfirm");
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<"loading" | "error">("loading");
+  const [status, setStatus] = useState<"redirecting" | "error">("redirecting");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const supabase = createClient();
+    const query = searchParams.toString();
+    const hasCode = searchParams.has("code");
+    const hasTokenHash = searchParams.has("token_hash");
+    const error = searchParams.get("error");
+    const errorDescription = searchParams.get("error_description");
 
-    const handleAuth = async () => {
-      // Check for PKCE code in query params
-      const code = searchParams.get("code");
-      const error = searchParams.get("error");
-      const errorDescription = searchParams.get("error_description");
+    if (error) {
+      setStatus("error");
+      setErrorMessage(errorDescription || error);
+      return;
+    }
 
-      if (error) {
-        setStatus("error");
-        setErrorMessage(errorDescription || error);
-        return;
-      }
+    if (hasCode || hasTokenHash) {
+      router.replace(`/auth/callback${query.length > 0 ? `?${query}` : ""}`);
+      return;
+    }
 
-      if (code) {
-        // Exchange PKCE code for session
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-        if (exchangeError) {
-          setStatus("error");
-          setErrorMessage(exchangeError.message);
-          return;
-        }
-        router.replace("/");
-        return;
-      }
-
-      // Fallback: check for hash tokens (legacy flow)
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (session) {
-        router.replace("/");
-      } else {
-        setStatus("error");
-        setErrorMessage("No se pudo establecer la sesión");
-      }
-    };
-
-    handleAuth();
-  }, [router, searchParams]);
+    setStatus("error");
+    setErrorMessage(t("missingCode"));
+  }, [router, searchParams, t]);
 
   if (status === "error") {
     return (
@@ -61,7 +42,7 @@ export default function AuthConfirmPage() {
             onClick={() => router.push("/login?error=no_session")}
             className="mt-4 underline"
           >
-            Volver a iniciar sesión
+            {t("backToLogin")}
           </button>
         </div>
       </div>
@@ -71,7 +52,7 @@ export default function AuthConfirmPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="text-center">
-        <p>Confirmando sesión...</p>
+        <p>{t("redirecting")}</p>
       </div>
     </div>
   );

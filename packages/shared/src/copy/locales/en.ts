@@ -107,6 +107,11 @@ export const en = {
     otpHelp: "Prefer magic link?",
     otpHelpCta: "Use the original login",
   },
+  authConfirm: {
+    missingCode: "No authentication code was received",
+    backToLogin: "Back to sign in",
+    redirecting: "Redirecting authentication...",
+  },
   onboarding: {
     title: "Create your first account",
     description: "Set up your personal finance account",

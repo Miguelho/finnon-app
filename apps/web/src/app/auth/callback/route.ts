@@ -1,18 +1,35 @@
 import { createServerClient } from "@supabase/ssr";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 
+const emailOtpTypes: EmailOtpType[] = [
+  "signup",
+  "invite",
+  "magiclink",
+  "recovery",
+  "email_change",
+  "email",
+];
+
+const isEmailOtpType = (value: string | null): value is EmailOtpType =>
+  value !== null && emailOtpTypes.includes(value as EmailOtpType);
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
+  const tokenHash = requestUrl.searchParams.get("token_hash");
+  const type = requestUrl.searchParams.get("type");
   const error_description = requestUrl.searchParams.get("error_description");
   const origin = requestUrl.origin;
 
   // Log para debug
   console.log("Auth callback:", {
-    code: code?.substring(0, 10) + "...",
+    code: code ? `${code.substring(0, 10)}...` : null,
+    tokenHash: tokenHash ? `${tokenHash.substring(0, 10)}...` : null,
+    type,
     error_description,
     url: requestUrl.toString()
   });
@@ -25,7 +42,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (code) {
+  if (code || tokenHash) {
     const cookieStore = await cookies();
     // Create redirect response first so we can set cookies on it
     const redirectResponse = NextResponse.redirect(`${origin}/`);
@@ -49,21 +66,32 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    let authError: Error | null = null;
 
-    if (error) {
-      console.error("Exchange code error:", error);
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      authError = error;
+    } else if (tokenHash && isEmailOtpType(type)) {
+      const { error } = await supabase.auth.verifyOtp({
+        type,
+        token_hash: tokenHash,
+      });
+      authError = error;
+    } else {
+      authError = new Error("Invalid or missing OTP type");
+    }
+
+    if (authError) {
+      console.error("Auth callback error:", authError);
       return NextResponse.redirect(
-        `${origin}/login?error=${encodeURIComponent(error.message)}`
+        `${origin}/login?error=${encodeURIComponent(authError.message)}`
       );
     }
 
-    if (data.session) {
-      console.log("Session created successfully");
-      console.log("Response cookies:", [...redirectResponse.cookies.getAll()].map(c => c.name));
-      // Return redirect with cookies already set
-      return redirectResponse;
-    }
+    console.log("Session created successfully");
+    console.log("Response cookies:", [...redirectResponse.cookies.getAll()].map(c => c.name));
+    // Return redirect with cookies already set
+    return redirectResponse;
   }
 
   // Si no hay code ni error, algo está mal
