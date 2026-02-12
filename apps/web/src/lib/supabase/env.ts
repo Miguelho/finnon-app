@@ -1,27 +1,31 @@
-const requireEnv = (keys: readonly string[], label: string): string => {
-  for (const key of keys) {
-    const value = process.env[key];
-    if (typeof value === "string" && value.length > 0) {
-      return value;
-    }
+const requireValue = (value: string | undefined, message: string): string => {
+  if (typeof value === "string" && value.length > 0) {
+    return value;
   }
+  throw new Error(message);
+};
 
-  throw new Error(
-    `Missing Supabase ${label}. Define one of: ${keys.join(", ")}`
+export const getSupabaseUrl = () => {
+  const value =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
+  return requireValue(
+    value,
+    "Missing Supabase project URL. Define NEXT_PUBLIC_SUPABASE_URL (or EXPO_PUBLIC_SUPABASE_URL at build time)."
   );
 };
 
-export const getSupabaseUrl = () =>
-  requireEnv(
-    ["NEXT_PUBLIC_SUPABASE_URL", "EXPO_PUBLIC_SUPABASE_URL"],
-    "project URL"
+export const getSupabaseAnonKey = () => {
+  const value =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  return requireValue(
+    value,
+    "Missing Supabase anon key. Define NEXT_PUBLIC_SUPABASE_ANON_KEY (or EXPO_PUBLIC_SUPABASE_ANON_KEY at build time)."
   );
-
-export const getSupabaseAnonKey = () =>
-  requireEnv(
-    ["NEXT_PUBLIC_SUPABASE_ANON_KEY", "EXPO_PUBLIC_SUPABASE_ANON_KEY"],
-    "anon key"
-  );
+};
 
 export const getSupabaseServiceRoleKey = () =>
-  requireEnv(["SUPABASE_SERVICE_ROLE_KEY"], "service role key");
+  requireValue(
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    "Missing Supabase service role key. Define SUPABASE_SERVICE_ROLE_KEY."
+  );
