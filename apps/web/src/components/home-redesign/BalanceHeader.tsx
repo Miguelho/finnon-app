@@ -1,4 +1,5 @@
 import { formatCurrencyParts } from "./utils";
+import { useTranslations } from "next-intl";
 
 type BalanceHeaderProps = {
   amountMinor: bigint;
@@ -15,6 +16,7 @@ export function BalanceHeader({
   locale = "es-ES",
   monoClassName,
 }: BalanceHeaderProps) {
+  const t = useTranslations();
   const { integer, decimals } = formatCurrencyParts(
     amountMinor,
     currencySymbol,
@@ -24,7 +26,7 @@ export function BalanceHeader({
   return (
     <div className="mb-8 text-center">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Balance del mes
+        {t("mobile.home.balanceLabel")}
       </p>
       <p
         className={`text-[42px] font-medium leading-tight text-foreground sm:text-[42px] ${

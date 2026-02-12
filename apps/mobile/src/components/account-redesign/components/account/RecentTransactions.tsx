@@ -4,6 +4,7 @@ import { colors, typography, spacing, radii } from '../../theme/tokens';
 import { formatCurrency } from '../../utils/currency';
 import type { Transaction } from '../../types/account';
 import { useUserTheme } from '../../../../contexts/UserThemeContext';
+import { useCopy, t } from '../../../../lib/i18n';
 
 interface RecentTransactionsProps {
   transactions: Transaction[];
@@ -20,19 +21,27 @@ export function RecentTransactions({
   limit = 4,
   onViewAllPress,
 }: RecentTransactionsProps) {
+  const { dictionary, locale } = useCopy();
   const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const visible = transactions.slice(0, limit);
 
   // Formatear fecha relativa sencilla
   const formatDate = (isoDate: string) => {
-    const [year, month, day] = isoDate.split('-').map(Number);
-    const date = new Date(year, (month ?? 1) - 1, day ?? 1);
-    const dayNum = date.getDate();
-    const months = [
-      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
-    ];
-    return `${dayNum} ${months[date.getMonth()]}`;
+    const [yearPart, monthPart, dayPart] = isoDate.split("-");
+    const rawYear = Number(yearPart);
+    const rawMonth = Number(monthPart);
+    const rawDay = Number(dayPart);
+    const safeYear = Number.isFinite(rawYear) ? rawYear : 1970;
+    const safeMonth = Number.isFinite(rawMonth) ? rawMonth : 1;
+    const safeDay = Number.isFinite(rawDay) ? rawDay : 1;
+    const date = new Date(safeYear, safeMonth - 1, safeDay);
+    return new Intl.DateTimeFormat(locale, {
+      day: "numeric",
+      month: "short",
+    })
+      .format(date)
+      .replace(",", "")
+      .replace(/\.$/, "");
   };
 
   return (
@@ -40,11 +49,11 @@ export function RecentTransactions({
       {/* Section header */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
-          Últimos movimientos
+          {t(dictionary, "account.redesign.latestMovementsTitle")}
         </Text>
         <Pressable onPress={onViewAllPress} hitSlop={8}>
           <Text style={[styles.sectionAction, { color: primaryActionColor }]}>
-            Ver todos →
+            {t(dictionary, "account.redesign.viewAllMovements")}
           </Text>
         </Pressable>
       </View>

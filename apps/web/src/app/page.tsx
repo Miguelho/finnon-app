@@ -8,8 +8,10 @@ import { HomePageClient } from "@/components/home-redesign/HomePageClient";
 import {
   CURRENCIES,
   computeGoalProgress,
+  getDictionary,
   getExpandedMonthRange,
   getGoalTotalsFromTransactions,
+  t,
   toMonthKey,
 } from "@poleursus/shared";
 import { formatCurrencyParts, toDateKey } from "@/components/home-redesign/utils";
@@ -49,7 +51,10 @@ export default async function DashboardPage() {
 
   const cookieStore = await cookies();
   const cookieAccountId = cookieStore.get("finnon:activeAccountId")?.value;
-  const locale = cookieStore.get("NEXT_LOCALE")?.value || "es";
+  const locale = cookieStore.get("NEXT_LOCALE")?.value === "en" ? "en" : "es";
+  const dictionary = getDictionary(locale) as any;
+  const tx = (key: string, params?: Record<string, string | number>) =>
+    (t as any)(dictionary, key, params) as string;
 
   if (!cookieAccountId) {
     redirect("/select-account");
@@ -95,6 +100,20 @@ export default async function DashboardPage() {
     .lte("date", upcomingEndDate)
     .order("date", { ascending: true });
 
+  const normalizeCategory = <T extends { category?: unknown }>(row: T) => ({
+    ...row,
+    category: Array.isArray(row.category)
+      ? (row.category[0] ?? null)
+      : (row.category ?? null),
+  });
+
+  const normalizedMonthlyTransactions = (monthlyTransactions ?? []).map(
+    normalizeCategory
+  );
+  const normalizedUpcomingTransactions = (upcomingTransactions ?? []).map(
+    normalizeCategory
+  );
+
   const { data: obligationsRange } = await supabase
     .from("obligations")
     .select(
@@ -133,26 +152,16 @@ export default async function DashboardPage() {
     CURRENCIES.find((currency) => currency.code === mainAccount.base_currency)
       ?.symbol ?? mainAccount.base_currency;
 
-  const monthLabel = `${[
-    "enero",
-    "febrero",
-    "marzo",
-    "abril",
-    "mayo",
-    "junio",
-    "julio",
-    "agosto",
-    "septiembre",
-    "octubre",
-    "noviembre",
-    "diciembre",
-  ][today.getMonth()] ?? ""} ${today.getFullYear()}`;
+  const monthLabel = new Intl.DateTimeFormat(locale, {
+    month: "long",
+    year: "numeric",
+  }).format(today);
   const monthLabelCapitalized =
     monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
   const todayKey = toDateKey(today);
   const monthPrefix = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-  const monthTransactionsToDate = (monthlyTransactions ?? []).filter((tx) => {
+  const monthTransactionsToDate = normalizedMonthlyTransactions.filter((tx) => {
     const dateKey = toDateKey(tx.date);
     return Boolean(dateKey) && dateKey.startsWith(monthPrefix) && dateKey <= todayKey;
   });
@@ -216,10 +225,10 @@ export default async function DashboardPage() {
 
         const statusLabel =
           status === "on-track"
-            ? "Vas bien"
+            ? tx("mobile.home.objectiveStatusOnTrack")
             : status === "off-track"
-            ? "Fuera de objetivo"
-            : "En riesgo";
+            ? tx("mobile.home.objectiveStatusOffTrack")
+            : tx("mobile.home.objectiveStatusAtRisk");
 
         const targetFormatted = formatCurrencyParts(
           targetMinor,
@@ -234,25 +243,33 @@ export default async function DashboardPage() {
           currencySymbol
         ).full;
 
-        let message = `Al ritmo actual, terminarás ${monthLabel} con <strong>${forecastFormatted}</strong>.`;
+        let message = tx("mobile.home.objectiveForecastMessage", {
+          month: monthLabel,
+          amount: `<strong>${forecastFormatted}</strong>`,
+        });
         if (progress.forecastEndMinor < targetMinor) {
-          message += ` Necesitas <strong>${remainingFormatted}</strong> más para alcanzar el objetivo.`;
+          message += ` ${tx("mobile.home.objectiveRemainingMessage", {
+            amount: `<strong>${remainingFormatted}</strong>`,
+          })}`;
         } else if (currentMinor < progress.expectedSavedMinor) {
-          message += " Acelerar tus ahorros te acercaría al objetivo.";
+          message += ` ${tx("mobile.home.objectiveCatchUpMessage")}`;
         } else {
-          message += " Sigue así para cumplir el objetivo.";
+          message += ` ${tx("mobile.home.objectiveKeepItUpMessage")}`;
         }
 
         return {
           status,
           statusLabel,
-          description: `Ahorrar ${targetFormatted} en ${monthLabel}`,
+          description: tx("mobile.home.objectiveDescription", {
+            amount: targetFormatted,
+            month: monthLabel,
+          }),
           currentMinor: currentMinor.toString(),
           targetMinor: targetMinor.toString(),
           progressPercent,
           expectedPercent,
           messageHtml: message,
-          streak: (goalHistory ?? []).map((entry) => ({
+          streak: (goalHistory ?? []).map((entry: { completed: boolean | null }) => ({
             hit: entry.completed === true,
           })),
         };
@@ -271,8 +288,8 @@ export default async function DashboardPage() {
           currencySymbol,
           baseCurrency: mainAccount.base_currency,
         }}
-        monthlyTransactions={monthlyTransactions ?? []}
-        upcomingTransactions={upcomingTransactions ?? []}
+        monthlyTransactions={normalizedMonthlyTransactions}
+        upcomingTransactions={normalizedUpcomingTransactions}
         obligations={obligations ?? []}
         objective={objective}
         locale={locale}

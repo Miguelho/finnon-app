@@ -297,7 +297,7 @@ export async function TopNav({ containerClassName }: TopNavProps) {
                 className="inline-flex items-center gap-2 rounded-full bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 sm:px-4 sm:py-1.5"
               >
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Añadir</span>
+                <span className="hidden sm:inline">{t(dictionary, "home.addCta")}</span>
               </Link>
             )}
           </div>

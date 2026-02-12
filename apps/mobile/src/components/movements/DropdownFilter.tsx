@@ -11,6 +11,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { movementsDesignTokens } from "../../types/movements";
 import { useUserTheme } from "../../contexts/UserThemeContext";
+import { useCopy, t } from "../../lib/i18n";
 
 type Option = { id: string; name: string };
 
@@ -31,6 +32,7 @@ export function DropdownFilter({
   onSelect,
   onDeselect,
 }: DropdownFilterProps) {
+  const { dictionary } = useCopy();
   const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState("");
@@ -89,7 +91,7 @@ export function DropdownFilter({
               </Text>
               <Pressable onPress={() => setVisible(false)}>
                 <Text style={[styles.sheetDone, { color: primaryActionColor }]}>
-                  Listo
+                  {t(dictionary, "common.close")}
                 </Text>
               </Pressable>
             </View>
@@ -101,7 +103,9 @@ export function DropdownFilter({
               />
               <TextInput
                 style={[styles.searchInput, { color: userTokens.textPrimary }]}
-                placeholder={`Buscar ${label.toLowerCase()}...`}
+                placeholder={t(dictionary, "transactions.ui.filterSearchPlaceholder", {
+                  label: label.toLowerCase(),
+                })}
                 placeholderTextColor={userTokens.textSecondary}
                 value={query}
                 onChangeText={setQuery}

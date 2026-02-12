@@ -26,6 +26,7 @@ import { FilterRow } from "../components/movements/FilterRow";
 import { MovementGroup } from "../components/movements/MovementGroup";
 import { PeriodSelector } from "../components/movements/PeriodSelector";
 import { useUserTheme } from "../contexts/UserThemeContext";
+import { useCopy, t } from "../lib/i18n";
 
 const movementColors = movementsDesignTokens.colors;
 
@@ -33,6 +34,7 @@ export default function MovementsScreen() {
   const router = useRouter();
   const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
     useUserTheme();
+  const { dictionary } = useCopy();
   const params = useLocalSearchParams<{
     period?: string | string[];
     category?: string | string[];
@@ -152,7 +154,10 @@ export default function MovementsScreen() {
     try {
       await registerRecurrent(id);
     } catch (e: any) {
-      Alert.alert("Error", e?.message || "No se pudo registrar el recurrente");
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        e?.message || t(dictionary, "transactions.recurring.confirmError")
+      );
     }
   };
 
@@ -160,7 +165,10 @@ export default function MovementsScreen() {
     try {
       await registerAllRecurrents();
     } catch (e: any) {
-      Alert.alert("Error", e?.message || "No se pudieron registrar los recurrentes");
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        e?.message || t(dictionary, "transactions.recurring.confirmError")
+      );
     }
   };
 
@@ -168,7 +176,10 @@ export default function MovementsScreen() {
     const tags: { id: string; label: string; type: "type" | "category" | "merchant" }[] =
       [];
     filters.types.forEach((type) => {
-      const label = type === "income" ? "Ingresos" : "Gastos";
+      const label =
+        type === "income"
+          ? t(dictionary, "common.incomeLabel")
+          : t(dictionary, "common.expenseLabel");
       tags.push({ id: type, label, type: "type" });
     });
 
@@ -182,7 +193,7 @@ export default function MovementsScreen() {
     });
 
     return tags;
-  }, [filters.categoryIds, filters.merchantNames, filters.types, categoryOptions]);
+  }, [dictionary, filters.categoryIds, filters.merchantNames, filters.types, categoryOptions]);
 
   if (loading) {
     return (
@@ -195,16 +206,16 @@ export default function MovementsScreen() {
   if (error) {
     return (
       <View style={[styles.errorContainer, { backgroundColor: userTokens.background }]}>
-        <Text style={[styles.errorTitle, { color: userTokens.textPrimary }]}>Ups</Text>
-        <Text style={[styles.errorText, { color: userTokens.textSecondary }]}>
-          {error}
+        <Text style={[styles.errorTitle, { color: userTokens.textPrimary }]}>
+          {t(dictionary, "common.errorTitle")}
         </Text>
+        <Text style={[styles.errorText, { color: userTokens.textSecondary }]}>{error}</Text>
         <Pressable
           style={[styles.retryButton, { backgroundColor: primaryActionColor }]}
           onPress={refresh}
         >
           <Text style={[styles.retryText, { color: primaryActionTextColor }]}>
-            Reintentar
+            {t(dictionary, "common.retry")}
           </Text>
         </Pressable>
       </View>
@@ -260,7 +271,7 @@ export default function MovementsScreen() {
           onPress={() => router.push("/(auth)/recurrentes")}
         >
           <Text style={[styles.recurrentLinkText, { color: primaryActionColor }]}>
-            Recurrentes →
+            {t(dictionary, "transactions.ui.recurringLink")}
           </Text>
         </Pressable>
 
@@ -292,7 +303,7 @@ export default function MovementsScreen() {
             ]}
           >
             <Text style={[styles.searchModeText, { color: primaryActionColor }]}>
-              🔍 Mostrando resultados del periodo seleccionado
+              🔍 {t(dictionary, "transactions.ui.searchResultsInPeriod")}
             </Text>
             <Pressable onPress={() => setSearchQuery("")}>
               <MaterialCommunityIcons
@@ -361,7 +372,7 @@ export default function MovementsScreen() {
             ))}
             <Pressable style={styles.clearAll} onPress={clearFilters}>
               <Text style={[styles.clearAllText, { color: userTokens.textSecondary }]}>
-                Limpiar todo
+                {t(dictionary, "transactions.ui.clearAllFilters")}
               </Text>
             </Pressable>
           </View>
@@ -369,7 +380,7 @@ export default function MovementsScreen() {
 
         {showPendingGroup && (
           <MovementGroup
-            label="Pendientes"
+            label={t(dictionary, "transactions.ui.pendingSection")}
             variant="pending"
             movements={groupedByStatus.pending}
             totalAmount={groupedByStatus.pending.reduce(
@@ -391,7 +402,7 @@ export default function MovementsScreen() {
         )}
 
         <MovementGroup
-          label="Realizados"
+          label={t(dictionary, "transactions.ui.doneSection")}
           variant="done"
           movements={groupedByStatus.confirmed}
           totalAmount={groupedByStatus.confirmed.reduce(

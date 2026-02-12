@@ -10,7 +10,7 @@ import {
 } from "@poleursus/shared";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
-import { useCopy } from "../lib/i18n";
+import { useCopy, t } from "../lib/i18n";
 import { useNetworkNotice } from "../contexts/NetworkNoticeContext";
 import {
   selectMovementsSummary,
@@ -49,11 +49,14 @@ const toBigInt = (value: unknown) => {
   }
 };
 
-const mapTransactionToMovement = (row: TransactionRow): Movement => {
+const mapTransactionToMovement = (
+  row: TransactionRow,
+  labels: { uncategorized: string; movementFallback: string }
+): Movement => {
   const amountMinor = toBigInt(row.amount_base_minor ?? row.amount_minor);
   const status = isFutureDay(row.date) ? "pending" : "confirmed";
-  const categoryName = row.category?.name ?? "Sin categoría";
-  const title = row.merchant?.trim() || categoryName || "Movimiento";
+  const categoryName = row.category?.name ?? labels.uncategorized;
+  const title = row.merchant?.trim() || categoryName || labels.movementFallback;
 
   return {
     id: row.id,
@@ -87,7 +90,7 @@ const matchesSearch = (movement: Movement, query: string) => {
 export function useMovements() {
   const isFocused = useIsFocused();
   const { selectedAccountId } = useAuth();
-  const { locale } = useCopy();
+  const { locale, dictionary } = useCopy();
   const { reportNetworkIssue } = useNetworkNotice();
 
   const {
@@ -203,7 +206,10 @@ export function useMovements() {
       }
 
       const mappedMovements = (transactionsResult.data || []).map((row) =>
-        mapTransactionToMovement(row as TransactionRow)
+        mapTransactionToMovement(row as TransactionRow, {
+          uncategorized: t(dictionary, "transactions.uncategorized"),
+          movementFallback: t(dictionary, "transactions.ui.movementFallback"),
+        })
       );
       setPeriodMovements(mappedMovements);
 
@@ -212,7 +218,7 @@ export function useMovements() {
 
       await loadProfiles(mappedMovements);
     } catch (e: any) {
-      setError(e?.message || "No se pudieron cargar los movimientos");
+      setError(e?.message || t(dictionary, "transactions.loadError"));
       reportNetworkIssue({ onRetry: loadPeriodData });
     } finally {
       setLoading(false);
@@ -223,6 +229,7 @@ export function useMovements() {
     periodRange.start,
     reportNetworkIssue,
     selectedAccountId,
+    dictionary,
     setBaseCurrency,
     setCategories,
     setPeriodMovements,
@@ -269,12 +276,15 @@ export function useMovements() {
       if (searchError) throw searchError;
 
       const mappedMovements = (data || []).map((row) =>
-        mapTransactionToMovement(row as TransactionRow)
+        mapTransactionToMovement(row as TransactionRow, {
+          uncategorized: t(dictionary, "transactions.uncategorized"),
+          movementFallback: t(dictionary, "transactions.ui.movementFallback"),
+        })
       );
       setSearchMovements(mappedMovements);
       await loadProfiles(mappedMovements);
     } catch (e: any) {
-      setError(e?.message || "No se pudieron cargar los movimientos");
+      setError(e?.message || t(dictionary, "transactions.loadError"));
     } finally {
       setSearchLoading(false);
     }
@@ -284,6 +294,7 @@ export function useMovements() {
     periodRange.end,
     periodRange.start,
     selectedAccountId,
+    dictionary,
     setSearchMovements,
   ]);
 

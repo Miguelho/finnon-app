@@ -48,53 +48,23 @@ const parseDateValue = (value: Date | string): Date => {
 export function formatShortDate(date: Date | string, locale: string = "es"): string {
   const d = parseDateValue(date);
   if (Number.isNaN(d.getTime())) return "";
-  const months: Record<string, string[]> = {
-    es: [
-      "ene",
-      "feb",
-      "mar",
-      "abr",
-      "may",
-      "jun",
-      "jul",
-      "ago",
-      "sep",
-      "oct",
-      "nov",
-      "dic",
-    ],
-  };
-  const monthLabels = months[locale] ?? months.es;
-  return `${d.getDate()} ${monthLabels[d.getMonth()] ?? ""}`.trim();
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+  })
+    .format(d)
+    .replace(",", "")
+    .replace(/\.$/, "");
 }
 
 export function formatFullDate(date: Date | string, locale: string = "es"): string {
   const d = parseDateValue(date);
   if (Number.isNaN(d.getTime())) return "";
-  const days: Record<string, string[]> = {
-    es: ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"],
-  };
-  const months: Record<string, string[]> = {
-    es: [
-      "enero",
-      "febrero",
-      "marzo",
-      "abril",
-      "mayo",
-      "junio",
-      "julio",
-      "agosto",
-      "septiembre",
-      "octubre",
-      "noviembre",
-      "diciembre",
-    ],
-  };
-  const dayLabels = days[locale] ?? days.es;
-  const monthLabels = months[locale] ?? months.es;
-  return `${dayLabels[d.getDay()] ?? ""} ${d.getDate()} de ${
-    monthLabels[d.getMonth()] ?? ""
-  }`.trim();
+  return new Intl.DateTimeFormat(locale, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(d);
 }
 
 export function toDateKey(date: Date | string): string {

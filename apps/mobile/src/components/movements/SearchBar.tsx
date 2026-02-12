@@ -10,6 +10,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { withAlpha } from "@poleursus/shared";
 import { movementsDesignTokens } from "../../types/movements";
 import { useUserTheme } from "../../contexts/UserThemeContext";
+import { useCopy, t } from "../../lib/i18n";
 
 type SearchBarProps = {
   value: string;
@@ -18,6 +19,7 @@ type SearchBarProps = {
 };
 
 export function SearchBar({ value, onChange, onClear }: SearchBarProps) {
+  const { dictionary } = useCopy();
   const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const [isFocused, setIsFocused] = useState(false);
   const showBadge = isFocused || value.trim().length > 0;
@@ -40,7 +42,7 @@ export function SearchBar({ value, onChange, onClear }: SearchBarProps) {
         />
         <TextInput
           style={[styles.input, { color: userTokens.textPrimary }]}
-          placeholder="Buscar movimiento, comercio, importe..."
+          placeholder={t(dictionary, "transactions.ui.searchPlaceholder")}
           placeholderTextColor={userTokens.textSecondary}
           value={value}
           onChangeText={onChange}
@@ -58,7 +60,7 @@ export function SearchBar({ value, onChange, onClear }: SearchBarProps) {
             ]}
           >
             <Text style={[styles.badgeText, { color: primaryActionColor }]}>
-              Búsqueda en periodo
+              {t(dictionary, "transactions.ui.searchInPeriod")}
             </Text>
           </View>
         )}

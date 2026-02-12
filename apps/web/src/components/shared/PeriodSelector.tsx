@@ -1,6 +1,7 @@
 "use client";
 
 import { type Period, PERIODS } from "@poleursus/shared";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import styles from "./PeriodSelector.module.css";
 
@@ -11,16 +12,24 @@ interface PeriodSelectorProps {
 }
 
 export function PeriodSelector({ selected, onChange, className }: PeriodSelectorProps) {
+  const t = useTranslations();
+  const periodLabelKey: Record<Period, string> = {
+    week: "common.periodWeek",
+    month: "common.periodMonth",
+    quarter: "common.periodQuarter",
+    year: "common.periodYear",
+  };
+
   return (
     <div className={cn(styles.selector, className)}>
-      {PERIODS.map(({ key, label }) => (
+      {PERIODS.map(({ key }) => (
         <button
           key={key}
           type="button"
           onClick={() => onChange(key)}
           className={cn(styles.chip, selected === key && styles.chipActive)}
         >
-          {label}
+          {t(periodLabelKey[key] as any)}
         </button>
       ))}
     </div>

@@ -1,4 +1,6 @@
+import { useMemo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { formatCurrencyParts } from "./utils";
 
 type CalendarView = "week" | "month";
@@ -78,14 +80,24 @@ export function Calendar({
   locale = "es-ES",
   monoClassName,
 }: CalendarProps) {
+  const t = useTranslations();
   const isWeek = view === "week";
   const selectedKey = selectedDay?.dateKey ?? "";
   const data = isWeek ? weekData : monthData;
+  const monthLabels = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat(locale, { weekday: "narrow" });
+    const baseMonday = new Date(2024, 0, 1); // Monday
+    return [0, 1, 2, 3, 4, 5, 6].map((offset) =>
+      formatter.format(new Date(baseMonday.getTime() + offset * 86400000))
+    );
+  }, [locale]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
       <div className="flex items-center justify-between px-5 pt-4">
-        <h3 className="text-[15px] font-semibold text-foreground">Calendario</h3>
+        <h3 className="text-[15px] font-semibold text-foreground">
+          {t("mobile.home.calendarTitle")}
+        </h3>
       </div>
 
       <div className="mt-3 flex items-center gap-1.5 px-5">
@@ -98,7 +110,7 @@ export function Calendar({
               : "text-muted-foreground hover:text-primary"
           }`}
         >
-          Semana
+          {t("mobile.home.calendarWeek")}
         </button>
         <button
           type="button"
@@ -109,7 +121,7 @@ export function Calendar({
               : "text-muted-foreground hover:text-primary"
           }`}
         >
-          Mes
+          {t("mobile.home.calendarMonth")}
         </button>
 
         <div className="ml-auto flex items-center gap-2">
@@ -191,7 +203,7 @@ export function Calendar({
 
           <div className="flex flex-wrap items-center justify-center gap-4 px-5 pb-1">
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              Ingresos{" "}
+              {t("mobile.home.calendarIncome")}{" "}
               <span
                 className={`font-medium text-green-600 ${monoClassName ?? ""}`}
               >
@@ -199,7 +211,7 @@ export function Calendar({
               </span>
             </span>
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              Gastos{" "}
+              {t("mobile.home.calendarExpenses")}{" "}
               <span
                 className={`font-medium text-red-600 ${monoClassName ?? ""}`}
               >
@@ -207,7 +219,7 @@ export function Calendar({
               </span>
             </span>
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              Neto{" "}
+              {t("mobile.home.calendarNet")}{" "}
               <span
                 className={`font-semibold text-foreground ${monoClassName ?? ""}`}
               >
@@ -220,9 +232,9 @@ export function Calendar({
 
       {!isWeek && monthData && (
         <div className="grid grid-cols-7 gap-px px-5 pb-5 pt-3">
-          {["L", "M", "X", "J", "V", "S", "D"].map((label) => (
+          {monthLabels.map((label, index) => (
             <div
-              key={label}
+              key={`${label}-${index}`}
               className="py-1 text-center text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
             >
               {label}
@@ -278,6 +290,7 @@ export function Calendar({
           currencySymbol={currencySymbol}
           locale={locale}
           monoClassName={monoClassName}
+          emptyLabel={t("mobile.home.calendarEmptyDay")}
         />
       )}
     </div>
@@ -288,10 +301,17 @@ type DayDetailProps = {
   day: DayDetailData;
   currencySymbol: string;
   locale: string;
+  emptyLabel: string;
   monoClassName?: string;
 };
 
-function DayDetail({ day, currencySymbol, locale, monoClassName }: DayDetailProps) {
+function DayDetail({
+  day,
+  currencySymbol,
+  locale,
+  emptyLabel,
+  monoClassName,
+}: DayDetailProps) {
   return (
     <div className="border-t border-border px-5 py-4">
       <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -308,7 +328,7 @@ function DayDetail({ day, currencySymbol, locale, monoClassName }: DayDetailProp
           />
         ))
       ) : (
-        <p className="text-sm text-muted-foreground">No hay movimientos este día.</p>
+        <p className="text-sm text-muted-foreground">{emptyLabel}</p>
       )}
     </div>
   );

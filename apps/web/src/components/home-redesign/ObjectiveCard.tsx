@@ -1,4 +1,5 @@
 import { formatCurrencyParts, toMinor } from "./utils";
+import { useTranslations } from "next-intl";
 
 type ObjectiveStatus = "on-track" | "at-risk" | "off-track";
 
@@ -29,6 +30,7 @@ export function ObjectiveCard({
   locale = "es-ES",
   monoClassName,
 }: ObjectiveCardProps) {
+  const t = useTranslations();
   if (!objective) return null;
 
   const statusConfig: Record<
@@ -67,13 +69,15 @@ export function ObjectiveCard({
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-[15px] font-semibold text-foreground">Objetivo</h3>
+        <h3 className="text-[15px] font-semibold text-foreground">
+          {t("mobile.home.objectiveTitle")}
+        </h3>
         <button
           type="button"
           onClick={onNavigate}
           className="text-[13px] font-medium text-primary hover:underline"
         >
-          Ver detalle →
+          {t("mobile.home.objectiveViewDetail")}
         </button>
       </div>
 
@@ -113,10 +117,10 @@ export function ObjectiveCard({
             >
               {current.full}
             </strong>{" "}
-            ahorrado
+            {t("mobile.home.objectiveSavedSuffix")}
           </span>
           <span className={`text-xs text-muted-foreground ${monoClassName ?? ""}`}>
-            de {target.full}
+            {t("mobile.home.objectiveOfPrefix")} {target.full}
           </span>
         </div>
       </div>
@@ -139,8 +143,10 @@ export function ObjectiveCard({
             />
           ))}
           <span className="ml-1 text-[11px] text-muted-foreground">
-            {objective.streak.filter((m) => m.hit).length} de{" "}
-            {objective.streak.length} meses
+            {t("mobile.home.objectiveStreak", {
+              hit: objective.streak.filter((m) => m.hit).length,
+              total: objective.streak.length,
+            })}
           </span>
         </div>
       ) : null}

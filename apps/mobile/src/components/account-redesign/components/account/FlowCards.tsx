@@ -4,6 +4,7 @@ import { colors, typography, spacing, radii } from '../../theme/tokens';
 import { formatCurrency, formatDelta } from '../../utils/currency';
 import type { FlowSummary } from '../../types/account';
 import { useUserTheme } from '../../../../contexts/UserThemeContext';
+import { useCopy, t } from '../../../../lib/i18n';
 
 interface FlowCardsProps {
   flow: FlowSummary;
@@ -20,6 +21,7 @@ export function FlowCards({
   onIncomePress,
   onExpensePress,
 }: FlowCardsProps) {
+  const { dictionary } = useCopy();
   const { tokens: userTokens } = useUserTheme();
   const income = formatCurrency(flow.totalIncome, { currency, decimals });
   const expense = formatCurrency(flow.totalExpense, { currency, decimals });
@@ -41,7 +43,9 @@ export function FlowCards({
           <View style={[styles.arrow, styles.arrowUp]}>
             <Ionicons name="arrow-up" size={10} color="#FFFFFF" />
           </View>
-          <Text style={[styles.label, styles.incomeText]}>INGRESOS</Text>
+          <Text style={[styles.label, styles.incomeText]}>
+            {t(dictionary, "account.redesign.incomeLabel").toUpperCase()}
+          </Text>
         </View>
         <Text style={[styles.amount, styles.incomeText]}>
           {currency}
@@ -49,7 +53,9 @@ export function FlowCards({
         </Text>
         {incomeDelta && (
           <Text style={[styles.delta, styles.incomeText]}>
-            {incomeDelta} vs mes anterior
+            {t(dictionary, "account.redesign.vsPreviousMonth", {
+              value: incomeDelta,
+            })}
           </Text>
         )}
       </Pressable>
@@ -67,7 +73,9 @@ export function FlowCards({
           <View style={[styles.arrow, styles.arrowDown]}>
             <Ionicons name="arrow-down" size={10} color="#FFFFFF" />
           </View>
-          <Text style={[styles.label, styles.expenseText]}>GASTOS</Text>
+          <Text style={[styles.label, styles.expenseText]}>
+            {t(dictionary, "account.redesign.expenseLabel").toUpperCase()}
+          </Text>
         </View>
         <Text style={[styles.amount, styles.expenseText]}>
           {currency}
@@ -75,7 +83,9 @@ export function FlowCards({
         </Text>
         {expenseDelta && (
           <Text style={[styles.delta, styles.expenseText]}>
-            {expenseDelta} vs mes anterior
+            {t(dictionary, "account.redesign.vsPreviousMonth", {
+              value: expenseDelta,
+            })}
           </Text>
         )}
       </Pressable>

@@ -1,4 +1,5 @@
 import { formatCurrencyParts, formatShortDate } from "./utils";
+import { useTranslations } from "next-intl";
 
 type TimelineMovement = {
   name: string;
@@ -22,10 +23,11 @@ export function Timeline({
   locale = "es",
   monoClassName,
 }: TimelineProps) {
+  const t = useTranslations();
   return (
     <div className="grid grid-cols-[1fr_auto_1fr] items-center rounded-xl border border-border bg-card px-4 py-5 sm:px-6">
       <TimelineItem
-        label="Último"
+        label={t("mobile.home.timelineLast")}
         movement={last}
         align="left"
         currencySymbol={currencySymbol}
@@ -37,14 +39,14 @@ export function Timeline({
         <div className="h-5 w-px bg-border" />
         <div className="h-2 w-2 rounded-full bg-foreground" />
         <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Hoy
+          {t("mobile.home.timelineToday")}
         </span>
         <div className="h-2 w-2 rounded-full bg-border" />
         <div className="h-5 w-px bg-border" />
       </div>
 
       <TimelineItem
-        label="Próximo"
+        label={t("mobile.home.timelineNext")}
         movement={next}
         align="right"
         currencySymbol={currencySymbol}

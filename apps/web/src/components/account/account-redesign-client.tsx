@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Search, Settings } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { CURRENCIES, getMinorUnits, type Period } from "@poleursus/shared";
 import { CategoryIcon } from "@/components/category-icon";
 import type { AccountRedesignData, AccountRedesignPeriod } from "@/components/account/account-redesign-types";
@@ -19,6 +20,8 @@ type AccountRedesignClientProps = {
 };
 
 export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientProps) {
+  const t = useTranslations();
+  const locale = useLocale();
   const [selectedPeriod, setSelectedPeriod] = useState<Period>("month");
   const [chartMode, setChartMode] = useState<ChartMode>("both");
 
@@ -85,13 +88,17 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
             </div>
           </div>
           <div className={styles.headerActions}>
-            <Link href="/transactions" className={styles.iconBtn} aria-label="Buscar">
+            <Link
+              href="/transactions"
+              className={styles.iconBtn}
+              aria-label={t("account.redesign.searchAriaLabel")}
+            >
               <Search size={16} />
             </Link>
             <Link
               href={`/account/${data.account.id}/settings/general`}
               className={styles.iconBtn}
-              aria-label="Ajustes"
+              aria-label={t("account.redesign.settingsAriaLabel")}
             >
               <Settings size={16} />
             </Link>
@@ -99,7 +106,7 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
         </div>
 
         <div className={styles.balanceHero}>
-          <div className={styles.balanceLabel}>Balance total</div>
+          <div className={styles.balanceLabel}>{t("account.redesign.balanceTotalLabel")}</div>
           <div className={styles.balanceAmount}>
             {currencySymbol}
             {balance.whole}
@@ -113,7 +120,9 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
           <div className={`${styles.flowCard} ${styles.flowCardIncome}`}>
             <div className={styles.flowCardHeader}>
               <span className={`${styles.flowArrow} ${styles.flowArrowUp}`}>↑</span>
-              <span className={`${styles.flowLabel} ${styles.flowLabelIncome}`}>Ingresos</span>
+              <span className={`${styles.flowLabel} ${styles.flowLabelIncome}`}>
+                {t("account.redesign.incomeLabel")}
+              </span>
             </div>
             <div className={`${styles.flowAmount} ${styles.flowAmountIncome}`}>
               {currencySymbol}
@@ -121,14 +130,16 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
             </div>
             {incomeDelta ? (
               <div className={`${styles.flowDelta} ${styles.flowLabelIncome}`}>
-                {incomeDelta} vs mes anterior
+                {t("account.redesign.vsPreviousMonth", { value: incomeDelta })}
               </div>
             ) : null}
           </div>
           <div className={`${styles.flowCard} ${styles.flowCardExpense}`}>
             <div className={styles.flowCardHeader}>
               <span className={`${styles.flowArrow} ${styles.flowArrowDown}`}>↓</span>
-              <span className={`${styles.flowLabel} ${styles.flowLabelExpense}`}>Gastos</span>
+              <span className={`${styles.flowLabel} ${styles.flowLabelExpense}`}>
+                {t("account.redesign.expenseLabel")}
+              </span>
             </div>
             <div className={`${styles.flowAmount} ${styles.flowAmountExpense}`}>
               {currencySymbol}
@@ -136,7 +147,7 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
             </div>
             {expenseDelta ? (
               <div className={`${styles.flowDelta} ${styles.flowLabelExpense}`}>
-                {expenseDelta} vs mes anterior
+                {t("account.redesign.vsPreviousMonth", { value: expenseDelta })}
               </div>
             ) : null}
           </div>
@@ -145,13 +156,15 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
         <div className={styles.chartSection}>
           <div className={styles.chartContainer}>
             <div className={styles.chartHeader}>
-              <span className={styles.chartTitle}>Evolución mensual</span>
+              <span className={styles.chartTitle}>
+                {t("account.redesign.monthlyEvolutionTitle")}
+              </span>
               <div className={styles.chartToggle}>
                 {(
                   [
-                    { key: "both", label: "Ambos" },
-                    { key: "expenses", label: "Gastos" },
-                    { key: "net", label: "Neto" },
+                    { key: "both", label: t("account.redesign.monthlyEvolutionModeBoth") },
+                    { key: "expenses", label: t("account.redesign.monthlyEvolutionModeExpenses") },
+                    { key: "net", label: t("account.redesign.monthlyEvolutionModeNet") },
                   ] as const
                 ).map((item) => (
                   <button
@@ -172,7 +185,7 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
               <div className={styles.chartEmptyState}>
                 <span className={styles.chartEmptyIcon}>📊</span>
                 <span className={styles.chartEmptyText}>
-                  Aparecerá aquí cuando tengas datos de al menos un mes
+                  {t("account.redesign.monthlyEvolutionEmpty")}
                 </span>
               </div>
             ) : (
@@ -235,12 +248,14 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
 
         <section className={styles.categoriesSection}>
           <div className={styles.sectionHeader}>
-            <span className={styles.sectionTitle}>Gastos por categoría</span>
+            <span className={styles.sectionTitle}>
+              {t("account.redesign.categorySpendingTitle")}
+            </span>
             <Link
               href={`/transactions?period=${selectedPeriod}`}
               className={styles.sectionAction}
             >
-              Ver todas →
+              {t("account.redesign.viewAllCategories")}
             </Link>
           </div>
 
@@ -265,7 +280,9 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
                   <div className={styles.categoryInfo}>
                     <div className={styles.categoryName}>{category.name}</div>
                     <div className={styles.categoryCount}>
-                      {category.transactionCount} movimiento{category.transactionCount !== 1 ? "s" : ""}
+                      {t("account.redesign.movementCount", {
+                        count: category.transactionCount,
+                      })}
                     </div>
                   </div>
                   <div className={styles.categoryRight}>
@@ -304,12 +321,14 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
 
         <section className={styles.transactionsSection}>
           <div className={styles.sectionHeader}>
-            <span className={styles.sectionTitle}>Últimos movimientos</span>
+            <span className={styles.sectionTitle}>
+              {t("account.redesign.latestMovementsTitle")}
+            </span>
             <Link
               href={`/transactions?period=${selectedPeriod}`}
               className={styles.sectionAction}
             >
-              Ver todos →
+              {t("account.redesign.viewAllMovements")}
             </Link>
           </div>
 
@@ -335,7 +354,7 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
                   <div className={styles.txInfo}>
                     <div className={styles.txName}>{tx.description}</div>
                     <div className={styles.txMeta}>
-                      {tx.categoryName} · {formatDate(tx.date)}
+                      {tx.categoryName} · {formatDate(tx.date, locale)}
                     </div>
                   </div>
                   <div
@@ -358,13 +377,20 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
   );
 }
 
-function formatDate(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(year, (month ?? 1) - 1, day ?? 1);
-  const labels = MONTH_LABELS.es;
-  return `${date.getDate()} ${labels[date.getMonth()]}`;
+function formatDate(value: string, locale: string) {
+  const [yearPart, monthPart, dayPart] = value.split("-");
+  const rawYear = Number(yearPart);
+  const rawMonth = Number(monthPart);
+  const rawDay = Number(dayPart);
+  const safeYear = Number.isFinite(rawYear) ? rawYear : 1970;
+  const safeMonth = Number.isFinite(rawMonth) ? rawMonth : 1;
+  const safeDay = Number.isFinite(rawDay) ? rawDay : 1;
+  const date = new Date(safeYear, safeMonth - 1, safeDay);
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+  })
+    .format(date)
+    .replace(",", "")
+    .replace(/\.$/, "");
 }
-
-const MONTH_LABELS = {
-  es: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
-};

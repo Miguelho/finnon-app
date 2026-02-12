@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import { PERIODS, type Period } from "@poleursus/shared";
 import { typography, spacing, radii } from "../../theme/tokens";
 import { useUserTheme } from "../../../../contexts/UserThemeContext";
+import { useCopy, t } from "../../../../lib/i18n";
 
 interface PeriodSelectorProps {
   selected: Period;
@@ -9,12 +10,19 @@ interface PeriodSelectorProps {
 }
 
 export function PeriodSelector({ selected, onSelect }: PeriodSelectorProps) {
+  const { dictionary } = useCopy();
   const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
     useUserTheme();
+  const periodLabelKey: Record<Period, string> = {
+    week: "common.periodWeek",
+    month: "common.periodMonth",
+    quarter: "common.periodQuarter",
+    year: "common.periodYear",
+  };
 
   return (
     <View style={styles.container}>
-      {PERIODS.map(({ key, label }) => {
+      {PERIODS.map(({ key }) => {
         const isActive = selected === key;
         return (
           <Pressable
@@ -32,7 +40,7 @@ export function PeriodSelector({ selected, onSelect }: PeriodSelectorProps) {
               isActive && { color: primaryActionTextColor },
             ]}
           >
-              {label}
+              {t(dictionary, periodLabelKey[key] as any)}
             </Text>
           </Pressable>
         );

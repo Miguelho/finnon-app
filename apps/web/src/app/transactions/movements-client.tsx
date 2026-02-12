@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import {
   CURRENCIES,
   formatDateISO,
@@ -153,11 +154,14 @@ const parseFilterParam = (value: string | null) =>
         .filter(Boolean)
     : [];
 
-const mapTransactionToMovement = (row: Transaction): Movement => {
+const mapTransactionToMovement = (
+  row: Transaction,
+  labels: { uncategorized: string; movementFallback: string }
+): Movement => {
   const amountMinor = toBigInt(row.amount_base_minor ?? row.amount_minor);
   const status = isFutureDay(row.date) ? "pending" : "confirmed";
-  const categoryName = row.category?.name ?? "Sin categoría";
-  const title = row.merchant?.trim() || categoryName || "Movimiento";
+  const categoryName = row.category?.name ?? labels.uncategorized;
+  const title = row.merchant?.trim() || categoryName || labels.movementFallback;
 
   return {
     id: row.id,
@@ -244,6 +248,7 @@ function FilterDropdown({
   selectedIds: string[];
   onToggle: (id: string) => void;
 }) {
+  const t = useTranslations();
   const [query, setQuery] = useState("");
   const filtered = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
@@ -269,7 +274,9 @@ function FilterDropdown({
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder={`Buscar ${label.toLowerCase()}...`}
+          placeholder={t("transactions.ui.filterSearchPlaceholder", {
+            label: label.toLowerCase(),
+          })}
           className="h-8 text-sm"
         />
         <div className="mt-2 max-h-48 overflow-auto">
@@ -289,7 +296,7 @@ function FilterDropdown({
           })}
           {filtered.length === 0 && (
             <p className="px-2 py-2 text-xs text-muted-foreground">
-              Sin resultados
+              {t("transactions.ui.filterNoResults")}
             </p>
           )}
         </div>
@@ -307,6 +314,7 @@ function MovementsSummary({
   currencySymbol: string;
   currencyCode: string;
 }) {
+  const t = useTranslations();
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
   const infoButtonRef = useRef<HTMLButtonElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -372,15 +380,15 @@ function MovementsSummary({
 
   const hasSingleType =
     !summary.isEmpty && (summary.hasIncome ? !summary.hasExpense : summary.hasExpense);
-  const movementCountLabel = `${summary.movementCount} ${
-    summary.movementCount === 1 ? "movimiento" : "movimientos"
-  }`;
+  const movementCountLabel = t("transactions.ui.sectionMovementCount", {
+    count: summary.movementCount,
+  });
 
   return (
     <div className="space-y-2">
       <div className="mb-[14px] text-center">
         <div className="text-[11px] font-medium uppercase tracking-[0.5px] text-muted-foreground">
-          BALANCE
+          {t("transactions.ui.summaryBalanceTitle")}
         </div>
         <div
           className="text-[30px] font-bold tracking-[-1px] text-foreground"
@@ -391,13 +399,14 @@ function MovementsSummary({
           {formatSignedAmount(summary.balance, currencyCode, currencySymbol)}
         </div>
         <div className="text-xs text-muted-foreground">
-          {formatSignedAmount(summary.confirmedBalance, currencyCode, currencySymbol)} confirmado
+          {formatSignedAmount(summary.confirmedBalance, currencyCode, currencySymbol)}{" "}
+          {t("transactions.ui.summaryConfirmedOne")}
         </div>
       </div>
 
       {summary.isEmpty ? (
         <p className="mb-2 text-center text-sm font-medium text-muted-foreground">
-          Sin movimientos en este periodo
+          {t("transactions.ui.summaryEmpty")}
         </p>
       ) : (
         <div className="mb-[18px]">
@@ -473,7 +482,7 @@ function MovementsSummary({
               type="button"
               className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] border-border text-[11px] font-semibold text-muted-foreground transition hover:border-muted-foreground hover:text-foreground"
               onClick={() => setIsTooltipOpen((prev) => !prev)}
-              aria-label="Mostrar leyenda de colores"
+              aria-label={t("transactions.ui.summaryLegendButton")}
             >
               i
             </button>
@@ -486,11 +495,11 @@ function MovementsSummary({
                 <span className="absolute right-[5px] top-[-5px] h-[10px] w-[10px] rotate-45 border-l border-t border-border bg-card" />
                 <div className="flex items-center gap-2 py-0.5 text-xs">
                   <span className="h-[6px] w-[10px] rounded-[3px] bg-foreground opacity-90" />
-                  <span>Color sólido = confirmado</span>
+                  <span>{t("transactions.ui.summaryLegendSolid")}</span>
                 </div>
                 <div className="flex items-center gap-2 py-0.5 text-xs">
                   <span className="h-[6px] w-[10px] rounded-[3px] bg-foreground opacity-35" />
-                  <span>Color suave = pendiente</span>
+                  <span>{t("transactions.ui.summaryLegendSoft")}</span>
                 </div>
               </div>
             )}
@@ -519,11 +528,11 @@ function MovementsSummary({
                         currencySymbol
                       )
                     : formatExpenseAmount(
-                        summary.confirmedExpense,
-                        currencyCode,
-                        currencySymbol
-                      )}{" "}
-                  confirmados
+                      summary.confirmedExpense,
+                      currencyCode,
+                      currencySymbol
+                    )}{" "}
+                  {t("transactions.ui.summaryConfirmedOther")}
                 </span>
               </div>
               <div className="flex flex-col items-end">
@@ -537,7 +546,8 @@ function MovementsSummary({
                   {formatIncomeAmount(summary.totalIncome, currencyCode, currencySymbol)}
                 </span>
                 <span className="text-[11px] text-muted-foreground">
-                  {formatIncomeAmount(summary.confirmedIncome, currencyCode, currencySymbol)} confirmados
+                  {formatIncomeAmount(summary.confirmedIncome, currencyCode, currencySymbol)}{" "}
+                  {t("transactions.ui.summaryConfirmedOther")}
                 </span>
               </div>
               <div className="flex flex-col items-end gap-0.5">
@@ -545,7 +555,8 @@ function MovementsSummary({
                   {formatExpenseAmount(summary.totalExpense, currencyCode, currencySymbol)}
                 </span>
                 <span className="text-[11px] text-muted-foreground">
-                  {formatExpenseAmount(summary.confirmedExpense, currencyCode, currencySymbol)} confirmados
+                  {formatExpenseAmount(summary.confirmedExpense, currencyCode, currencySymbol)}{" "}
+                  {t("transactions.ui.summaryConfirmedOther")}
                 </span>
               </div>
             </div>
@@ -655,6 +666,7 @@ function MovementGroup({
   onToggleCollapse?: () => void;
   onPressMovement?: (id: string) => void;
 }) {
+  const t = useTranslations();
   const grouped = useMemo(() => groupByDate(movements), [movements]);
   const absoluteValue = totalAmount < 0n ? -totalAmount : totalAmount;
   const formattedTotal = `${totalAmount < 0n ? "-" : ""}${currencySymbol}${formatMinorToMoney(
@@ -674,7 +686,7 @@ function MovementGroup({
           {label.toUpperCase()}
         </span>
         <span className="text-xs text-muted-foreground">
-          — {movements.length} movimientos
+          — {t("transactions.ui.sectionMovementCount", { count: movements.length })}
         </span>
         <div className="ml-auto flex items-center gap-3">
           <span className="text-xs font-semibold text-foreground">
@@ -686,7 +698,7 @@ function MovementGroup({
               className="text-xs font-medium text-muted-foreground"
               onClick={onToggleCollapse}
             >
-              {isCollapsed ? "Mostrar" : "Ocultar"}
+              {isCollapsed ? t("transactions.ui.show") : t("transactions.ui.hide")}
             </button>
           )}
         </div>
@@ -740,6 +752,7 @@ function RecurrentSection({
   locale: string;
   disabled?: boolean;
 }) {
+  const t = useTranslations();
   if (recurrents.length === 0) return null;
   const absoluteValue = totalAmount < 0n ? -totalAmount : totalAmount;
   const formattedTotal = `${totalAmount < 0n ? "-" : ""}${currencySymbol}${formatMinorToMoney(
@@ -759,7 +772,7 @@ function RecurrentSection({
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: design.colors.recurrentPurple }}>
             <Repeat size={16} />
-            Por registrar
+            {t("transactions.ui.toRegisterSection")}
           </span>
           <span className="text-xs" style={{ color: design.colors.recurrentPurple }}>
             {recurrents.length}
@@ -774,7 +787,7 @@ function RecurrentSection({
             className="text-xs text-muted-foreground"
             onClick={onToggleCollapse}
           >
-            {isCollapsed ? "Mostrar" : "Ocultar"}
+            {isCollapsed ? t("transactions.ui.show") : t("transactions.ui.hide")}
           </button>
         </div>
       </div>
@@ -799,7 +812,7 @@ function RecurrentSection({
             onClick={onRegisterAll}
             disabled={disabled}
           >
-            Registrar todos ({recurrents.length})
+            {t("transactions.ui.registerAll", { count: recurrents.length })}
           </button>
         </div>
       )}
@@ -822,6 +835,7 @@ function RecurrentCard({
   onRegister: (id: string) => void;
   disabled?: boolean;
 }) {
+  const t = useTranslations();
   const [isRemoving, setIsRemoving] = useState(false);
   const formattedDate = useMemo(
     () =>
@@ -884,7 +898,7 @@ function RecurrentCard({
           onClick={handleRegister}
           disabled={disabled}
         >
-          Registrar
+          {t("transactions.ui.register")}
         </button>
       </div>
     </div>
@@ -905,6 +919,8 @@ export function MovementsClient({
   role,
 }: MovementsClientProps) {
   const router = useRouter();
+  const t = useTranslations();
+  const locale = useLocale();
 
   const [selectedPeriod, setSelectedPeriod] = useState<Period>(initialPeriod);
   const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
@@ -951,10 +967,6 @@ export function MovementsClient({
     setIsDoneCollapsed(false);
   }, [initialCategoryFilter]);
 
-  const locale = useMemo(
-    () => (typeof navigator !== "undefined" ? navigator.language : "es"),
-    []
-  );
   const currencySymbol =
     CURRENCIES.find((currency) => currency.code === baseCurrency)?.symbol ??
     baseCurrency;
@@ -969,8 +981,14 @@ export function MovementsClient({
   }, [profiles]);
 
   const movements = useMemo(
-    () => transactions.map(mapTransactionToMovement),
-    [transactions]
+    () =>
+      transactions.map((transaction) =>
+        mapTransactionToMovement(transaction, {
+          uncategorized: t("transactions.uncategorized"),
+          movementFallback: t("transactions.ui.movementFallback"),
+        })
+      ),
+    [transactions, t]
   );
 
   const selectedTransaction = useMemo(
@@ -1078,11 +1096,14 @@ export function MovementsClient({
             return {
               id: `${item.id}:${occurrence.date}`,
               templateId: item.id,
-              title: item.merchant?.trim() || category?.name || "Movimiento recurrente",
+              title:
+                item.merchant?.trim() ||
+                category?.name ||
+                t("transactions.ui.recurringMovementFallback"),
               amountMinor: toBigInt(item.amount_minor),
               expectedDate: occurrence.date,
               categoryId: item.category_id ?? null,
-              categoryName: category?.name ?? "Sin categoría",
+              categoryName: category?.name ?? t("transactions.uncategorized"),
               categoryIconId: category?.icon_id ?? null,
               subcategory: item.notes?.trim() || null,
               userId: item.created_by,
@@ -1092,7 +1113,7 @@ export function MovementsClient({
             } as RecurringTemplate;
           })
       );
-  }, [recurrents, categories, movements, selectedPeriod]);
+  }, [recurrents, categories, movements, selectedPeriod, t]);
 
   const recurrentTotal = useMemo(
     () =>
@@ -1189,7 +1210,7 @@ export function MovementsClient({
   const handleEditSubmit = useCallback(
     async (draft: TransactionDraft) => {
       if (!selectedTransaction || !canEdit) {
-        throw new Error("Movimiento no disponible");
+        throw new Error(t("transactions.ui.movementUnavailableError"));
       }
       const result = await updateTransaction(selectedTransaction.id, {
         type: draft.type,
@@ -1205,7 +1226,7 @@ export function MovementsClient({
       });
 
       if (!result.success || !result.data) {
-        throw new Error("No se pudo guardar el movimiento.");
+        throw new Error(t("transactions.ui.saveMovementError"));
       }
 
       const updated = result.data as Transaction;
@@ -1218,7 +1239,7 @@ export function MovementsClient({
         prev.map((item) => (item.id === nextTransaction.id ? nextTransaction : item))
       );
     },
-    [canEdit, categories, selectedTransaction]
+    [canEdit, categories, selectedTransaction, t]
   );
 
   const handlePeriodChange = useCallback(
@@ -1227,8 +1248,9 @@ export function MovementsClient({
 
       const params = new URLSearchParams();
       params.set("period", newPeriod);
-      if (categoryFilters.length > 0) {
-        params.set("category", categoryFilters[0]);
+      const firstCategory = categoryFilters[0];
+      if (firstCategory) {
+        params.set("category", firstCategory);
       }
 
       router.push(`/transactions?${params.toString()}`);
@@ -1259,7 +1281,10 @@ export function MovementsClient({
     typeFilters.forEach((type) => {
       tags.push({
         id: type,
-        label: type === "income" ? "Ingresos" : "Gastos",
+        label:
+          type === "income"
+            ? t("common.incomeLabel")
+            : t("common.expenseLabel"),
         type: "type",
       });
     });
@@ -1269,12 +1294,14 @@ export function MovementsClient({
     });
     merchantFilters.forEach((name) => tags.push({ id: name, label: name, type: "merchant" }));
     return tags;
-  }, [categoryFilters, categories, merchantFilters, typeFilters]);
+  }, [categoryFilters, categories, merchantFilters, typeFilters, t]);
 
   return (
     <PageContainer className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-foreground">Movimientos</h1>
+        <h1 className="text-3xl font-bold text-foreground">
+          {t("transactions.pageTitle")}
+        </h1>
       </div>
 
       <div
@@ -1298,7 +1325,7 @@ export function MovementsClient({
             className="text-xs font-medium text-primary"
             onClick={() => router.push("/recurrentes")}
           >
-            Recurrentes →
+            {t("transactions.ui.recurringLink")}
           </button>
         </div>
       </div>
@@ -1323,7 +1350,7 @@ export function MovementsClient({
           <Search size={16} className="text-muted-foreground" />
           <input
             className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-            placeholder="Buscar movimiento, comercio, importe..."
+            placeholder={t("transactions.ui.searchPlaceholder")}
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             onFocus={() => setIsSearchFocused(true)}
@@ -1331,7 +1358,7 @@ export function MovementsClient({
           />
           {(isSearchFocused || searchQuery.trim().length > 0) && (
             <span className="rounded-full bg-primary/15 px-2 py-1 text-[10px] font-semibold text-primary">
-              Búsqueda en periodo
+              {t("transactions.ui.searchInPeriod")}
             </span>
           )}
           {searchQuery.trim().length > 0 && (
@@ -1343,7 +1370,7 @@ export function MovementsClient({
 
         {isSearchMode && (
           <div className="flex items-center justify-between rounded-xl bg-primary/15 px-3 py-2 text-xs font-medium text-primary">
-            🔍 Mostrando resultados del periodo seleccionado
+            🔍 {t("transactions.ui.searchResultsInPeriod")}
             <button type="button" onClick={() => setSearchQuery("")}>
               <X size={12} />
             </button>
@@ -1361,7 +1388,7 @@ export function MovementsClient({
             )}
             onClick={() => toggleTypeFilter("income")}
           >
-            Ingresos <span className="text-[10px]">{counts.income}</span>
+            {t("common.incomeLabel")} <span className="text-[10px]">{counts.income}</span>
           </button>
           <button
             type="button"
@@ -1373,11 +1400,11 @@ export function MovementsClient({
             )}
             onClick={() => toggleTypeFilter("expense")}
           >
-            Gastos <span className="text-[10px]">{counts.expense}</span>
+            {t("common.expenseLabel")} <span className="text-[10px]">{counts.expense}</span>
           </button>
           <span className="mx-1 h-5 w-px bg-border" />
           <FilterDropdown
-            label="Categoría"
+            label={t("transactions.ui.filterCategory")}
             options={categoryOptions}
             selectedIds={categoryFilters}
             onToggle={(id) =>
@@ -1387,7 +1414,7 @@ export function MovementsClient({
             }
           />
           <FilterDropdown
-            label="Comercio"
+            label={t("transactions.ui.filterMerchant")}
             options={merchantOptions}
             selectedIds={merchantFilters}
             onToggle={(id) =>
@@ -1426,7 +1453,7 @@ export function MovementsClient({
               className="text-[11px] font-medium text-muted-foreground"
               onClick={clearFilters}
             >
-              Limpiar todo
+              {t("transactions.ui.clearAllFilters")}
             </button>
           </div>
         )}
@@ -1435,7 +1462,7 @@ export function MovementsClient({
       <div className="space-y-6">
         {showPendingGroup && (
           <MovementGroup
-            label="Pendientes"
+            label={t("transactions.ui.pendingSection")}
             variant="pending"
             movements={groupedByStatus.pending}
             totalAmount={groupedByStatus.pending.reduce(
@@ -1455,7 +1482,7 @@ export function MovementsClient({
         )}
 
         <MovementGroup
-          label="Realizados"
+          label={t("transactions.ui.doneSection")}
           variant="done"
           movements={groupedByStatus.confirmed}
           totalAmount={groupedByStatus.confirmed.reduce(
@@ -1481,9 +1508,9 @@ export function MovementsClient({
         >
           <SlidePanelContent>
             <SlidePanelHeader>
-              <SlidePanelTitle>Editar movimiento</SlidePanelTitle>
+              <SlidePanelTitle>{t("transactions.ui.editPanelTitle")}</SlidePanelTitle>
               <SlidePanelDescription>
-                Actualiza los datos del movimiento seleccionado.
+                {t("transactions.ui.editPanelDescription")}
               </SlidePanelDescription>
             </SlidePanelHeader>
             <SlidePanelBody className="p-0">

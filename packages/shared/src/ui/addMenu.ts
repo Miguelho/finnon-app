@@ -8,8 +8,8 @@ export type AddActionIconName =
 
 export type AddActionMeta = {
   key: AddActionKey;
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   icon: AddActionIconName;
   iconFallback?: AddActionIconName;
 };
@@ -17,22 +17,21 @@ export type AddActionMeta = {
 export const ADD_ACTIONS: AddActionMeta[] = [
   {
     key: "movement",
-    title: "Añadir movimiento",
-    description: "Registra un ingreso, gasto u obligación.",
+    titleKey: "addTransaction.entryTitle",
+    descriptionKey: "transactions.create.description",
     icon: "PlusCircle",
   },
   {
     key: "recurring",
-    title: "Añadir recurrente",
-    description:
-      "Una serie que crea ocurrencias; confirma cada una para registrar.",
+    titleKey: "home.addRecurringTitle",
+    descriptionKey: "home.addRecurringDescription",
     icon: "Repeat",
     iconFallback: "RefreshCw",
   },
   {
     key: "category",
-    title: "Crear categoría",
-    description: "Crea o actualiza categorías compartidas.",
+    titleKey: "home.addCategoryTitle",
+    descriptionKey: "home.addCategoryDescription",
     icon: "Tag",
   },
 ];

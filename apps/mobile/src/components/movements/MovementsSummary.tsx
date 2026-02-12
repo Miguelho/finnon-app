@@ -11,6 +11,7 @@ import {
 import { formatMinorToMoney } from "@poleursus/shared";
 import { movementsDesignTokens, type Movement } from "../../types/movements";
 import { useUserTheme } from "../../contexts/UserThemeContext";
+import { useCopy, t } from "../../lib/i18n";
 
 type MovementsSummaryProps = {
   movements: Movement[];
@@ -66,6 +67,7 @@ export function MovementsSummary({
   currencyCode,
   currencySymbol,
 }: MovementsSummaryProps) {
+  const { dictionary } = useCopy();
   const { tokens: userTokens } = useUserTheme();
   const { width: windowWidth } = useWindowDimensions();
   const infoAnchorRef = useRef<View>(null);
@@ -147,9 +149,9 @@ export function MovementsSummary({
   const hasSingleType =
     !summary.isEmpty && (summary.hasIncome ? !summary.hasExpense : summary.hasExpense);
 
-  const movementCountLabel = `${summary.movementCount} ${
-    summary.movementCount === 1 ? "movimiento" : "movimientos"
-  }`;
+  const movementCountLabel = t(dictionary, "transactions.ui.sectionMovementCount", {
+    count: summary.movementCount,
+  });
 
   const tooltipTop = (tooltipAnchor?.y ?? 0) + (tooltipAnchor?.height ?? 0) + 8;
   const tooltipLeft = Math.min(
@@ -168,7 +170,7 @@ export function MovementsSummary({
     <View style={styles.container}>
       <View style={styles.hero}>
         <Text style={[styles.heroLabel, { color: userTokens.textSecondary }]}>
-          BALANCE
+          {t(dictionary, "transactions.ui.summaryBalanceTitle")}
         </Text>
         <Text
           style={[
@@ -180,13 +182,14 @@ export function MovementsSummary({
           {formatSignedAmount(summary.balance, currencyCode, currencySymbol)}
         </Text>
         <Text style={[styles.heroSub, { color: userTokens.textSecondary }]}>
-          {formatSignedAmount(summary.confirmedBalance, currencyCode, currencySymbol)} confirmado
+          {formatSignedAmount(summary.confirmedBalance, currencyCode, currencySymbol)}{" "}
+          {t(dictionary, "transactions.ui.summaryConfirmedOne")}
         </Text>
       </View>
 
       {summary.isEmpty ? (
         <Text style={[styles.emptyText, { color: userTokens.textSecondary }]}>
-          Sin movimientos en este periodo
+          {t(dictionary, "transactions.ui.summaryEmpty")}
         </Text>
       ) : (
         <View style={styles.proportionSection}>
@@ -258,7 +261,7 @@ export function MovementsSummary({
                 ]}
                 onPress={toggleTooltip}
                 accessibilityRole="button"
-                accessibilityLabel="Mostrar leyenda de colores"
+                accessibilityLabel={t(dictionary, "transactions.ui.summaryLegendButton")}
               >
                 <Text style={[styles.infoButtonText, { color: userTokens.textSecondary }]}>
                   i
@@ -284,7 +287,7 @@ export function MovementsSummary({
                   {summary.hasIncome
                     ? formatIncomeAmount(summary.confirmedIncome, currencyCode, currencySymbol)
                     : formatExpenseAmount(summary.confirmedExpense, currencyCode, currencySymbol)}{" "}
-                  confirmados
+                  {t(dictionary, "transactions.ui.summaryConfirmedOther")}
                 </Text>
               </View>
               <View style={[styles.labelGroup, styles.labelGroupRight]}>
@@ -300,7 +303,8 @@ export function MovementsSummary({
                   {formatIncomeAmount(summary.totalIncome, currencyCode, currencySymbol)}
                 </Text>
                 <Text style={[styles.confirmedLabel, { color: userTokens.textSecondary }]}>
-                  {formatIncomeAmount(summary.confirmedIncome, currencyCode, currencySymbol)} confirmados
+                  {formatIncomeAmount(summary.confirmedIncome, currencyCode, currencySymbol)}{" "}
+                  {t(dictionary, "transactions.ui.summaryConfirmedOther")}
                 </Text>
               </View>
               <View style={[styles.labelGroup, styles.labelGroupRight]}>
@@ -308,7 +312,8 @@ export function MovementsSummary({
                   {formatExpenseAmount(summary.totalExpense, currencyCode, currencySymbol)}
                 </Text>
                 <Text style={[styles.confirmedLabel, { color: userTokens.textSecondary }]}>
-                  {formatExpenseAmount(summary.confirmedExpense, currencyCode, currencySymbol)} confirmados
+                  {formatExpenseAmount(summary.confirmedExpense, currencyCode, currencySymbol)}{" "}
+                  {t(dictionary, "transactions.ui.summaryConfirmedOther")}
                 </Text>
               </View>
             </View>
@@ -350,7 +355,7 @@ export function MovementsSummary({
                 ]}
               />
               <Text style={[styles.tooltipText, { color: userTokens.textPrimary }]}>
-                Color sólido = confirmado
+                {t(dictionary, "transactions.ui.summaryLegendSolid")}
               </Text>
             </View>
             <View style={styles.tooltipRow}>
@@ -362,7 +367,7 @@ export function MovementsSummary({
                 ]}
               />
               <Text style={[styles.tooltipText, { color: userTokens.textPrimary }]}>
-                Color suave = pendiente
+                {t(dictionary, "transactions.ui.summaryLegendSoft")}
               </Text>
             </View>
           </View>

@@ -5,6 +5,7 @@ import { movementsDesignTokens, type Movement, type UserProfile } from "../../ty
 import { MovementRow } from "./MovementRow";
 import { DateSeparator } from "./DateSeparator";
 import { useUserTheme } from "../../contexts/UserThemeContext";
+import { useCopy, t } from "../../lib/i18n";
 
 type MovementGroupProps = {
   label: string;
@@ -43,6 +44,7 @@ export function MovementGroup({
   isCollapsed = false,
   onToggleCollapse,
 }: MovementGroupProps) {
+  const { dictionary } = useCopy();
   const { tokens: userTokens } = useUserTheme();
   const grouped = useMemo(() => {
     const map = new Map<string, Movement[]>();
@@ -70,7 +72,10 @@ export function MovementGroup({
           {label.toUpperCase()}
         </Text>
         <Text style={[styles.headerCount, { color: userTokens.textSecondary }]}>
-          — {movements.length} movimientos
+          —{" "}
+          {t(dictionary, "transactions.ui.sectionMovementCount", {
+            count: movements.length,
+          })}
         </Text>
         <View style={styles.headerRight}>
           <Text style={[styles.headerAmount, { color: userTokens.textPrimary }]}>
@@ -79,7 +84,9 @@ export function MovementGroup({
           {onToggleCollapse && (
             <Pressable onPress={onToggleCollapse} hitSlop={8}>
               <Text style={[styles.collapseText, { color: userTokens.textSecondary }]}>
-                {isCollapsed ? "Mostrar" : "Ocultar"}
+                {isCollapsed
+                  ? t(dictionary, "transactions.ui.show")
+                  : t(dictionary, "transactions.ui.hide")}
               </Text>
             </Pressable>
           )}

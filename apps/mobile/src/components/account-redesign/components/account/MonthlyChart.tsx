@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { colors, typography, spacing, radii, shadows } from '../../theme/tokens';
 import type { MonthlyDataPoint } from '../../types/account';
 import { useUserTheme } from '../../../../contexts/UserThemeContext';
+import { useCopy, t } from '../../../../lib/i18n';
 
 type ChartMode = 'both' | 'expenses' | 'net';
 
@@ -11,15 +12,16 @@ interface MonthlyChartProps {
 }
 
 const CHART_HEIGHT = 80;
-const MODE_LABELS: Record<ChartMode, string> = {
-  both: 'Ambos',
-  expenses: 'Gastos',
-  net: 'Neto',
-};
 
 export function MonthlyChart({ data }: MonthlyChartProps) {
   const [mode, setMode] = useState<ChartMode>('both');
+  const { dictionary } = useCopy();
   const { tokens: userTokens } = useUserTheme();
+  const MODE_LABELS: Record<ChartMode, string> = {
+    both: t(dictionary, "account.redesign.monthlyEvolutionModeBoth"),
+    expenses: t(dictionary, "account.redesign.monthlyEvolutionModeExpenses"),
+    net: t(dictionary, "account.redesign.monthlyEvolutionModeNet"),
+  };
 
   // Estado vacío
   if (data.length === 0) {
@@ -33,13 +35,13 @@ export function MonthlyChart({ data }: MonthlyChartProps) {
         >
           <View style={styles.header}>
             <Text style={[styles.title, { color: userTokens.textPrimary }]}>
-              Evolución mensual
+              {t(dictionary, "account.redesign.monthlyEvolutionTitle")}
             </Text>
           </View>
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>📊</Text>
             <Text style={[styles.emptyText, { color: userTokens.textSecondary }]}>
-              Aparecerá aquí cuando tengas datos de al menos un mes
+              {t(dictionary, "account.redesign.monthlyEvolutionEmpty")}
             </Text>
           </View>
         </View>
@@ -70,7 +72,7 @@ export function MonthlyChart({ data }: MonthlyChartProps) {
         {/* Header con toggle */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: userTokens.textPrimary }]}>
-            Evolución mensual
+            {t(dictionary, "account.redesign.monthlyEvolutionTitle")}
           </Text>
           <View style={[styles.toggle, { backgroundColor: userTokens.surfaceAlt }]}>
             {(Object.keys(MODE_LABELS) as ChartMode[]).map((m) => (

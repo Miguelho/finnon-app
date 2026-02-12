@@ -103,8 +103,10 @@ export function AddAction({
     merchant: "",
     notes: "",
   }));
+  const recurringTitleKey =
+    ADD_ACTIONS.find((action) => action.key === "recurring")?.titleKey;
   const recurringTitle =
-    ADD_ACTIONS.find((action) => action.key === "recurring")?.title ??
+    (recurringTitleKey ? t(recurringTitleKey as any) : null) ??
     t("home.addCta");
   const normalizedCategoryName = normalizeCategoryName(categoryForm.name);
   const canSubmitCategory =

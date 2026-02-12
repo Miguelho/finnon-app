@@ -11,6 +11,7 @@ import { isCategoryIconKey, formatMinorToMoney } from "@poleursus/shared";
 import { CategoryIcon } from "../CategoryIcon";
 import { movementsDesignTokens, type RecurringTemplate } from "../../types/movements";
 import { useUserTheme } from "../../contexts/UserThemeContext";
+import { useCopy, t } from "../../lib/i18n";
 
 type RecurrentSectionProps = {
   recurrents: RecurringTemplate[];
@@ -35,6 +36,7 @@ export function RecurrentSection({
   onToggleCollapse,
   locale,
 }: RecurrentSectionProps) {
+  const { dictionary } = useCopy();
   const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
     useUserTheme();
   const count = recurrents.length;
@@ -65,7 +67,7 @@ export function RecurrentSection({
             color={primaryActionColor}
           />
           <Text style={[styles.headerTitle, { color: userTokens.textPrimary }]}>
-            Por registrar
+            {t(dictionary, "transactions.ui.toRegisterSection")}
           </Text>
           <Text style={[styles.headerCount, { color: primaryActionColor }]}>
             {count}
@@ -77,7 +79,9 @@ export function RecurrentSection({
           </Text>
           <Pressable onPress={onToggleCollapse} hitSlop={8}>
             <Text style={[styles.headerToggle, { color: userTokens.textSecondary }]}>
-              {isCollapsed ? "Mostrar" : "Ocultar"}
+              {isCollapsed
+                ? t(dictionary, "transactions.ui.show")
+                : t(dictionary, "transactions.ui.hide")}
             </Text>
           </Pressable>
         </View>
@@ -102,7 +106,7 @@ export function RecurrentSection({
             onPress={onRegisterAll}
           >
             <Text style={[styles.registerAllText, { color: primaryActionTextColor }]}>
-              Registrar todos ({count})
+              {t(dictionary, "transactions.ui.registerAll", { count })}
             </Text>
           </Pressable>
         </>
@@ -126,6 +130,7 @@ function RecurrentCard({
   onRegister,
   locale,
 }: RecurrentCardProps) {
+  const { dictionary } = useCopy();
   const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
     useUserTheme();
   const [isRemoving, setIsRemoving] = useState(false);
@@ -209,7 +214,7 @@ function RecurrentCard({
             onPress={handleRegister}
           >
             <Text style={[styles.registerButtonText, { color: primaryActionTextColor }]}>
-              Registrar
+              {t(dictionary, "transactions.ui.register")}
             </Text>
           </Pressable>
         </View>

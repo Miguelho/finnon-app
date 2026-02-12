@@ -2,6 +2,7 @@ import { ScrollView, View, Text, Pressable, StyleSheet } from "react-native";
 import { movementsDesignTokens } from "../../types/movements";
 import { DropdownFilter } from "./DropdownFilter";
 import { useUserTheme } from "../../contexts/UserThemeContext";
+import { useCopy, t } from "../../lib/i18n";
 
 type FilterCounts = {
   income: number;
@@ -37,6 +38,7 @@ export function FilterRow({
   onMerchantSelect,
   onMerchantDeselect,
 }: FilterRowProps) {
+  const { dictionary } = useCopy();
   const { tokens: userTokens } = useUserTheme();
 
   return (
@@ -46,27 +48,27 @@ export function FilterRow({
       contentContainerStyle={styles.container}
     >
       <FilterChip
-        label="Ingresos"
+        label={t(dictionary, "common.incomeLabel")}
         count={counts.income}
         isActive={activeTypes.includes("income")}
         onPress={() => onToggleType("income")}
       />
       <FilterChip
-        label="Gastos"
+        label={t(dictionary, "common.expenseLabel")}
         count={counts.expense}
         isActive={activeTypes.includes("expense")}
         onPress={() => onToggleType("expense")}
       />
       <View style={[styles.separator, { backgroundColor: userTokens.border }]} />
       <DropdownFilter
-        label="Categoría"
+        label={t(dictionary, "transactions.ui.filterCategory")}
         options={categories}
         selectedIds={selectedCategoryIds}
         onSelect={onCategorySelect}
         onDeselect={onCategoryDeselect}
       />
       <DropdownFilter
-        label="Comercio"
+        label={t(dictionary, "transactions.ui.filterMerchant")}
         options={merchants}
         selectedIds={selectedMerchants}
         onSelect={onMerchantSelect}

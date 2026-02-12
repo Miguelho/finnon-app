@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { getExpandedMonthRange, getWeekStrip } from "@poleursus/shared";
 import { BalanceHeader } from "./BalanceHeader";
 import { Timeline } from "./Timeline";
@@ -16,38 +17,6 @@ import {
   toDateKey,
   toMinor,
 } from "./utils";
-
-const MONTHS_SHORT = [
-  "ene",
-  "feb",
-  "mar",
-  "abr",
-  "may",
-  "jun",
-  "jul",
-  "ago",
-  "sep",
-  "oct",
-  "nov",
-  "dic",
-];
-
-const MONTHS_LONG = [
-  "enero",
-  "febrero",
-  "marzo",
-  "abril",
-  "mayo",
-  "junio",
-  "julio",
-  "agosto",
-  "septiembre",
-  "octubre",
-  "noviembre",
-  "diciembre",
-];
-
-const WEEKDAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 type TransactionRow = {
   id: string;
@@ -109,6 +78,7 @@ export function HomePageClient({
   monoClassName,
 }: HomePageClientProps) {
   const router = useRouter();
+  const t = useTranslations();
   const today = new Date();
   const [calendarView, setCalendarView] = useState<"week" | "month">("week");
   const [weekReference, setWeekReference] = useState<Date>(today);
@@ -138,12 +108,12 @@ export function HomePageClient({
     const item = past[0]?.tx;
     if (!item) return null;
     return {
-      name: item.merchant ?? item.category?.name ?? "Movimiento",
+      name: item.merchant ?? item.category?.name ?? t("mobile.home.movementFallback"),
       amountMinor: toMinor(item.amount_base_minor ?? item.amount_minor),
       date: item.date,
       type: item.type,
     };
-  }, [allTransactions, today]);
+  }, [allTransactions, today, t]);
 
   const nextMovement = useMemo(() => {
     const future = allTransactions
@@ -156,12 +126,12 @@ export function HomePageClient({
     const item = future[0]?.tx;
     if (!item) return null;
     return {
-      name: item.merchant ?? item.category?.name ?? "Movimiento",
+      name: item.merchant ?? item.category?.name ?? t("mobile.home.movementFallback"),
       amountMinor: toMinor(item.amount_base_minor ?? item.amount_minor),
       date: item.date,
       type: item.type,
     };
-  }, [allTransactions, today]);
+  }, [allTransactions, today, t]);
 
   const weekStrip = useMemo(() => {
     return getWeekStrip(
@@ -204,8 +174,9 @@ export function HomePageClient({
   const weekPeriodLabel = useMemo(() => {
     const start = weekStrip.weekRange.start;
     const end = weekStrip.weekRange.end;
-    const startMonth = MONTHS_SHORT[start.getMonth()] ?? "";
-    const endMonth = MONTHS_SHORT[end.getMonth()] ?? "";
+    const monthShortFormatter = new Intl.DateTimeFormat(locale, { month: "short" });
+    const startMonth = monthShortFormatter.format(start).replace(".", "");
+    const endMonth = monthShortFormatter.format(end).replace(".", "");
     if (start.getMonth() === end.getMonth()) {
       return `${start.getDate()} – ${end.getDate()} ${endMonth}`;
     }
@@ -229,10 +200,12 @@ export function HomePageClient({
     return {
       days: weekStrip.days.map((day) => ({
         date: day.dayKey,
-        dayLabel: WEEKDAY_LABELS[day.dayOfWeek] ?? "",
+        dayLabel: new Intl.DateTimeFormat(locale, { weekday: "short" })
+          .format(new Date(`${day.dayKey}T00:00:00`))
+          .replace(".", ""),
         dayNumber: day.dayOfMonth,
         isToday: day.isToday,
-        dots: day.dots.map((dot) => ({
+        dots: day.dots.map((dot): { type: "income" | "expense" } => ({
           type: dot.type === "income" ? "income" : "expense",
         })),
       })),
@@ -241,7 +214,7 @@ export function HomePageClient({
       netExpense,
       net,
     };
-  }, [weekStrip.days, weekTotals, account.currencySymbol, weekPeriodLabel]);
+  }, [weekStrip.days, weekTotals, account.currencySymbol, weekPeriodLabel, locale]);
 
   const monthData = useMemo(() => {
     const monthRange = getExpandedMonthRange(monthReference);
@@ -288,15 +261,16 @@ export function HomePageClient({
       cursor.setDate(cursor.getDate() + 1);
     }
 
-    const monthLabel = `${
-      MONTHS_LONG[monthReference.getMonth()] ?? ""
-    } ${monthReference.getFullYear()}`;
+    const monthLabel = new Intl.DateTimeFormat(locale, {
+      month: "long",
+      year: "numeric",
+    }).format(monthReference);
 
     return {
       days,
       period: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1),
     };
-  }, [allTransactions, obligations, monthReference, today]);
+  }, [allTransactions, obligations, monthReference, today, locale]);
 
   const selectedDay = useMemo<DayDetailData | null>(() => {
     if (!selectedDayKey) return null;
@@ -309,7 +283,7 @@ export function HomePageClient({
       if (toDateKey(tx.date) !== selectedDayKey) return;
       movements.push({
         id: tx.id,
-        name: tx.merchant ?? tx.category?.name ?? "Movimiento",
+        name: tx.merchant ?? tx.category?.name ?? t("mobile.home.movementFallback"),
         amountMinor: toMinor(tx.amount_base_minor ?? tx.amount_minor),
         type: tx.type,
         category: tx.category?.name ?? null,
@@ -327,8 +301,8 @@ export function HomePageClient({
           obligation.amount_base_minor ?? obligation.amount_minor
         ),
         type: "expense",
-        category: "Programado",
-        badge: "Programado",
+        category: t("mobile.home.programmedBadge"),
+        badge: t("mobile.home.programmedBadge"),
       });
     });
 
@@ -337,7 +311,7 @@ export function HomePageClient({
       formattedLabel: formatFullDate(dayDate, locale),
       movements,
     };
-  }, [selectedDayKey, allTransactions, obligations, locale]);
+  }, [selectedDayKey, allTransactions, obligations, locale, t]);
 
   const programmedItems = useMemo(() => {
     const items: {
@@ -353,7 +327,7 @@ export function HomePageClient({
       if (Number.isNaN(date.getTime())) return;
       items.push({
         id: tx.id,
-        name: tx.merchant ?? tx.category?.name ?? "Movimiento",
+        name: tx.merchant ?? tx.category?.name ?? t("mobile.home.movementFallback"),
         amountMinor: toMinor(tx.amount_base_minor ?? tx.amount_minor),
         date,
         type: tx.type,
@@ -387,7 +361,7 @@ export function HomePageClient({
         type: item.type,
         dateLabel: formatShortDate(item.date, locale),
       }));
-  }, [upcomingTransactions, obligations, today, locale]);
+  }, [upcomingTransactions, obligations, today, locale, t]);
 
   const handleSelectDay = (dateKey: string) => {
     setSelectedDayKey(dateKey);
@@ -455,9 +429,9 @@ export function HomePageClient({
           ) : (
             <EmptyStateCard
               icon="📝"
-              title="Empieza a registrar tus movimientos"
-              description="Añade tu primer ingreso o gasto para ver tu calendario financiero y el estado de tu semana."
-              buttonLabel="Añadir movimiento"
+              title={t("mobile.home.emptyMovementsTitle")}
+              description={t("mobile.home.emptyMovementsDescription")}
+              buttonLabel={t("mobile.home.emptyMovementsCta")}
               onAction={() => router.push("/transactions?new=1")}
             />
           )}
@@ -475,9 +449,9 @@ export function HomePageClient({
           ) : (
             <EmptyStateCard
               icon="🎯"
-              title="Define tu primer objetivo"
-              description="Establece cuánto quieres ahorrar este mes y te ayudaremos a seguir tu progreso."
-              buttonLabel="Crear objetivo"
+              title={t("mobile.home.emptyGoalTitle")}
+              description={t("mobile.home.emptyGoalDescription")}
+              buttonLabel={t("mobile.home.emptyGoalCta")}
               onAction={() => router.push("/goal")}
             />
           )}

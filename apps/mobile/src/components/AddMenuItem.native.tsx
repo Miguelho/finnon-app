@@ -12,6 +12,7 @@ import {
   type AddActionMeta,
 } from "@poleursus/shared";
 import { useUserTheme } from "../contexts/UserThemeContext";
+import { useCopy, t } from "../lib/i18n";
 
 const tokens = themeTokens.light;
 
@@ -38,13 +39,16 @@ export function AddMenuItem({
   onPress,
   disabled = false,
 }: AddMenuItemProps) {
+  const { dictionary } = useCopy();
   const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const Icon = resolveIcon(meta);
+  const title = t(dictionary, meta.titleKey as any);
+  const description = t(dictionary, meta.descriptionKey as any);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={meta.title}
+      accessibilityLabel={title}
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => [
@@ -79,10 +83,10 @@ export function AddMenuItem({
           </View>
           <View style={styles.textBlock}>
             <Text style={[styles.title, { color: userTokens.textPrimary }]}>
-              {meta.title}
+              {title}
             </Text>
             <Text style={[styles.description, { color: userTokens.textSecondary }]}>
-              {meta.description}
+              {description}
             </Text>
           </View>
         </>

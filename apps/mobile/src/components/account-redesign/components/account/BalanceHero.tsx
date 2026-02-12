@@ -2,6 +2,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { typography, spacing } from '../../theme/tokens';
 import { formatCurrency } from '../../utils/currency';
 import { useUserTheme } from '../../../../contexts/UserThemeContext';
+import { useCopy, t } from '../../../../lib/i18n';
 
 interface BalanceHeroProps {
   balance: number;
@@ -14,12 +15,15 @@ export function BalanceHero({
   currency = '€',
   decimals = 2,
 }: BalanceHeroProps) {
+  const { dictionary } = useCopy();
   const { tokens: userTokens } = useUserTheme();
   const formatted = formatCurrency(balance, { currency, decimals });
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: userTokens.textSecondary }]}>BALANCE TOTAL</Text>
+      <Text style={[styles.label, { color: userTokens.textSecondary }]}>
+        {t(dictionary, "account.redesign.balanceTotalLabel")}
+      </Text>
       <Text style={[styles.amount, { color: userTokens.textPrimary }]}>
         {currency}
         {formatted.whole}

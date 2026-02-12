@@ -5,6 +5,7 @@ import { colors, typography, spacing, radii } from '../../theme/tokens';
 import { formatCurrency } from '../../utils/currency';
 import type { CategorySummary } from '../../types/account';
 import { useUserTheme } from '../../../../contexts/UserThemeContext';
+import { useCopy, t } from '../../../../lib/i18n';
 
 interface CategoryListProps {
   categories: CategorySummary[];
@@ -24,6 +25,7 @@ export function CategoryList({
   onCategoryPress,
   onViewAllPress,
 }: CategoryListProps) {
+  const { dictionary } = useCopy();
   const { tokens: userTokens, primaryActionColor } = useUserTheme();
   // Solo gastos, ordenados de mayor a menor
   const expenseCategories = categories
@@ -39,12 +41,12 @@ export function CategoryList({
       {/* Section header */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
-          Gastos por categoría
+          {t(dictionary, "account.redesign.categorySpendingTitle")}
         </Text>
         {hasMore && (
           <Pressable onPress={onViewAllPress} hitSlop={8}>
             <Text style={[styles.sectionAction, { color: primaryActionColor }]}>
-              Ver todas →
+              {t(dictionary, "account.redesign.viewAllCategories")}
             </Text>
           </Pressable>
         )}
@@ -88,8 +90,9 @@ export function CategoryList({
                   {cat.name}
                 </Text>
                 <Text style={[styles.count, { color: userTokens.textSecondary }]}>
-                  {cat.transactionCount} movimiento
-                  {cat.transactionCount !== 1 ? 's' : ''}
+                  {t(dictionary, "account.redesign.movementCount", {
+                    count: cat.transactionCount,
+                  })}
                 </Text>
               </View>
 

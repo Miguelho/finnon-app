@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from "react-native";
 import { formatMinorToMoney } from "@poleursus/shared";
 import { movementsDesignTokens, type MovementsSummary } from "../../types/movements";
+import { useCopy, t } from "../../lib/i18n";
 
 type SummaryCardsProps = {
   summary: MovementsSummary;
@@ -12,7 +13,7 @@ type SummaryCardProps = {
   label: string;
   totalValue: bigint;
   confirmedValue: bigint;
-  confirmedLabel: string;
+  confirmedLabel: "single" | "plural";
   variant: "income" | "expense" | "balance";
   currencyCode: string;
   currencySymbol: string;
@@ -43,6 +44,7 @@ function SummaryCard({
   currencyCode,
   currencySymbol,
 }: SummaryCardProps) {
+  const { dictionary } = useCopy();
   const accentColor =
     variant === "income"
       ? colors.incomeGreen
@@ -50,7 +52,10 @@ function SummaryCard({
       ? colors.expenseRed
       : colors.textPrimary;
   const amountColor = accentColor;
-  const confirmedText = confirmedLabel === "actual" ? "actual" : "confirmados";
+  const confirmedText =
+    confirmedLabel === "single"
+      ? t(dictionary, "transactions.ui.summaryConfirmedOne")
+      : t(dictionary, "transactions.ui.summaryConfirmedOther");
 
   return (
     <View style={[styles.card, { borderLeftColor: accentColor }]}>
@@ -83,31 +88,32 @@ export function SummaryCards({
   currencyCode,
   currencySymbol,
 }: SummaryCardsProps) {
+  const { dictionary } = useCopy();
   return (
     <View style={styles.row}>
       <SummaryCard
-        label="Ingresos"
+        label={t(dictionary, "common.incomeLabel")}
         totalValue={summary.totalIncome}
         confirmedValue={summary.confirmedIncome}
-        confirmedLabel="confirmados"
+        confirmedLabel="plural"
         variant="income"
         currencyCode={currencyCode}
         currencySymbol={currencySymbol}
       />
       <SummaryCard
-        label="Gastos"
+        label={t(dictionary, "common.expenseLabel")}
         totalValue={summary.totalExpense}
         confirmedValue={summary.confirmedExpense}
-        confirmedLabel="confirmados"
+        confirmedLabel="plural"
         variant="expense"
         currencyCode={currencyCode}
         currencySymbol={currencySymbol}
       />
       <SummaryCard
-        label="Balance"
+        label={t(dictionary, "common.balanceLabel")}
         totalValue={summary.totalBalance}
         confirmedValue={summary.confirmedBalance}
-        confirmedLabel="actual"
+        confirmedLabel="single"
         variant="balance"
         currencyCode={currencyCode}
         currencySymbol={currencySymbol}

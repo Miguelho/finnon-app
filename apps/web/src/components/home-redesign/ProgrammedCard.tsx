@@ -1,4 +1,5 @@
 import { formatCurrencyParts } from "./utils";
+import { useTranslations } from "next-intl";
 
 type ProgrammedItem = {
   id: string;
@@ -23,18 +24,21 @@ export function ProgrammedCard({
   locale = "es-ES",
   monoClassName,
 }: ProgrammedCardProps) {
+  const t = useTranslations();
   if (!items || items.length === 0) return null;
 
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-[15px] font-semibold text-foreground">Programados</h3>
+        <h3 className="text-[15px] font-semibold text-foreground">
+          {t("mobile.home.programmedTitle")}
+        </h3>
         <button
           type="button"
           onClick={onViewAll}
           className="text-[13px] font-medium text-primary hover:underline"
         >
-          Ver todos →
+          {t("mobile.home.programmedViewAll")}
         </button>
       </div>
 

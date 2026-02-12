@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { Bookmark, ClipboardList, Flag, Home, Plus } from "lucide-react";
 import { AddActionTrigger } from "./add-action-trigger";
 
@@ -50,6 +51,7 @@ export function BottomNav({
   addHref = "/transactions?new=1",
   addAction,
 }: BottomNavProps) {
+  const t = useTranslations();
   const pathname = usePathname();
   const locale = useLocale();
   const normalizedPath = normalizePath(pathname, locale);
@@ -102,7 +104,7 @@ export function BottomNav({
           <Link
             href={addHref}
             className="relative -mt-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-primary/90"
-            aria-label="Añadir movimiento"
+            aria-label={t("addTransaction.entryTitle")}
           >
             <Plus className="h-5 w-5" />
           </Link>

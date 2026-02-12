@@ -4,8 +4,10 @@ import { cookies } from "next/headers";
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import {
   formatDateISO,
+  getDictionary,
   getMinorUnits,
   getPeriodRange,
+  t,
   type AccountSummaryData,
   type DateRange,
 } from "@poleursus/shared";
@@ -56,9 +58,6 @@ const jetbrains = JetBrains_Mono({
   weight: ["400", "500"],
   variable: "--font-jetbrains-mono",
 });
-
-const monthLabels = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-const dayLabels = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 const addMonths = (date: Date, delta: number) =>
   new Date(date.getFullYear(), date.getMonth() + delta, 1);
@@ -150,17 +149,19 @@ const getPreviousPeriodRange = (
 const buildBuckets = (
   period: AccountRedesignPeriod,
   range: DateRange,
+  locale: string,
   now: Date
 ): Bucket[] => {
   const buckets: Bucket[] = [];
   if (period === "week") {
+    const weekdayFormatter = new Intl.DateTimeFormat(locale, { weekday: "short" });
     const span = getDaySpan(range);
     for (let i = 0; i < span; i += 1) {
       const day = addDays(range.start, i);
       const start = startOfDay(day);
       const end = endOfDay(day);
       buckets.push({
-        label: dayLabels[day.getDay()] ?? "Dom",
+        label: weekdayFormatter.format(day).replace(".", ""),
         start,
         end,
         isCurrent: isWithinRange(now, { start, end }),
@@ -172,12 +173,13 @@ const buildBuckets = (
   if (period === "month") {
     let cursor = startOfDay(range.start);
     let index = 0;
+    const weekPrefix = locale.startsWith("en") ? "W" : "S";
     while (cursor <= range.end) {
       const start = cursor;
       let end = endOfDay(addDays(cursor, 6));
       if (end > range.end) end = range.end;
       buckets.push({
-        label: `S${index + 1}`,
+        label: `${weekPrefix}${index + 1}`,
         start,
         end,
         isCurrent: isWithinRange(now, { start, end }),
@@ -189,12 +191,13 @@ const buildBuckets = (
   }
 
   let cursor = startOfMonth(range.start);
+  const monthFormatter = new Intl.DateTimeFormat(locale, { month: "short" });
   while (cursor <= range.end) {
     const start = cursor;
     let end = endOfDay(endOfMonth(cursor));
     if (end > range.end) end = range.end;
     buckets.push({
-      label: monthLabels[cursor.getMonth()] ?? "Ene",
+      label: monthFormatter.format(cursor).replace(".", ""),
       start,
       end,
       isCurrent: isWithinRange(now, { start, end }),
@@ -221,8 +224,19 @@ function buildAccountRedesignData(params: {
   transactions: TransactionRow[];
   period: AccountRedesignPeriod;
   now: Date;
+  locale: string;
+  uncategorizedLabel: string;
+  accountLabel: string;
 }): AccountRedesignData {
-  const { summary, transactions, period, now } = params;
+  const {
+    summary,
+    transactions,
+    period,
+    now,
+    locale,
+    uncategorizedLabel,
+    accountLabel,
+  } = params;
   const currencyCode = summary.account.base_currency;
   const minorUnits = getMinorUnits(currencyCode);
   const divisor = Math.pow(10, minorUnits);
@@ -248,7 +262,7 @@ function buildAccountRedesignData(params: {
       ? ((currentTotals.expense - previousTotals.expense) / previousTotals.expense) * 100
       : null;
 
-  const buckets = buildBuckets(period, currentRange, now);
+  const buckets = buildBuckets(period, currentRange, locale, now);
   const monthlyHistory = buckets.map((bucket) => {
     const totals = sumTotals(
       currentTransactions.filter((tx) =>
@@ -280,7 +294,7 @@ function buildAccountRedesignData(params: {
     const amountMinor = getAmountMinor(tx);
     const category = tx.category;
     const categoryId = category?.id ?? "uncategorized";
-    const categoryName = category?.name ?? "Sin categoría";
+    const categoryName = category?.name ?? uncategorizedLabel;
     const existing = categoryMap.get(categoryId);
     if (existing) {
       existing.amount += amountMinor;
@@ -315,7 +329,7 @@ function buildAccountRedesignData(params: {
     .map((tx) => {
       const amountMinor = getAmountMinor(tx);
       const isIncome = tx.type === "income";
-      const categoryName = tx.category?.name ?? "Sin categoría";
+      const categoryName = tx.category?.name ?? uncategorizedLabel;
       return {
         id: tx.id,
         description: tx.merchant ?? categoryName,
@@ -333,7 +347,7 @@ function buildAccountRedesignData(params: {
       id: summary.account.id,
       name: summary.account.name,
       icon: accountIcon,
-      type: "Cuenta",
+      type: accountLabel,
       currency: summary.account.base_currency,
       balance: summary.totals.balance_total / divisor,
     },
@@ -361,6 +375,8 @@ export default async function AccountPage(): Promise<JSX.Element> {
 
   const cookieStore = await cookies();
   const activeAccountId = cookieStore.get("finnon:activeAccountId")?.value ?? "";
+  const locale = cookieStore.get("NEXT_LOCALE")?.value === "en" ? "en" : "es";
+  const dictionary = getDictionary(locale);
   if (!activeAccountId) {
     redirect("/select-account");
   }
@@ -403,24 +419,36 @@ export default async function AccountPage(): Promise<JSX.Element> {
       transactions,
       period: "week",
       now,
+      locale,
+      uncategorizedLabel: t(dictionary, "transactions.uncategorized"),
+      accountLabel: t(dictionary, "account.labelAccount"),
     }),
     month: buildAccountRedesignData({
       summary: summaryData as AccountSummaryData,
       transactions,
       period: "month",
       now,
+      locale,
+      uncategorizedLabel: t(dictionary, "transactions.uncategorized"),
+      accountLabel: t(dictionary, "account.labelAccount"),
     }),
     quarter: buildAccountRedesignData({
       summary: summaryData as AccountSummaryData,
       transactions,
       period: "quarter",
       now,
+      locale,
+      uncategorizedLabel: t(dictionary, "transactions.uncategorized"),
+      accountLabel: t(dictionary, "account.labelAccount"),
     }),
     year: buildAccountRedesignData({
       summary: summaryData as AccountSummaryData,
       transactions,
       period: "year",
       now,
+      locale,
+      uncategorizedLabel: t(dictionary, "transactions.uncategorized"),
+      accountLabel: t(dictionary, "account.labelAccount"),
     }),
   };
 

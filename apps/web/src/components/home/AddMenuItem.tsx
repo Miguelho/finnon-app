@@ -5,6 +5,7 @@ import {
   Repeat,
   Tag,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { AddActionMeta, AddActionIconName } from "@poleursus/shared";
 import { cn } from "@/lib/utils";
 
@@ -27,13 +28,17 @@ const resolveIcon = (meta: AddActionMeta) =>
   HelpCircle;
 
 export function AddMenuItem({ meta, onClick, disabled = false }: AddMenuItemProps) {
+  const t = useTranslations();
   const Icon = resolveIcon(meta);
+  const title = t(meta.titleKey as any);
+  const description = t(meta.descriptionKey as any);
 
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
+      aria-label={title}
       className={cn(
         "group flex min-h-14 w-full items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left transition-colors duration-150 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:bg-accent",
         disabled && "cursor-not-allowed opacity-60"
@@ -47,10 +52,10 @@ export function AddMenuItem({ meta, onClick, disabled = false }: AddMenuItemProp
       </span>
       <span className="flex flex-col gap-1">
         <span className="text-[15px] font-semibold text-foreground">
-          {meta.title}
+          {title}
         </span>
         <span className="text-[13px] text-muted-foreground">
-          {meta.description}
+          {description}
         </span>
       </span>
     </button>
