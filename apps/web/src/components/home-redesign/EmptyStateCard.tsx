@@ -1,5 +1,7 @@
+import type { ReactNode } from "react";
+
 type EmptyStateCardProps = {
-  icon: string;
+  icon: ReactNode;
   title: string;
   description: string;
   buttonLabel: string;

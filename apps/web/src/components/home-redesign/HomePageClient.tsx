@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { Target } from "lucide-react";
 import { getExpandedMonthRange, getWeekStrip } from "@poleursus/shared";
 import { BalanceHeader } from "./BalanceHeader";
 import { Timeline } from "./Timeline";
@@ -448,7 +449,7 @@ export function HomePageClient({
             />
           ) : (
             <EmptyStateCard
-              icon="🎯"
+              icon={<Target className="h-5 w-5 text-muted-foreground" />}
               title={t("mobile.home.emptyGoalTitle")}
               description={t("mobile.home.emptyGoalDescription")}
               buttonLabel={t("mobile.home.emptyGoalCta")}

@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
+import type { ComponentProps, Dispatch, SetStateAction } from "react";
 import {
   View,
   StyleSheet,
@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { ArrowDownRight, ArrowUpRight } from "phosphor-react-native";
 import { Button } from "../../../src/components/Button";
 import { Input } from "../../../src/components/Input";
@@ -35,6 +36,14 @@ interface RecurrentsStepProps {
 
 const tokens = themeTokens.light;
 const appColors = tokens.colors;
+const recurrentIcons: Record<string, ComponentProps<typeof MaterialCommunityIcons>["name"]> = {
+  sug_salary: "briefcase-outline",
+  sug_rent: "home-outline",
+  sug_netflix: "television-classic",
+  sug_spotify: "music-note-outline",
+  sug_gym: "dumbbell",
+  sug_phone: "cellphone",
+};
 
 export function RecurrentsStep({
   currency,
@@ -181,6 +190,7 @@ export function RecurrentsStep({
                 item.type === "income"
                   ? t(dictionary, "common.incomeLabel")
                   : t(dictionary, "common.expenseLabel");
+              const iconName = recurrentIcons[item.id] ?? "cash-multiple";
               return (
                 <TouchableOpacity
                   key={item.id}
@@ -191,7 +201,11 @@ export function RecurrentsStep({
                   onPress={() => updateItem(item.id, { selected: !item.selected })}
                 >
                   <View style={styles.iconBox}>
-                    <Text style={styles.icon}>{item.icon}</Text>
+                    <MaterialCommunityIcons
+                      name={iconName}
+                      size={18}
+                      color={onboardingColors.textSecondary}
+                    />
                   </View>
                   <View style={styles.info}>
                     <TextInput
@@ -432,9 +446,6 @@ const styles = StyleSheet.create({
     backgroundColor: onboardingColors.bg,
     alignItems: "center",
     justifyContent: "center",
-  },
-  icon: {
-    fontSize: 18,
   },
   info: {
     flex: 1,

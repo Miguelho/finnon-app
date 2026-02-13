@@ -2,7 +2,18 @@
 
 import type { Dispatch, SetStateAction } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  BriefcaseBusiness,
+  Dumbbell,
+  House,
+  Landmark,
+  Music2,
+  Smartphone,
+  Tv,
+  type LucideIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +33,15 @@ type RecurrentsStepProps = {
   onChangeState: Dispatch<SetStateAction<RecurrentsStepState>>;
   onContinue: (recurrents: OnboardingRecurrentInput[]) => void;
   onBack: () => void;
+};
+
+const recurrentIcons: Record<string, LucideIcon> = {
+  sug_salary: BriefcaseBusiness,
+  sug_rent: House,
+  sug_netflix: Tv,
+  sug_spotify: Music2,
+  sug_gym: Dumbbell,
+  sug_phone: Smartphone,
 };
 
 export function RecurrentsStep({
@@ -163,6 +183,7 @@ export function RecurrentsStep({
           const detail = item.type === "income"
             ? tGlobal("common.incomeLabel")
             : tGlobal("common.expenseLabel");
+          const ItemIcon = recurrentIcons[item.id] ?? Landmark;
           return (
             <div
               key={item.id}
@@ -174,8 +195,8 @@ export function RecurrentsStep({
                 item.selected ? "border-[#1a1f36] bg-[#f8f9fc]" : "hover:border-[#9ca3af]"
               )}
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#fafafa] text-base">
-                {item.icon}
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#fafafa] text-[#6b7280]">
+                <ItemIcon className="h-4 w-4" />
               </div>
               <div className="flex-1">
                 <input

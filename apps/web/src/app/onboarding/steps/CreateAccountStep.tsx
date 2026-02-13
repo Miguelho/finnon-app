@@ -71,7 +71,7 @@ export function CreateAccountStep({ onComplete }: CreateAccountStepProps) {
             required
             disabled={loading}
             maxLength={255}
-            className="h-11 border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-1"
+            className="h-11 border-border bg-muted/30 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-1"
           />
           <p className="text-xs text-muted-foreground">{t("accountNameHelper")}</p>
         </div>
@@ -85,7 +85,7 @@ export function CreateAccountStep({ onComplete }: CreateAccountStepProps) {
             name="currency"
             disabled={loading}
             defaultValue="EUR"
-            className="flex h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-11 w-full rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           >
             {CURRENCIES.map((curr) => (
               <option key={curr.code} value={curr.code}>

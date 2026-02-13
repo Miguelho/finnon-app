@@ -761,30 +761,24 @@ function RecurrentSection({
   )}`;
 
   return (
-    <div
-      className="rounded-xl border p-4"
-      style={{
-        backgroundColor: design.colors.recurrentPurpleBg,
-        borderColor: design.colors.recurrentPurpleBorder,
-      }}
-    >
+    <div className="rounded-xl border border-border bg-card p-4">
       <div className="flex w-full items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: design.colors.recurrentPurple }}>
+          <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Repeat size={16} />
             {t("transactions.ui.toRegisterSection")}
           </span>
-          <span className="text-xs" style={{ color: design.colors.recurrentPurple }}>
+          <span className="text-xs text-muted-foreground">
             {recurrents.length}
           </span>
         </div>
         <div className="flex items-center gap-3 text-xs">
-          <span className="font-semibold" style={{ color: design.colors.recurrentPurple }}>
+          <span className="font-semibold text-foreground">
             ({formattedTotal})
           </span>
           <button
             type="button"
-            className="text-xs text-muted-foreground"
+            className="text-xs text-muted-foreground transition hover:text-foreground"
             onClick={onToggleCollapse}
           >
             {isCollapsed ? t("transactions.ui.show") : t("transactions.ui.hide")}
@@ -807,8 +801,7 @@ function RecurrentSection({
           ))}
           <button
             type="button"
-            className="w-full rounded-lg px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-            style={{ backgroundColor: design.colors.recurrentPurple }}
+            className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-semibold text-foreground transition hover:bg-muted disabled:opacity-60"
             onClick={onRegisterAll}
             disabled={disabled}
           >
@@ -864,12 +857,9 @@ function RecurrentCard({
     <div
       className={cn(
         "flex items-center justify-between gap-4 rounded-lg border px-3 py-2 transition-all",
+        "border-border bg-muted/20",
         isRemoving && "translate-x-3 opacity-0"
       )}
-      style={{
-        backgroundColor: design.colors.recurrentPurpleBg,
-        borderColor: design.colors.recurrentPurpleBorder,
-      }}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
@@ -893,8 +883,7 @@ function RecurrentCard({
         <span className="text-sm font-semibold text-foreground">{amountLabel}</span>
         <button
           type="button"
-          className="rounded-full px-3 py-1 text-[11px] font-semibold text-white disabled:opacity-60"
-          style={{ backgroundColor: design.colors.recurrentPurple }}
+          className="rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold text-foreground transition hover:bg-muted disabled:opacity-60"
           onClick={handleRegister}
           disabled={disabled}
         >

@@ -65,12 +65,9 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Obtener usuario (más seguro que getSession)
-  console.log("Middleware - cookies:", request.cookies.getAll().map(c => c.name));
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  console.log("Middleware - user:", user?.id ?? "NO USER");
 
   // Si es ruta pública, permitir acceso
   if (isPublicRoute) {

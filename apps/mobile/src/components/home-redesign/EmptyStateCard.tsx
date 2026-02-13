@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { themeTokens } from "@poleursus/shared";
 import { useUserTheme } from "../../contexts/UserThemeContext";
@@ -5,7 +6,7 @@ import { useUserTheme } from "../../contexts/UserThemeContext";
 const tokens = themeTokens.light;
 
 type EmptyStateCardProps = {
-  icon: string;
+  icon: ReactNode;
   title: string;
   description: string;
   buttonLabel: string;
@@ -34,7 +35,7 @@ export function EmptyStateCard({
     >
       <View style={styles.inner}>
         <View style={[styles.iconWrap, { backgroundColor: userTokens.surfaceAlt }]}>
-          <Text style={styles.icon}>{icon}</Text>
+          {typeof icon === "string" ? <Text style={styles.icon}>{icon}</Text> : icon}
         </View>
         <Text style={[styles.title, { color: userTokens.textPrimary }]}>{title}</Text>
         <Text style={[styles.description, { color: userTokens.textSecondary }]}>

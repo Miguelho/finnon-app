@@ -3,6 +3,9 @@ import {
   Text,
   View,
   StyleSheet,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
   type NativeSyntheticEvent,
   type TextInputFocusEventData,
 } from "react-native";
@@ -25,6 +28,8 @@ interface InputProps {
   multiline?: boolean;
   numberOfLines?: number;
   onFocus?: (event: NativeSyntheticEvent<TextInputFocusEventData>) => void;
+  containerStyle?: StyleProp<ViewStyle>;
+  inputStyle?: StyleProp<TextStyle>;
 }
 
 export function Input({
@@ -40,11 +45,13 @@ export function Input({
   multiline,
   numberOfLines,
   onFocus,
+  containerStyle,
+  inputStyle,
 }: InputProps) {
   const { tokens: userTokens } = useUserTheme();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerStyle]}>
       <Text style={[styles.label, { color: userTokens.textPrimary }]}>{label}</Text>
       <TextInput
         style={[
@@ -58,6 +65,7 @@ export function Input({
           disabled && styles.inputDisabled,
           disabled && { backgroundColor: userTokens.surfaceAlt },
           multiline && styles.inputMultiline,
+          inputStyle,
         ]}
         value={value}
         onChangeText={onChangeText}

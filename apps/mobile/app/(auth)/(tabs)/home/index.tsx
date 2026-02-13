@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   CURRENCIES,
   computeGoalProgress,
@@ -868,7 +869,13 @@ export default function HomeScreen() {
           />
         ) : (
           <EmptyStateCard
-            icon="🎯"
+            icon={
+              <MaterialCommunityIcons
+                name="target"
+                size={22}
+                color={userThemeTokens.textSecondary}
+              />
+            }
             title={t(dictionary, "mobile.home.emptyGoalTitle")}
             description={t(dictionary, "mobile.home.emptyGoalDescription")}
             buttonLabel={t(dictionary, "mobile.home.emptyGoalCta")}

@@ -117,6 +117,7 @@ export function CreateAccountStep({ onComplete }: CreateAccountStepProps) {
             maxLength={255}
             disabled={loading}
             helperText={t(dictionary, "onboarding.accountNameHelper")}
+            inputStyle={{ backgroundColor: userTokens.surfaceAlt }}
           />
 
           <View style={styles.pickerContainer}>
