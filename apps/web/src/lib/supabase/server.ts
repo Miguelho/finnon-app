@@ -62,17 +62,29 @@ export async function createAuthenticatedClient() {
     }
   );
 
-  // Obtener la sesión con el token
-  const { data: { session }, error } = await tempClient.auth.getSession();
+  // Obtener la sesión para extraer el access token
+  const {
+    data: { session },
+    error: sessionError,
+  } = await tempClient.auth.getSession();
 
-  if (error || !session) {
+  if (sessionError || !session?.access_token) {
     throw new Error("No hay sesión activa válida");
+  }
+
+  // Validar identidad contra Auth server (no confiar en session.user local)
+  const {
+    data: { user },
+    error: userError,
+  } = await tempClient.auth.getUser();
+
+  if (userError || !user) {
+    throw new Error("No hay usuario autenticado válido");
   }
 
   // console.log("🔍 DEBUG - Session info:", {
   //   hasAccessToken: !!session.access_token,
   //   tokenLength: session.access_token?.length,
-  //   userId: session.user?.id,
   //   expiresAt: session.expires_at,
   // });
 
@@ -98,5 +110,5 @@ export async function createAuthenticatedClient() {
 
   //console.log("✅ Client created with anon key + Authorization bearer token");
 
-  return { client: authenticatedClient, user: session.user };
+  return { client: authenticatedClient, user };
 }

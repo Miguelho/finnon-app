@@ -194,7 +194,7 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [session?.user?.id, user?.id, isFocused]);
+  }, [session?.access_token, user?.id, isFocused]);
 
   useEffect(() => {
     if (accounts && accounts.length > 0 && !selectedAccountId) {

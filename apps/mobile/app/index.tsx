@@ -9,7 +9,8 @@ const tokens = themeTokens.light;
 const colors = tokens.colors;
 
 export default function IndexGateAndHome() {
-  const { session, loading: authLoading, isInitialized, selectedAccountId } = useAuth();
+  const { session, user, loading: authLoading, isInitialized, selectedAccountId } =
+    useAuth();
 
   const [accountCount, setAccountCount] = useState<number | null>(null);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
@@ -19,7 +20,7 @@ export default function IndexGateAndHome() {
     let cancelled = false;
 
     async function run() {
-      if (!isInitialized || !session) {
+      if (!isInitialized || !session || !user) {
         if (!cancelled) {
           setAccountCount(null);
           setLoadingAccounts(false);
@@ -33,7 +34,7 @@ export default function IndexGateAndHome() {
         const { data: memberships, error } = await supabase
           .from("account_members")
           .select("account_id")
-          .eq("user_id", session.user.id);
+          .eq("user_id", user.id);
 
         if (error) throw error;
 
@@ -50,7 +51,7 @@ export default function IndexGateAndHome() {
     return () => {
       cancelled = true;
     };
-  }, [isInitialized, session?.user?.id]);
+  }, [isInitialized, session?.access_token, user?.id]);
 
   // Loader estable (aquí sí tiene sentido)
   if (!isInitialized || authLoading || loadingAccounts) {

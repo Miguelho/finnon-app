@@ -17,6 +17,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { supabase } from "../../../../src/lib/supabase";
+import { getSessionAccessToken } from "../../../../src/lib/auth";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { useNetworkNotice } from "../../../../src/contexts/NetworkNoticeContext";
 import { useUserTheme } from "../../../../src/contexts/UserThemeContext";
@@ -390,8 +391,8 @@ export default function GoalScreen() {
   const fetchGoalSummary = useCallback(async () => {
     if (!selectedAccountId) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      const accessToken = await getSessionAccessToken();
+      if (!accessToken) {
         throw new Error(t(dictionary, "errors.authRequired"));
       }
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
@@ -404,7 +405,7 @@ export default function GoalScreen() {
         `${apiUrl}/api/goal/savings-candidates?${params.toString()}`,
         {
           headers: {
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${accessToken}`,
           },
         }
       );

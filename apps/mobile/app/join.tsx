@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { supabase } from "../src/lib/supabase";
+import { getSessionAccessToken, getVerifiedUser } from "../src/lib/auth";
 import { useAuth } from "../src/contexts/AuthContext";
 import { Card } from "../src/components/Card";
 import { Button } from "../src/components/Button";
@@ -36,15 +37,17 @@ export default function JoinScreen() {
       setState({ status: "processing" });
 
       try {
-        // 1. Check if user has a session
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
+        // 1. Check if user is authenticated (verified by Auth server)
+        let user = null;
+        try {
+          user = await getVerifiedUser();
+        } catch (userError) {
+          console.error("[Join] getUser failed:", userError);
+        }
 
-        // 2. If no session, create anonymous session
-        if (!session) {
-          console.log("[Join] No session found, signing in anonymously...");
+        // 2. If no authenticated user, create anonymous session
+        if (!user) {
+          console.log("[Join] No authenticated user found, signing in anonymously...");
           const { data: anonData, error: anonError } =
             await supabase.auth.signInAnonymously();
 
@@ -59,23 +62,20 @@ export default function JoinScreen() {
 
           console.log(
             "[Join] Anonymous session created:",
-            anonData.session.user.id
+            anonData.user?.id
           );
         }
 
         // 3. Call web API to accept invite
         const apiUrl =
           process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
-        const {
-          data: { session: activeSession },
-        } = await supabase.auth.getSession();
-
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
         };
 
-        if (activeSession?.access_token) {
-          headers.Authorization = `Bearer ${activeSession.access_token}`;
+        const accessToken = await getSessionAccessToken();
+        if (accessToken) {
+          headers.Authorization = `Bearer ${accessToken}`;
         }
 
         const response = await fetch(`${apiUrl}/api/invites/accept`, {

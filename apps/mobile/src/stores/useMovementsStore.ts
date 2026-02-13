@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
+import { getVerifiedUser } from "../lib/auth";
 import {
   formatDateISO,
   getPeriodEnd,
@@ -272,9 +273,7 @@ export const useMovementsStore = create<MovementsStore>((set, get) => {
         throw new Error("Solo se pueden registrar recurrentes en la moneda base.");
       }
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const user = await getVerifiedUser();
 
       if (!user) {
         throw new Error("Usuario no autenticado.");

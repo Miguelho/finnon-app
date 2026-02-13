@@ -18,6 +18,7 @@ import { Picker } from "@react-native-picker/picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowDownRight, ArrowUpRight } from "phosphor-react-native";
 import { supabase } from "../../../src/lib/supabase";
+import { getVerifiedUser } from "../../../src/lib/auth";
 import { useAuth } from "../../../src/contexts/AuthContext";
 import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { Button } from "../../../src/components/Button";
@@ -439,9 +440,7 @@ function CreateRecurringTransactionScreen(): React.JSX.Element {
 
     try {
       // Get current user
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const user = await getVerifiedUser();
 
       if (!user) {
         Alert.alert(

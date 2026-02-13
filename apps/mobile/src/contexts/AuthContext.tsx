@@ -4,6 +4,7 @@ import { Session, User } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { signOutAndReset } from "@poleursus/shared";
 import { supabase } from "../lib/supabase";
+import { getVerifiedUser } from "../lib/auth";
 
 const SELECTED_ACCOUNT_KEY = "@finnon/selectedAccountId";
 
@@ -138,17 +139,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     console.log("[AuthContext] Initializing...");
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    let isMounted = true;
+
+    const syncUser = async () => {
+      try {
+        const user = await getVerifiedUser();
+        if (isMounted) {
+          setUser(user);
+        }
+        return user;
+      } catch (userError) {
+        console.error("[AuthContext] getUser error:", userError);
+        if (isMounted) {
+          setUser(null);
+        }
+        return null;
+      }
+    };
+
+    const initializeAuth = async () => {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        console.error("[AuthContext] getSession error:", sessionError);
+      }
+
+      const safeUser = await syncUser();
+
+      if (!isMounted) return;
+
       console.log("[AuthContext] Initial session:", {
         hasSession: !!session,
-        userId: session?.user?.id,
+        userId: safeUser?.id,
       });
       setSession(session);
-      setUser(session?.user ?? null);
       setLoading(false);
       setIsInitialized(true);
-    });
+    };
+
+    void initializeAuth();
 
     // Listen for auth changes
     const {
@@ -157,14 +189,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("[AuthContext] Auth state changed:", {
         event,
         hasSession: !!session,
-        userId: session?.user?.id,
       });
+      if (!isMounted) return;
       setSession(session);
-      setUser(session?.user ?? null);
       setLoading(false);
+
+      if (!session || event === "SIGNED_OUT") {
+        setUser(null);
+        return;
+      }
+
+      void syncUser();
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const setSelectedAccountId = async (accountId: string | null) => {

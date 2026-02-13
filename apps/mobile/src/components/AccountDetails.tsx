@@ -10,6 +10,7 @@ import {
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
+import { getSessionAccessToken } from "../lib/auth";
 import { useAuth } from "../contexts/AuthContext";
 import { Card } from "./Card";
 import { CategoryIcon } from "./CategoryIcon";
@@ -122,10 +123,8 @@ export function AccountDetails({
         }
 
         if (showMembersSection) {
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-          if (!session) {
+          const accessToken = await getSessionAccessToken();
+          if (!accessToken) {
             throw new Error(t(dictionary, "account.noSessionError"));
           }
 
@@ -134,7 +133,7 @@ export function AccountDetails({
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`,
+              Authorization: `Bearer ${accessToken}`,
             },
             body: JSON.stringify({ accountId }),
           });

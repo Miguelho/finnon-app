@@ -9,6 +9,7 @@ import {
 import { useRouter } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../../../src/lib/supabase";
+import { getVerifiedUser } from "../../../src/lib/auth";
 import { useAuth } from "../../../src/contexts/AuthContext";
 import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { Button } from "../../../src/components/Button";
@@ -97,9 +98,7 @@ export default function CreateObligationScreen(): React.JSX.Element {
     setIsSubmitting(true);
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const user = await getVerifiedUser();
 
       if (!user) {
         Alert.alert(

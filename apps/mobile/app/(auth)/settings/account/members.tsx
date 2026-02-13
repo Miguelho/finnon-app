@@ -18,6 +18,7 @@ import { useNetworkNotice } from "../../../../src/contexts/NetworkNoticeContext"
 import { useUserTheme } from "../../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../../src/lib/i18n";
 import { supabase } from "../../../../src/lib/supabase";
+import { getSessionAccessToken } from "../../../../src/lib/auth";
 import {
   humanizeRole,
   themeTokens,
@@ -136,13 +137,6 @@ export default function AccountMembersSettingsScreen() {
     setNoticeTone("positive");
   };
 
-  const getAccessToken = async (): Promise<string | null> => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    return session?.access_token ?? null;
-  };
-
   const loadAccountRole = async (accountId: string, userId: string) => {
     const { data, error: accountError } = await supabase
       .from("accounts")
@@ -167,7 +161,7 @@ export default function AccountMembersSettingsScreen() {
   };
 
   const loadMembers = async (accountId: string) => {
-    const token = await getAccessToken();
+    const token = await getSessionAccessToken();
     if (!token) {
       throw new Error(t(dictionary, "errors.noSession"));
     }
@@ -364,7 +358,7 @@ export default function AccountMembersSettingsScreen() {
     setPendingInviteId(inviteId);
 
     try {
-      const token = await getAccessToken();
+      const token = await getSessionAccessToken();
       if (!token) {
         setNegativeNotice(t(dictionary, "errors.noSession"));
         return;

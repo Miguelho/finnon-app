@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, createContext, useContext, ReactNode } fr
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getDictionary, t, pluralize, formatParticipantCount } from "@poleursus/shared";
 import { supabase } from "./supabase";
+import { getVerifiedUser } from "./auth";
 
 const LOCALE_KEY = "@finnon/locale";
 const fallbackLocale = "es";
@@ -32,8 +33,8 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loadLocale = async () => {
       try {
-        const { data } = await supabase.auth.getUser();
-        const profileUserId = data.user?.id;
+        const user = await getVerifiedUser();
+        const profileUserId = user?.id;
 
         if (profileUserId) {
           const { data: profile } = await supabase

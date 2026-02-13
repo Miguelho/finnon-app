@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../../../src/lib/supabase";
+import { getSessionAccessToken, getVerifiedUser } from "../../../src/lib/auth";
 import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { Button } from "../../../src/components/Button";
 import { Card } from "../../../src/components/Card";
@@ -80,9 +81,12 @@ export default function InvitationsSettingsScreen() {
   async function loadAccounts() {
     setLoading(true);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user = null;
+    try {
+      user = await getVerifiedUser();
+    } catch (error) {
+      console.error("Error loading authenticated user:", error);
+    }
 
     if (!user) {
       setLoading(false);
@@ -138,11 +142,8 @@ export default function InvitationsSettingsScreen() {
     setNoticeTone(null);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session?.access_token) {
+      const accessToken = await getSessionAccessToken();
+      if (!accessToken) {
         setNotice(t(dictionary, "errors.noSession"));
         setNoticeTone("negative");
         return;
@@ -152,7 +153,7 @@ export default function InvitationsSettingsScreen() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           accountId: selectedAccountId,

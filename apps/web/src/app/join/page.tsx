@@ -38,15 +38,19 @@ export default function JoinPage() {
       setState({ status: "processing" });
 
       try {
-        // 1. Check if user has a session
+        // 1. Check if user is authenticated (verified by Auth server)
         const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-        // 2. If no session, create anonymous session
-        if (!session) {
-          console.log("[Join] No session found, signing in anonymously...");
+        if (userError) {
+          console.error("[Join] getUser failed:", userError);
+        }
+
+        // 2. If no authenticated user, create anonymous session
+        if (!user) {
+          console.log("[Join] No authenticated user found, signing in anonymously...");
           const { data: anonData, error: anonError } =
             await supabase.auth.signInAnonymously();
 
@@ -61,7 +65,7 @@ export default function JoinPage() {
 
           console.log(
             "[Join] Anonymous session created:",
-            anonData.session.user.id
+            anonData.user?.id
           );
 
           // Wait a moment to ensure cookies are set before calling API
