@@ -48,13 +48,7 @@ type AccountMembershipRecord = {
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
-const ui = {
-  surface: colors.bg.surface,
-  surfaceHover: "#F7F7F5",
-  expenseBg: "#FFF5F3",
-  dangerHover: "#FDEAE4",
-};
+const API_URL = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "") ?? "";
 const AVATAR_BACKGROUNDS = [
   "#1C1E21",
   "#E8EEFF",
@@ -63,6 +57,31 @@ const AVATAR_BACKGROUNDS = [
   "#FEF0EE",
   "#F4F0FF",
 ] as const;
+
+type ProfileRow = {
+  user_id: string;
+  email: string | null;
+  display_name: string | null;
+};
+
+function withAlpha(hexColor: string, alpha: number) {
+  const normalized = hexColor.replace("#", "");
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((chunk) => chunk + chunk)
+          .join("")
+      : normalized;
+  if (expanded.length !== 6) return hexColor;
+
+  const red = parseInt(expanded.slice(0, 2), 16);
+  const green = parseInt(expanded.slice(2, 4), 16);
+  const blue = parseInt(expanded.slice(4, 6), 16);
+  if ([red, green, blue].some((value) => Number.isNaN(value))) return hexColor;
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
 
 function getInitials(value: string): string {
   const chunks = value
@@ -96,8 +115,31 @@ export default function AccountMembersSettingsScreen() {
     tokens: userThemeTokens,
     primaryActionColor,
     primaryActionTextColor,
+    resolvedMode,
   } = useUserTheme();
   const roleLocale = locale.startsWith("en") ? "en" : "es";
+  const modeColors = themeTokens[resolvedMode].colors;
+  const dangerColor = modeColors.state.negative;
+  const positiveColor = modeColors.state.positive;
+  const warningColor = modeColors.state.warning;
+  const iconButtonBg = userThemeTokens.surfaceAlt;
+  const iconButtonPressedBg = userThemeTokens.surface;
+  const iconButtonBorder = userThemeTokens.border;
+  const dangerButtonBg = withAlpha(dangerColor, resolvedMode === "dark" ? 0.24 : 0.12);
+  const dangerButtonPressedBg = withAlpha(
+    dangerColor,
+    resolvedMode === "dark" ? 0.34 : 0.2
+  );
+  const dangerButtonBorder = withAlpha(dangerColor, resolvedMode === "dark" ? 0.5 : 0.26);
+  const adminBadgeBackground = withAlpha(
+    primaryActionColor,
+    resolvedMode === "dark" ? 0.26 : 0.14
+  );
+  const inviteToneBackground = withAlpha(
+    warningColor,
+    resolvedMode === "dark" ? 0.28 : 0.14
+  );
+  const inviteToneText = resolvedMode === "dark" ? warningColor : "#A16207";
 
   const [accountRole, setAccountRole] = useState<MemberRole>("viewer");
   const [members, setMembers] = useState<MemberProfile[]>([]);
@@ -161,26 +203,47 @@ export default function AccountMembersSettingsScreen() {
   };
 
   const loadMembers = async (accountId: string) => {
-    const token = await getSessionAccessToken();
-    if (!token) {
-      throw new Error(t(dictionary, "errors.noSession"));
+    const { data: memberships, error: membersError } = await supabase
+      .from("account_members")
+      .select("user_id, role")
+      .eq("account_id", accountId);
+
+    if (membersError) {
+      throw membersError;
     }
 
-    const response = await fetch(`${API_URL}/api/profiles`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ accountId }),
-    });
+    const rows = (memberships ?? []) as Array<{ user_id: string; role: MemberRole }>;
+    const userIds = rows.map((member) => member.user_id);
 
-    if (!response.ok) {
-      throw new Error(t(dictionary, "errors.membersLoadFailed"));
+    if (userIds.length === 0) {
+      setMembers([]);
+      return;
     }
 
-    const payload = await response.json();
-    setMembers((payload?.members ?? []) as MemberProfile[]);
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("user_id, email, display_name")
+      .in("user_id", userIds);
+
+    if (profilesError) {
+      throw profilesError;
+    }
+
+    const profilesById = new Map(
+      ((profiles ?? []) as ProfileRow[]).map((profile) => [profile.user_id, profile])
+    );
+
+    setMembers(
+      rows.map((member) => {
+        const profile = profilesById.get(member.user_id);
+        return {
+          user_id: member.user_id,
+          role: member.role,
+          name: profile?.display_name ?? profile?.email ?? null,
+          email: profile?.email ?? null,
+        } satisfies MemberProfile;
+      })
+    );
   };
 
   const loadInvites = async (accountId: string) => {
@@ -358,6 +421,11 @@ export default function AccountMembersSettingsScreen() {
     setPendingInviteId(inviteId);
 
     try {
+      if (!API_URL) {
+        setNegativeNotice(t(dictionary, "invites.sendError"));
+        return;
+      }
+
       const token = await getSessionAccessToken();
       if (!token) {
         setNegativeNotice(t(dictionary, "errors.noSession"));
@@ -477,18 +545,28 @@ export default function AccountMembersSettingsScreen() {
       ]}
     >
       <View style={styles.pageHeader}>
-        <Text style={styles.pageSubtitle}>
+        <Text style={[styles.pageSubtitle, { color: userThemeTokens.textSecondary }]}>
           {t(dictionary, "accountSettings.members.subtitle")}
         </Text>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
+        <Text style={[styles.sectionTitle, { color: userThemeTokens.textPrimary }]}>
           {t(dictionary, "accountSettings.members.activeMembers")}
         </Text>
-        <View style={styles.card}>
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: userThemeTokens.surface,
+              borderColor: userThemeTokens.border,
+            },
+          ]}
+        >
           {members.length === 0 ? (
-            <Text style={styles.emptyText}>{t(dictionary, "account.participantsEmpty")}</Text>
+            <Text style={[styles.emptyText, { color: userThemeTokens.textSecondary }]}>
+              {t(dictionary, "account.participantsEmpty")}
+            </Text>
           ) : (
             members.map((member, index) => {
               const isCurrentUser = member.user_id === user?.id;
@@ -503,13 +581,16 @@ export default function AccountMembersSettingsScreen() {
               const avatarText = getInitials(member.name || member.email || "?");
 
               return (
-                <View key={`${member.user_id}-${member.role}`} style={styles.memberRow}>
+                <View
+                  key={`${member.user_id}-${member.role}`}
+                  style={[styles.memberRow, { borderBottomColor: userThemeTokens.border }]}
+                >
                   <View style={styles.memberMain}>
                     <View
                       style={[
                         styles.memberAvatar,
                         isCurrentUser
-                          ? styles.memberAvatarCurrentUser
+                          ? { backgroundColor: userThemeTokens.textPrimary }
                           : {
                               backgroundColor:
                                 AVATAR_BACKGROUNDS[index % AVATAR_BACKGROUNDS.length],
@@ -519,7 +600,7 @@ export default function AccountMembersSettingsScreen() {
                       <Text
                         style={[
                           styles.memberAvatarText,
-                          isCurrentUser && styles.memberAvatarTextCurrentUser,
+                          isCurrentUser && { color: userThemeTokens.background },
                         ]}
                       >
                         {avatarText}
@@ -527,11 +608,17 @@ export default function AccountMembersSettingsScreen() {
                     </View>
 
                     <View style={styles.memberInfo}>
-                      <Text style={styles.memberName} numberOfLines={1}>
+                      <Text
+                        style={[styles.memberName, { color: userThemeTokens.textPrimary }]}
+                        numberOfLines={1}
+                      >
                         {isCurrentUser ? t(dictionary, "account.youLabel") : displayName}
                       </Text>
                       {!isCurrentUser && member.email ? (
-                        <Text style={styles.memberEmail} numberOfLines={1}>
+                        <Text
+                          style={[styles.memberEmail, { color: userThemeTokens.textSecondary }]}
+                          numberOfLines={1}
+                        >
                           {member.email}
                         </Text>
                       ) : null}
@@ -543,16 +630,16 @@ export default function AccountMembersSettingsScreen() {
                       style={[
                         styles.roleBadge,
                         member.role === "admin"
-                          ? styles.roleBadgeAdmin
-                          : styles.roleBadgeDefault,
+                          ? { backgroundColor: adminBadgeBackground }
+                          : { backgroundColor: userThemeTokens.surfaceAlt },
                       ]}
                     >
                       <Text
                         style={[
                           styles.roleBadgeText,
                           member.role === "admin"
-                            ? styles.roleBadgeTextAdmin
-                            : styles.roleBadgeTextDefault,
+                            ? { color: primaryActionColor }
+                            : { color: userThemeTokens.textSecondary },
                         ]}
                       >
                         {humanizeRole(member.role, roleLocale)}
@@ -562,14 +649,22 @@ export default function AccountMembersSettingsScreen() {
                     {canManageMembers && !isCurrentUser ? (
                       isEditing ? (
                         <View style={styles.roleEditor}>
-                          <View style={styles.rolePickerWrapper}>
+                          <View
+                            style={[
+                              styles.rolePickerWrapper,
+                              {
+                                borderColor: userThemeTokens.border,
+                                backgroundColor: userThemeTokens.surfaceAlt,
+                              },
+                            ]}
+                          >
                             <Picker
                               selectedValue={editingRole}
                               onValueChange={(value) =>
                                 setEditingRole(String(value) as MemberRole)
                               }
                               enabled={!isUpdatingMember}
-                              style={styles.rolePicker}
+                              style={[styles.rolePicker, { color: userThemeTokens.textPrimary }]}
                             >
                               <Picker.Item
                                 label={humanizeRole("admin", roleLocale)}
@@ -611,7 +706,12 @@ export default function AccountMembersSettingsScreen() {
                               disabled={isUpdatingMember}
                               style={styles.smallActionGhost}
                             >
-                              <Text style={styles.smallActionGhostText}>
+                              <Text
+                                style={[
+                                  styles.smallActionGhostText,
+                                  { color: userThemeTokens.textSecondary },
+                                ]}
+                              >
                                 {t(dictionary, "common.cancel")}
                               </Text>
                             </Pressable>
@@ -623,23 +723,33 @@ export default function AccountMembersSettingsScreen() {
                             onPress={() => startEditRole(member)}
                             style={({ pressed }) => [
                               styles.iconActionButton,
+                              {
+                                backgroundColor: iconButtonBg,
+                                borderColor: iconButtonBorder,
+                              },
                               pressed && styles.iconActionButtonPressed,
+                              pressed && { backgroundColor: iconButtonPressedBg },
                             ]}
                             accessibilityRole="button"
                             accessibilityLabel={t(dictionary, "common.edit")}
                           >
-                            <PencilSimple size={14} color={colors.text.secondary} />
+                            <PencilSimple size={14} color={userThemeTokens.textPrimary} />
                           </Pressable>
                           <Pressable
                             onPress={() => removeMember(member)}
                             style={({ pressed }) => [
                               styles.iconActionButtonDanger,
+                              {
+                                backgroundColor: dangerButtonBg,
+                                borderColor: dangerButtonBorder,
+                              },
                               pressed && styles.iconActionButtonDangerPressed,
+                              pressed && { backgroundColor: dangerButtonPressedBg },
                             ]}
                             accessibilityRole="button"
                             accessibilityLabel={t(dictionary, "common.delete")}
                           >
-                            <X size={14} color={colors.state.negative} />
+                            <X size={14} color={dangerColor} />
                           </Pressable>
                         </View>
                       )
@@ -655,10 +765,10 @@ export default function AccountMembersSettingsScreen() {
       <View style={styles.section}>
         <View style={styles.inviteHeader}>
           <View style={styles.inviteHeaderText}>
-            <Text style={styles.sectionTitle}>
+            <Text style={[styles.sectionTitle, { color: userThemeTokens.textPrimary }]}>
               {t(dictionary, "accountSettings.members.invitations")}
             </Text>
-            <Text style={styles.pendingCount}>
+            <Text style={[styles.pendingCount, { color: userThemeTokens.textSecondary }]}>
               {t(dictionary, "accountSettings.members.pendingInvites", {
                 count: pendingInvites.length,
               })}
@@ -683,22 +793,45 @@ export default function AccountMembersSettingsScreen() {
         </View>
 
         {isInviteComposerOpen && canManageMembers ? (
-          <View style={styles.inviteComposer}>
+          <View
+            style={[
+              styles.inviteComposer,
+              {
+                backgroundColor: userThemeTokens.surface,
+                borderColor: userThemeTokens.border,
+              },
+            ]}
+          >
             <TextInput
               value={inviteEmail}
               onChangeText={setInviteEmail}
               placeholder={t(dictionary, "login.emailPlaceholder")}
-              placeholderTextColor={colors.text.muted}
+              placeholderTextColor={userThemeTokens.textSecondary}
               autoCapitalize="none"
               keyboardType="email-address"
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  borderColor: userThemeTokens.border,
+                  backgroundColor: userThemeTokens.surfaceAlt,
+                  color: userThemeTokens.textPrimary,
+                },
+              ]}
             />
-            <View style={styles.inviteRolePickerWrapper}>
+            <View
+              style={[
+                styles.inviteRolePickerWrapper,
+                {
+                  borderColor: userThemeTokens.border,
+                  backgroundColor: userThemeTokens.surfaceAlt,
+                },
+              ]}
+            >
               <Picker
                 selectedValue={inviteRole}
                 onValueChange={(value) => setInviteRole(String(value) as MemberRole)}
                 enabled={!isSendingInvite}
-                style={styles.inviteRolePicker}
+                style={[styles.inviteRolePicker, { color: userThemeTokens.textPrimary }]}
               >
                 <Picker.Item label={humanizeRole("viewer", roleLocale)} value="viewer" />
                 <Picker.Item
@@ -734,9 +867,17 @@ export default function AccountMembersSettingsScreen() {
           </View>
         ) : null}
 
-        <View style={styles.card}>
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: userThemeTokens.surface,
+              borderColor: userThemeTokens.border,
+            },
+          ]}
+        >
           {pendingInvites.length === 0 ? (
-            <Text style={styles.emptyText}>
+            <Text style={[styles.emptyText, { color: userThemeTokens.textSecondary }]}>
               {t(dictionary, "accountSettings.members.emptyInvites")}
             </Text>
           ) : (
@@ -744,16 +885,25 @@ export default function AccountMembersSettingsScreen() {
               const inviteEmailValue = invite.invited_email || invite.invitee_email || "";
               const inviteBusy = pendingInviteId === invite.id;
               return (
-                <View key={invite.id} style={styles.inviteRow}>
+                <View
+                  key={invite.id}
+                  style={[styles.inviteRow, { borderBottomColor: userThemeTokens.border }]}
+                >
                   <View style={styles.inviteMain}>
-                    <View style={styles.inviteIcon}>
-                      <Text style={styles.inviteIconText}>@</Text>
+                    <View style={[styles.inviteIcon, { backgroundColor: inviteToneBackground }]}>
+                      <Text style={[styles.inviteIconText, { color: inviteToneText }]}>@</Text>
                     </View>
                     <View style={styles.inviteInfo}>
-                      <Text style={styles.inviteEmail} numberOfLines={1}>
+                      <Text
+                        style={[styles.inviteEmail, { color: userThemeTokens.textPrimary }]}
+                        numberOfLines={1}
+                      >
                         {inviteEmailValue}
                       </Text>
-                      <Text style={styles.inviteMeta} numberOfLines={1}>
+                      <Text
+                        style={[styles.inviteMeta, { color: userThemeTokens.textSecondary }]}
+                        numberOfLines={1}
+                      >
                         {t(dictionary, "accountSettings.members.inviteMeta", {
                           sentAgo: getSentAgo(invite.created_at, locale),
                           role: humanizeRole(invite.role, roleLocale),
@@ -763,8 +913,13 @@ export default function AccountMembersSettingsScreen() {
                   </View>
 
                   <View style={styles.inviteAside}>
-                    <View style={styles.pendingBadge}>
-                      <Text style={styles.pendingBadgeText}>
+                    <View
+                      style={[
+                        styles.pendingBadge,
+                        { backgroundColor: inviteToneBackground },
+                      ]}
+                    >
+                      <Text style={[styles.pendingBadgeText, { color: inviteToneText }]}>
                         {t(dictionary, "accountSettings.members.pendingStatus")}
                       </Text>
                     </View>
@@ -781,10 +936,19 @@ export default function AccountMembersSettingsScreen() {
                           disabled={inviteBusy}
                           style={[
                             styles.resendButton,
+                            {
+                              borderColor: userThemeTokens.border,
+                              backgroundColor: userThemeTokens.surfaceAlt,
+                            },
                             inviteBusy && styles.smallActionButtonDisabled,
                           ]}
                         >
-                          <Text style={styles.resendButtonText}>
+                          <Text
+                            style={[
+                              styles.resendButtonText,
+                              { color: userThemeTokens.textPrimary },
+                            ]}
+                          >
                             {t(dictionary, "accountSettings.members.resendButton")}
                           </Text>
                         </Pressable>
@@ -795,7 +959,9 @@ export default function AccountMembersSettingsScreen() {
                           disabled={inviteBusy}
                           style={styles.linkActionDanger}
                         >
-                          <Text style={styles.linkActionDangerText}>
+                          <Text
+                            style={[styles.linkActionDangerText, { color: dangerColor }]}
+                          >
                             {t(dictionary, "common.delete")}
                           </Text>
                         </Pressable>
@@ -813,7 +979,10 @@ export default function AccountMembersSettingsScreen() {
         <Text
           style={[
             styles.noticeText,
-            noticeTone === "negative" && styles.noticeTextNegative,
+            {
+              color:
+                noticeTone === "negative" ? dangerColor : positiveColor,
+            },
           ]}
         >
           {notice}
@@ -906,16 +1075,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  memberAvatarCurrentUser: {
-    backgroundColor: colors.text.primary,
-  },
   memberAvatarText: {
     fontSize: tokens.typography.size.xs,
     fontWeight: tokens.typography.weight.bold,
     color: colors.text.primary,
-  },
-  memberAvatarTextCurrentUser: {
-    color: colors.bg.primary,
   },
   memberInfo: {
     flex: 1,
@@ -942,22 +1105,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: tokens.radii.pill,
   },
-  roleBadgeAdmin: {
-    backgroundColor: "#EEF3FF",
-  },
-  roleBadgeDefault: {
-    backgroundColor: colors.bg.secondary,
-  },
   roleBadgeText: {
     fontSize: 11,
     fontWeight: tokens.typography.weight.semibold,
     textTransform: "uppercase",
-  },
-  roleBadgeTextAdmin: {
-    color: "#4A6CF7",
-  },
-  roleBadgeTextDefault: {
-    color: colors.text.secondary,
   },
   memberActions: {
     flexDirection: "row",
@@ -970,10 +1121,12 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radii.sm,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: ui.surface,
+    backgroundColor: colors.bg.surface,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   iconActionButtonPressed: {
-    backgroundColor: ui.surfaceHover,
+    opacity: 0.9,
   },
   iconActionButtonDanger: {
     width: 30,
@@ -981,10 +1134,12 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radii.sm,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: ui.expenseBg,
+    backgroundColor: "#FFF5F3",
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   iconActionButtonDangerPressed: {
-    backgroundColor: ui.dangerHover,
+    opacity: 0.9,
   },
   linkActionDanger: {
     paddingVertical: 2,
@@ -1186,8 +1341,5 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.sm,
     color: colors.state.positive,
     paddingBottom: tokens.spacing.sm,
-  },
-  noticeTextNegative: {
-    color: colors.state.negative,
   },
 });

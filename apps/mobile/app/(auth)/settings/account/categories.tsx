@@ -13,6 +13,7 @@ import { Plus, PencilSimple, X } from "phosphor-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { useNetworkNotice } from "../../../../src/contexts/NetworkNoticeContext";
+import { useUserTheme } from "../../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../../src/lib/i18n";
 import { supabase } from "../../../../src/lib/supabase";
 import { CategoryIcon } from "../../../../src/components/CategoryIcon";
@@ -37,23 +38,29 @@ type AccountMembershipRecord = {
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
-const ui = {
-  pageBg: colors.bg.primary,
-  surface: "#FFFFFF",
-  border: "#E8E6E1",
-  borderLight: "#F0EEE9",
-  surfaceHover: "#F7F7F5",
-  expenseBg: "#FFF5F3",
-  expenseText: "#C4442A",
-  incomeBg: "#F0F7F1",
-  incomeText: "#2D7A3A",
-  dangerHover: "#FDEAE4",
-};
+
+function withAlpha(hexColor: string, alpha: number) {
+  const normalized = hexColor.replace("#", "");
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((chunk) => chunk + chunk)
+          .join("")
+      : normalized;
+  if (expanded.length !== 6) return hexColor;
+  const red = parseInt(expanded.slice(0, 2), 16);
+  const green = parseInt(expanded.slice(2, 4), 16);
+  const blue = parseInt(expanded.slice(4, 6), 16);
+  if ([red, green, blue].some((value) => Number.isNaN(value))) return hexColor;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
 
 export default function AccountCategoriesSettingsScreen() {
   const { selectedAccountId, isInitialized, user } = useAuth();
   const { dictionary, locale } = useCopy();
   const { reportNetworkIssue } = useNetworkNotice();
+  const { tokens: userThemeTokens, resolvedMode } = useUserTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -227,7 +234,7 @@ export default function AccountCategoriesSettingsScreen() {
 
   if (!isInitialized) {
     return (
-      <View style={styles.loading}>
+      <View style={[styles.loading, { backgroundColor: userThemeTokens.background }]}>
         <ActivityIndicator size="large" color={colors.text.muted} />
       </View>
     );
@@ -239,7 +246,7 @@ export default function AccountCategoriesSettingsScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.loading}>
+      <View style={[styles.loading, { backgroundColor: userThemeTokens.background }]}>
         <ActivityIndicator size="large" color={colors.text.muted} />
       </View>
     );
@@ -247,8 +254,10 @@ export default function AccountCategoriesSettingsScreen() {
 
   if (error) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>{t(dictionary, "common.errorTitle")}</Text>
+      <View style={[styles.errorContainer, { backgroundColor: userThemeTokens.background }]}>
+        <Text style={[styles.errorTitle, { color: userThemeTokens.textPrimary }]}>
+          {t(dictionary, "common.errorTitle")}
+        </Text>
         <Text style={styles.errorText}>{error}</Text>
       </View>
     );
@@ -256,8 +265,10 @@ export default function AccountCategoriesSettingsScreen() {
 
   const renderSection = (type: CategoryType, sectionCategories: CategoryRow[]) => {
     const isExpense = type === "expense";
-    const toneColor = isExpense ? ui.expenseText : ui.incomeText;
-    const toneBg = isExpense ? ui.expenseBg : ui.incomeBg;
+    const toneColor = isExpense
+      ? themeTokens[resolvedMode].colors.state.negative
+      : themeTokens[resolvedMode].colors.state.positive;
+    const toneBg = withAlpha(toneColor, resolvedMode === "dark" ? 0.2 : 0.12);
     const emptyCopy = canEdit
       ? isExpense
         ? t(dictionary, "categories.emptyExpense")
@@ -275,7 +286,7 @@ export default function AccountCategoriesSettingsScreen() {
               ? t(dictionary, "accountSettings.categories.expenseSection")
               : t(dictionary, "accountSettings.categories.incomeSection")}
           </Text>
-          <Text style={styles.sectionCount}>
+          <Text style={[styles.sectionCount, { color: userThemeTokens.textSecondary }]}>
             ·{" "}
             {t(dictionary, "accountSettings.categories.categoryCount", {
               count: sectionCategories.length,
@@ -283,18 +294,45 @@ export default function AccountCategoriesSettingsScreen() {
           </Text>
         </View>
 
-        <View style={styles.sectionCard}>
+        <View
+          style={[
+            styles.sectionCard,
+            {
+              backgroundColor: userThemeTokens.surface,
+              borderColor: userThemeTokens.border,
+            },
+          ]}
+        >
           {sectionCategories.length === 0 ? (
-            <Text style={styles.emptyText}>{emptyCopy}</Text>
+            <Text style={[styles.emptyText, { color: userThemeTokens.textSecondary }]}>
+              {emptyCopy}
+            </Text>
           ) : (
             sectionCategories.map((category, index) => {
               const isDeleting = pendingDeleteId === category.id;
               const showDivider = canEdit || index < sectionCategories.length - 1;
+              const dangerColor = themeTokens[resolvedMode].colors.state.negative;
+              const dangerBg = withAlpha(
+                dangerColor,
+                resolvedMode === "dark" ? 0.24 : 0.12
+              );
+              const dangerBgPressed = withAlpha(
+                dangerColor,
+                resolvedMode === "dark" ? 0.34 : 0.2
+              );
+              const dangerBorder = withAlpha(
+                dangerColor,
+                resolvedMode === "dark" ? 0.46 : 0.24
+              );
 
               return (
                 <View
                   key={category.id}
-                  style={[styles.categoryRow, !showDivider && styles.categoryRowNoDivider]}
+                  style={[
+                    styles.categoryRow,
+                    showDivider && { borderBottomColor: userThemeTokens.border },
+                    !showDivider && styles.categoryRowNoDivider,
+                  ]}
                 >
                   <View style={styles.categoryMain}>
                     <View style={[styles.iconBadge, { backgroundColor: toneBg }]}>
@@ -305,7 +343,10 @@ export default function AccountCategoriesSettingsScreen() {
                         accessibilityLabel={category.name}
                       />
                     </View>
-                    <Text style={styles.categoryName} numberOfLines={1}>
+                    <Text
+                      style={[styles.categoryName, { color: userThemeTokens.textPrimary }]}
+                      numberOfLines={1}
+                    >
                       {category.name}
                     </Text>
                   </View>
@@ -316,28 +357,35 @@ export default function AccountCategoriesSettingsScreen() {
                         onPress={() => openEdit(category.id)}
                         style={({ pressed }) => [
                           styles.iconActionButton,
+                          {
+                            backgroundColor: userThemeTokens.surfaceAlt,
+                            borderColor: userThemeTokens.border,
+                          },
                           pressed && styles.iconActionButtonPressed,
+                          pressed && { backgroundColor: userThemeTokens.surface },
                         ]}
                         accessibilityRole="button"
                         accessibilityLabel={t(dictionary, "common.edit")}
                       >
-                        <PencilSimple size={14} color={colors.text.secondary} />
+                        <PencilSimple size={14} color={userThemeTokens.textPrimary} />
                       </Pressable>
                       <Pressable
                         onPress={() => confirmDelete(category)}
                         disabled={isDeleting}
                         style={({ pressed }) => [
                           styles.iconActionButtonDanger,
+                          {
+                            backgroundColor: dangerBg,
+                            borderColor: dangerBorder,
+                          },
                           pressed && styles.iconActionButtonDangerPressed,
+                          pressed && { backgroundColor: dangerBgPressed },
                           isDeleting && styles.iconActionButtonDisabled,
                         ]}
                         accessibilityRole="button"
                         accessibilityLabel={t(dictionary, "common.delete")}
                       >
-                        <X
-                          size={14}
-                          color={isDeleting ? colors.text.muted : colors.state.negative}
-                        />
+                        <X size={14} color={isDeleting ? colors.text.muted : dangerColor} />
                       </Pressable>
                     </View>
                   ) : null}
@@ -349,7 +397,11 @@ export default function AccountCategoriesSettingsScreen() {
           {canEdit ? (
             <Pressable
               onPress={() => openCreate(type)}
-              style={({ pressed }) => [styles.addRow, pressed && styles.addRowPressed]}
+              style={({ pressed }) => [
+                styles.addRow,
+                { backgroundColor: userThemeTokens.surfaceAlt },
+                pressed && styles.addRowPressed,
+              ]}
               accessibilityRole="button"
               accessibilityLabel={
                 isExpense
@@ -357,8 +409,8 @@ export default function AccountCategoriesSettingsScreen() {
                   : t(dictionary, "accountSettings.categories.addIncome")
               }
             >
-              <Plus size={14} color={colors.text.secondary} />
-              <Text style={styles.addRowText}>
+              <Plus size={14} color={userThemeTokens.textSecondary} />
+              <Text style={[styles.addRowText, { color: userThemeTokens.textSecondary }]}>
                 {isExpense
                   ? t(dictionary, "accountSettings.categories.addExpense")
                   : t(dictionary, "accountSettings.categories.addIncome")}
@@ -372,20 +424,22 @@ export default function AccountCategoriesSettingsScreen() {
 
   return (
     <ScrollView
-      style={styles.scrollContainer}
+      style={[styles.scrollContainer, { backgroundColor: userThemeTokens.background }]}
       contentContainerStyle={[
         styles.scrollContent,
         { paddingBottom: insets.bottom + tokens.spacing.xxl },
       ]}
     >
       <View style={styles.pageHeader}>
-        <Text style={styles.pageSubtitle}>
+        <Text style={[styles.pageSubtitle, { color: userThemeTokens.textSecondary }]}>
           {t(dictionary, "accountSettings.categories.subtitle")}
         </Text>
       </View>
 
       {!canEdit ? (
-        <Text style={styles.readOnlyNotice}>{t(dictionary, "categories.readOnlyNotice")}</Text>
+        <Text style={[styles.readOnlyNotice, { color: userThemeTokens.textSecondary }]}>
+          {t(dictionary, "categories.readOnlyNotice")}
+        </Text>
       ) : null}
 
       {renderSection("expense", expenseCategories)}
@@ -399,11 +453,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: ui.pageBg,
   },
   scrollContainer: {
     flex: 1,
-    backgroundColor: ui.pageBg,
   },
   scrollContent: {
     paddingTop: tokens.spacing.lg,
@@ -415,7 +467,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: tokens.spacing.xl,
-    backgroundColor: ui.pageBg,
   },
   errorTitle: {
     fontSize: tokens.typography.size.lg,
@@ -433,11 +484,9 @@ const styles = StyleSheet.create({
   },
   pageSubtitle: {
     fontSize: tokens.typography.size.sm,
-    color: colors.text.muted,
   },
   readOnlyNotice: {
     fontSize: tokens.typography.size.xs,
-    color: colors.text.secondary,
   },
   section: {
     gap: tokens.spacing.sm,
@@ -466,9 +515,7 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
   sectionCard: {
-    backgroundColor: ui.surface,
     borderWidth: 1,
-    borderColor: ui.border,
     borderRadius: tokens.radii.lg,
     overflow: "hidden",
   },
@@ -480,7 +527,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.spacing.lg,
     paddingVertical: tokens.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: ui.borderLight,
   },
   categoryRowNoDivider: {
     borderBottomWidth: 0,
@@ -516,10 +562,11 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radii.sm,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: ui.surface,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   iconActionButtonPressed: {
-    backgroundColor: ui.surfaceHover,
+    opacity: 0.82,
   },
   iconActionButtonDanger: {
     width: 30,
@@ -527,10 +574,11 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radii.sm,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: ui.expenseBg,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   iconActionButtonDangerPressed: {
-    backgroundColor: ui.dangerHover,
+    opacity: 0.82,
   },
   iconActionButtonDisabled: {
     opacity: 0.6,
@@ -542,10 +590,10 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.xs,
     paddingHorizontal: tokens.spacing.lg,
     paddingVertical: 14,
-    backgroundColor: ui.surface,
+    backgroundColor: colors.bg.surface,
   },
   addRowPressed: {
-    backgroundColor: ui.surfaceHover,
+    opacity: 0.82,
   },
   addRowText: {
     fontSize: 13,
@@ -554,7 +602,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: tokens.typography.size.sm,
-    color: colors.text.secondary,
     paddingHorizontal: tokens.spacing.lg,
     paddingVertical: tokens.spacing.lg,
   },

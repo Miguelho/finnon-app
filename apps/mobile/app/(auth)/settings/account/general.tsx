@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -216,25 +217,50 @@ export default function AccountGeneralSettingsScreen() {
       ]}
     >
       <View style={styles.pageHeader}>
-        <Text style={styles.pageSubtitle}>
+        <Text style={[styles.pageSubtitle, { color: userThemeTokens.textSecondary }]}>
           {t(dictionary, "accountSettings.general.subtitle")}
         </Text>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t(dictionary, "account.title")}</Text>
-        <View style={styles.formCard}>
-          <View style={styles.formRow}>
-            <Text style={styles.formLabel}>{t(dictionary, "common.iconLabel")}</Text>
+        <Text style={[styles.sectionTitle, { color: userThemeTokens.textPrimary }]}>
+          {t(dictionary, "account.title")}
+        </Text>
+        <View
+          style={[
+            styles.formCard,
+            {
+              backgroundColor: userThemeTokens.surface,
+              borderColor: userThemeTokens.border,
+              overflow: Platform.OS === "android" ? "visible" : "hidden",
+            },
+          ]}
+        >
+          <View style={[styles.formRow, { borderBottomColor: userThemeTokens.border }]}>
+            <Text style={[styles.formLabel, { color: userThemeTokens.textSecondary }]}>
+              {t(dictionary, "common.iconLabel")}
+            </Text>
             <View style={styles.formControl}>
-              <View style={styles.iconPreview}>
-                <Text style={styles.iconText}>{accountIcon}</Text>
+              <View
+                style={[
+                  styles.iconPreview,
+                  {
+                    borderColor: userThemeTokens.border,
+                    backgroundColor: userThemeTokens.surfaceAlt,
+                  },
+                ]}
+              >
+                <Text style={[styles.iconText, { color: userThemeTokens.textPrimary }]}>
+                  {accountIcon}
+                </Text>
               </View>
             </View>
           </View>
 
-          <View style={styles.formRow}>
-            <Text style={styles.formLabel}>{t(dictionary, "common.nameLabel")}</Text>
+          <View style={[styles.formRow, { borderBottomColor: userThemeTokens.border }]}>
+            <Text style={[styles.formLabel, { color: userThemeTokens.textSecondary }]}>
+              {t(dictionary, "common.nameLabel")}
+            </Text>
             <View style={styles.formControl}>
               <TextInput
                 value={name}
@@ -242,20 +268,39 @@ export default function AccountGeneralSettingsScreen() {
                 editable={canEdit && !isSaving}
                 style={[
                   styles.textInput,
+                  {
+                    borderColor: userThemeTokens.border,
+                    backgroundColor: userThemeTokens.surfaceAlt,
+                    color: userThemeTokens.textPrimary,
+                  },
                   (!canEdit || isSaving) && styles.inputDisabled,
                 ]}
                 placeholder={t(dictionary, "common.nameLabel")}
+                placeholderTextColor={userThemeTokens.textSecondary}
                 maxLength={80}
               />
             </View>
           </View>
 
-          <View style={[styles.formRow, styles.formRowLast]}>
-            <Text style={styles.formLabel}>{t(dictionary, "common.currencyLabel")}</Text>
+          <View
+            style={[
+              styles.formRow,
+              styles.formRowLast,
+              Platform.OS === "android" && styles.formRowPicker,
+            ]}
+          >
+            <Text style={[styles.formLabel, { color: userThemeTokens.textSecondary }]}>
+              {t(dictionary, "common.currencyLabel")}
+            </Text>
             <View style={styles.formControl}>
               <View
                 style={[
                   styles.pickerWrapper,
+                  {
+                    borderColor: userThemeTokens.border,
+                    backgroundColor: userThemeTokens.surfaceAlt,
+                    overflow: Platform.OS === "ios" ? "hidden" : "visible",
+                  },
                   (!canEdit || isSaving) && styles.inputDisabled,
                 ]}
               >
@@ -263,7 +308,8 @@ export default function AccountGeneralSettingsScreen() {
                   selectedValue={currency}
                   onValueChange={(value) => setCurrency(String(value))}
                   enabled={canEdit && !isSaving}
-                  style={styles.picker}
+                  style={[styles.picker, { color: userThemeTokens.textPrimary }]}
+                  dropdownIconColor={userThemeTokens.textSecondary}
                 >
                   {CURRENCIES.map((option) => (
                     <Picker.Item
@@ -287,6 +333,7 @@ export default function AccountGeneralSettingsScreen() {
             style={[
               styles.saveButton,
               { backgroundColor: primaryActionColor },
+              { borderColor: userThemeTokens.border },
               (!canEdit || isSaving || !hasChanges) && styles.saveButtonDisabled,
             ]}
           >
@@ -298,23 +345,36 @@ export default function AccountGeneralSettingsScreen() {
           </Pressable>
 
           {!canEdit ? (
-            <Text style={styles.readOnlyHint}>{t(dictionary, "categories.readOnlyNotice")}</Text>
+            <Text style={[styles.readOnlyHint, { color: userThemeTokens.textSecondary }]}>
+              {t(dictionary, "categories.readOnlyNotice")}
+            </Text>
           ) : null}
         </View>
       </View>
 
-      <View style={styles.dangerSection}>
+      <View style={[styles.dangerSection, { borderTopColor: userThemeTokens.border }]}>
         <Text style={styles.dangerTitle}>{t(dictionary, "accountSettings.general.dangerTitle")}</Text>
-        <View style={styles.dangerCard}>
+        <View
+          style={[
+            styles.dangerCard,
+            {
+              borderColor: userThemeTokens.border,
+              backgroundColor: userThemeTokens.surface,
+            },
+          ]}
+        >
           <View style={styles.dangerInfo}>
-            <Text style={styles.dangerActionTitle}>
+            <Text style={[styles.dangerActionTitle, { color: userThemeTokens.textPrimary }]}>
               {t(dictionary, "accountSettings.general.deleteTitle")}
             </Text>
-            <Text style={styles.dangerDescription}>
+            <Text style={[styles.dangerDescription, { color: userThemeTokens.textSecondary }]}>
               {t(dictionary, "accountSettings.general.deleteDescription")}
             </Text>
           </View>
-          <Pressable disabled style={styles.dangerButton}>
+          <Pressable
+            disabled
+            style={[styles.dangerButton, { borderColor: userThemeTokens.border }]}
+          >
             <Text style={styles.dangerButtonText}>{t(dictionary, "common.delete")}</Text>
           </Pressable>
         </View>
@@ -358,7 +418,6 @@ const styles = StyleSheet.create({
   },
   pageSubtitle: {
     fontSize: tokens.typography.size.sm,
-    color: colors.text.muted,
   },
   section: {
     marginBottom: tokens.spacing.xxl,
@@ -366,13 +425,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
     marginBottom: tokens.spacing.md,
   },
   formCard: {
-    backgroundColor: colors.bg.surface,
     borderWidth: 1,
-    borderColor: colors.state.neutral,
     borderRadius: tokens.radii.lg,
     overflow: "hidden",
   },
@@ -383,16 +439,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.spacing.lg,
     paddingVertical: tokens.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#EEF0F4",
   },
   formRowLast: {
     borderBottomWidth: 0,
+  },
+  formRowPicker: {
+    zIndex: 20,
+    elevation: 20,
   },
   formLabel: {
     width: 118,
     fontSize: 13,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.text.secondary,
   },
   formControl: {
     flex: 1,
@@ -402,8 +460,6 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: tokens.radii.sm,
     borderWidth: 1,
-    borderColor: colors.state.neutral,
-    backgroundColor: colors.bg.secondary,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -412,24 +468,19 @@ const styles = StyleSheet.create({
   },
   textInput: {
     borderWidth: 1,
-    borderColor: colors.state.neutral,
     borderRadius: tokens.radii.sm,
-    backgroundColor: colors.bg.secondary,
-    color: colors.text.primary,
     fontSize: tokens.typography.size.sm,
     paddingHorizontal: tokens.spacing.md,
     paddingVertical: 10,
   },
   pickerWrapper: {
     borderWidth: 1,
-    borderColor: colors.state.neutral,
     borderRadius: tokens.radii.sm,
-    backgroundColor: colors.bg.secondary,
-    overflow: "hidden",
+    minHeight: 52,
+    justifyContent: "center",
   },
   picker: {
-    color: colors.text.primary,
-    height: 44,
+    height: 52,
   },
   inputDisabled: {
     opacity: 0.65,
@@ -439,6 +490,7 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.sm,
   },
   saveButton: {
+    borderWidth: 1,
     borderRadius: tokens.radii.sm,
     alignItems: "center",
     justifyContent: "center",
@@ -456,11 +508,9 @@ const styles = StyleSheet.create({
   },
   readOnlyHint: {
     fontSize: tokens.typography.size.xs,
-    color: colors.text.secondary,
   },
   dangerSection: {
     borderTopWidth: 1,
-    borderTopColor: colors.state.neutral,
     paddingTop: tokens.spacing.xl,
   },
   dangerTitle: {
@@ -473,9 +523,7 @@ const styles = StyleSheet.create({
   },
   dangerCard: {
     borderWidth: 1,
-    borderColor: colors.state.neutral,
     borderRadius: tokens.radii.lg,
-    backgroundColor: colors.bg.surface,
     padding: tokens.spacing.lg,
     gap: tokens.spacing.md,
   },
@@ -485,15 +533,12 @@ const styles = StyleSheet.create({
   dangerActionTitle: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
   },
   dangerDescription: {
     fontSize: tokens.typography.size.xs,
-    color: colors.text.muted,
   },
   dangerButton: {
     borderWidth: 1,
-    borderColor: "#F3C6BD",
     borderRadius: tokens.radii.sm,
     paddingHorizontal: tokens.spacing.lg,
     paddingVertical: 8,

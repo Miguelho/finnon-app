@@ -23,6 +23,7 @@ import {
   type UserAvatarColorId,
 } from "@poleursus/shared";
 import { useAuth } from "../../contexts/AuthContext";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 import { useCopy, t } from "../../lib/i18n";
 import { supabase } from "../../lib/supabase";
 import { SettingsRow } from "../SettingsRow";
@@ -41,6 +42,7 @@ const colors = tokens.colors;
 
 export function SettingsDrawerContent(props: DrawerContentComponentProps) {
   const { user, clearSelectedAccount, selectedAccountId } = useAuth();
+  const { tokens: userTokens } = useUserTheme();
   const { dictionary } = useCopy();
   const router = useRouter();
   const pathname = usePathname();
@@ -198,7 +200,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
   return (
     <DrawerContentScrollView
       {...props}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: userTokens.surface }]}
       contentContainerStyle={[
         styles.content,
         {
@@ -221,9 +223,13 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
           />
           <View style={styles.profileText}>
             {userDetails?.displayName ? (
-              <Text style={styles.profileName}>{userDetails.displayName}</Text>
+              <Text style={[styles.profileName, { color: userTokens.textPrimary }]}>
+                {userDetails.displayName}
+              </Text>
             ) : null}
-            <Text style={styles.profileEmail}>{email}</Text>
+            <Text style={[styles.profileEmail, { color: userTokens.textSecondary }]}>
+              {email}
+            </Text>
           </View>
         </View>
         <TouchableOpacity
@@ -233,14 +239,20 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
           hitSlop={8}
           style={styles.closeButton}
         >
-          <MaterialCommunityIcons name="close" size={20} color={colors.text.secondary} />
+          <MaterialCommunityIcons
+            name="close"
+            size={20}
+            color={userTokens.textSecondary}
+          />
         </TouchableOpacity>
       </View>
 
       {viewModel.sections.map((section) => (
         <View key={section.id} style={styles.section}>
-          <Text style={styles.sectionTitle}>{section.title}</Text>
-          <View style={styles.sectionContent}>
+          <Text style={[styles.sectionTitle, { color: userTokens.textTertiary }]}>
+            {section.title}
+          </Text>
+          <View style={[styles.sectionContent, { borderTopColor: userTokens.border }]}>
             {section.items.map((item) => (
               <SettingsRow
                 key={item.id}
@@ -259,7 +271,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
       ))}
 
       <View style={styles.signOutSection}>
-        <View style={styles.signOutDivider} />
+        <View style={[styles.signOutDivider, { backgroundColor: userTokens.border }]} />
         <TouchableOpacity
           style={styles.signOutRow}
           onPress={handleSignOut}
@@ -271,11 +283,13 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
             <Text style={styles.signOutTitle}>
               {t(dictionary, "settings.signOut.label")}
             </Text>
-            <Text style={styles.signOutDescription}>
+            <Text
+              style={[styles.signOutDescription, { color: userTokens.textSecondary }]}
+            >
               {t(dictionary, "settings.signOut.description")}
             </Text>
           </View>
-          <Text style={styles.signOutChevron}>›</Text>
+          <Text style={[styles.signOutChevron, { color: userTokens.textTertiary }]}>›</Text>
         </TouchableOpacity>
       </View>
     </DrawerContentScrollView>
@@ -283,9 +297,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.bg.surface,
-  },
+  container: {},
   content: {
     gap: tokens.spacing.lg,
   },
@@ -309,11 +321,9 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: tokens.typography.size.md,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
   },
   profileEmail: {
     fontSize: tokens.typography.size.sm,
-    color: colors.text.secondary,
   },
   closeButton: {
     padding: tokens.spacing.xs,
@@ -325,21 +335,18 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: tokens.typography.size.xs,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.muted,
     textTransform: "uppercase",
     letterSpacing: 0.5,
     paddingHorizontal: tokens.spacing.lg,
   },
   sectionContent: {
     borderTopWidth: 1,
-    borderTopColor: colors.state.neutral,
   },
   signOutSection: {
     marginTop: tokens.spacing.md,
   },
   signOutDivider: {
     height: 1,
-    backgroundColor: colors.state.neutral,
     marginBottom: tokens.spacing.md,
     marginHorizontal: tokens.spacing.lg,
   },
@@ -360,12 +367,10 @@ const styles = StyleSheet.create({
   },
   signOutDescription: {
     fontSize: tokens.typography.size.sm,
-    color: colors.text.secondary,
     marginTop: tokens.spacing.xs,
   },
   signOutChevron: {
     fontSize: tokens.typography.size.xl,
-    color: colors.text.muted,
     marginLeft: tokens.spacing.md,
   },
 });

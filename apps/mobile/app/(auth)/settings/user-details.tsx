@@ -753,10 +753,7 @@ export default function UserProfileScreen() {
         </Text>
 
         <View style={styles.languageList}>
-          {([
-            { code: "es", flag: "🇪🇸" },
-            { code: "en", flag: "🇬🇧" },
-          ] as const).map((item) => {
+          {([{ code: "es" }, { code: "en" }] as const).map((item) => {
             const selected = profile.locale === item.code;
 
             return (
@@ -774,7 +771,6 @@ export default function UserProfileScreen() {
                   },
                 ]}
               >
-                <Text style={styles.languageFlag}>{item.flag}</Text>
                 <Text style={[styles.languageLabel, { color: activeTheme.textPrimary }]}>
                   {t(dictionary, `settings.language.options.${item.code}` as any)}
                 </Text>
@@ -1063,17 +1059,12 @@ const styles = StyleSheet.create({
   languageOption: {
     flexDirection: "row",
     alignItems: "center",
-    gap: tokens.spacing.sm,
+    gap: tokens.spacing.xs,
     borderRadius: tokens.radii.sm,
     borderWidth: 1.5,
     borderColor: "transparent",
     paddingHorizontal: tokens.spacing.sm,
     paddingVertical: tokens.spacing.sm,
-  },
-  languageFlag: {
-    fontSize: 18,
-    width: 24,
-    textAlign: "center",
   },
   languageLabel: {
     fontSize: tokens.typography.size.sm,

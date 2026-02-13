@@ -707,7 +707,7 @@ export default function HomeScreen() {
 
     upcomingTransactions.forEach((tx) => {
       const dateKey = toDateKey(tx.date as string);
-      if (!dateKey || dateKey <= todayKey) return;
+      if (!dateKey || dateKey < todayKey) return;
       items.push({
         id: tx.id,
         name:
@@ -723,7 +723,7 @@ export default function HomeScreen() {
     obligations.forEach((obligation) => {
       if (!obligation.due_date || obligation.status === "paid") return;
       const dateKey = toDateKey(obligation.due_date as string);
-      if (!dateKey || dateKey <= todayKey) return;
+      if (!dateKey || dateKey < todayKey) return;
       items.push({
         id: `obligation-${obligation.id}`,
         name: obligation.name,
@@ -871,7 +871,7 @@ export default function HomeScreen() {
           <EmptyStateCard
             icon={
               <MaterialCommunityIcons
-                name="target"
+                name="bullseye"
                 size={22}
                 color={userThemeTokens.textSecondary}
               />

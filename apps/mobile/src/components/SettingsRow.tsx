@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { themeTokens } from "@poleursus/shared";
+import { useUserTheme } from "../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
 
@@ -19,26 +20,51 @@ export function SettingsRow({
   iconName,
   isActive = false,
 }: SettingsRowProps) {
+  const { tokens: userTokens } = useUserTheme();
+
   return (
     <TouchableOpacity
-      style={[styles.row, isActive && styles.rowActive]}
+      style={[
+        styles.row,
+        {
+          backgroundColor: isActive ? userTokens.surfaceAlt : userTokens.surface,
+          borderBottomColor: userTokens.border,
+        },
+      ]}
       onPress={onPress}
       activeOpacity={0.7}
     >
       {iconName ? (
-        <View style={[styles.iconWrapper, isActive && styles.iconWrapperActive]}>
+        <View
+          style={[
+            styles.iconWrapper,
+            {
+              backgroundColor: isActive ? userTokens.surface : userTokens.surfaceAlt,
+            },
+          ]}
+        >
           <MaterialCommunityIcons
             name={iconName}
             size={18}
-            color={isActive ? tokens.colors.text.primary : tokens.colors.text.secondary}
+            color={isActive ? userTokens.textPrimary : userTokens.textSecondary}
           />
         </View>
       ) : null}
       <View style={styles.content}>
-        <Text style={[styles.title, isActive && styles.titleActive]}>{title}</Text>
-        <Text style={styles.description}>{description}</Text>
+        <Text
+          style={[
+            styles.title,
+            { color: userTokens.textPrimary },
+            isActive && styles.titleActive,
+          ]}
+        >
+          {title}
+        </Text>
+        <Text style={[styles.description, { color: userTokens.textSecondary }]}>
+          {description}
+        </Text>
       </View>
-      <Text style={styles.chevron}>›</Text>
+      <Text style={[styles.chevron, { color: userTokens.textTertiary }]}>›</Text>
     </TouchableOpacity>
   );
 }
@@ -49,12 +75,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: tokens.spacing.md,
     paddingHorizontal: tokens.spacing.lg,
-    backgroundColor: tokens.colors.bg.surface,
     borderBottomWidth: 1,
-    borderBottomColor: tokens.colors.state.neutral,
-  },
-  rowActive: {
-    backgroundColor: tokens.colors.bg.secondary,
   },
   iconWrapper: {
     width: 32,
@@ -63,10 +84,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: tokens.spacing.sm,
-    backgroundColor: tokens.colors.bg.surface,
-  },
-  iconWrapperActive: {
-    backgroundColor: tokens.colors.bg.primary,
   },
   content: {
     flex: 1,
@@ -74,7 +91,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: tokens.typography.size.md,
     fontWeight: tokens.typography.weight.medium,
-    color: tokens.colors.text.primary,
     marginBottom: tokens.spacing.xs,
   },
   titleActive: {
@@ -82,11 +98,9 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: tokens.typography.size.sm,
-    color: tokens.colors.text.secondary,
   },
   chevron: {
     fontSize: tokens.typography.size.xl,
-    color: tokens.colors.text.muted,
     marginLeft: tokens.spacing.md,
   },
 });

@@ -206,6 +206,8 @@ export default function EditRecurringScreen(): React.JSX.Element {
   const screenTitle = t(dictionary, "recurrentes.edit");
   const screenOptions = {
     title: screenTitle,
+    headerStyle: { backgroundColor: userThemeTokens.background },
+    headerTitleStyle: { color: userThemeTokens.textPrimary },
     headerLeft: () => (
       <TouchableOpacity
         onPress={handleBack}
@@ -217,7 +219,7 @@ export default function EditRecurringScreen(): React.JSX.Element {
         <MaterialCommunityIcons
           name="arrow-left"
           size={22}
-          color={colors.text.primary}
+          color={userThemeTokens.textPrimary}
         />
       </TouchableOpacity>
     ),

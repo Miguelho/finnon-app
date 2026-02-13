@@ -106,7 +106,15 @@ export function Calendar({
     tokens: userTokens,
     primaryActionColor,
     primaryActionTextColor,
+    resolvedMode,
   } = useUserTheme();
+  const modeColors = themeTokens[resolvedMode].colors;
+  const incomeColor = modeColors.state.positive;
+  const expenseColor = modeColors.state.negative;
+  const incomeIconBg = withAlpha(incomeColor, resolvedMode === "dark" ? 0.28 : 0.15);
+  const expenseIconBg = withAlpha(expenseColor, resolvedMode === "dark" ? 0.28 : 0.15);
+  const incomeIconBorder = withAlpha(incomeColor, resolvedMode === "dark" ? 0.5 : 0.32);
+  const expenseIconBorder = withAlpha(expenseColor, resolvedMode === "dark" ? 0.5 : 0.32);
   const isWeek = view === "week";
   const selectedKey = selectedDay?.dateKey ?? "";
   const data = isWeek ? weekData : monthData;
@@ -336,6 +344,12 @@ export function Calendar({
           userTextPrimary={userTokens.textPrimary}
           userTextSecondary={userTokens.textSecondary}
           userBorder={userTokens.border}
+          incomeColor={incomeColor}
+          expenseColor={expenseColor}
+          incomeIconBg={incomeIconBg}
+          expenseIconBg={expenseIconBg}
+          incomeIconBorder={incomeIconBorder}
+          expenseIconBorder={expenseIconBorder}
         />
       )}
     </View>
@@ -350,6 +364,12 @@ type DayDetailProps = {
   userTextPrimary: string;
   userTextSecondary: string;
   userBorder: string;
+  incomeColor: string;
+  expenseColor: string;
+  incomeIconBg: string;
+  expenseIconBg: string;
+  incomeIconBorder: string;
+  expenseIconBorder: string;
 };
 
 function DayDetail({
@@ -360,6 +380,12 @@ function DayDetail({
   userTextPrimary,
   userTextSecondary,
   userBorder,
+  incomeColor,
+  expenseColor,
+  incomeIconBg,
+  expenseIconBg,
+  incomeIconBorder,
+  expenseIconBorder,
 }: DayDetailProps) {
   return (
     <View style={[styles.dayDetail, { borderTopColor: userBorder }]}>
@@ -376,6 +402,12 @@ function DayDetail({
             userTextPrimary={userTextPrimary}
             userTextSecondary={userTextSecondary}
             userBorder={userBorder}
+            incomeColor={incomeColor}
+            expenseColor={expenseColor}
+            incomeIconBg={incomeIconBg}
+            expenseIconBg={expenseIconBg}
+            incomeIconBorder={incomeIconBorder}
+            expenseIconBorder={expenseIconBorder}
           />
         ))
       ) : (
@@ -394,6 +426,12 @@ type MovementRowProps = {
   userTextPrimary: string;
   userTextSecondary: string;
   userBorder: string;
+  incomeColor: string;
+  expenseColor: string;
+  incomeIconBg: string;
+  expenseIconBg: string;
+  incomeIconBorder: string;
+  expenseIconBorder: string;
 };
 
 function MovementRow({
@@ -403,6 +441,12 @@ function MovementRow({
   userTextPrimary,
   userTextSecondary,
   userBorder,
+  incomeColor,
+  expenseColor,
+  incomeIconBg,
+  expenseIconBg,
+  incomeIconBorder,
+  expenseIconBorder,
 }: MovementRowProps) {
   const isIncome = movement.type === "income";
   const { integer, decimals } = formatCurrencyParts(
@@ -416,10 +460,18 @@ function MovementRow({
         <View
           style={[
             styles.movementIcon,
-            isIncome ? styles.movementIconIncome : styles.movementIconExpense,
+            {
+              backgroundColor: isIncome ? incomeIconBg : expenseIconBg,
+              borderColor: isIncome ? incomeIconBorder : expenseIconBorder,
+            },
           ]}
         >
-          <Text style={[styles.movementIconText, { color: userTextPrimary }]}>
+          <Text
+            style={[
+              styles.movementIconText,
+              { color: isIncome ? incomeColor : expenseColor },
+            ]}
+          >
             {isIncome ? "↑" : "↓"}
           </Text>
         </View>
@@ -654,19 +706,14 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
     marginRight: tokens.spacing.sm,
   },
-  movementIconIncome: {
-    backgroundColor: "#F0FDF4",
-  },
-  movementIconExpense: {
-    backgroundColor: "#FEF2F2",
-  },
   movementIconText: {
     fontSize: 16,
-    color: colors.text.primary,
+    fontFamily: "DMSans-SemiBold",
   },
   movementText: {
     flex: 1,

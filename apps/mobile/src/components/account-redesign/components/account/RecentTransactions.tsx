@@ -1,10 +1,28 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { CategoryIcon } from '../../../CategoryIcon';
 import { colors, typography, spacing, radii } from '../../theme/tokens';
+import { themeTokens } from '@poleursus/shared';
 import { formatCurrency } from '../../utils/currency';
 import type { Transaction } from '../../types/account';
 import { useUserTheme } from '../../../../contexts/UserThemeContext';
 import { useCopy, t } from '../../../../lib/i18n';
+
+function withAlpha(hexColor: string, alpha: number) {
+  const normalized = hexColor.replace("#", "");
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((chunk) => chunk + chunk)
+          .join("")
+      : normalized;
+  if (expanded.length !== 6) return hexColor;
+  const red = parseInt(expanded.slice(0, 2), 16);
+  const green = parseInt(expanded.slice(2, 4), 16);
+  const blue = parseInt(expanded.slice(4, 6), 16);
+  if ([red, green, blue].some((value) => Number.isNaN(value))) return hexColor;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
 
 interface RecentTransactionsProps {
   transactions: Transaction[];
@@ -22,7 +40,8 @@ export function RecentTransactions({
   onViewAllPress,
 }: RecentTransactionsProps) {
   const { dictionary, locale } = useCopy();
-  const { tokens: userTokens, primaryActionColor } = useUserTheme();
+  const { tokens: userTokens, primaryActionColor, resolvedMode } = useUserTheme();
+  const modeColors = themeTokens[resolvedMode].colors;
   const visible = transactions.slice(0, limit);
 
   // Formatear fecha relativa sencilla
@@ -66,8 +85,11 @@ export function RecentTransactions({
             decimals: currencyDecimals,
           });
           const isIncome = tx.amount > 0;
-          const iconBg = isIncome ? colors.incomeBg : colors.expenseBg;
-          const iconBorder = isIncome ? colors.incomeLight : colors.expenseLight;
+          const toneColor = isIncome
+            ? modeColors.state.positive
+            : modeColors.state.negative;
+          const iconBg = withAlpha(toneColor, resolvedMode === "dark" ? 0.28 : 0.18);
+          const iconBorder = withAlpha(toneColor, resolvedMode === "dark" ? 0.55 : 0.34);
 
           return (
             <View
@@ -87,7 +109,7 @@ export function RecentTransactions({
               >
                 <CategoryIcon
                   iconKey={(tx.categoryIconId ?? 'Tag') as any}
-                  size={14}
+                  size={15}
                   tone={isIncome ? 'positive' : 'negative'}
                 />
               </View>

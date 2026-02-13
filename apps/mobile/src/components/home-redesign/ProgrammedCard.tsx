@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: tokens.spacing.sm,
+    paddingVertical: tokens.spacing.sm,
   },
   rowBorder: {
     borderTopWidth: 1,
@@ -150,6 +150,8 @@ const styles = StyleSheet.create({
   },
   rowIconText: {
     fontSize: 16,
+    fontWeight: tokens.typography.weight.bold,
+    lineHeight: 20,
   },
   rowTitle: {
     fontSize: tokens.typography.size.sm,

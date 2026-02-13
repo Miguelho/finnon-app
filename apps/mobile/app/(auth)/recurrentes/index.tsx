@@ -32,7 +32,6 @@ type RecurringItemWithCategory = RecurringItem & {
 };
 
 const tokens = themeTokens.light;
-const colors = tokens.colors;
 const spacing = tokens.spacing;
 const typography = tokens.typography;
 const radii = tokens.radii;
@@ -186,6 +185,8 @@ export default function RecurrentesScreen(): React.JSX.Element {
   const screenTitle = t(dictionary, "recurrentes.title");
   const screenOptions = {
     title: screenTitle,
+    headerStyle: { backgroundColor: userThemeTokens.background },
+    headerTitleStyle: { color: userThemeTokens.textPrimary },
     headerLeft: () => (
       <TouchableOpacity
         onPress={handleBack}
@@ -197,7 +198,7 @@ export default function RecurrentesScreen(): React.JSX.Element {
         <MaterialCommunityIcons
           name="arrow-left"
           size={22}
-          color={colors.text.primary}
+          color={userThemeTokens.textPrimary}
         />
       </TouchableOpacity>
     ),
@@ -240,15 +241,23 @@ export default function RecurrentesScreen(): React.JSX.Element {
         >
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.subtitle, { color: userThemeTokens.textPrimary }]}>
               {t(dictionary, "recurrentes.pageDescription")}
             </Text>
           </View>
 
           {/* List */}
-          <View style={styles.listContainer}>
+          <View
+            style={[
+              styles.listContainer,
+              {
+                backgroundColor: userThemeTokens.surface,
+                borderColor: userThemeTokens.border,
+              },
+            ]}
+          >
             {recurringItems.length === 0 ? (
-              <Text style={styles.emptyText}>
+              <Text style={[styles.emptyText, { color: userThemeTokens.textSecondary }]}>
                 {t(dictionary, "recurrentes.empty")}
               </Text>
             ) : (
@@ -258,7 +267,11 @@ export default function RecurrentesScreen(): React.JSX.Element {
                   return (
                     <View
                       key={item.id}
-                      style={[styles.listRow, isLast && styles.listRowLast]}
+                      style={[
+                        styles.listRow,
+                        { borderBottomColor: userThemeTokens.border },
+                        isLast && styles.listRowLast,
+                      ]}
                     >
                       <RecurringTile
                         recurringItem={item}
@@ -300,28 +313,23 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: typography.size.sm,
-    color: colors.text.secondary,
     marginTop: spacing.xs,
   },
   listContainer: {
-    backgroundColor: colors.bg.primary,
     borderRadius: radii.lg,
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: colors.state.neutral,
   },
   listRow: {
     borderBottomWidth: 1,
-    borderBottomColor: colors.state.neutral,
   },
   listRowLast: {
     borderBottomWidth: 0,
   },
   emptyText: {
     fontSize: typography.size.md,
-    color: colors.text.secondary,
     textAlign: "center",
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.lg,

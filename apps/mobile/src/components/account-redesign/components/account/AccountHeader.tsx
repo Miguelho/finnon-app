@@ -20,8 +20,18 @@ export function AccountHeader({
   return (
     <View style={styles.container}>
       <View style={styles.left}>
-        <View style={[styles.iconContainer, { backgroundColor: userTokens.surfaceAlt }]}>
-          <Text style={styles.icon}>{account.icon}</Text>
+        <View
+          style={[
+            styles.iconContainer,
+            {
+              backgroundColor: userTokens.surfaceAlt,
+              borderColor: userTokens.border,
+            },
+          ]}
+        >
+          <Text style={[styles.icon, { color: userTokens.textPrimary }]}>
+            {account.icon}
+          </Text>
         </View>
         <View>
           <Text style={[styles.name, { color: userTokens.textPrimary }]}>{account.name}</Text>
@@ -85,11 +95,13 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: radii.md,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   icon: {
     fontSize: 16,
+    fontFamily: typography.family.sansBold,
   },
   name: {
     fontFamily: typography.family.sansBold,

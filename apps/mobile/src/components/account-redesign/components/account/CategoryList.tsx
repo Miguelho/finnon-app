@@ -7,6 +7,23 @@ import type { CategorySummary } from '../../types/account';
 import { useUserTheme } from '../../../../contexts/UserThemeContext';
 import { useCopy, t } from '../../../../lib/i18n';
 
+function withAlpha(hexColor: string, alpha: number) {
+  const normalized = hexColor.replace("#", "");
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((chunk) => chunk + chunk)
+          .join("")
+      : normalized;
+  if (expanded.length !== 6) return hexColor;
+  const red = parseInt(expanded.slice(0, 2), 16);
+  const green = parseInt(expanded.slice(2, 4), 16);
+  const blue = parseInt(expanded.slice(4, 6), 16);
+  if ([red, green, blue].some((value) => Number.isNaN(value))) return hexColor;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
 interface CategoryListProps {
   categories: CategorySummary[];
   currencySymbol?: string;
@@ -63,6 +80,8 @@ export function CategoryList({
           const bgColor =
             colors.category[cat.colorKey as keyof typeof colors.category] ??
             colors.category.default;
+          const iconBg = withAlpha(bgColor, 0.36);
+          const iconBorder = withAlpha(bgColor, 0.62);
 
           return (
             <Pressable
@@ -76,11 +95,19 @@ export function CategoryList({
               onPress={() => onCategoryPress?.(cat)}
             >
               {/* Icon */}
-              <View style={[styles.icon, { backgroundColor: bgColor }]}>
+              <View
+                style={[
+                  styles.icon,
+                  {
+                    backgroundColor: iconBg,
+                    borderColor: iconBorder,
+                  },
+                ]}
+              >
                 <CategoryIcon
                   iconKey={(cat.iconId ?? 'Tag') as any}
                   size={16}
-                  tone="primary"
+                  tone="negative"
                 />
               </View>
 
@@ -163,6 +190,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: radii.md,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },

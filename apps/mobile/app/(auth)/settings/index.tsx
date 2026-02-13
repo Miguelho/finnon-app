@@ -4,6 +4,7 @@ import { buildSettingsMenuVM, themeTokens } from "@poleursus/shared";
 import { useCopy } from "../../../src/lib/i18n";
 import { SettingsRow } from "../../../src/components/SettingsRow";
 import { useAuth } from "../../../src/contexts/AuthContext";
+import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
 
@@ -11,6 +12,7 @@ export default function SettingsMenuScreen() {
   const router = useRouter();
   const { dictionary } = useCopy();
   const { selectedAccountId } = useAuth();
+  const { tokens: userTokens } = useUserTheme();
 
   const viewModel = buildSettingsMenuVM(dictionary, "mobile", {
     accountId: selectedAccountId,
@@ -38,15 +40,24 @@ export default function SettingsMenuScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: userTokens.background }]}>
       <View style={styles.header}>
-        <Text style={styles.subtitle}>{viewModel.subtitle}</Text>
+        <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
+          {viewModel.subtitle}
+        </Text>
       </View>
 
       {viewModel.sections.map((section) => (
         <View key={section.id} style={styles.section}>
-          <Text style={styles.sectionTitle}>{section.title}</Text>
-          <View style={styles.sectionContent}>
+          <Text style={[styles.sectionTitle, { color: userTokens.textTertiary }]}>
+            {section.title}
+          </Text>
+          <View
+            style={[
+              styles.sectionContent,
+              { backgroundColor: userTokens.surface, borderTopColor: userTokens.border },
+            ]}
+          >
             {section.items.map((item) => (
               <SettingsRow
                 key={item.id}
@@ -66,7 +77,6 @@ export default function SettingsMenuScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.bg.primary,
   },
   header: {
     paddingHorizontal: tokens.spacing.lg,
@@ -75,7 +85,6 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: tokens.typography.size.sm,
-    color: tokens.colors.text.secondary,
   },
   section: {
     marginTop: tokens.spacing.xl,
@@ -83,15 +92,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: tokens.typography.size.xs,
     fontWeight: tokens.typography.weight.semibold,
-    color: tokens.colors.text.muted,
     textTransform: "uppercase",
     letterSpacing: 0.5,
     paddingHorizontal: tokens.spacing.lg,
     marginBottom: tokens.spacing.sm,
   },
   sectionContent: {
-    backgroundColor: tokens.colors.bg.surface,
     borderTopWidth: 1,
-    borderTopColor: tokens.colors.state.neutral,
   },
 });

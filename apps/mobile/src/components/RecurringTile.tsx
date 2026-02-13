@@ -11,6 +11,7 @@ import {
 } from "@poleursus/shared";
 import { useCopy, t } from "../lib/i18n";
 import { CategoryIcon } from "./CategoryIcon";
+import { useUserTheme } from "../contexts/UserThemeContext";
 
 type Category = {
   id: string;
@@ -31,7 +32,6 @@ type RecurringTileProps = {
 };
 
 const tokens = themeTokens.light;
-const colors = tokens.colors;
 const spacing = tokens.spacing;
 const radii = tokens.radii;
 const typography = tokens.typography;
@@ -65,6 +65,8 @@ export function RecurringTile({
   onEnd,
 }: RecurringTileProps) {
   const { dictionary, locale } = useCopy();
+  const { tokens: userTokens, resolvedMode } = useUserTheme();
+  const modeColors = themeTokens[resolvedMode].colors;
   const { showActionSheetWithOptions } = useActionSheet();
   const styles = densityStyles[density];
   const hasActions = Boolean(onEdit || onPause || onEnd);
@@ -81,8 +83,8 @@ export function RecurringTile({
   const amountValue = formatMinorToMoney(amountMinor, recurringItem.currency);
   const amountColor =
     recurringItem.type === "income"
-      ? colors.state.positive
-      : colors.state.negative;
+      ? modeColors.state.positive
+      : modeColors.state.negative;
 
   const displayName =
     recurringItem.merchant || t(dictionary, "recurrentes.namePlaceholder");
@@ -168,7 +170,10 @@ export function RecurringTile({
       style={({ pressed }) => [
         stylesText.container,
         styles.container,
-        pressed && onPress ? stylesText.pressed : null,
+        {
+          backgroundColor: userTokens.surface,
+        },
+        pressed && onPress ? { backgroundColor: userTokens.surfaceAlt } : null,
         recurringItem.is_paused && stylesText.paused,
       ]}
       accessibilityRole={onPress ? "button" : undefined}
@@ -182,6 +187,7 @@ export function RecurringTile({
               width: styles.badgeSize,
               height: styles.badgeSize,
               borderRadius: styles.badgeRadius,
+              backgroundColor: userTokens.surfaceAlt,
             },
           ]}
         >
@@ -195,13 +201,17 @@ export function RecurringTile({
 
         <View style={stylesText.content}>
           <Text
-            style={stylesText.merchant}
+            style={[stylesText.merchant, { color: userTokens.textPrimary }]}
             numberOfLines={1}
             ellipsizeMode="tail"
           >
             {displayName}
           </Text>
-          <Text style={stylesText.meta} numberOfLines={1} ellipsizeMode="tail">
+          <Text
+            style={[stylesText.meta, { color: userTokens.textSecondary }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {metaParts.join(" · ")}
           </Text>
         </View>
@@ -209,7 +219,7 @@ export function RecurringTile({
 
       <View style={stylesText.trailing}>
         <View style={stylesText.amountRow}>
-          <Text style={stylesText.amountMuted}>
+          <Text style={[stylesText.amountMuted, { color: userTokens.textTertiary }]}>
             {recurringItem.type === "expense" ? "-" : ""}
             {currencySymbol}
           </Text>
@@ -231,7 +241,7 @@ export function RecurringTile({
             <MaterialCommunityIcons
               name="dots-horizontal"
               size={18}
-              color={colors.text.muted}
+              color={userTokens.textSecondary}
             />
           </Pressable>
         )}
@@ -245,10 +255,6 @@ const stylesText = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: colors.bg.primary,
-  },
-  pressed: {
-    backgroundColor: colors.action.secondary,
   },
   paused: {
     opacity: 0.6,
@@ -262,7 +268,6 @@ const stylesText = StyleSheet.create({
   badge: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.bg.secondary,
   },
   content: {
     flex: 1,
@@ -271,12 +276,10 @@ const stylesText = StyleSheet.create({
   merchant: {
     fontSize: typography.size.md,
     fontWeight: typography.weight.semibold,
-    color: colors.text.primary,
   },
   meta: {
     marginTop: spacing.xs,
     fontSize: typography.size.sm,
-    color: colors.text.secondary,
   },
   trailing: {
     alignItems: "flex-end",
@@ -291,7 +294,6 @@ const stylesText = StyleSheet.create({
   amountMuted: {
     fontSize: typography.size.sm,
     fontWeight: typography.weight.medium,
-    color: colors.text.muted,
   },
   amountValue: {
     fontSize: typography.size.md,
