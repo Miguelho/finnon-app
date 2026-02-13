@@ -1,18 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { AddAction } from "@/components/home/add-action";
+import {
+  getAddActionDataSnapshot,
+  loadAddActionData,
+  primeAddActionData,
+  type AddActionCategory,
+  type AddActionDataPayload,
+} from "@/lib/add-action-data-cache";
 import type { TopCategory, MerchantSuggestion } from "@poleursus/shared";
 
-type Category = {
-  id: string;
-  name: string;
-  icon_id: string;
-  type: "income" | "expense";
-};
+type Category = AddActionCategory;
 
 type AddActionTriggerProps = {
   canEdit: boolean;
@@ -21,6 +23,13 @@ type AddActionTriggerProps = {
   locale: string;
   variant?: "top-nav" | "bottom-nav";
 };
+
+function upsertCategory(items: Category[], category: Category) {
+  if (items.some((item) => item.id === category.id)) {
+    return items;
+  }
+  return [...items, category].sort((a, b) => a.name.localeCompare(b.name));
+}
 
 export function AddActionTrigger({
   canEdit,
@@ -41,63 +50,139 @@ export function AddActionTrigger({
   }>({ expense: [], income: [] });
   const [isLoading, setIsLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const currentAccountIdRef = useRef(accountId);
 
   useEffect(() => {
+    currentAccountIdRef.current = accountId;
+  }, [accountId]);
+
+  const applyPayload = useCallback((payload: AddActionDataPayload) => {
+    setCategories(payload.categories ?? []);
+    setTopCategories(payload.topCategories ?? { expense: [], income: [] });
+    setMerchantSuggestions(
+      payload.merchantSuggestions ?? { expense: [], income: [] }
+    );
+    setHasLoaded(true);
+  }, []);
+
+  const loadData = useCallback(
+    async ({
+      force = false,
+      blocking = true,
+      showErrorToast = true,
+    }: {
+      force?: boolean;
+      blocking?: boolean;
+      showErrorToast?: boolean;
+    } = {}) => {
+      if (!accountId) return false;
+
+      if (blocking) setIsLoading(true);
+      try {
+        const payload = await loadAddActionData(accountId, { force });
+        if (currentAccountIdRef.current !== accountId) {
+          return false;
+        }
+        applyPayload(payload);
+        return true;
+      } catch (error) {
+        console.error("[AddActionTrigger] Error loading add data:", error);
+        if (showErrorToast) {
+          toast.error(t("common.errorTitle"));
+        }
+        return false;
+      } finally {
+        if (blocking) setIsLoading(false);
+      }
+    },
+    [accountId, applyPayload, t]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
     setCategories([]);
     setTopCategories({ expense: [], income: [] });
     setMerchantSuggestions({ expense: [], income: [] });
     setHasLoaded(false);
-  }, [accountId]);
 
-  const loadData = useCallback(async () => {
-    if (!accountId || isLoading || hasLoaded) return hasLoaded;
+    if (!accountId) return;
 
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        `/api/add-action-data?accountId=${encodeURIComponent(accountId)}`,
-        { cache: "no-store" }
-      );
-      if (!response.ok) {
-        throw new Error("Failed to load add action data");
-      }
+    const snapshot = getAddActionDataSnapshot(accountId);
+    if (snapshot.payload) {
+      applyPayload(snapshot.payload);
+    }
 
-      const payload = (await response.json()) as {
-        categories?: Category[];
-        topCategories?: {
-          expense: TopCategory[];
-          income: TopCategory[];
-        };
-        merchantSuggestions?: {
-          expense: MerchantSuggestion[];
-          income: MerchantSuggestion[];
-        };
+    if (canEdit && snapshot.payload && snapshot.isStale) {
+      void (async () => {
+        try {
+          const payload = await loadAddActionData(accountId, { force: true });
+          if (cancelled) return;
+          applyPayload(payload);
+        } catch (error) {
+          console.warn(
+            "[AddActionTrigger] Background refresh failed for add data:",
+            error
+          );
+        }
+      })();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, applyPayload, canEdit]);
+
+  const handleCategoryCreated = useCallback(
+    (created: Category) => {
+      setCategories((prev) => upsertCategory(prev, created));
+      setHasLoaded(true);
+
+      const snapshot = getAddActionDataSnapshot(accountId);
+      const payload = snapshot.payload ?? {
+        categories,
+        topCategories,
+        merchantSuggestions,
       };
 
-      setCategories(payload.categories ?? []);
-      setTopCategories(
-        payload.topCategories ?? { expense: [], income: [] }
-      );
-      setMerchantSuggestions(
-        payload.merchantSuggestions ?? { expense: [], income: [] }
-      );
-      setHasLoaded(true);
-      return true;
-    } catch (error) {
-      console.error("[AddActionTrigger] Error loading add data:", error);
-      toast.error(t("common.errorTitle"));
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [accountId, hasLoaded, isLoading, t]);
+      primeAddActionData(accountId, {
+        ...payload,
+        categories: upsertCategory(payload.categories, created),
+      });
+    },
+    [accountId, categories, merchantSuggestions, topCategories]
+  );
 
   const handleOpen = async (open: () => void) => {
     if (isLoading) return;
-    if (canEdit && !hasLoaded) {
-      const ok = await loadData();
-      if (!ok) return;
+
+    if (!canEdit) {
+      open();
+      return;
     }
+
+    const snapshot = getAddActionDataSnapshot(accountId);
+    if (hasLoaded || snapshot.payload) {
+      if (snapshot.payload && !hasLoaded) {
+        applyPayload(snapshot.payload);
+      }
+      open();
+
+      if (snapshot.payload && snapshot.isStale) {
+        void loadData({
+          force: true,
+          blocking: false,
+          showErrorToast: false,
+        });
+      }
+      return;
+    }
+
+    const ok = await loadData({
+      blocking: true,
+      showErrorToast: true,
+    });
+    if (!ok) return;
     open();
   };
 
@@ -116,15 +201,23 @@ export function AddActionTrigger({
       categories={categories}
       topCategories={topCategories}
       merchantSuggestions={merchantSuggestions}
+      onCategoryCreated={handleCategoryCreated}
       renderTrigger={(open) => (
         <button
           type="button"
           onClick={() => void handleOpen(open)}
           className={triggerClassName}
           aria-label={label}
+          aria-busy={isLoading}
           disabled={isLoading}
         >
-          <Plus className={variant === "bottom-nav" ? "h-5 w-5" : "h-4 w-4"} />
+          {isLoading ? (
+            <Loader2
+              className={`${variant === "bottom-nav" ? "h-5 w-5" : "h-4 w-4"} animate-spin`}
+            />
+          ) : (
+            <Plus className={variant === "bottom-nav" ? "h-5 w-5" : "h-4 w-4"} />
+          )}
           {variant === "top-nav" && (
             <span className="hidden sm:inline">{label}</span>
           )}

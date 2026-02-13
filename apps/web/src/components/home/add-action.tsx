@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AddMenuItem } from "@/components/home/AddMenuItem";
 import { AddTransactionForm } from "@/components/add-transaction";
 import { CategoryFormPanel } from "@/components/categories/category-form-panel";
+import type { AddActionCategory } from "@/lib/add-action-data-cache";
 import { createCategory } from "@/app/categories/actions";
 import { createRecurringItem } from "@/app/transactions/actions";
 import {
@@ -41,12 +42,7 @@ import {
   type TransactionType,
 } from "@poleursus/shared";
 
-type Category = {
-  id: string;
-  name: string;
-  icon_id: string;
-  type: "income" | "expense";
-};
+type Category = AddActionCategory;
 
 type AddActionProps = {
   canEdit: boolean;
@@ -62,6 +58,7 @@ type AddActionProps = {
     expense: MerchantSuggestion[];
     income: MerchantSuggestion[];
   };
+  onCategoryCreated?: (category: Category) => void;
   renderTrigger?: (open: () => void) => React.ReactNode;
 };
 
@@ -73,6 +70,7 @@ export function AddAction({
   categories = [],
   topCategories = { expense: [], income: [] },
   merchantSuggestions = { expense: [], income: [] },
+  onCategoryCreated,
   renderTrigger,
 }: AddActionProps) {
   const router = useRouter();
@@ -196,13 +194,14 @@ export function AddAction({
       });
 
       if (result.success && result.data) {
+        const created = result.data as Category;
         setAvailableCategories((prev) => {
-          const created = result.data as Category;
           if (prev.some((category) => category.id === created.id)) {
             return prev;
           }
           return [...prev, created];
         });
+        onCategoryCreated?.(created);
         setIsCategoryOpen(false);
         resetCategoryForm();
         router.refresh();
