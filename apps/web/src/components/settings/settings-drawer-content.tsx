@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronRight, Globe, Settings, Tags, UserRound, Users } from "lucide-react";
-import type { AvatarColorToken, SettingsMenuVM } from "@poleursus/shared";
+import type {
+  AvatarColorToken,
+  SettingsMenuVM,
+  UserAvatarColorId,
+} from "@poleursus/shared";
 import { UserAvatar } from "@/components/user-avatar";
 import { UserSignOutRow } from "@/components/settings/user-signout";
 
@@ -14,6 +18,7 @@ type SettingsDrawerProfile = {
   avatarPath?: string | null;
   fallbackText?: string | null;
   fallbackBgToken?: AvatarColorToken | null;
+  avatarColor?: UserAvatarColorId | null;
 };
 
 type SettingsDrawerContentProps = {
@@ -71,6 +76,7 @@ export function SettingsDrawerContent({
                       avatarPath={profile.avatarPath}
                       fallbackText={profile.fallbackText}
                       fallbackBgToken={profile.fallbackBgToken}
+                      avatarColor={profile.avatarColor}
                       size={52}
                       label={primaryLabel}
                     />

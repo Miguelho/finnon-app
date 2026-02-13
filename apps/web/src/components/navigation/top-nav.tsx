@@ -14,6 +14,7 @@ import {
   navigationItems,
   t,
   type AvatarColorToken,
+  type UserAvatarColorId,
 } from "@poleursus/shared";
 import { Plus } from "lucide-react";
 
@@ -64,7 +65,7 @@ export async function TopNav({ containerClassName }: TopNavProps) {
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token"
+      "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
     )
     .eq("user_id", user.id)
     .maybeSingle();
@@ -179,6 +180,7 @@ export async function TopNav({ containerClassName }: TopNavProps) {
     fallbackText: profile?.avatar_fallback_text ?? null,
     fallbackBgToken:
       (profile?.avatar_fallback_bg_token as AvatarColorToken | null) ?? null,
+    avatarColor: (profile?.avatar_color as UserAvatarColorId | null) ?? null,
   };
 
   const activitySince = new Date();

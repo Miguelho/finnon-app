@@ -20,6 +20,7 @@ import {
   signOutAndReset,
   themeTokens,
   type AvatarColorToken,
+  type UserAvatarColorId,
 } from "@poleursus/shared";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCopy, t } from "../../lib/i18n";
@@ -31,6 +32,7 @@ type ProfileAvatarState = {
   avatarPath: string | null;
   fallbackText: string | null;
   fallbackBgToken: AvatarColorToken | null;
+  avatarColor: UserAvatarColorId | null;
   email: string | null;
 };
 
@@ -47,6 +49,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
     avatarPath: null,
     fallbackText: null,
     fallbackBgToken: null,
+    avatarColor: null,
     email: null,
   });
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -73,6 +76,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
             avatarPath: null,
             fallbackText: null,
             fallbackBgToken: null,
+            avatarColor: null,
             email: null,
           });
         }
@@ -81,7 +85,9 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("avatar_path, email, avatar_fallback_text, avatar_fallback_bg_token")
+        .select(
+          "avatar_path, email, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
+        )
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -92,6 +98,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
           avatarPath: null,
           fallbackText: null,
           fallbackBgToken: null,
+          avatarColor: null,
           email: user.email ?? null,
         });
         return;
@@ -107,6 +114,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
         avatarPath: data?.avatar_path ?? null,
         fallbackText: data?.avatar_fallback_text ?? null,
         fallbackBgToken: bgToken,
+        avatarColor: (data?.avatar_color as UserAvatarColorId | null) ?? null,
         email: data?.email ?? user.email ?? null,
       });
     }
@@ -207,6 +215,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
             avatarPath={profile.avatarPath}
             fallbackText={profile.fallbackText}
             fallbackBgToken={profile.fallbackBgToken}
+            avatarColor={profile.avatarColor}
             size={44}
             label={email}
           />

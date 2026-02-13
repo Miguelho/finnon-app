@@ -67,6 +67,10 @@ export function UserAvatar({
     () => (avatarPalette ? getAvatarInitials(email) : fallback.text),
     [avatarPalette, email, fallback.text]
   );
+  const fallbackFontSize = useMemo(
+    () => Math.max(9, Math.floor(size * 0.38)),
+    [size]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -140,6 +144,10 @@ export function UserAvatar({
       <Text
         style={[
           styles.initial,
+          {
+            fontSize: fallbackFontSize,
+            lineHeight: Math.ceil(fallbackFontSize * 1.05),
+          },
           avatarPalette ? { color: avatarPalette.fg } : null,
         ]}
       >
@@ -160,7 +168,6 @@ const styles = StyleSheet.create({
   },
   initial: {
     color: colors.text.primary,
-    fontSize: tokens.typography.size.xs,
     fontWeight: tokens.typography.weight.semibold,
     textTransform: "uppercase",
   },

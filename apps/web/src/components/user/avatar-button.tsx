@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { AvatarColorToken } from "@poleursus/shared";
+import type { AvatarColorToken, UserAvatarColorId } from "@poleursus/shared";
 import { UserAvatar } from "@/components/user-avatar";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +14,7 @@ type AvatarButtonProps = Omit<
   avatarPath?: string | null;
   fallbackText?: string | null;
   fallbackBgToken?: AvatarColorToken | null;
+  avatarColor?: UserAvatarColorId | null;
   size?: number;
   ariaLabel: string;
   title: string;
@@ -30,6 +31,7 @@ export const AvatarButton = React.forwardRef<
       avatarPath,
       fallbackText,
       fallbackBgToken,
+      avatarColor,
       size = 30,
       ariaLabel,
       title,
@@ -58,6 +60,7 @@ export const AvatarButton = React.forwardRef<
           avatarPath={avatarPath}
           fallbackText={fallbackText}
           fallbackBgToken={fallbackBgToken}
+          avatarColor={avatarColor}
           size={size}
           label={title}
           className="shrink-0"

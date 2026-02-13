@@ -5,7 +5,11 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import type { AvatarColorToken, SettingsMenuVM } from "@poleursus/shared";
+import type {
+  AvatarColorToken,
+  SettingsMenuVM,
+  UserAvatarColorId,
+} from "@poleursus/shared";
 import { AvatarButton } from "@/components/user/avatar-button";
 import { SettingsDrawerContent } from "@/components/settings/settings-drawer-content";
 import { cn } from "@/lib/utils";
@@ -17,6 +21,7 @@ type SettingsDrawerProfile = {
   avatarPath?: string | null;
   fallbackText?: string | null;
   fallbackBgToken?: AvatarColorToken | null;
+  avatarColor?: UserAvatarColorId | null;
 };
 
 type SettingsDrawerProps = {
@@ -51,6 +56,7 @@ export function SettingsDrawer({
           avatarPath={profile.avatarPath}
           fallbackText={profile.fallbackText}
           fallbackBgToken={profile.fallbackBgToken}
+          avatarColor={profile.avatarColor}
           ariaLabel={openLabel}
           title={settingsLabel}
         />

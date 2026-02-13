@@ -5,6 +5,7 @@ import {
   ALLOWED_AVATAR_BG_TOKENS,
   themeTokens,
   type AvatarColorToken,
+  type UserAvatarColorId,
 } from "@poleursus/shared";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCopy, t } from "../../lib/i18n";
@@ -15,6 +16,7 @@ type ProfileAvatarState = {
   avatarPath: string | null;
   fallbackText: string | null;
   fallbackBgToken: AvatarColorToken | null;
+  avatarColor: UserAvatarColorId | null;
   email: string | null;
 };
 
@@ -28,6 +30,7 @@ export function AppHeaderAvatar() {
     avatarPath: null,
     fallbackText: null,
     fallbackBgToken: null,
+    avatarColor: null,
     email: null,
   });
 
@@ -41,6 +44,7 @@ export function AppHeaderAvatar() {
             avatarPath: null,
             fallbackText: null,
             fallbackBgToken: null,
+            avatarColor: null,
             email: null,
           });
         }
@@ -49,7 +53,9 @@ export function AppHeaderAvatar() {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("avatar_path, email, avatar_fallback_text, avatar_fallback_bg_token")
+        .select(
+          "avatar_path, email, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
+        )
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -60,6 +66,7 @@ export function AppHeaderAvatar() {
           avatarPath: null,
           fallbackText: null,
           fallbackBgToken: null,
+          avatarColor: null,
           email: user.email ?? null,
         });
         return;
@@ -75,6 +82,7 @@ export function AppHeaderAvatar() {
         avatarPath: data?.avatar_path ?? null,
         fallbackText: data?.avatar_fallback_text ?? null,
         fallbackBgToken: bgToken,
+        avatarColor: (data?.avatar_color as UserAvatarColorId | null) ?? null,
         email: data?.email ?? user.email ?? null,
       });
     }
@@ -105,6 +113,7 @@ export function AppHeaderAvatar() {
         avatarPath={profile.avatarPath}
         fallbackText={profile.fallbackText}
         fallbackBgToken={profile.fallbackBgToken}
+        avatarColor={profile.avatarColor}
         size={30}
         label={email ?? accessibilityLabel}
       />

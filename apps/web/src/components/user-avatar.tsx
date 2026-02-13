@@ -70,6 +70,10 @@ export function UserAvatar({
     () => (avatarPalette ? getAvatarInitials(email) : fallback.text),
     [avatarPalette, email, fallback.text]
   );
+  const fallbackFontSize = useMemo(
+    () => Math.max(9, Math.round(size * 0.38)),
+    [size]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -136,7 +140,7 @@ export function UserAvatar({
     <div
       aria-label={label ?? preferredFallbackText}
       title={label}
-      className={`flex items-center justify-center rounded-full text-xs font-semibold uppercase ${
+      className={`flex items-center justify-center rounded-full font-semibold uppercase ${
         className ?? ""
       }`}
       style={{
@@ -144,6 +148,8 @@ export function UserAvatar({
         height: size,
         backgroundColor: avatarPalette?.bg ?? background,
         color: avatarPalette?.fg ?? colors.text.primary,
+        fontSize: `${fallbackFontSize}px`,
+        lineHeight: 1,
       }}
     >
       {preferredFallbackText}
