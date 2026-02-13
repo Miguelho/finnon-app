@@ -18,6 +18,8 @@ import { useAuth } from "../../src/contexts/AuthContext";
 import { themeTokens } from "@poleursus/shared";
 
 const colors = themeTokens.light.colors;
+const OTP_MIN_LENGTH = 6;
+const OTP_MAX_LENGTH = 8;
 
 export default function LoginScreen() {
   const { session } = useAuth();
@@ -105,7 +107,7 @@ export default function LoginScreen() {
   };
 
   const handleVerifyOtp = async () => {
-    if (otp.length !== 6) return;
+    if (otp.length < OTP_MIN_LENGTH) return;
 
     setLoadingAction("verify");
     setError(null);
@@ -202,7 +204,7 @@ export default function LoginScreen() {
               onChangeText={(text) => setOtp(text.replace(/\D/g, ""))}
               placeholder={t(dictionary, "mobile.login.otpPlaceholder")}
               keyboardType="numeric"
-              maxLength={6}
+              maxLength={OTP_MAX_LENGTH}
               disabled={isLoading}
               error={error || undefined}
             />
@@ -229,7 +231,7 @@ export default function LoginScreen() {
                 <Button
                   title={t(dictionary, "mobile.login.verifyButton")}
                   onPress={handleVerifyOtp}
-                  disabled={isLoading || otp.length !== 6}
+                  disabled={isLoading || otp.length < OTP_MIN_LENGTH}
                   loading={loadingAction === "verify"}
                 />
               </View>

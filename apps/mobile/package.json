@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@expo-google-fonts/dm-sans": "^0.3.0",
+    "@expo-google-fonts/jetbrains-mono": "^0.3.0",
     "@expo/metro-runtime": "~6.1.2",
     "@expo/react-native-action-sheet": "^4.1.1",
     "@poleursus/shared": "workspace:*",
@@ -20,6 +22,7 @@
     "@react-navigation/drawer": "^7.7.12",
     "@react-navigation/elements": "^2.6.2",
     "@supabase/supabase-js": "^2.89.0",
+    "babel-preset-expo": "~54.0.9",
     "dotenv": "^17.2.3",
     "expo": "~54.0.31",
     "expo-constants": "~18.0.13",
@@ -28,8 +31,6 @@
     "expo-linking": "~8.0.11",
     "expo-router": "~6.0.21",
     "expo-status-bar": "~3.0.9",
-    "@expo-google-fonts/dm-sans": "^0.3.0",
-    "@expo-google-fonts/jetbrains-mono": "^0.3.0",
     "lucide-react-native": "^0.562.0",
     "phosphor-react-native": "^3.0.2",
     "react": "^19.1.0",

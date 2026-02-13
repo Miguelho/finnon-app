@@ -1,12 +1,23 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import * as Linking from "expo-linking";
-import { Session, User } from "@supabase/supabase-js";
+import { Session, User, EmailOtpType } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { signOutAndReset } from "@poleursus/shared";
 import { supabase } from "../lib/supabase";
 import { getVerifiedUser } from "../lib/auth";
 
 const SELECTED_ACCOUNT_KEY = "@finnon/selectedAccountId";
+const emailOtpTypes: EmailOtpType[] = [
+  "signup",
+  "invite",
+  "magiclink",
+  "recovery",
+  "email_change",
+  "email",
+];
+
+const isEmailOtpType = (value: string | null | undefined): value is EmailOtpType =>
+  !!value && emailOtpTypes.includes(value as EmailOtpType);
 
 interface AuthContextType {
   session: Session | null;
@@ -59,12 +70,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleAuthUrl = async (url: string) => {
       try {
         const [base, hash] = url.split("#");
-        const query = base.split("?")[1] ?? "";
+        const query = (base ?? "").split("?")[1] ?? "";
         const queryParams = parseParams(query);
         const hashParams = parseParams(hash ?? "");
         const params = { ...queryParams, ...hashParams };
 
         const code = params.code;
+        const type = params.type;
+        const tokenHash = params.token_hash;
+        const token = params.token;
+        const email = params.email;
         const accessToken = params.access_token;
         const refreshToken = params.refresh_token;
 
@@ -81,6 +96,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 console.error("[AuthContext] setSession error:", sessionError);
               }
             }
+          }
+          return;
+        }
+
+        if (tokenHash && isEmailOtpType(type)) {
+          const { error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type,
+          });
+          if (error) {
+            console.error("[AuthContext] verifyOtp(token_hash) error:", error);
+          }
+          return;
+        }
+
+        if (token && email && isEmailOtpType(type)) {
+          const { error } = await supabase.auth.verifyOtp({
+            token,
+            email,
+            type,
+          });
+          if (error) {
+            console.error("[AuthContext] verifyOtp(token) error:", error);
           }
           return;
         }
