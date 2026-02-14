@@ -10,17 +10,19 @@ import {
   Platform,
 } from "react-native";
 import { Button } from "../../../src/components/Button";
+import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../src/lib/i18n";
 import {
   CURRENCIES,
   GOAL_TIMELINE_OPTIONS,
   formatMoneyWithSymbol,
   parseMoneyToMinor,
+  withAlpha,
   type OnboardingGoalInput,
 } from "@poleursus/shared";
 import { OnboardingProgress } from "./OnboardingProgress";
 import { OnboardingSurface } from "./OnboardingSurface";
-import { onboardingColors, onboardingRadii } from "./onboarding-theme";
+import { onboardingRadii } from "./onboarding-theme";
 
 interface ObjectiveStepProps {
   currency: string;
@@ -44,6 +46,8 @@ export function ObjectiveStep({
   onBack,
 }: ObjectiveStepProps) {
   const { dictionary } = useCopy();
+  const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
+    useUserTheme();
 
   const currencySymbol = useMemo(
     () => CURRENCIES.find((curr) => curr.code === currency)?.symbol ?? currency,
@@ -64,43 +68,69 @@ export function ObjectiveStep({
       months,
     });
   };
+  const previewBg = withAlpha(primaryActionColor, 0.12);
+  const previewBorder = withAlpha(primaryActionColor, 0.28);
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: userTokens.background }]}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <OnboardingSurface>
+        <OnboardingSurface
+          style={{
+            backgroundColor: userTokens.surface,
+            borderColor: userTokens.border,
+          }}
+        >
           <OnboardingProgress current="objective" />
           <View style={styles.header}>
-            <Text style={styles.title}>
+            <Text style={[styles.title, { color: userTokens.textPrimary }]}>
               {t(dictionary, "onboarding.objective.title")}
             </Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
               {t(dictionary, "onboarding.objective.subtitle")}
             </Text>
           </View>
 
-          <View style={styles.objectiveCard}>
-            <Text style={styles.sectionLabel}>
+          <View
+            style={[
+              styles.objectiveCard,
+              {
+                borderColor: userTokens.border,
+                backgroundColor: userTokens.surfaceAlt,
+              },
+            ]}
+          >
+            <Text style={[styles.sectionLabel, { color: userTokens.textSecondary }]}>
               {t(dictionary, "onboarding.objective.amountLabel")}
             </Text>
             <View style={styles.amountRow}>
-              <Text style={styles.currencySymbol}>{currencySymbol}</Text>
+              <Text style={[styles.currencySymbol, { color: userTokens.textTertiary }]}>
+                {currencySymbol}
+              </Text>
               <TextInput
-                style={styles.amountInput}
+                style={[styles.amountInput, { color: userTokens.textPrimary }]}
                 value={amount}
                 onChangeText={onAmountChange}
                 keyboardType="decimal-pad"
                 placeholder="3.000"
+                placeholderTextColor={userTokens.textTertiary}
               />
             </View>
             {!amountValid && amount.trim() !== "" && (
-              <Text style={styles.errorText}>{t(dictionary, "money.invalidFormat")}</Text>
+              <Text style={[styles.errorText, { color: userTokens.dangerText }]}>
+                {t(dictionary, "money.invalidFormat")}
+              </Text>
             )}
 
-            <Text style={[styles.sectionLabel, styles.timelineLabel]}>
+            <Text
+              style={[
+                styles.sectionLabel,
+                styles.timelineLabel,
+                { color: userTokens.textSecondary },
+              ]}
+            >
               {t(dictionary, "onboarding.objective.timelineLabel")}
             </Text>
             <View style={styles.timelineRow}>
@@ -109,14 +139,21 @@ export function ObjectiveStep({
                   key={option}
                   style={[
                     styles.timelineButton,
-                    months === option && styles.timelineButtonActive,
+                    { borderColor: userTokens.border },
+                    months === option && {
+                      backgroundColor: primaryActionColor,
+                      borderColor: primaryActionColor,
+                    },
                   ]}
                   onPress={() => onMonthsChange(option)}
                 >
                   <Text
                     style={[
                       styles.timelineText,
-                      months === option && styles.timelineTextActive,
+                      { color: userTokens.textSecondary },
+                      months === option && {
+                        color: primaryActionTextColor,
+                      },
                     ]}
                   >
                     {t(dictionary, `onboarding.objective.months${option}`)}
@@ -127,11 +164,19 @@ export function ObjectiveStep({
           </View>
 
           {amountValid && (
-            <View style={styles.previewCard}>
-              <Text style={styles.previewTitle}>
+            <View
+              style={[
+                styles.previewCard,
+                {
+                  borderColor: previewBorder,
+                  backgroundColor: previewBg,
+                },
+              ]}
+            >
+              <Text style={[styles.previewTitle, { color: primaryActionColor }]}>
                 {t(dictionary, "onboarding.objective.previewTitle")}
               </Text>
-              <Text style={styles.previewText}>
+              <Text style={[styles.previewText, { color: userTokens.textPrimary }]}>
                 {t(dictionary, "onboarding.objective.previewText", {
                   amount: monthlyAmount,
                 })}
@@ -146,7 +191,7 @@ export function ObjectiveStep({
               disabled={!amountValid}
             />
             <TouchableOpacity onPress={onSkip} style={styles.skipLink}>
-              <Text style={styles.skipText}>
+              <Text style={[styles.skipText, { color: userTokens.textSecondary }]}>
                 {t(dictionary, "onboarding.objective.skip")}
               </Text>
             </TouchableOpacity>
@@ -161,7 +206,6 @@ export function ObjectiveStep({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: onboardingColors.bg,
   },
   scrollContent: {
     flexGrow: 1,
@@ -175,27 +219,22 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "700",
-    color: onboardingColors.text,
     textAlign: "center",
   },
   subtitle: {
     marginTop: 6,
     fontSize: 13,
-    color: onboardingColors.textSecondary,
     textAlign: "center",
   },
   objectiveCard: {
     marginTop: 18,
     borderWidth: 1.5,
-    borderColor: onboardingColors.border,
     borderRadius: onboardingRadii.lg,
     padding: 18,
-    backgroundColor: onboardingColors.white,
   },
   sectionLabel: {
     fontSize: 11,
     fontWeight: "600",
-    color: onboardingColors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -212,36 +251,29 @@ const styles = StyleSheet.create({
   currencySymbol: {
     fontSize: 24,
     fontWeight: "700",
-    color: onboardingColors.textMuted,
   },
   amountInput: {
     flex: 1,
     fontSize: 28,
     fontWeight: "700",
-    color: onboardingColors.text,
   },
   errorText: {
-    color: onboardingColors.red,
     fontSize: 12,
     marginTop: 6,
   },
   previewCard: {
     marginTop: 16,
     borderWidth: 1,
-    borderColor: onboardingColors.greenBorder,
     borderRadius: onboardingRadii.sm,
     padding: 14,
-    backgroundColor: onboardingColors.greenBg,
   },
   previewTitle: {
     fontSize: 12,
     fontWeight: "600",
     marginBottom: 6,
-    color: onboardingColors.green,
   },
   previewText: {
     fontSize: 12,
-    color: onboardingColors.text,
   },
   timelineRow: {
     flexDirection: "row",
@@ -250,22 +282,13 @@ const styles = StyleSheet.create({
   },
   timelineButton: {
     borderWidth: 1.5,
-    borderColor: onboardingColors.border,
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 16,
   },
-  timelineButtonActive: {
-    backgroundColor: onboardingColors.dark,
-    borderColor: onboardingColors.dark,
-  },
   timelineText: {
     fontSize: 12,
-    color: onboardingColors.textSecondary,
     fontWeight: "500",
-  },
-  timelineTextActive: {
-    color: onboardingColors.white,
   },
   actions: {
     gap: 12,
@@ -277,6 +300,5 @@ const styles = StyleSheet.create({
   },
   skipText: {
     fontSize: 13,
-    color: onboardingColors.textMuted,
   },
 });

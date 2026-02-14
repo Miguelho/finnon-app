@@ -35,6 +35,7 @@ export const ONBOARDING_STORAGE_KEY = "finnon:onboardingDraft";
 export type OnboardingPersistedState = {
   currentStep: string;
   accountId: string | null;
+  accountName: string;
   currency: string;
   selectedCategories: DefaultCategory[];
   recurrentsState: RecurrentsStepState;

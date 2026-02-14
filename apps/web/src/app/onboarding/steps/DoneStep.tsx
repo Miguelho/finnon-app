@@ -11,25 +11,28 @@ import {
   type DefaultCategory,
   type OnboardingGoalInput,
   type OnboardingRecurrentInput,
-  type OnboardingPayload,
 } from "@poleursus/shared";
-import { persistOnboardingAction } from "../actions";
+import { completeOnboardingAction } from "../actions";
 import { ONBOARDING_STORAGE_KEY } from "../state";
 
 type DoneStepProps = {
-  accountId: string;
+  accountId: string | null;
+  accountName: string;
   selectedCategories: DefaultCategory[];
   recurrents: OnboardingRecurrentInput[];
   goal: OnboardingGoalInput | null;
   currency: string;
+  onAccountResolved: (accountId: string) => void;
 };
 
 export function DoneStep({
   accountId,
+  accountName,
   selectedCategories,
   recurrents,
   goal,
   currency,
+  onAccountResolved,
 }: DoneStepProps) {
   const t = useTranslations("onboarding");
   const tGlobal = useTranslations();
@@ -37,6 +40,9 @@ export function DoneStep({
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resolvedAccountId, setResolvedAccountId] = useState<string | null>(
+    accountId
+  );
 
   const currencySymbol = useMemo(
     () => CURRENCIES.find((curr) => curr.code === currency)?.symbol ?? currency,
@@ -48,25 +54,40 @@ export function DoneStep({
     setIsSaving(true);
     setError(null);
 
-    const payload: OnboardingPayload = {
-      accountId,
-      selectedCategories,
-      recurrents,
-      goal,
-    };
+    if (!accountName.trim() || !currency) {
+      setError(tGlobal("errors.onboardingMissingFields"));
+      setIsSaving(false);
+      return;
+    }
 
     try {
-      const result = await persistOnboardingAction(
-        payload,
+      const result = await completeOnboardingAction(
+        {
+          accountId: resolvedAccountId,
+          accountName,
+          currency,
+          selectedCategories,
+          recurrents,
+          goal,
+        },
         locale === "en" ? "en" : "es"
       );
 
       if (!result || result.success === false) {
+        if (result?.accountId) {
+          setResolvedAccountId(result.accountId);
+          onAccountResolved(result.accountId);
+        }
         setError(result?.error ?? tGlobal("errors.internalServer"));
         setIsSaving(false);
         return;
       }
 
+      setResolvedAccountId(result.accountId);
+      onAccountResolved(result.accountId);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("finnon:activeAccountId", result.accountId);
+      }
       sessionStorage.removeItem(ONBOARDING_STORAGE_KEY);
       router.replace("/");
     } catch (err) {

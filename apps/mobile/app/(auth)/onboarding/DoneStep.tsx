@@ -20,25 +20,32 @@ import { onboardingColors, onboardingRadii } from "./onboarding-theme";
 import { ONBOARDING_STORAGE_KEY } from "./state";
 
 interface DoneStepProps {
-  accountId: string;
+  accountId: string | null;
+  accountName: string;
   selectedCategories: DefaultCategory[];
   recurrents: OnboardingRecurrentInput[];
   goal: OnboardingGoalInput | null;
   currency: string;
+  onAccountResolved: (accountId: string) => void;
 }
 
 export function DoneStep({
   accountId,
+  accountName,
   selectedCategories,
   recurrents,
   goal,
   currency,
+  onAccountResolved,
 }: DoneStepProps) {
   const { dictionary, locale } = useCopy();
   const { user, setSelectedAccountId, signOut } = useAuth();
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resolvedAccountId, setResolvedAccountId] = useState<string | null>(
+    accountId
+  );
 
   const currencySymbol = useMemo(
     () => CURRENCIES.find((curr) => curr.code === currency)?.symbol ?? currency,
@@ -67,14 +74,47 @@ export function DoneStep({
       return;
     }
 
-    const payload: OnboardingPayload = {
-      accountId,
-      selectedCategories,
-      recurrents,
-      goal,
-    };
-
     try {
+      let targetAccountId = resolvedAccountId;
+      if (!targetAccountId) {
+        const normalizedName = accountName.trim();
+        if (!normalizedName || !currency) {
+          setError(t(dictionary, "errors.onboardingMissingFields"));
+          setIsSaving(false);
+          return;
+        }
+
+        const { data: account, error: accountError } = await supabase
+          .from("accounts")
+          .insert({
+            name: normalizedName,
+            base_currency: currency,
+            owner_user_id: user.id,
+          })
+          .select("id")
+          .single();
+
+        if (accountError || !account) {
+          throw accountError ?? new Error("Failed to create account");
+        }
+
+        targetAccountId = account.id;
+        setResolvedAccountId(targetAccountId);
+        onAccountResolved(targetAccountId);
+      }
+      if (!targetAccountId) {
+        setError(t(dictionary, "errors.internalServer"));
+        setIsSaving(false);
+        return;
+      }
+
+      const payload: OnboardingPayload = {
+        accountId: targetAccountId,
+        selectedCategories,
+        recurrents,
+        goal,
+      };
+
       const result = await persistOnboarding(
         supabase,
         payload,
@@ -89,7 +129,7 @@ export function DoneStep({
       }
 
       await AsyncStorage.removeItem(ONBOARDING_STORAGE_KEY);
-      await setSelectedAccountId(accountId);
+      await setSelectedAccountId(targetAccountId);
       setIsSaving(false);
       router.replace("/(auth)/(tabs)/home");
     } catch (err) {

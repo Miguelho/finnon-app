@@ -6,13 +6,16 @@ import {
   Modal,
   StyleSheet,
   TouchableOpacity,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
 } from "react-native";
 import { themeTokens, startOfMonth } from "@poleursus/shared";
 import { MonthMap } from "./home/MonthMap";
 import { useCopy, t } from "../lib/i18n";
+import { useUserTheme } from "../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
-const colors = tokens.colors;
 
 const parseIsoDate = (value: string) => {
   const [year, month, day] = value.split("-").map((part) => Number(part));
@@ -37,6 +40,15 @@ type DatePickerFieldProps = {
   disabled?: boolean;
   allowClear?: boolean;
   formatValue?: (value: string) => string;
+  containerStyle?: StyleProp<ViewStyle>;
+  inputStyle?: StyleProp<ViewStyle>;
+  valueTextStyle?: StyleProp<TextStyle>;
+  placeholderTextColor?: string;
+  sheetBackgroundColor?: string;
+  sheetBorderColor?: string;
+  sheetActionColor?: string;
+  onOpen?: () => void;
+  hideLabel?: boolean;
 };
 
 export function DatePickerField({
@@ -49,8 +61,18 @@ export function DatePickerField({
   disabled,
   allowClear,
   formatValue,
+  containerStyle,
+  inputStyle,
+  valueTextStyle,
+  placeholderTextColor,
+  sheetBackgroundColor,
+  sheetBorderColor,
+  sheetActionColor,
+  onOpen,
+  hideLabel = false,
 }: DatePickerFieldProps) {
   const { locale, dictionary } = useCopy();
+  const { tokens: userTokens } = useUserTheme();
   const selectedDate = useMemo(() => parseIsoDate(value), [value]);
   const [isOpen, setIsOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(() =>
@@ -71,6 +93,7 @@ export function DatePickerField({
     const baseDate = selectedDate ?? new Date();
     setVisibleMonth(startOfMonth(baseDate));
     setIsOpen(true);
+    onOpen?.();
   };
 
   const handleSelectDate = (date: Date) => {
@@ -100,13 +123,18 @@ export function DatePickerField({
   const displayValue = formattedValue || placeholder || "";
 
   return (
-    <View style={styles.container}>
-      {label ? (
+    <View style={[styles.container, containerStyle]}>
+      {label && !hideLabel ? (
         <View style={styles.labelRow}>
-          <Text style={styles.label}>{label}</Text>
+          <Text style={[styles.label, { color: userTokens.textPrimary }]}>{label}</Text>
           {allowClear && value ? (
             <TouchableOpacity onPress={handleClear} disabled={disabled}>
-              <Text style={styles.clearText}>
+              <Text
+                style={[
+                  styles.clearText,
+                  { color: sheetActionColor ?? userTokens.primary },
+                ]}
+              >
                 {t(dictionary, "common.clear")}
               </Text>
             </TouchableOpacity>
@@ -116,8 +144,14 @@ export function DatePickerField({
       <Pressable
         style={[
           styles.input,
-          error && styles.inputError,
+          {
+            borderColor: userTokens.border,
+            backgroundColor: userTokens.surface,
+          },
+          inputStyle,
+          error && { borderColor: userTokens.dangerBorder },
           disabled && styles.inputDisabled,
+          disabled && { backgroundColor: userTokens.surfaceAlt },
         ]}
         onPress={openPicker}
         accessibilityRole="button"
@@ -127,15 +161,27 @@ export function DatePickerField({
         <Text
           style={[
             styles.valueText,
-            !value && styles.placeholderText,
-            disabled && styles.valueDisabled,
+            { color: userTokens.textPrimary },
+            valueTextStyle,
+            !value && {
+              color: placeholderTextColor ?? userTokens.textTertiary,
+            },
+            disabled && { color: userTokens.textTertiary },
           ]}
         >
           {displayValue}
         </Text>
       </Pressable>
-      {error && <Text style={styles.errorText}>{error}</Text>}
-      {helperText && !error && <Text style={styles.helperText}>{helperText}</Text>}
+      {error && (
+        <Text style={[styles.errorText, { color: userTokens.dangerText }]}>
+          {error}
+        </Text>
+      )}
+      {helperText && !error && (
+        <Text style={[styles.helperText, { color: userTokens.textSecondary }]}>
+          {helperText}
+        </Text>
+      )}
 
       <Modal
         transparent
@@ -148,12 +194,27 @@ export function DatePickerField({
             style={styles.sheetBackdrop}
             onPress={() => setIsOpen(false)}
           />
-          <View style={styles.sheetContainer}>
+          <View
+            style={[
+              styles.sheetContainer,
+              {
+                backgroundColor: sheetBackgroundColor ?? userTokens.surface,
+                borderTopColor: sheetBorderColor ?? userTokens.border,
+              },
+            ]}
+          >
             <View style={styles.sheetHandle} />
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>{label}</Text>
+              <Text style={[styles.sheetTitle, { color: userTokens.textPrimary }]}>
+                {label || t(dictionary, "addTransaction.dateLabel")}
+              </Text>
               <TouchableOpacity onPress={() => setIsOpen(false)}>
-                <Text style={styles.sheetAction}>
+                <Text
+                  style={[
+                    styles.sheetAction,
+                    { color: sheetActionColor ?? userTokens.primary },
+                  ]}
+                >
                   {t(dictionary, "common.close")}
                 </Text>
               </TouchableOpacity>
@@ -164,15 +225,21 @@ export function DatePickerField({
                 style={styles.navButton}
                 accessibilityLabel={t(dictionary, "transactions.previousMonth")}
               >
-                <Text style={styles.navText}>{"<"}</Text>
+                <Text style={[styles.navText, { color: userTokens.textPrimary }]}>
+                  {"<"}
+                </Text>
               </TouchableOpacity>
-              <Text style={styles.monthLabel}>{monthLabel}</Text>
+              <Text style={[styles.monthLabel, { color: userTokens.textPrimary }]}>
+                {monthLabel}
+              </Text>
               <TouchableOpacity
                 onPress={goToNextMonth}
                 style={styles.navButton}
                 accessibilityLabel={t(dictionary, "transactions.nextMonth")}
               >
-                <Text style={styles.navText}>{">"}</Text>
+                <Text style={[styles.navText, { color: userTokens.textPrimary }]}>
+                  {">"}
+                </Text>
               </TouchableOpacity>
             </View>
             <MonthMap
@@ -207,45 +274,28 @@ const styles = StyleSheet.create({
   label: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
   },
   clearText: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.action.primary,
   },
   input: {
     borderWidth: 1,
-    borderColor: colors.state.neutral,
     borderRadius: tokens.radii.md,
     paddingVertical: tokens.spacing.md,
     paddingHorizontal: tokens.spacing.lg,
-    backgroundColor: colors.bg.surface,
-  },
-  inputError: {
-    borderColor: colors.state.negative,
   },
   inputDisabled: {
-    backgroundColor: colors.bg.secondary,
     opacity: 0.7,
   },
   valueText: {
     fontSize: tokens.typography.size.md,
-    color: colors.text.primary,
-  },
-  placeholderText: {
-    color: colors.text.muted,
-  },
-  valueDisabled: {
-    color: colors.text.muted,
   },
   errorText: {
-    color: colors.state.negative,
     fontSize: tokens.typography.size.xs,
     marginTop: tokens.spacing.xs,
   },
   helperText: {
-    color: colors.text.secondary,
     fontSize: tokens.typography.size.xs,
     marginTop: tokens.spacing.xs,
   },
@@ -258,12 +308,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.35)",
   },
   sheetContainer: {
-    backgroundColor: colors.bg.surface,
     paddingHorizontal: tokens.spacing.lg,
     paddingTop: tokens.spacing.sm,
     paddingBottom: tokens.spacing.xl,
     borderTopLeftRadius: tokens.radii.lg,
     borderTopRightRadius: tokens.radii.lg,
+    borderTopWidth: 1,
     gap: tokens.spacing.md,
   },
   sheetHandle: {
@@ -271,7 +321,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 4,
     borderRadius: tokens.radii.pill,
-    backgroundColor: colors.state.neutral,
+    backgroundColor: "#9CA3AF",
   },
   sheetHeader: {
     flexDirection: "row",
@@ -281,12 +331,10 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontSize: tokens.typography.size.lg,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
   },
   sheetAction: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.text.secondary,
   },
   monthNav: {
     flexDirection: "row",
@@ -300,11 +348,9 @@ const styles = StyleSheet.create({
   navText: {
     fontSize: tokens.typography.size.lg,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
   },
   monthLabel: {
     fontSize: tokens.typography.size.md,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.text.primary,
   },
 });

@@ -12,18 +12,21 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { ArrowDownRight, ArrowUpRight } from "phosphor-react-native";
 import { Button } from "../../../src/components/Button";
+import { DatePickerField } from "../../../src/components/DatePickerField";
 import { Input } from "../../../src/components/Input";
+import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../src/lib/i18n";
 import {
   DEFAULT_CATEGORIES,
   ONBOARDING_MIN_RECURRENTS,
+  formatDateForDisplay,
   parseMoneyToMinor,
-  themeTokens,
+  withAlpha,
   type OnboardingRecurrentInput,
 } from "@poleursus/shared";
 import { OnboardingProgress } from "./OnboardingProgress";
 import { OnboardingSurface } from "./OnboardingSurface";
-import { onboardingColors, onboardingRadii } from "./onboarding-theme";
+import { onboardingRadii } from "./onboarding-theme";
 import type { RecurrentsStepState, RecurrentDraft } from "./state";
 
 interface RecurrentsStepProps {
@@ -34,8 +37,6 @@ interface RecurrentsStepProps {
   onBack: () => void;
 }
 
-const tokens = themeTokens.light;
-const appColors = tokens.colors;
 const recurrentIcons: Record<string, ComponentProps<typeof MaterialCommunityIcons>["name"]> = {
   sug_salary: "briefcase-outline",
   sug_rent: "home-outline",
@@ -53,6 +54,7 @@ export function RecurrentsStep({
   onBack,
 }: RecurrentsStepProps) {
   const { dictionary, locale } = useCopy();
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const {
     items,
     customEnabled,
@@ -88,27 +90,38 @@ export function RecurrentsStep({
   };
 
   const selectedItems = items.filter((item) => item.selected);
+  const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
   const selectedAmounts = selectedItems.map((item) =>
     parseMoneyToMinor(item.amount, currency)
+  );
+  const hasEmptySuggestedAmount = selectedItems.some(
+    (item) => item.amount.trim() === ""
   );
   const hasInvalidSuggestedAmount = selectedAmounts.some(
     (result) => typeof result === "object"
   );
 
   const customHasInput = customLabel.trim() !== "" || customAmount.trim() !== "";
-  const customAmountResult = customHasInput
+  const customAmountResult = customHasInput && customAmount.trim() !== ""
     ? parseMoneyToMinor(customAmount, currency)
     : null;
   const customValid =
     customHasInput &&
     customLabel.trim() !== "" &&
+    customAmount.trim() !== "" &&
     typeof customAmountResult !== "object";
+  const customHasEmptyAmount = customHasInput && customAmount.trim() === "";
   const customHasError =
-    customHasInput && (!customValid || typeof customAmountResult === "object");
+    customHasInput &&
+    (customHasEmptyAmount || !customValid || typeof customAmountResult === "object");
 
   const selectedCount = selectedItems.length + (customValid ? 1 : 0);
   const meetsMinimum = selectedCount >= ONBOARDING_MIN_RECURRENTS;
-  const canContinue = meetsMinimum && !hasInvalidSuggestedAmount && !customHasError;
+  const canContinue =
+    meetsMinimum &&
+    !hasEmptySuggestedAmount &&
+    !hasInvalidSuggestedAmount &&
+    !customHasError;
 
   const buildRecurrents = () => {
     const dayOfMonth = new Date().getUTCDate();
@@ -162,24 +175,26 @@ export function RecurrentsStep({
   const minimumLabel = meetsMinimum
     ? `${selectedCount} ${t(dictionary, "onboarding.recurrents.minimumMet")}`
     : t(dictionary, "onboarding.recurrents.minimum");
-
-  const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
-  const sanitizeDateInput = (value: string) =>
-    value.replace(/[^0-9-]/g, "").slice(0, 10);
+  const selectedItemBg = withAlpha(primaryActionColor, 0.12);
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: userTokens.background }]}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <OnboardingSurface>
+        <OnboardingSurface
+          style={{
+            backgroundColor: userTokens.surface,
+            borderColor: userTokens.border,
+          }}
+        >
           <OnboardingProgress current="recurrents" />
           <View style={styles.header}>
-            <Text style={styles.title}>
+            <Text style={[styles.title, { color: userTokens.textPrimary }]}>
               {t(dictionary, "onboarding.recurrents.title")}
             </Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
               {t(dictionary, "onboarding.recurrents.subtitle")}
             </Text>
           </View>
@@ -196,45 +211,82 @@ export function RecurrentsStep({
                   key={item.id}
                   style={[
                     styles.item,
-                    item.selected && styles.itemSelected,
+                    {
+                      borderColor: userTokens.border,
+                      backgroundColor: userTokens.surfaceAlt,
+                    },
+                    item.selected && {
+                      borderColor: primaryActionColor,
+                      backgroundColor: selectedItemBg,
+                    },
                   ]}
                   onPress={() => updateItem(item.id, { selected: !item.selected })}
                 >
-                  <View style={styles.iconBox}>
+                  <View
+                    style={[
+                      styles.iconBox,
+                      { backgroundColor: userTokens.background },
+                    ]}
+                  >
                     <MaterialCommunityIcons
                       name={iconName}
                       size={18}
-                      color={onboardingColors.textSecondary}
+                      color={userTokens.textSecondary}
                     />
                   </View>
                   <View style={styles.info}>
                     <TextInput
-                      style={styles.labelInput}
+                      style={[styles.labelInput, { color: userTokens.textPrimary }]}
                       value={item.label}
                       onChangeText={(text) => updateItem(item.id, { label: text })}
                       onFocus={() => updateItem(item.id, { selected: true })}
                     />
-                    <Text style={styles.detail}>{detail}</Text>
+                    <Text style={[styles.detail, { color: userTokens.textSecondary }]}>
+                      {detail}
+                    </Text>
                   </View>
-                  <View style={styles.amountBox}>
+                  <View style={styles.amountRowInline}>
                     <TextInput
-                      style={styles.itemAmountInput}
+                      style={[
+                        styles.itemAmountInput,
+                        {
+                          borderColor: userTokens.border,
+                          backgroundColor: userTokens.surface,
+                          color: userTokens.textPrimary,
+                        },
+                      ]}
                       value={item.amount}
-                      onChangeText={(text) => updateItem(item.id, { amount: text })}
+                      onChangeText={(text) =>
+                        updateItem(item.id, { amount: sanitizeNumericInput(text) })
+                      }
                       onFocus={() => updateItem(item.id, { selected: true })}
                       keyboardType="decimal-pad"
                     />
-                    <TextInput
-                      style={styles.itemDateInput}
+                    <DatePickerField
+                      label={t(dictionary, "addTransaction.dateLabel")}
+                      hideLabel
                       value={item.expectedDate || today}
-                      onChangeText={(text) =>
-                        updateItem(item.id, {
-                          expectedDate: sanitizeDateInput(text),
-                        })
+                      onChangeText={(value) =>
+                        updateItem(item.id, { expectedDate: value })
                       }
-                      onFocus={() => updateItem(item.id, { selected: true })}
                       placeholder={t(dictionary, "transactions.datePlaceholder")}
-                      placeholderTextColor={onboardingColors.textMuted}
+                      formatValue={(value) => formatDateForDisplay(value, locale)}
+                      containerStyle={styles.inlineDateContainer}
+                      inputStyle={[
+                        styles.inlineDateInput,
+                        {
+                          borderColor: userTokens.border,
+                          backgroundColor: userTokens.surface,
+                        },
+                      ]}
+                      valueTextStyle={{
+                        color: userTokens.textPrimary,
+                      }}
+                      placeholderTextColor={userTokens.textTertiary}
+                      sheetBackgroundColor={userTokens.surface}
+                      sheetBorderColor={userTokens.border}
+                      sheetActionColor={primaryActionColor}
+                      onOpen={() => updateItem(item.id, { selected: true })}
                     />
                   </View>
                 </TouchableOpacity>
@@ -246,16 +298,32 @@ export function RecurrentsStep({
             onPress={() =>
               onChangeState((prev) => ({ ...prev, customEnabled: !prev.customEnabled }))
             }
-            style={styles.customToggle}
+            style={[
+              styles.customToggle,
+              {
+                borderColor: userTokens.border,
+                backgroundColor: userTokens.surface,
+              },
+            ]}
           >
-            <Text style={styles.customToggleText}>＋</Text>
-            <Text style={styles.customToggleLabel}>
+            <Text style={[styles.customToggleText, { color: userTokens.textSecondary }]}>
+              ＋
+            </Text>
+            <Text style={[styles.customToggleLabel, { color: userTokens.textSecondary }]}>
               {t(dictionary, "onboarding.recurrents.addCustom")}
             </Text>
           </TouchableOpacity>
 
           {customEnabled && (
-            <View style={styles.customCard}>
+            <View
+              style={[
+                styles.customCard,
+                {
+                  borderColor: userTokens.border,
+                  backgroundColor: userTokens.surfaceAlt,
+                },
+              ]}
+            >
               <Input
                 label={t(dictionary, "common.nameLabel")}
                 value={customLabel}
@@ -265,12 +333,19 @@ export function RecurrentsStep({
                 placeholder={t(dictionary, "addTransaction.namePlaceholder")}
               />
               <View style={styles.field}>
-                <Text style={styles.fieldLabel}>
+                <Text style={[styles.fieldLabel, { color: userTokens.textPrimary }]}>
                   {t(dictionary, "addTransaction.amountLabel")}
                 </Text>
                 <View style={styles.amountRow}>
                   <TextInput
-                    style={styles.fieldAmountInput}
+                    style={[
+                      styles.fieldAmountInput,
+                      {
+                        borderColor: userTokens.border,
+                        backgroundColor: userTokens.surface,
+                        color: userTokens.textPrimary,
+                      },
+                    ]}
                     value={customAmount}
                     onChangeText={(value) =>
                       onChangeState((prev) => ({
@@ -280,39 +355,68 @@ export function RecurrentsStep({
                     }
                     placeholder={t(dictionary, "addTransaction.amountPlaceholder")}
                     keyboardType="decimal-pad"
-                    placeholderTextColor={appColors.text.muted}
+                    placeholderTextColor={userTokens.textTertiary}
                   />
-                  <View style={styles.currencyBadge}>
-                    <Text style={styles.currencyText}>{currency}</Text>
+                  <View
+                    style={[
+                      styles.currencyBadge,
+                      {
+                        borderColor: userTokens.border,
+                        backgroundColor: userTokens.background,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.currencyText, { color: userTokens.textPrimary }]}>
+                      {currency}
+                    </Text>
                   </View>
+                  <DatePickerField
+                    label={t(dictionary, "addTransaction.dateLabel")}
+                    hideLabel
+                    value={customExpectedDate || today}
+                    onChangeText={(value) =>
+                      onChangeState((prev) => ({
+                        ...prev,
+                        customExpectedDate: value,
+                      }))
+                    }
+                    placeholder={t(dictionary, "transactions.datePlaceholder")}
+                    formatValue={(value) => formatDateForDisplay(value, locale)}
+                    containerStyle={styles.inlineDateContainer}
+                    inputStyle={[
+                      styles.inlineDateInput,
+                      {
+                        borderColor: userTokens.border,
+                        backgroundColor: userTokens.surface,
+                      },
+                    ]}
+                    valueTextStyle={{
+                      color: userTokens.textPrimary,
+                    }}
+                    placeholderTextColor={userTokens.textTertiary}
+                    sheetBackgroundColor={userTokens.surface}
+                    sheetBorderColor={userTokens.border}
+                    sheetActionColor={primaryActionColor}
+                  />
                 </View>
               </View>
               <View style={styles.field}>
-                <Text style={styles.fieldLabel}>
-                  {t(dictionary, "addTransaction.dateLabel")}
-                </Text>
-                <TextInput
-                  style={styles.fieldAmountInput}
-                  value={customExpectedDate || today}
-                  onChangeText={(value) =>
-                    onChangeState((prev) => ({
-                      ...prev,
-                      customExpectedDate: sanitizeDateInput(value),
-                    }))
-                  }
-                  placeholder={t(dictionary, "transactions.datePlaceholder")}
-                  placeholderTextColor={appColors.text.muted}
-                />
-              </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>
+                <Text style={[styles.fieldLabel, { color: userTokens.textPrimary }]}>
                   {t(dictionary, "addTransaction.typeLabel")}
                 </Text>
-                <View style={styles.typeToggle}>
+                <View
+                  style={[
+                    styles.typeToggle,
+                    {
+                      borderColor: userTokens.border,
+                      backgroundColor: userTokens.background,
+                    },
+                  ]}
+                >
                   <TouchableOpacity
                     style={[
                       styles.typeOption,
-                      customType === "expense" && styles.typeOptionActive,
+                      customType === "expense" && { backgroundColor: userTokens.surface },
                     ]}
                     onPress={() =>
                       onChangeState((prev) => ({ ...prev, customType: "expense" }))
@@ -323,14 +427,15 @@ export function RecurrentsStep({
                       weight="regular"
                       color={
                         customType === "expense"
-                          ? appColors.text.primary
-                          : appColors.text.muted
+                          ? userTokens.textPrimary
+                          : userTokens.textSecondary
                       }
                     />
                     <Text
                       style={[
                         styles.typeOptionText,
-                        customType === "expense" && styles.typeOptionTextActive,
+                        { color: userTokens.textSecondary },
+                        customType === "expense" && { color: userTokens.textPrimary },
                       ]}
                     >
                       {t(dictionary, "addTransaction.typeExpense")}
@@ -339,7 +444,7 @@ export function RecurrentsStep({
                   <TouchableOpacity
                     style={[
                       styles.typeOption,
-                      customType === "income" && styles.typeOptionActive,
+                      customType === "income" && { backgroundColor: userTokens.surface },
                     ]}
                     onPress={() =>
                       onChangeState((prev) => ({ ...prev, customType: "income" }))
@@ -350,14 +455,15 @@ export function RecurrentsStep({
                       weight="regular"
                       color={
                         customType === "income"
-                          ? appColors.text.primary
-                          : appColors.text.muted
+                          ? userTokens.textPrimary
+                          : userTokens.textSecondary
                       }
                     />
                     <Text
                       style={[
                         styles.typeOptionText,
-                        customType === "income" && styles.typeOptionTextActive,
+                        { color: userTokens.textSecondary },
+                        customType === "income" && { color: userTokens.textPrimary },
                       ]}
                     >
                       {t(dictionary, "addTransaction.typeIncome")}
@@ -376,7 +482,7 @@ export function RecurrentsStep({
           >
             {minimumLabel}
           </Text>
-          {(hasInvalidSuggestedAmount || customHasError) && (
+          {(hasEmptySuggestedAmount || hasInvalidSuggestedAmount || customHasError) && (
             <Text style={styles.errorText}>
               {t(dictionary, "money.invalidFormat")}
             </Text>
@@ -399,7 +505,6 @@ export function RecurrentsStep({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: onboardingColors.bg,
   },
   scrollContent: {
     flexGrow: 1,
@@ -413,13 +518,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "700",
-    color: onboardingColors.text,
     textAlign: "center",
   },
   subtitle: {
     marginTop: 6,
     fontSize: 13,
-    color: onboardingColors.textSecondary,
     textAlign: "center",
   },
   list: {
@@ -430,20 +533,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1.5,
-    borderColor: onboardingColors.border,
     borderRadius: onboardingRadii.sm,
     padding: 12,
-    backgroundColor: onboardingColors.white,
-  },
-  itemSelected: {
-    borderColor: onboardingColors.dark,
-    backgroundColor: "#f8f9fc",
   },
   iconBox: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: onboardingColors.bg,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -454,46 +550,41 @@ const styles = StyleSheet.create({
   labelInput: {
     fontSize: 14,
     fontWeight: "600",
-    color: onboardingColors.text,
     padding: 0,
   },
   detail: {
     fontSize: 12,
-    color: onboardingColors.textMuted,
   },
-  amountBox: {
-    minWidth: 120,
-    alignItems: "flex-end",
-    gap: 6,
+  amountRowInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginLeft: 8,
   },
   itemAmountInput: {
     width: 72,
     borderWidth: 1,
-    borderColor: onboardingColors.border,
     borderRadius: 6,
     paddingVertical: 4,
     paddingHorizontal: 6,
     fontSize: 13,
     fontWeight: "600",
     textAlign: "right",
-    color: onboardingColors.text,
   },
-  itemDateInput: {
+  inlineDateContainer: {
+    marginBottom: 0,
+  },
+  inlineDateInput: {
     width: 120,
     borderWidth: 1,
-    borderColor: onboardingColors.border,
     borderRadius: 6,
     paddingVertical: 4,
     paddingHorizontal: 6,
     fontSize: 12,
-    textAlign: "center",
-    color: onboardingColors.text,
-    backgroundColor: onboardingColors.white,
   },
   customToggle: {
     marginTop: 14,
     borderWidth: 1.5,
-    borderColor: onboardingColors.border,
     borderStyle: "dashed",
     borderRadius: onboardingRadii.sm,
     paddingVertical: 12,
@@ -505,20 +596,16 @@ const styles = StyleSheet.create({
   },
   customToggleText: {
     fontSize: 16,
-    color: onboardingColors.textSecondary,
   },
   customToggleLabel: {
     fontSize: 13,
-    color: onboardingColors.textSecondary,
     fontWeight: "500",
   },
   customCard: {
     borderWidth: 1,
-    borderColor: appColors.state.neutral,
     borderRadius: onboardingRadii.md,
     padding: 12,
     marginTop: 12,
-    backgroundColor: appColors.bg.surface,
   },
   field: {
     marginBottom: 12,
@@ -526,37 +613,32 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: appColors.text.primary,
     marginBottom: 8,
   },
   amountRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    flexWrap: "wrap",
   },
   fieldAmountInput: {
     flex: 1,
+    minWidth: 120,
     borderWidth: 1,
-    borderColor: appColors.state.neutral,
     borderRadius: onboardingRadii.md,
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 16,
-    backgroundColor: appColors.bg.surface,
-    color: appColors.text.primary,
   },
   currencyBadge: {
     borderWidth: 1,
-    borderColor: appColors.state.neutral,
     borderRadius: 999,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: appColors.bg.secondary,
   },
   currencyText: {
     fontSize: 12,
     fontWeight: "600",
-    color: appColors.text.primary,
   },
   typeToggle: {
     flexDirection: "row",
@@ -564,8 +646,6 @@ const styles = StyleSheet.create({
     padding: 4,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: appColors.state.neutral,
-    backgroundColor: appColors.bg.secondary,
   },
   typeOption: {
     flex: 1,
@@ -576,16 +656,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 999,
   },
-  typeOptionActive: {
-    backgroundColor: appColors.bg.surface,
-  },
   typeOptionText: {
     fontSize: 14,
     fontWeight: "600",
-    color: appColors.text.muted,
-  },
-  typeOptionTextActive: {
-    color: appColors.text.primary,
   },
   minimum: {
     marginTop: 12,
@@ -594,13 +667,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   minimumWarn: {
-    color: onboardingColors.amber,
+    color: "#f59e0b",
   },
   minimumMet: {
-    color: onboardingColors.green,
+    color: "#16a34a",
   },
   errorText: {
-    color: onboardingColors.red,
+    color: "#dc2626",
     fontSize: 12,
     textAlign: "center",
     marginTop: 6,

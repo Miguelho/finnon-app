@@ -61,23 +61,23 @@ export function ObjectiveStep({
   };
 
   return (
-    <div className="w-full rounded-2xl border border-[#e5e7eb] bg-white">
+    <div className="w-full rounded-2xl border border-border bg-card">
       <div className="px-6 pt-8">
         <OnboardingProgress current="objective" />
         <div className="mt-6 text-center">
-          <h2 className="text-2xl font-bold text-[#1a1f36]">
+          <h2 className="text-2xl font-bold text-foreground">
             {t("objective.title")}
           </h2>
-          <p className="text-sm text-[#6b7280]">{t("objective.subtitle")}</p>
+          <p className="text-sm text-muted-foreground">{t("objective.subtitle")}</p>
         </div>
       </div>
 
-      <div className="mx-6 mt-6 rounded-2xl border border-[#e5e7eb] bg-white p-6">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#6b7280]">
+      <div className="mx-6 mt-6 rounded-2xl border border-border bg-card p-6">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t("objective.amountLabel")}
         </p>
         <div className="mt-3 flex items-center gap-3">
-          <span className="text-2xl font-bold text-[#9ca3af]">
+          <span className="text-2xl font-bold text-muted-foreground">
             {currencySymbol}
           </span>
           <input
@@ -85,17 +85,17 @@ export function ObjectiveStep({
             inputMode="decimal"
             value={amount}
             onChange={(event) => onAmountChange(event.target.value)}
-            className="w-full bg-transparent text-3xl font-bold text-[#1a1f36] outline-none placeholder:text-[#9ca3af]"
+            className="w-full bg-transparent text-3xl font-bold text-foreground outline-none placeholder:text-muted-foreground"
             placeholder="3.000"
           />
         </div>
         {!amountValid && amount.trim() !== "" && (
-          <p className="mt-2 text-xs text-[#dc2626]">
+          <p className="mt-2 text-xs text-destructive">
             {tGlobal("money.invalidFormat")}
           </p>
         )}
 
-        <p className="mt-6 text-xs font-semibold uppercase tracking-wide text-[#6b7280]">
+        <p className="mt-6 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t("objective.timelineLabel")}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -107,8 +107,8 @@ export function ObjectiveStep({
               className={cn(
                 "rounded-full border px-4 py-2 text-xs font-medium",
                 months === option
-                  ? "border-[#1a1f36] bg-[#1a1f36] text-white"
-                  : "border-[#e5e7eb] text-[#6b7280]"
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border text-muted-foreground"
               )}
             >
               {t(`objective.months${option}` as const)}
@@ -118,11 +118,11 @@ export function ObjectiveStep({
       </div>
 
       {amountValid && (
-        <div className="mx-6 mt-5 rounded-lg border border-[#bbf7d0] bg-[#f0fdf4] p-4">
-          <p className="text-xs font-semibold text-[#16a34a]">
+        <div className="mx-6 mt-5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
+          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
             {t("objective.previewTitle")}
           </p>
-          <p className="text-sm text-[#1a1f36]">
+          <p className="text-sm text-foreground">
             {t("objective.previewText", { amount: monthlyAmount })}
           </p>
         </div>
@@ -132,17 +132,21 @@ export function ObjectiveStep({
         <Button
           onClick={handleContinue}
           disabled={!amountValid}
-          className="w-full bg-[#1a1f36] text-white hover:bg-[#2a3050]"
+          className="w-full"
         >
           {t("objective.continue")}
         </Button>
-        <Button variant="ghost" onClick={onSkip} className="w-full text-[#9ca3af]">
+        <Button
+          variant="ghost"
+          onClick={onSkip}
+          className="w-full text-foreground/80 hover:text-foreground"
+        >
           {t("objective.skip")}
         </Button>
         <Button
           variant="outline"
           onClick={onBack}
-          className="w-full border-[#e5e7eb] text-[#6b7280]"
+          className="w-full border-border text-foreground"
         >
           {tGlobal("common.back")}
         </Button>

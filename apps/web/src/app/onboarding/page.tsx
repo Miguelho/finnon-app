@@ -23,17 +23,18 @@ import {
 } from "./state";
 
 type OnboardingStep =
-  | "create-account"
   | "welcome"
   | "categories"
   | "recurrents"
   | "objective"
+  | "create-account"
   | "done";
 
 export default function OnboardingPage() {
   const tGlobal = useTranslations();
   const [currentStep, setCurrentStep] = useState<OnboardingStep>("welcome");
   const [accountId, setAccountId] = useState<string | null>(null);
+  const [accountName, setAccountName] = useState<string>("");
   const [currency, setCurrency] = useState<string>("EUR");
   const [selectedCategories, setSelectedCategories] = useState<DefaultCategory[]>(
     () => DEFAULT_CATEGORIES.filter((category) => category.preselected)
@@ -51,20 +52,14 @@ export default function OnboardingPage() {
 
   const goTo = (step: OnboardingStep) => setCurrentStep(step);
 
-  const handleAccountCreated = (id: string, curr: string) => {
-    setAccountId(id);
-    setCurrency(curr);
-    goTo("categories");
-  };
-
   let content: ReactNode = null;
   const isOnboardingStep = (value: string): value is OnboardingStep =>
     [
-      "create-account",
       "welcome",
       "categories",
       "recurrents",
       "objective",
+      "create-account",
       "done",
     ].includes(value);
 
@@ -74,6 +69,7 @@ export default function OnboardingPage() {
       try {
         const parsed = JSON.parse(stored) as OnboardingPersistedState;
         if (parsed.accountId !== undefined) setAccountId(parsed.accountId);
+        if (parsed.accountName) setAccountName(parsed.accountName);
         if (parsed.currency) setCurrency(parsed.currency);
         if (Array.isArray(parsed.selectedCategories)) {
           setSelectedCategories(parsed.selectedCategories);
@@ -97,6 +93,7 @@ export default function OnboardingPage() {
     const payload: OnboardingPersistedState = {
       currentStep,
       accountId,
+      accountName,
       currency,
       selectedCategories,
       recurrentsState,
@@ -109,6 +106,7 @@ export default function OnboardingPage() {
     hasHydrated,
     currentStep,
     accountId,
+    accountName,
     currency,
     selectedCategories,
     recurrentsState,
@@ -118,16 +116,25 @@ export default function OnboardingPage() {
   ]);
 
   switch (currentStep) {
-    case "create-account":
-      content = <CreateAccountStep onComplete={handleAccountCreated} />;
-      break;
     case "welcome":
       content = (
         <WelcomeStep
-          onContinue={() =>
-            accountId ? goTo("categories") : goTo("create-account")
-          }
+          onContinue={() => goTo("create-account")}
           showInvite={!accountId}
+        />
+      );
+      break;
+    case "create-account":
+      content = (
+        <CreateAccountStep
+          initialAccountName={accountName}
+          initialCurrency={currency}
+          onContinue={(name, curr) => {
+            setAccountName(name);
+            setCurrency(curr);
+            goTo("categories");
+          }}
+          onBack={() => goTo("welcome")}
         />
       );
       break;
@@ -180,13 +187,26 @@ export default function OnboardingPage() {
       );
       break;
     case "done":
-      content = (
+      content = accountId || accountName.trim() ? (
         <DoneStep
-          accountId={accountId ?? ""}
+          accountId={accountId}
+          accountName={accountName}
           selectedCategories={selectedCategories}
           recurrents={recurrents}
           goal={goal}
           currency={currency}
+          onAccountResolved={setAccountId}
+        />
+      ) : (
+        <CreateAccountStep
+          initialAccountName={accountName}
+          initialCurrency={currency}
+          onContinue={(name, curr) => {
+            setAccountName(name);
+            setCurrency(curr);
+            goTo("done");
+          }}
+          onBack={() => goTo("objective")}
         />
       );
       break;

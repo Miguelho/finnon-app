@@ -1,6 +1,6 @@
 import { View, StyleSheet } from "react-native";
 import { getProgressState, type OnboardingProgressStep } from "@poleursus/shared";
-import { onboardingColors } from "./onboarding-theme";
+import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 
 interface OnboardingProgressProps {
   current: OnboardingProgressStep;
@@ -8,6 +8,7 @@ interface OnboardingProgressProps {
 
 export function OnboardingProgress({ current }: OnboardingProgressProps) {
   const steps = getProgressState(current);
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
 
   return (
     <View style={styles.container}>
@@ -16,9 +17,9 @@ export function OnboardingProgress({ current }: OnboardingProgressProps) {
           <View
             style={[
               styles.bar,
-              step.state === "completed" && styles.barCompleted,
-              step.state === "active" && styles.barActive,
-              step.state === "pending" && styles.barPending,
+              { backgroundColor: userTokens.border },
+              step.state === "completed" && { backgroundColor: "#16a34a" },
+              step.state === "active" && { backgroundColor: primaryActionColor },
             ]}
           />
         </View>
@@ -42,16 +43,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: onboardingColors.border,
     marginHorizontal: 4,
-  },
-  barCompleted: {
-    backgroundColor: onboardingColors.green,
-  },
-  barActive: {
-    backgroundColor: onboardingColors.dark,
-  },
-  barPending: {
-    backgroundColor: onboardingColors.border,
   },
 });

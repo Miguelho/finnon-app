@@ -23,6 +23,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.poleursus.finnonapp",
+      associatedDomains: ["applinks:finnon.app"],
     },
     android: {
       adaptiveIcon: {
@@ -30,6 +31,25 @@ module.exports = {
         backgroundColor: "#ffffff",
       },
       package: "com.poleursus.finnonapp",
+      intentFilters: [
+        {
+          action: "VIEW",
+          autoVerify: true,
+          data: [
+            {
+              scheme: "https",
+              host: "finnon.app",
+              pathPrefix: "/auth/confirm",
+            },
+            {
+              scheme: "https",
+              host: "finnon.app",
+              pathPrefix: "/auth/callback",
+            },
+          ],
+          category: ["BROWSABLE", "DEFAULT"],
+        },
+      ],
     },
     web: {
       favicon: "./assets/favicon.png",

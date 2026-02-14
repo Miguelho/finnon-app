@@ -21,17 +21,18 @@ import {
 } from "./onboarding/state";
 
 type OnboardingStep =
-  | "create-account"
   | "welcome"
   | "categories"
   | "recurrents"
   | "objective"
+  | "create-account"
   | "done";
 
 export default function OnboardingScreen() {
   const { dictionary } = useCopy();
   const [currentStep, setCurrentStep] = useState<OnboardingStep>("welcome");
   const [accountId, setAccountId] = useState<string | null>(null);
+  const [accountName, setAccountName] = useState<string>("");
   const [currency, setCurrency] = useState<string>("EUR");
   const [selectedCategories, setSelectedCategories] = useState<DefaultCategory[]>(() =>
     DEFAULT_CATEGORIES.filter((category) => category.preselected)
@@ -51,11 +52,11 @@ export default function OnboardingScreen() {
 
   const isOnboardingStep = (value: string): value is OnboardingStep =>
     [
-      "create-account",
       "welcome",
       "categories",
       "recurrents",
       "objective",
+      "create-account",
       "done",
     ].includes(value);
 
@@ -69,6 +70,7 @@ export default function OnboardingScreen() {
         }
         const parsed = JSON.parse(stored) as OnboardingPersistedState;
         if (parsed.accountId !== undefined) setAccountId(parsed.accountId);
+        if (parsed.accountName) setAccountName(parsed.accountName);
         if (parsed.currency) setCurrency(parsed.currency);
         if (Array.isArray(parsed.selectedCategories)) {
           setSelectedCategories(parsed.selectedCategories);
@@ -94,6 +96,7 @@ export default function OnboardingScreen() {
     const payload: OnboardingPersistedState = {
       currentStep,
       accountId,
+      accountName,
       currency,
       selectedCategories,
       recurrentsState,
@@ -110,6 +113,7 @@ export default function OnboardingScreen() {
     hasHydrated,
     currentStep,
     accountId,
+    accountName,
     currency,
     selectedCategories,
     recurrentsState,
@@ -119,21 +123,24 @@ export default function OnboardingScreen() {
   ]);
 
   switch (currentStep) {
-    case "create-account":
-      return (
-        <CreateAccountStep
-          onComplete={(id, curr) => {
-            setAccountId(id);
-            setCurrency(curr);
-            goTo("categories");
-          }}
-        />
-      );
     case "welcome":
       return (
         <WelcomeStep
-          onContinue={() => (accountId ? goTo("categories") : goTo("create-account"))}
+          onContinue={() => goTo("create-account")}
           showInvite={!accountId}
+        />
+      );
+    case "create-account":
+      return (
+        <CreateAccountStep
+          initialAccountName={accountName}
+          initialCurrency={currency}
+          onContinue={(name, curr) => {
+            setAccountName(name);
+            setCurrency(curr);
+            goTo("categories");
+          }}
+          onBack={() => goTo("welcome")}
         />
       );
     case "categories":
@@ -182,13 +189,26 @@ export default function OnboardingScreen() {
         />
       );
     case "done":
-      return (
+      return accountId || accountName.trim() ? (
         <DoneStep
-          accountId={accountId ?? ""}
+          accountId={accountId}
+          accountName={accountName}
           selectedCategories={selectedCategories}
           recurrents={recurrents}
           goal={goal}
           currency={currency}
+          onAccountResolved={setAccountId}
+        />
+      ) : (
+        <CreateAccountStep
+          initialAccountName={accountName}
+          initialCurrency={currency}
+          onContinue={(name, curr) => {
+            setAccountName(name);
+            setCurrency(curr);
+            goTo("done");
+          }}
+          onBack={() => goTo("objective")}
         />
       );
     default:

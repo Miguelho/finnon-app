@@ -20,6 +20,7 @@ const isEmailOtpType = (value: string | null): value is EmailOtpType =>
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
+  const email = requestUrl.searchParams.get("email");
   const tokenHash = requestUrl.searchParams.get("token_hash");
   const type = requestUrl.searchParams.get("type");
   const error_description = requestUrl.searchParams.get("error_description");
@@ -66,22 +67,31 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    let authError: Error | null = null;
-
     if (code) {
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
-      authError = error;
+      const { error: codeError } = await supabase.auth.exchangeCodeForSession(code);
+
+      if (codeError) {
+        console.error("Auth callback PKCE error:", codeError);
+        const loginUrl = new URL("/login", request.url);
+        loginUrl.searchParams.set("error", "pkce_failed");
+        if (email) {
+          loginUrl.searchParams.set("email", email);
+        }
+        return NextResponse.redirect(loginUrl);
+      }
     } else if (tokenHash && isEmailOtpType(type)) {
       const { error } = await supabase.auth.verifyOtp({
         type,
         token_hash: tokenHash,
       });
-      authError = error;
+      if (error) {
+        console.error("Auth callback error:", error);
+        return NextResponse.redirect(
+          `${origin}/login?error=${encodeURIComponent(error.message)}`
+        );
+      }
     } else {
-      authError = new Error("Invalid or missing OTP type");
-    }
-
-    if (authError) {
+      const authError = new Error("Invalid or missing OTP type");
       console.error("Auth callback error:", authError);
       return NextResponse.redirect(
         `${origin}/login?error=${encodeURIComponent(authError.message)}`

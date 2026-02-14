@@ -89,29 +89,40 @@ export function RecurrentsStep({
   };
 
   const selectedItems = items.filter((item) => item.selected);
+  const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
 
-  const selectedAmounts = selectedItems.map((item) =>
-    parseMoneyToMinor(item.amount, currency)
+  const selectedAmounts = selectedItems
+    .filter((item) => item.amount.trim() !== "")
+    .map((item) => parseMoneyToMinor(item.amount, currency));
+  const hasEmptySuggestedAmount = selectedItems.some(
+    (item) => item.amount.trim() === ""
   );
   const hasInvalidSuggestedAmount = selectedAmounts.some(
     (result) => typeof result === "object"
   );
 
   const customHasInput = customLabel.trim() !== "" || customAmount.trim() !== "";
-  const customAmountResult = customHasInput
+  const customAmountResult = customHasInput && customAmount.trim() !== ""
     ? parseMoneyToMinor(customAmount, currency)
     : null;
   const customValid =
     customHasInput &&
     customLabel.trim() !== "" &&
+    customAmount.trim() !== "" &&
     typeof customAmountResult !== "object";
+  const customHasEmptyAmount = customHasInput && customAmount.trim() === "";
   const customHasError =
-    customHasInput && (!customValid || typeof customAmountResult === "object");
+    customHasInput &&
+    (customHasEmptyAmount || !customValid || typeof customAmountResult === "object");
 
   const selectedCount = selectedItems.length + (customValid ? 1 : 0);
   const meetsMinimum = selectedCount >= ONBOARDING_MIN_RECURRENTS;
 
-  const canContinue = meetsMinimum && !hasInvalidSuggestedAmount && !customHasError;
+  const canContinue =
+    meetsMinimum &&
+    !hasEmptySuggestedAmount &&
+    !hasInvalidSuggestedAmount &&
+    !customHasError;
 
   const buildRecurrents = () => {
     const dayOfMonth = new Date().getUTCDate();
@@ -167,14 +178,14 @@ export function RecurrentsStep({
     : t("recurrents.minimum");
 
   return (
-    <div className="w-full rounded-2xl border border-[#e5e7eb] bg-white">
+    <div className="w-full rounded-2xl border border-border bg-card">
       <div className="px-6 pt-8">
         <OnboardingProgress current="recurrents" />
         <div className="mt-6 text-center">
-          <h2 className="text-2xl font-bold text-[#1a1f36]">
+          <h2 className="text-2xl font-bold text-foreground">
             {t("recurrents.title")}
           </h2>
-          <p className="text-sm text-[#6b7280]">{t("recurrents.subtitle")}</p>
+          <p className="text-sm text-muted-foreground">{t("recurrents.subtitle")}</p>
         </div>
       </div>
 
@@ -191,11 +202,13 @@ export function RecurrentsStep({
               tabIndex={0}
               onClick={() => updateItem(item.id, { selected: !item.selected })}
               className={cn(
-                "flex items-center gap-3 rounded-lg border border-[#e5e7eb] px-4 py-3 transition",
-                item.selected ? "border-[#1a1f36] bg-[#f8f9fc]" : "hover:border-[#9ca3af]"
+                "flex items-center gap-3 rounded-lg border border-border px-4 py-3 transition",
+                item.selected
+                  ? "border-foreground bg-muted/30"
+                  : "hover:border-muted-foreground"
               )}
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#fafafa] text-[#6b7280]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                 <ItemIcon className="h-4 w-4" />
               </div>
               <div className="flex-1">
@@ -204,32 +217,30 @@ export function RecurrentsStep({
                   value={item.label}
                   onClick={(event) => event.stopPropagation()}
                   onChange={(event) => updateItem(item.id, { label: event.target.value })}
-                  className="w-full bg-transparent text-sm font-semibold text-[#1a1f36] outline-none"
+                  className="w-full bg-transparent text-sm font-semibold text-foreground outline-none"
                 />
-                <p className="text-xs text-[#9ca3af]">{detail}</p>
-                <div className="mt-2">
-                  <input
-                    type="date"
-                    value={item.expectedDate || today}
-                    onClick={(event) => event.stopPropagation()}
-                    onChange={(event) =>
-                      updateItem(item.id, { expectedDate: event.target.value })
-                    }
-                    className="w-full rounded-md border border-[#e5e7eb] px-2 py-1 text-sm text-[#1a1f36] outline-none focus:border-[#1a1f36]"
-                  />
-                </div>
+                <p className="text-xs text-muted-foreground">{detail}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[#9ca3af]">{currency}</span>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <input
+                  type="date"
+                  value={item.expectedDate || today}
+                  onClick={(event) => event.stopPropagation()}
+                  onChange={(event) =>
+                    updateItem(item.id, { expectedDate: event.target.value })
+                  }
+                  className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus:border-ring"
+                />
+                <span className="text-xs text-muted-foreground">{currency}</span>
                 <input
                   type="text"
                   inputMode="decimal"
                   value={item.amount}
                   onClick={(event) => event.stopPropagation()}
                   onChange={(event) =>
-                    updateItem(item.id, { amount: event.target.value })
+                    updateItem(item.id, { amount: sanitizeNumericInput(event.target.value) })
                   }
-                  className="w-20 rounded-md border border-[#e5e7eb] px-2 py-1 text-right text-sm font-semibold text-[#1a1f36] outline-none focus:border-[#1a1f36]"
+                  className="h-8 w-20 rounded-md border border-border bg-background px-2 text-right text-sm font-semibold text-foreground outline-none focus:border-ring"
                 />
               </div>
             </div>
@@ -242,7 +253,7 @@ export function RecurrentsStep({
         onClick={() =>
           onChangeState((prev) => ({ ...prev, customEnabled: !prev.customEnabled }))
         }
-        className="mx-6 mt-4 flex items-center justify-center gap-2 rounded-lg border border-dashed border-[#e5e7eb] px-4 py-3 text-sm font-medium text-[#6b7280] transition hover:border-[#9ca3af] hover:text-[#1a1f36]"
+        className="mx-6 mt-4 flex items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 py-3 text-sm font-medium text-muted-foreground transition hover:border-muted-foreground hover:text-foreground"
       >
         <span className="text-base">＋</span>
         {t("recurrents.addCustom")}
@@ -279,7 +290,7 @@ export function RecurrentsStep({
                 onChange={(event) =>
                   onChangeState((prev) => ({
                     ...prev,
-                    customAmount: event.target.value,
+                    customAmount: sanitizeNumericInput(event.target.value),
                   }))
                 }
                 placeholder={tGlobal("addTransaction.amountPlaceholder")}
@@ -363,14 +374,14 @@ export function RecurrentsStep({
       <div
         className={cn(
           "px-6 py-4 text-center text-xs font-medium",
-          meetsMinimum ? "text-[#16a34a]" : "text-[#f59e0b]"
+          meetsMinimum ? "text-emerald-600" : "text-amber-600"
         )}
       >
         {minimumLabel}
       </div>
 
-      {(hasInvalidSuggestedAmount || customHasError) && (
-        <p className="px-6 pb-2 text-center text-xs font-medium text-[#dc2626]">
+      {(hasEmptySuggestedAmount || hasInvalidSuggestedAmount || customHasError) && (
+        <p className="px-6 pb-2 text-center text-xs font-medium text-destructive">
           {tGlobal("money.invalidFormat")}
         </p>
       )}
@@ -379,7 +390,7 @@ export function RecurrentsStep({
         <Button
           variant="outline"
           onClick={onBack}
-          className="w-full border-[#e5e7eb] text-[#6b7280]"
+          className="w-full border-border text-foreground"
         >
           {tGlobal("common.back")}
         </Button>

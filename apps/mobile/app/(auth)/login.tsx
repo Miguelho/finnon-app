@@ -11,13 +11,13 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { useAuth } from "../../src/contexts/AuthContext";
 
 const OTP_MIN_LENGTH = 6;
 const OTP_MAX_LENGTH = 8;
+const MOBILE_MAGIC_LINK_REDIRECT_TO = "https://finnon.app/auth/confirm";
 
 const loginColors = {
   bg: "#F6F5F1",
@@ -196,11 +196,10 @@ export default function LoginScreen() {
     setError(null);
 
     try {
-      const redirectTo = Linking.createURL("/");
       const { error: magicError } = await supabase.auth.signInWithOtp({
         email: normalizedEmail,
         options: {
-          emailRedirectTo: redirectTo,
+          emailRedirectTo: MOBILE_MAGIC_LINK_REDIRECT_TO,
           shouldCreateUser: true,
         },
       });

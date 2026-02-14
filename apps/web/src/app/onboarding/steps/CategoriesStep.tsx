@@ -42,14 +42,14 @@ export function CategoriesStep({
   };
 
   return (
-    <div className="w-full rounded-2xl border border-[#e5e7eb] bg-white">
+    <div className="w-full rounded-2xl border border-border bg-card">
       <div className="px-6 pt-8">
         <OnboardingProgress current="categories" />
         <div className="mt-6 text-center">
-          <h2 className="text-2xl font-bold text-[#1a1f36]">
+          <h2 className="text-2xl font-bold text-foreground">
             {t("categories.title")}
           </h2>
-          <p className="text-sm text-[#6b7280]">{t("categories.subtitle")}</p>
+          <p className="text-sm text-muted-foreground">{t("categories.subtitle")}</p>
         </div>
       </div>
 
@@ -63,18 +63,20 @@ export function CategoriesStep({
               type="button"
               onClick={() => toggleCategory(category)}
               className={cn(
-                "flex items-center gap-3 rounded-lg border border-[#e5e7eb] px-4 py-3 text-left transition",
-                isSelected ? "border-[#1a1f36] bg-[#f8f9fc]" : "hover:border-[#9ca3af]"
+                "flex items-center gap-3 rounded-lg border border-border px-4 py-3 text-left transition",
+                isSelected
+                  ? "border-foreground bg-muted/30"
+                  : "hover:border-muted-foreground"
               )}
             >
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#fafafa]">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted">
                 <CategoryIcon iconKey={category.icon_id} size={18} tone="muted" />
               </span>
-              <span className="text-sm font-medium text-[#1a1f36]">{label}</span>
+              <span className="text-sm font-medium text-foreground">{label}</span>
               <span
                 className={cn(
                   "ml-auto flex h-5 w-5 items-center justify-center rounded-full border",
-                  isSelected ? "border-[#1a1f36] bg-[#1a1f36]" : "border-[#e5e7eb]"
+                  isSelected ? "border-foreground bg-foreground" : "border-border"
                 )}
               >
                 <svg
@@ -94,7 +96,7 @@ export function CategoriesStep({
         })}
       </div>
 
-      <p className="px-6 py-4 text-center text-xs text-[#9ca3af]">
+      <p className="px-6 py-4 text-center text-xs text-muted-foreground">
         {t("categories.footer")}
       </p>
 
@@ -102,7 +104,7 @@ export function CategoriesStep({
         <Button
           variant="outline"
           onClick={onBack}
-          className="w-full border-[#e5e7eb] text-[#6b7280]"
+          className="w-full border-border text-foreground"
         >
           {tGlobal("common.back")}
         </Button>
@@ -110,7 +112,7 @@ export function CategoriesStep({
           onClick={() => {
             onContinue();
           }}
-          className="w-full bg-[#1a1f36] text-white hover:bg-[#2a3050]"
+          className="w-full"
         >
           {t("categories.continue")}
         </Button>

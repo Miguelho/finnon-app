@@ -19,9 +19,9 @@ export function OnboardingProgress({ current }: OnboardingProgressProps) {
         <span
           key={step.step}
           className={cn(
-            "h-1 w-10 rounded-full bg-[#e5e7eb]",
-            step.state === "completed" && "bg-[#16a34a]",
-            step.state === "active" && "bg-[#1a1f36]"
+            "h-1 w-10 rounded-full bg-border",
+            step.state === "completed" && "bg-emerald-600",
+            step.state === "active" && "bg-foreground"
           )}
         />
       ))}

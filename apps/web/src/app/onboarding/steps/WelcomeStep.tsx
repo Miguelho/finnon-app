@@ -14,18 +14,6 @@ export function WelcomeStep({ onContinue, showInvite = true }: WelcomeStepProps)
 
   return (
     <div className="w-full rounded-2xl border border-[#e5e7eb] bg-white px-8 py-10 text-center shadow-sm">
-      <div className="mx-auto mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1a1f36] shadow-md">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="white"
-          strokeWidth="2"
-          className="h-8 w-8"
-        >
-          <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2m-16 0H3" />
-          <path d="M9 7h1m-1 4h1m4-4h1m-1 4h1" />
-        </svg>
-      </div>
 
       <h1 className="text-3xl font-bold text-[#1a1f36]">{t("welcome.title")}</h1>
       <p className="mx-auto mt-3 max-w-md text-base text-[#6b7280]">
@@ -63,7 +51,7 @@ export function WelcomeStep({ onContinue, showInvite = true }: WelcomeStepProps)
       </div>
 
       <p className="mt-6 text-xs text-[#9ca3af]">
-        ⏱ {t("welcome.timeEstimate")}
+        {t("welcome.timeEstimate")}
       </p>
 
       <div className="mx-auto mt-6 flex w-full max-w-sm flex-col gap-2">

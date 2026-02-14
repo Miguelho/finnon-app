@@ -20,18 +20,23 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
-  const [mode, setMode] = useState<"link" | "code">("link");
+  const [mode, setMode] = useState<"link" | "code">("code");
   const [codeStep, setCodeStep] = useState<"request" | "verify">("request");
   const [deliveryState, setDeliveryState] = useState<"idle" | "sentLink">("idle");
 
   const supabase = createClient();
   const isCooldownActive = cooldownSeconds > 0;
   const queryError = searchParams.get("error");
+  const queryEmail = searchParams.get("email");
 
   const queryErrorMessage = useMemo(() => {
     if (!queryError) return null;
 
     const normalized = queryError.toLowerCase();
+
+    if (normalized === "pkce_failed" || normalized.includes("pkce")) {
+      return t("redesign.authErrorPkceFailed");
+    }
 
     if (normalized.includes("no_code") || normalized.includes("missing")) {
       return t("redesign.authErrorNoCode");
@@ -62,9 +67,23 @@ export default function LoginPage() {
     return () => clearInterval(timer);
   }, [cooldownSeconds]);
 
+  useEffect(() => {
+    if (!queryError || queryError.toLowerCase() !== "pkce_failed") return;
+
+    setMode("code");
+    setCodeStep("request");
+    setDeliveryState("idle");
+    setOtpCode("");
+
+    const normalizedEmail = queryEmail?.trim().toLowerCase() ?? "";
+    if (normalizedEmail && emailRegex.test(normalizedEmail)) {
+      setEmail(normalizedEmail);
+    }
+  }, [queryEmail, queryError]);
+
   const submitLabel = useMemo(() => {
     if (mode === "code" && codeStep === "request") {
-      return loading ? t("otpSending") : t("otpSendButton");
+      return loading ? t("otpSending") : t("redesign.continueButton");
     }
 
     if (mode === "code" && codeStep === "verify") {
@@ -170,7 +189,7 @@ export default function LoginPage() {
       setCodeStep("verify");
       setCooldownSeconds(60);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("sendError"));
+      setError(err instanceof Error ? err.message : t("redesign.sendError"));
     } finally {
       setLoading(false);
     }
@@ -396,27 +415,8 @@ export default function LoginPage() {
                 )}
               </p>
 
-              {mode === "link" && (
+              {mode === "code" && codeStep === "request" && (
                 <p className="text-center text-[12.5px] leading-5 text-[#9A9A9A]">
-                  {t("redesign.fallbackQuestion")}{" "}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode("code");
-                      setCodeStep("request");
-                      setError(null);
-                      setOtpCode("");
-                    }}
-                    className="text-[#6B6B6B] underline decoration-[#E5E3DE] underline-offset-2"
-                  >
-                    {t("redesign.fallbackCta")}
-                  </button>
-                </p>
-              )}
-
-              {mode === "code" && (
-                <p className="text-center text-[12.5px] leading-5 text-[#9A9A9A]">
-                  {t("redesign.backToMagicQuestion")}{" "}
                   <button
                     type="button"
                     onClick={() => {
@@ -428,7 +428,31 @@ export default function LoginPage() {
                     }}
                     className="text-[#6B6B6B] underline decoration-[#E5E3DE] underline-offset-2"
                   >
-                    {t("redesign.backToMagicCta")}
+                    {t("redesign.magicLinkSecondaryCta")}
+                  </button>
+                </p>
+              )}
+
+              {mode === "link" && deliveryState === "sentLink" && (
+                <p className="rounded-md border border-[#d9eadf] bg-[#edf9f1] p-3 text-center text-xs text-[#2A7B57]">
+                  {t("redesign.linkSentDescription")}
+                </p>
+              )}
+
+              {mode === "link" && codeStep === "request" && (
+                <p className="text-center text-[12.5px] leading-5 text-[#9A9A9A]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("code");
+                      setCodeStep("request");
+                      setDeliveryState("idle");
+                      setError(null);
+                      setOtpCode("");
+                    }}
+                    className="text-[#6B6B6B] underline decoration-[#E5E3DE] underline-offset-2"
+                  >
+                    {t("redesign.backToCodeCta")}
                   </button>
                 </p>
               )}

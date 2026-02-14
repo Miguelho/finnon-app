@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -8,86 +8,48 @@ import {
   Text,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
-import { useRouter } from "expo-router";
-import { supabase } from "../../../src/lib/supabase";
 import { Input } from "../../../src/components/Input";
 import { Button } from "../../../src/components/Button";
 import { CURRENCIES } from "@poleursus/shared";
-import { useAuth } from "../../../src/contexts/AuthContext";
 import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../src/lib/i18n";
 import { OnboardingSurface } from "./OnboardingSurface";
 
 interface CreateAccountStepProps {
-  onComplete: (accountId: string, currency: string) => void;
+  initialAccountName: string;
+  initialCurrency: string;
+  onContinue: (accountName: string, currency: string) => void;
+  onBack?: () => void;
 }
 
-export function CreateAccountStep({ onComplete }: CreateAccountStepProps) {
-  const [accountName, setAccountName] = useState("");
-  const [currency, setCurrency] = useState("EUR");
-  const [loading, setLoading] = useState(false);
+export function CreateAccountStep({
+  initialAccountName,
+  initialCurrency,
+  onContinue,
+  onBack,
+}: CreateAccountStepProps) {
+  const [accountName, setAccountName] = useState(initialAccountName);
+  const [currency, setCurrency] = useState(initialCurrency || "EUR");
   const [error, setError] = useState<string | null>(null);
-  const { user, signOut } = useAuth();
   const { tokens: userTokens } = useUserTheme();
-  const router = useRouter();
   const { dictionary } = useCopy();
 
-  const handleCreateAccount = async () => {
-    if (!accountName || !currency) {
+  useEffect(() => {
+    setAccountName(initialAccountName);
+  }, [initialAccountName]);
+
+  useEffect(() => {
+    setCurrency(initialCurrency || "EUR");
+  }, [initialCurrency]);
+
+  const handleContinue = () => {
+    const normalizedName = accountName.trim();
+    if (!normalizedName || !currency) {
       setError(t(dictionary, "errors.onboardingMissingFields"));
       return;
     }
-
-    if (!user) {
-      await signOut();
-      router.replace("/(auth)/login");
-      return;
-    }
-
-    setLoading(true);
     setError(null);
-
-    try {
-      const { data: account, error: accountError } = await supabase
-        .from("accounts")
-        .insert({
-          name: accountName,
-          base_currency: currency,
-          owner_user_id: user.id,
-        })
-        .select()
-        .single();
-
-      if (accountError) throw accountError;
-
-      console.log("Account created successfully:", account.id);
-      onComplete(account.id, currency);
-    } catch (err) {
-      console.error("Error creating account:", err);
-      const errorCode =
-        typeof err === "object" && err !== null && "code" in err ? (err as any).code : null;
-      const errorStatus =
-        typeof err === "object" && err !== null && "status" in err ? (err as any).status : null;
-      const isAuthError =
-        errorCode === "401" ||
-        errorCode === "403" ||
-        errorCode === "42501" ||
-        errorCode === "23503" ||
-        errorStatus === 401 ||
-        errorStatus === 403;
-
-      if (isAuthError) {
-        await signOut();
-        router.replace("/(auth)/login");
-        return;
-      }
-
-      setError(
-        err instanceof Error ? err.message : t(dictionary, "errors.internalServer")
-      );
-    } finally {
-      setLoading(false);
-    }
+    onContinue(normalizedName, currency);
   };
 
   return (
@@ -115,7 +77,6 @@ export function CreateAccountStep({ onComplete }: CreateAccountStepProps) {
             onChangeText={setAccountName}
             placeholder={t(dictionary, "onboarding.accountNamePlaceholder")}
             maxLength={255}
-            disabled={loading}
             helperText={t(dictionary, "onboarding.accountNameHelper")}
             inputStyle={{ backgroundColor: userTokens.surfaceAlt }}
           />
@@ -136,7 +97,6 @@ export function CreateAccountStep({ onComplete }: CreateAccountStepProps) {
               <Picker
                 selectedValue={currency}
                 onValueChange={(itemValue) => setCurrency(itemValue)}
-                enabled={!loading}
                 style={[styles.picker, { color: userTokens.textPrimary }]}
                 dropdownIconColor={userTokens.textSecondary}
               >
@@ -171,11 +131,17 @@ export function CreateAccountStep({ onComplete }: CreateAccountStepProps) {
           )}
 
           <View style={styles.actions}>
+            {onBack ? (
+              <Button
+                title={t(dictionary, "common.back")}
+                onPress={onBack}
+                variant="secondary"
+              />
+            ) : null}
             <Button
-              title={t(dictionary, "onboarding.submitButton")}
-              onPress={handleCreateAccount}
-              disabled={loading || !accountName}
-              loading={loading}
+              title={t(dictionary, "common.continue")}
+              onPress={handleContinue}
+              disabled={!accountName.trim()}
             />
           </View>
         </OnboardingSurface>

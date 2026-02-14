@@ -4,13 +4,15 @@ import { Button } from "../../../src/components/Button";
 import { useCopy, t } from "../../../src/lib/i18n";
 import {
   DEFAULT_CATEGORIES,
+  withAlpha,
   type DefaultCategory,
   type CategoryIconKey,
 } from "@poleursus/shared";
 import { CategoryIcon } from "../../../src/components/CategoryIcon";
+import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { OnboardingProgress } from "./OnboardingProgress";
 import { OnboardingSurface } from "./OnboardingSurface";
-import { onboardingColors, onboardingRadii } from "./onboarding-theme";
+import { onboardingRadii } from "./onboarding-theme";
 
 interface CategoriesStepProps {
   selectedCategories: DefaultCategory[];
@@ -26,10 +28,12 @@ export function CategoriesStep({
   onBack,
 }: CategoriesStepProps) {
   const { dictionary, locale } = useCopy();
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const selectedNames = useMemo(
     () => new Set(selectedCategories.map((category) => category.name)),
     [selectedCategories]
   );
+  const selectedCategoryBg = withAlpha(primaryActionColor, 0.12);
 
   const toggleCategory = (category: DefaultCategory) => {
     const next = new Set(selectedNames);
@@ -44,15 +48,20 @@ export function CategoriesStep({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: userTokens.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <OnboardingSurface>
+        <OnboardingSurface
+          style={{
+            backgroundColor: userTokens.surface,
+            borderColor: userTokens.border,
+          }}
+        >
           <OnboardingProgress current="categories" />
           <View style={styles.header}>
-            <Text style={styles.title}>
+            <Text style={[styles.title, { color: userTokens.textPrimary }]}>
               {t(dictionary, "onboarding.categories.title")}
             </Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
               {t(dictionary, "onboarding.categories.subtitle")}
             </Text>
           </View>
@@ -65,11 +74,23 @@ export function CategoriesStep({
                   key={category.name}
                   style={[
                     styles.categoryItem,
-                    isSelected && styles.categoryItemSelected,
+                    {
+                      borderColor: userTokens.border,
+                      backgroundColor: userTokens.surfaceAlt,
+                    },
+                    isSelected && {
+                      borderColor: primaryActionColor,
+                      backgroundColor: selectedCategoryBg,
+                    },
                   ]}
                   onPress={() => toggleCategory(category)}
                 >
-                  <View style={styles.iconChip}>
+                  <View
+                    style={[
+                      styles.iconChip,
+                      { backgroundColor: userTokens.background },
+                    ]}
+                  >
                     <CategoryIcon
                       iconKey={category.icon_id as CategoryIconKey}
                       size={18}
@@ -77,7 +98,7 @@ export function CategoriesStep({
                     />
                   </View>
                   <Text
-                    style={styles.categoryLabel}
+                    style={[styles.categoryLabel, { color: userTokens.textPrimary }]}
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >
@@ -86,12 +107,17 @@ export function CategoriesStep({
                   <View
                     style={[
                       styles.checkChip,
-                      isSelected && styles.checkChipSelected,
+                      { borderColor: userTokens.border },
+                      isSelected && {
+                        backgroundColor: primaryActionColor,
+                        borderColor: primaryActionColor,
+                      },
                     ]}
                   >
                     <Text
                       style={[
                         styles.checkText,
+                        { color: userTokens.surface },
                         !isSelected && styles.checkHidden,
                       ]}
                     >
@@ -102,7 +128,7 @@ export function CategoriesStep({
               );
             })}
           </View>
-          <Text style={styles.footerText}>
+          <Text style={[styles.footerText, { color: userTokens.textSecondary }]}>
             {t(dictionary, "onboarding.categories.footer")}
           </Text>
           <View style={styles.actions}>
@@ -121,7 +147,6 @@ export function CategoriesStep({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: onboardingColors.bg,
   },
   scrollContent: {
     flexGrow: 1,
@@ -135,12 +160,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "700",
-    color: onboardingColors.text,
   },
   subtitle: {
     marginTop: 6,
     fontSize: 13,
-    color: onboardingColors.textSecondary,
     textAlign: "center",
   },
   grid: {
@@ -154,29 +177,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1.5,
-    borderColor: onboardingColors.border,
     borderRadius: onboardingRadii.sm,
     paddingVertical: 12,
     paddingHorizontal: 12,
     width: "48%",
-    backgroundColor: onboardingColors.white,
-  },
-  categoryItemSelected: {
-    borderColor: onboardingColors.dark,
-    backgroundColor: "#f8f9fc",
   },
   iconChip: {
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: onboardingColors.bg,
     alignItems: "center",
     justifyContent: "center",
   },
   categoryLabel: {
     fontSize: 12,
     fontWeight: "500",
-    color: onboardingColors.text,
     marginLeft: 8,
     flex: 1,
   },
@@ -185,17 +200,11 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 9,
     borderWidth: 1.5,
-    borderColor: onboardingColors.border,
     alignItems: "center",
     justifyContent: "center",
   },
-  checkChipSelected: {
-    backgroundColor: onboardingColors.dark,
-    borderColor: onboardingColors.dark,
-  },
   checkText: {
     fontSize: 10,
-    color: onboardingColors.white,
     fontWeight: "700",
   },
   checkHidden: {
@@ -203,7 +212,6 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    color: onboardingColors.textMuted,
     marginTop: 12,
     marginBottom: 16,
     textAlign: "center",

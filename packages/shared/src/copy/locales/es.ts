@@ -5,6 +5,7 @@ export const es = {
     ok: "OK",
     cancel: "Cancelar",
     back: "Volver",
+    continue: "Continuar",
     retry: "Reintentar",
     create: "Crear",
     creating: "Creando...",
@@ -123,6 +124,9 @@ export const es = {
       emailPlaceholder: "tu@email.com",
       helperLine1: "Te enviaremos un enlace mágico.",
       helperLine2: "Sin contraseñas, sin complicaciones.",
+      magicLinkSecondaryCta: "O envíame un enlace al correo",
+      backToCodeCta: "Usar código de verificación",
+      linkSentDescription: "Te hemos enviado un enlace. Revisa tu correo.",
       fallbackQuestion: "¿Problemas con el enlace?",
       fallbackCta: "Prueba con un código",
       backToMagicQuestion: "¿Prefieres enlace mágico?",
@@ -154,6 +158,8 @@ export const es = {
         "No pudimos crear tu sesión. Revisa tu correo e inténtalo de nuevo.",
       authErrorExpired:
         "El enlace de acceso es inválido o ha expirado. Solicita uno nuevo.",
+      authErrorPkceFailed:
+        "El enlace se abrió en un navegador diferente. Introduce tu email para recibir un código de verificación.",
       authErrorGeneric:
         "Ha ocurrido un error durante la autenticación. Vuelve a intentarlo.",
       sendError: "No pudimos enviar el acceso. Inténtalo de nuevo.",
@@ -199,7 +205,7 @@ export const es = {
     recurrents: {
       title: "¿Qué gastos e ingresos tienes cada mes?",
       subtitle:
-        "Añade al menos 2 para ver tu semana con datos reales. Podrás añadir el día que ocurre más adelante.",
+        "Añade al menos 2 para ver tu semana con datos reales.",
       salary: "Nómina",
       rent: "Alquiler",
       netflix: "Netflix",

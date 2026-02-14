@@ -16,6 +16,9 @@ import {
 } from "@/components/ui/card";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 
+const OTP_MIN_LENGTH = 6;
+const OTP_MAX_LENGTH = 8;
+
 export default function LoginOTPPage() {
   const t = useTranslations("login");
   const [email, setEmail] = useState("");
@@ -114,12 +117,15 @@ export default function LoginOTPPage() {
                 <Input
                   id="otp"
                   type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="one-time-code"
                   placeholder={t("otpPlaceholder")}
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
                   required
                   disabled={loading}
-                  maxLength={6}
+                  maxLength={OTP_MAX_LENGTH}
                   className="text-center text-2xl tracking-widest"
                 />
               </div>
@@ -151,7 +157,7 @@ export default function LoginOTPPage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={loading || otp.length !== 6}
+                  disabled={loading || otp.length < OTP_MIN_LENGTH}
                   className="flex-1"
                 >
                   {loading ? t("otpVerifying") : t("otpVerifyButton")}

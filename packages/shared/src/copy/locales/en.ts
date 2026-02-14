@@ -5,6 +5,7 @@ export const en = {
     ok: "OK",
     cancel: "Cancel",
     back: "Back",
+    continue: "Continue",
     retry: "Retry",
     create: "Create",
     creating: "Creating...",
@@ -123,6 +124,9 @@ export const en = {
       emailPlaceholder: "you@email.com",
       helperLine1: "We'll send you a magic link.",
       helperLine2: "No passwords, no friction.",
+      magicLinkSecondaryCta: "Or send me a link by email",
+      backToCodeCta: "Use a verification code",
+      linkSentDescription: "We've sent you a link. Check your email.",
       fallbackQuestion: "Problems with the link?",
       fallbackCta: "Try a code instead",
       backToMagicQuestion: "Prefer magic link?",
@@ -154,6 +158,8 @@ export const en = {
         "We couldn't create your session. Check your email and try again.",
       authErrorExpired:
         "The sign-in link is invalid or expired. Request a new one.",
+      authErrorPkceFailed:
+        "The link was opened in a different browser. Enter your email to receive a verification code.",
       authErrorGeneric:
         "An authentication error occurred. Please try again.",
       sendError: "We couldn't send access. Please try again.",
@@ -199,7 +205,7 @@ export const en = {
     recurrents: {
       title: "What expenses and income do you have each month?",
       subtitle:
-        "Add at least 2 to see your week with real data. You can add the day it happens later.",
+        "Add at least 2 to see your week with real data.",
       salary: "Salary",
       rent: "Rent",
       netflix: "Netflix",
