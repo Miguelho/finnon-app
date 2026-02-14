@@ -221,9 +221,6 @@ export function AccountMenu({
                       <p className="text-sm font-medium text-foreground">
                         {displayName}
                       </p>
-                      <span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold uppercase text-primary">
-                        {member.role}
-                      </span>
                     </div>
                   );
                 })}

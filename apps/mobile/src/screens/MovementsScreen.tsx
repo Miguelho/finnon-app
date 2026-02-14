@@ -256,7 +256,7 @@ export default function MovementsScreen() {
               { backgroundColor: userTokens.surface, borderColor: userTokens.border },
             ]}
           >
-            <PeriodSelector selected={selectedPeriod} onSelect={setPeriod} />
+            <PeriodSelector selected={selectedPeriod} onSelect={setPeriod} locale={locale} />
           </View>
         </Animated.View>
 
@@ -268,7 +268,7 @@ export default function MovementsScreen() {
 
         <Pressable
           style={styles.recurrentLink}
-          onPress={() => router.push("/(auth)/recurrentes")}
+          onPress={() => router.push("/(auth)/transaction/recurrent")}
         >
           <Text style={[styles.recurrentLinkText, { color: primaryActionColor }]}>
             {t(dictionary, "transactions.ui.recurringLink")}

@@ -89,7 +89,7 @@ export default function RecurrentesScreen(): React.JSX.Element {
   }, [loadData]);
 
   const handleEdit = (id: string) => {
-    router.push(`/(auth)/recurrentes/${id}`);
+    router.push(`/(auth)/transaction/recurrent/${id}`);
   };
 
   const handlePause = async (id: string, isPaused: boolean) => {

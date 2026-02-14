@@ -5,7 +5,6 @@ import { createInviteSchema } from "@poleursus/shared";
 import {
   generateInviteToken,
   hashInviteToken,
-  buildInviteUrl,
 } from "@poleursus/shared/src/utils/invite";
 import { createServiceRoleClient, normalizeEmail } from "@/lib/invites";
 
@@ -75,7 +74,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Validar que el email exista en profiles
+    // 4. Look up invitee in profiles (optional — user may not exist yet)
     const normalizedEmail = normalizeEmail(email);
     const serviceClient = createServiceRoleClient();
 
@@ -93,15 +92,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!invitee) {
-      return NextResponse.json(
-        { errorKey: "errors.inviteUserNotFound" },
-        { status: 404 }
-      );
-    }
-
-    const inviteeUserId = invitee.user_id;
-    const invitedEmail = invitee.email ?? normalizedEmail;
+    // If user doesn't exist yet, invite by email only — they'll see the invite after signup
+    const inviteeUserId = invitee?.user_id ?? null;
+    const invitedEmail = invitee?.email ?? normalizedEmail;
 
     // 5. Generate token (NEVER log this plaintext token except in response)
     const plainToken = generateInviteToken();
@@ -143,15 +136,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 8. Build invite URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
-    const inviteUrl = buildInviteUrl(baseUrl, plainToken);
-
-    // 9. Return response
+    // 8. Return response
     return NextResponse.json({
-      inviteUrl,
+      inviteId: invite.id,
       expiresAt: invite.expires_at,
       role: invite.role,
+      inviteeExists: inviteeUserId !== null,
     });
   } catch (error) {
     console.error("Create invite error:", error);

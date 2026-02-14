@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   KeyboardAvoidingView,
@@ -15,9 +15,7 @@ import { useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 import { useAuth } from "../../src/contexts/AuthContext";
 
-const OTP_MIN_LENGTH = 6;
-const OTP_MAX_LENGTH = 8;
-const MOBILE_MAGIC_LINK_REDIRECT_TO = "https://finnon.app/auth/confirm";
+const OTP_LENGTH = 6;
 
 const loginColors = {
   bg: "#F6F5F1",
@@ -55,11 +53,9 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"email" | "otp">("email");
-  const [deliveryMode, setDeliveryMode] = useState<"magic" | "code">("magic");
   const [loadingAction, setLoadingAction] = useState<
-    "otp" | "magic" | "verify" | null
+    "otp" | "verify" | null
   >(null);
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [emailFocused, setEmailFocused] = useState(false);
@@ -121,21 +117,7 @@ export default function LoginScreen() {
     ]).start();
   }, [brandAnim, formAnim, logoAnim, panelAnim]);
 
-  const primaryButtonTitle = useMemo(() => {
-    if (deliveryMode === "code") {
-      return loadingAction === "otp" ? "Enviando..." : "Enviar código";
-    }
-
-    if (loadingAction === "magic") {
-      return "Enviando...";
-    }
-
-    if (magicLinkSent) {
-      return "Enlace enviado ✓";
-    }
-
-    return "Continuar";
-  }, [deliveryMode, loadingAction, magicLinkSent]);
+  const primaryButtonTitle = loadingAction === "otp" ? "Enviando..." : "Enviar código";
 
   const validateEmail = () => {
     const trimmedEmail = email.trim();
@@ -161,7 +143,6 @@ export default function LoginScreen() {
 
     setLoadingAction("otp");
     setError(null);
-    setMagicLinkSent(false);
 
     try {
       const { error: otpError } = await supabase.auth.signInWithOtp({
@@ -186,50 +167,9 @@ export default function LoginScreen() {
     }
   };
 
-  const handleSendMagicLink = async () => {
-    if (isLoading || isCooldown) return;
-
-    const normalizedEmail = validateEmail();
-    if (!normalizedEmail) return;
-
-    setLoadingAction("magic");
-    setError(null);
-
-    try {
-      const { error: magicError } = await supabase.auth.signInWithOtp({
-        email: normalizedEmail,
-        options: {
-          emailRedirectTo: MOBILE_MAGIC_LINK_REDIRECT_TO,
-          shouldCreateUser: true,
-        },
-      });
-
-      if (magicError) throw magicError;
-
-      setMagicLinkSent(true);
-      setCooldownSeconds(60);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "No pudimos enviar el enlace. Inténtalo de nuevo."
-      );
-    } finally {
-      setLoadingAction(null);
-    }
-  };
-
-  const handlePrimaryAction = async () => {
-    if (deliveryMode === "code") {
-      await handleSendOtp();
-      return;
-    }
-
-    await handleSendMagicLink();
-  };
 
   const handleVerifyOtp = async () => {
-    if (isLoading || otp.length < OTP_MIN_LENGTH) return;
+    if (isLoading || otp.length < OTP_LENGTH) return;
 
     const normalizedEmail = validateEmail();
     if (!normalizedEmail) return;
@@ -262,14 +202,6 @@ export default function LoginScreen() {
     }
   };
 
-  const handleEnableCodeMode = () => {
-    if (deliveryMode === "code") return;
-
-    setDeliveryMode("code");
-    setMagicLinkSent(false);
-    setError(null);
-  };
-
   const handleBackToEmail = () => {
     setStep("email");
     setOtp("");
@@ -290,7 +222,6 @@ export default function LoginScreen() {
           onChangeText={(text) => {
             setEmail(text);
             setError(null);
-            setMagicLinkSent(false);
           }}
           onFocus={() => setEmailFocused(true)}
           onBlur={() => setEmailFocused(false)}
@@ -301,7 +232,7 @@ export default function LoginScreen() {
           autoCorrect={false}
           editable={!isLoading}
           onSubmitEditing={() => {
-            void handlePrimaryAction();
+            void handleSendOtp();
           }}
         />
 
@@ -311,7 +242,7 @@ export default function LoginScreen() {
             (isLoading || isCooldown) && styles.primaryButtonDisabled,
           ]}
           onPress={() => {
-            void handlePrimaryAction();
+            void handleSendOtp();
           }}
           disabled={isLoading || isCooldown}
         >
@@ -319,25 +250,8 @@ export default function LoginScreen() {
         </Pressable>
 
         <Text style={styles.helperText}>
-          {deliveryMode === "magic"
-            ? "Te enviaremos un enlace mágico.\nSin contraseñas, sin complicaciones."
-            : "Te enviaremos un código de verificación.\nSin contraseñas, sin complicaciones."}
+          Te enviaremos un código de verificación.{"\n"}Sin contraseñas, sin complicaciones.
         </Text>
-
-        {deliveryMode === "magic" && (
-          <Text style={styles.fallbackText}>
-            ¿Problemas con el enlace?{" "}
-            <Text style={styles.fallbackLink} onPress={handleEnableCodeMode}>
-              Prueba con un código
-            </Text>
-          </Text>
-        )}
-
-        {magicLinkSent && deliveryMode === "magic" && (
-          <Text style={styles.successText}>
-            Revisa tu bandeja de entrada para continuar.
-          </Text>
-        )}
 
         {isCooldown && (
           <Text style={styles.cooldownText}>Podrás reenviar en {cooldownSeconds}s.</Text>
@@ -375,7 +289,7 @@ export default function LoginScreen() {
           keyboardType="numeric"
           autoCapitalize="none"
           autoCorrect={false}
-          maxLength={OTP_MAX_LENGTH}
+          maxLength={OTP_LENGTH}
           editable={!isLoading}
           onSubmitEditing={() => {
             void handleVerifyOtp();
@@ -401,12 +315,12 @@ export default function LoginScreen() {
             style={[
               styles.primaryButton,
               styles.otpVerifyButton,
-              (isLoading || otp.length < OTP_MIN_LENGTH) && styles.primaryButtonDisabled,
+              (isLoading || otp.length < OTP_LENGTH) && styles.primaryButtonDisabled,
             ]}
             onPress={() => {
               void handleVerifyOtp();
             }}
-            disabled={isLoading || otp.length < OTP_MIN_LENGTH}
+            disabled={isLoading || otp.length < OTP_LENGTH}
           >
             <Text style={styles.primaryButtonText}>
               {loadingAction === "verify" ? "Verificando..." : "Verificar"}
@@ -716,26 +630,6 @@ const styles = StyleSheet.create({
     color: loginColors.textTertiary,
     textAlign: "center",
     fontFamily: "DMSans",
-  },
-  fallbackText: {
-    marginTop: 12,
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: loginColors.textTertiary,
-    textAlign: "center",
-    fontFamily: "DMSans",
-  },
-  fallbackLink: {
-    color: loginColors.textSecondary,
-    textDecorationLine: "underline",
-  },
-  successText: {
-    marginTop: 10,
-    textAlign: "center",
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: loginColors.success,
-    fontFamily: "DMSans-Medium",
   },
   cooldownText: {
     marginTop: 10,

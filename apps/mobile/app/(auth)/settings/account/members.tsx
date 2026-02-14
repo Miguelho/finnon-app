@@ -626,115 +626,8 @@ export default function AccountMembersSettingsScreen() {
                   </View>
 
                   <View style={styles.memberAside}>
-                    <View
-                      style={[
-                        styles.roleBadge,
-                        member.role === "admin"
-                          ? { backgroundColor: adminBadgeBackground }
-                          : { backgroundColor: userThemeTokens.surfaceAlt },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.roleBadgeText,
-                          member.role === "admin"
-                            ? { color: primaryActionColor }
-                            : { color: userThemeTokens.textSecondary },
-                        ]}
-                      >
-                        {humanizeRole(member.role, roleLocale)}
-                      </Text>
-                    </View>
-
                     {canManageMembers && !isCurrentUser ? (
-                      isEditing ? (
-                        <View style={styles.roleEditor}>
-                          <View
-                            style={[
-                              styles.rolePickerWrapper,
-                              {
-                                borderColor: userThemeTokens.border,
-                                backgroundColor: userThemeTokens.surfaceAlt,
-                              },
-                            ]}
-                          >
-                            <Picker
-                              selectedValue={editingRole}
-                              onValueChange={(value) =>
-                                setEditingRole(String(value) as MemberRole)
-                              }
-                              enabled={!isUpdatingMember}
-                              style={[styles.rolePicker, { color: userThemeTokens.textPrimary }]}
-                            >
-                              <Picker.Item
-                                label={humanizeRole("admin", roleLocale)}
-                                value="admin"
-                              />
-                              <Picker.Item
-                                label={humanizeRole("contributor", roleLocale)}
-                                value="contributor"
-                              />
-                              <Picker.Item
-                                label={humanizeRole("viewer", roleLocale)}
-                                value="viewer"
-                              />
-                            </Picker>
-                          </View>
-                          <View style={styles.roleEditorActions}>
-                            <Pressable
-                              onPress={() => {
-                                void saveMemberRole();
-                              }}
-                              disabled={isUpdatingMember}
-                              style={[
-                                styles.smallActionButton,
-                                { backgroundColor: primaryActionColor },
-                                isUpdatingMember && styles.smallActionButtonDisabled,
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.smallActionButtonText,
-                                  { color: primaryActionTextColor },
-                                ]}
-                              >
-                                {t(dictionary, "common.save")}
-                              </Text>
-                            </Pressable>
-                            <Pressable
-                              onPress={cancelEditRole}
-                              disabled={isUpdatingMember}
-                              style={styles.smallActionGhost}
-                            >
-                              <Text
-                                style={[
-                                  styles.smallActionGhostText,
-                                  { color: userThemeTokens.textSecondary },
-                                ]}
-                              >
-                                {t(dictionary, "common.cancel")}
-                              </Text>
-                            </Pressable>
-                          </View>
-                        </View>
-                      ) : (
                         <View style={styles.memberActions}>
-                          <Pressable
-                            onPress={() => startEditRole(member)}
-                            style={({ pressed }) => [
-                              styles.iconActionButton,
-                              {
-                                backgroundColor: iconButtonBg,
-                                borderColor: iconButtonBorder,
-                              },
-                              pressed && styles.iconActionButtonPressed,
-                              pressed && { backgroundColor: iconButtonPressedBg },
-                            ]}
-                            accessibilityRole="button"
-                            accessibilityLabel={t(dictionary, "common.edit")}
-                          >
-                            <PencilSimple size={14} color={userThemeTokens.textPrimary} />
-                          </Pressable>
                           <Pressable
                             onPress={() => removeMember(member)}
                             style={({ pressed }) => [
@@ -818,32 +711,9 @@ export default function AccountMembersSettingsScreen() {
                 },
               ]}
             />
-            <View
-              style={[
-                styles.inviteRolePickerWrapper,
-                {
-                  borderColor: userThemeTokens.border,
-                  backgroundColor: userThemeTokens.surfaceAlt,
-                },
-              ]}
-            >
-              <Picker
-                selectedValue={inviteRole}
-                onValueChange={(value) => setInviteRole(String(value) as MemberRole)}
-                enabled={!isSendingInvite}
-                style={[styles.inviteRolePicker, { color: userThemeTokens.textPrimary }]}
-              >
-                <Picker.Item label={humanizeRole("viewer", roleLocale)} value="viewer" />
-                <Picker.Item
-                  label={humanizeRole("contributor", roleLocale)}
-                  value="contributor"
-                />
-                <Picker.Item label={humanizeRole("admin", roleLocale)} value="admin" />
-              </Picker>
-            </View>
             <Pressable
               onPress={() => {
-                void sendInvite(inviteEmail, inviteRole);
+                void sendInvite(inviteEmail, "admin");
               }}
               disabled={isSendingInvite || inviteEmail.trim().length === 0}
               style={[
@@ -904,10 +774,7 @@ export default function AccountMembersSettingsScreen() {
                         style={[styles.inviteMeta, { color: userThemeTokens.textSecondary }]}
                         numberOfLines={1}
                       >
-                        {t(dictionary, "accountSettings.members.inviteMeta", {
-                          sentAgo: getSentAgo(invite.created_at, locale),
-                          role: humanizeRole(invite.role, roleLocale),
-                        })}
+                        {getSentAgo(invite.created_at, locale)}
                       </Text>
                     </View>
                   </View>

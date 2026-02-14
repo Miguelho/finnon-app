@@ -120,14 +120,14 @@ export default function AuthLayout() {
         }}
       />
       <Stack.Screen
-        name="recurrentes/index"
+        name="transaction/recurrent/index"
         options={{
           headerShown: true,
           title: t(dictionary, "recurrentes.title"),
         }}
       />
       <Stack.Screen
-        name="recurrentes/[id]"
+        name="transaction/recurrent/[id]"
         options={{
           headerShown: true,
           title: t(dictionary, "recurrentes.edit"),

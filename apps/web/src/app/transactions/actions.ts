@@ -698,6 +698,7 @@ export async function updateRecurringItem(input: {
   start_date?: string;
   end_date?: string | null;
   effective_from: string; // For audit/logging purposes
+  category_id?: string | null;
 }): Promise<ActionResult> {
   try {
     const supabase = await createClient();
@@ -763,6 +764,10 @@ export async function updateRecurringItem(input: {
       updatePayload.end_date = input.end_date;
     }
 
+    if (input.category_id !== undefined) {
+      updatePayload.category_id = input.category_id;
+    }
+
     // Validate start_date <= end_date if both are set
     if (updatePayload.start_date && updatePayload.end_date) {
       if (updatePayload.start_date > updatePayload.end_date) {
@@ -783,7 +788,7 @@ export async function updateRecurringItem(input: {
     }
 
     revalidatePath("/transactions");
-    revalidatePath("/recurrentes");
+    revalidatePath("/transaction/recurrent");
     return { success: true, data };
   } catch (error: any) {
     console.error("Error in updateRecurringItem:", error);
@@ -845,7 +850,7 @@ export async function pauseRecurringItem(input: {
     }
 
     revalidatePath("/transactions");
-    revalidatePath("/recurrentes");
+    revalidatePath("/transaction/recurrent");
     return { success: true, data };
   } catch (error: any) {
     console.error("Error in pauseRecurringItem:", error);
@@ -907,7 +912,7 @@ export async function endRecurringItem(input: {
     }
 
     revalidatePath("/transactions");
-    revalidatePath("/recurrentes");
+    revalidatePath("/transaction/recurrent");
     return { success: true, data };
   } catch (error: any) {
     console.error("Error in endRecurringItem:", error);

@@ -1107,7 +1107,7 @@ export function TransactionsClient({
           </div>
           <Button
             variant="outline"
-            onClick={() => router.push("/recurrentes")}
+            onClick={() => router.push("/transaction/recurrent")}
           >
             {tGlobal("recurrentes.title")}
           </Button>

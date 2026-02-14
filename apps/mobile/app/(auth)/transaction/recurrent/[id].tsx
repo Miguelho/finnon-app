@@ -1,7 +1,8 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
+  Pressable,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -17,9 +18,13 @@ import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { Card } from "../../../src/components/Card";
 import { Button } from "../../../src/components/Button";
 import { DatePickerField } from "../../../src/components/DatePickerField";
+import { TopCategorySelector } from "../../../src/components/TopCategorySelector";
+import { MerchantAutocomplete } from "../../../src/components/MerchantAutocomplete";
 import {
   themeTokens,
   type RecurringItem,
+  type TopCategory,
+  type MerchantSuggestion,
   formatMinorToMoney,
   parseMoneyToMinor,
   CURRENCY_MINOR_UNITS,
@@ -59,11 +64,20 @@ export default function EditRecurringScreen(): React.JSX.Element {
   // Form state
   const [merchant, setMerchant] = useState("");
   const [amount, setAmount] = useState("");
+  const [categoryId, setCategoryId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [effectiveFrom, setEffectiveFrom] = useState(
     new Date().toISOString().slice(0, 10)
   );
+
+  // Categories & merchant suggestions
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [topCategories, setTopCategories] = useState<TopCategory[]>([]);
+  const [showFullCategorySelector, setShowFullCategorySelector] = useState(false);
+  const [merchantSuggestions, setMerchantSuggestions] = useState<MerchantSuggestion[]>([]);
+  const topCategoriesCache = useRef<Record<string, TopCategory[]>>({});
+  const merchantSuggestionsCache = useRef<Record<string, MerchantSuggestion[]>>({});
 
   const loadData = useCallback(async () => {
     if (!id || !selectedAccountId) {
@@ -96,6 +110,7 @@ export default function EditRecurringScreen(): React.JSX.Element {
           : BigInt(data.amount_minor);
       setMerchant(data.merchant || "");
       setAmount(formatMinorToMoney(amountMinor, data.currency));
+      setCategoryId(data.category?.id || "");
       setStartDate(data.start_date);
       setEndDate(data.end_date || "");
       setError(null);
@@ -109,6 +124,65 @@ export default function EditRecurringScreen(): React.JSX.Element {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const fetchCategories = useCallback(async () => {
+    if (!selectedAccountId) return;
+    const { data } = await supabase
+      .from("categories")
+      .select("id, name, icon_id, type")
+      .eq("account_id", selectedAccountId)
+      .order("name", { ascending: true });
+    if (data) setCategories(data);
+  }, [selectedAccountId]);
+
+  const fetchTopCategories = useCallback(
+    async (txType: string) => {
+      if (!selectedAccountId) return;
+      const cacheKey = `${selectedAccountId}:${txType}`;
+      if (topCategoriesCache.current[cacheKey]) {
+        setTopCategories(topCategoriesCache.current[cacheKey]);
+        return;
+      }
+      const { data, error } = await supabase.rpc("get_top_categories", {
+        p_account_id: selectedAccountId,
+        p_tx_type: txType,
+        p_limit: 3,
+      });
+      if (!error && data) {
+        topCategoriesCache.current[cacheKey] = data as TopCategory[];
+        setTopCategories(data as TopCategory[]);
+      }
+    },
+    [selectedAccountId]
+  );
+
+  const fetchMerchantSuggestions = useCallback(
+    async (txType: string) => {
+      if (!selectedAccountId) return;
+      const cacheKey = `${selectedAccountId}:${txType}`;
+      if (merchantSuggestionsCache.current[cacheKey]) {
+        setMerchantSuggestions(merchantSuggestionsCache.current[cacheKey]);
+        return;
+      }
+      const { data, error } = await supabase.rpc("get_merchant_suggestions", {
+        p_account_id: selectedAccountId,
+        p_tx_type: txType,
+        p_limit: 20,
+      });
+      if (!error && data) {
+        merchantSuggestionsCache.current[cacheKey] = data as MerchantSuggestion[];
+        setMerchantSuggestions(data as MerchantSuggestion[]);
+      }
+    },
+    [selectedAccountId]
+  );
+
+  useEffect(() => {
+    if (!recurringItem || !selectedAccountId) return;
+    fetchCategories();
+    fetchTopCategories(recurringItem.type);
+    fetchMerchantSuggestions(recurringItem.type);
+  }, [recurringItem?.type, selectedAccountId, fetchCategories, fetchTopCategories, fetchMerchantSuggestions]);
 
   const handleSave = async () => {
     if (!recurringItem) return;
@@ -162,6 +236,11 @@ export default function EditRecurringScreen(): React.JSX.Element {
         updatePayload.end_date = endDate || null;
       }
 
+      const currentCategoryId = recurringItem.category?.id || "";
+      if (categoryId !== currentCategoryId) {
+        updatePayload.category_id = categoryId || null;
+      }
+
       const { data, error: updateError } = await supabase
         .from("recurring_items")
         .update(updatePayload)
@@ -190,7 +269,7 @@ export default function EditRecurringScreen(): React.JSX.Element {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace("/(auth)/recurrentes");
+      router.replace("/(auth)/transaction/recurrent");
     }
   };
 
@@ -269,19 +348,72 @@ export default function EditRecurringScreen(): React.JSX.Element {
 
           {/* Form */}
           <View style={styles.form}>
-            {/* Name */}
+            {/* Category */}
             <View style={styles.field}>
               <Text style={styles.label}>
-                {t(dictionary, "recurrentes.nameLabel")}
+                {t(dictionary, "transactions.categoryOptionalLabel")}
               </Text>
-              <TextInput
-                style={styles.input}
-                value={merchant}
-                onChangeText={setMerchant}
-                placeholder={t(dictionary, "recurrentes.namePlaceholder")}
-                placeholderTextColor={colors.text.muted}
-              />
+              {topCategories.length > 0 && (
+                <TopCategorySelector
+                  topCategories={topCategories}
+                  selectedCategoryId={categoryId || undefined}
+                  onSelect={(id) => setCategoryId(id)}
+                  onToggleAll={() => setShowFullCategorySelector((prev) => !prev)}
+                  isExpanded={showFullCategorySelector}
+                  seeOthersLabel={t(dictionary, "transactions.create.categorySeeOthers")}
+                  hideOthersLabel={t(dictionary, "transactions.create.categoryHideOthers")}
+                />
+              )}
+              {(showFullCategorySelector || topCategories.length === 0) && (
+                <View style={styles.categoryList}>
+                  <Pressable
+                    style={[
+                      styles.categoryItem,
+                      !categoryId && styles.categoryItemSelected,
+                    ]}
+                    onPress={() => setCategoryId("")}
+                  >
+                    <Text style={[
+                      styles.categoryItemText,
+                      !categoryId && styles.categoryItemTextSelected,
+                    ]}>
+                      {t(dictionary, "common.noneOption")}
+                    </Text>
+                  </Pressable>
+                  {categories
+                    .filter((cat) => cat.type === recurringItem.type)
+                    .map((cat) => {
+                      const isSelected = categoryId === cat.id;
+                      return (
+                        <Pressable
+                          key={cat.id}
+                          style={[
+                            styles.categoryItem,
+                            isSelected && styles.categoryItemSelected,
+                          ]}
+                          onPress={() => setCategoryId(cat.id)}
+                        >
+                          <Text style={[
+                            styles.categoryItemText,
+                            isSelected && styles.categoryItemTextSelected,
+                          ]}>
+                            {cat.name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                </View>
+              )}
             </View>
+
+            {/* Name / Merchant */}
+            <MerchantAutocomplete
+              label={t(dictionary, "recurrentes.nameLabel")}
+              value={merchant}
+              onChangeText={setMerchant}
+              suggestions={merchantSuggestions}
+              placeholder={t(dictionary, "recurrentes.namePlaceholder")}
+            />
 
             {/* Amount */}
             <View style={styles.field}>
@@ -423,6 +555,30 @@ const styles = StyleSheet.create({
   currencyLabel: {
     fontSize: typography.size.md,
     color: colors.text.secondary,
+  },
+  categoryList: {
+    borderWidth: 1,
+    borderColor: colors.state.neutral,
+    borderRadius: radii.md,
+    overflow: "hidden",
+    marginTop: spacing.xs,
+  },
+  categoryItem: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.state.neutral,
+  },
+  categoryItemSelected: {
+    backgroundColor: colors.action.secondary,
+  },
+  categoryItemText: {
+    fontSize: typography.size.md,
+    color: colors.text.primary,
+  },
+  categoryItemTextSelected: {
+    color: colors.action.primary,
+    fontWeight: typography.weight.semibold,
   },
   actions: {
     flexDirection: "row",

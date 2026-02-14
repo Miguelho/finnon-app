@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { TopNav } from "@/components/navigation/top-nav";
-import { RecurrentesClient } from "./recurrentes-client";
+import { RecurrentesClient } from "./recurrent-client";
 
 export default async function RecurrentesPage() {
   const supabase = await createClient();

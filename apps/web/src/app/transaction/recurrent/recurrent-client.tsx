@@ -30,12 +30,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   type RecurringItem,
+  type TopCategory,
   formatMinorToMoney,
   parseMoneyToMinor,
   CURRENCY_MINOR_UNITS,
   themeTokens,
 } from "@poleursus/shared";
 import { RecurringTile } from "@/components/recurring/recurring-tile";
+import { TopCategorySelector } from "@/components/categories/top-category-selector";
 import {
   updateRecurringItem,
   pauseRecurringItem,
@@ -85,10 +87,12 @@ export function RecurrentesClient({
   const [editForm, setEditForm] = useState({
     merchant: "",
     amount: "",
+    category_id: "",
     start_date: "",
     end_date: "",
     effective_from: new Date().toISOString().slice(0, 10),
   });
+  const [showFullCategorySelector, setShowFullCategorySelector] = useState(false);
 
   const openEditForm = (item: RecurringItemWithCategory) => {
     const amountMinor =
@@ -99,10 +103,12 @@ export function RecurrentesClient({
     setEditForm({
       merchant: item.merchant || "",
       amount: formatMinorToMoney(amountMinor, item.currency),
+      category_id: item.category?.id || "",
       start_date: item.start_date,
       end_date: item.end_date || "",
       effective_from: new Date().toISOString().slice(0, 10),
     });
+    setShowFullCategorySelector(false);
     setIsEditOpen(true);
   };
 
@@ -128,6 +134,7 @@ export function RecurrentesClient({
         id: selectedItem.id,
         merchant: editForm.merchant || undefined,
         amount_minor: Number(amountMinor),
+        category_id: editForm.category_id || null,
         start_date: editForm.start_date || undefined,
         end_date: editForm.end_date || null,
         effective_from: editForm.effective_from,
@@ -281,6 +288,64 @@ export function RecurrentesClient({
             <SlidePanelDescription>{t("editDescription")}</SlidePanelDescription>
           </SlidePanelHeader>
           <SlidePanelBody className="space-y-4">
+            {/* Category */}
+            <div className="space-y-2">
+              <Label>{tTransactions("categoryOptionalLabel")}</Label>
+              {(() => {
+                const itemType = selectedItem?.type;
+                const filteredCategories = categories.filter((cat) => cat.type === itemType);
+                const topCats: TopCategory[] = filteredCategories.slice(0, 3);
+                return (
+                  <>
+                    {topCats.length > 0 && (
+                      <TopCategorySelector
+                        topCategories={topCats}
+                        selectedCategoryId={editForm.category_id || undefined}
+                        onSelect={(id) =>
+                          setEditForm((prev) => ({ ...prev, category_id: id }))
+                        }
+                        onOpenAll={() => setShowFullCategorySelector((prev) => !prev)}
+                        seeOthersLabel={tTransactions("create.categorySeeOthers")}
+                      />
+                    )}
+                    {(showFullCategorySelector || topCats.length === 0) && (
+                      <div className="space-y-1 rounded-md border p-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditForm((prev) => ({ ...prev, category_id: "" }))
+                          }
+                          className={`w-full rounded px-3 py-1.5 text-left text-sm ${
+                            !editForm.category_id
+                              ? "bg-primary/10 font-semibold text-primary"
+                              : "text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {tCommon("noneOption")}
+                        </button>
+                        {filteredCategories.map((cat) => (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() =>
+                              setEditForm((prev) => ({ ...prev, category_id: cat.id }))
+                            }
+                            className={`w-full rounded px-3 py-1.5 text-left text-sm ${
+                              editForm.category_id === cat.id
+                                ? "bg-primary/10 font-semibold text-primary"
+                                : "text-foreground hover:bg-muted"
+                            }`}
+                          >
+                            {cat.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+
             {/* Name */}
             <div className="space-y-2">
               <Label htmlFor="merchant">{t("nameLabel")}</Label>

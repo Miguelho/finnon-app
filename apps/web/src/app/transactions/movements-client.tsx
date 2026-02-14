@@ -1312,7 +1312,7 @@ export function MovementsClient({
           <button
             type="button"
             className="text-xs font-medium text-primary"
-            onClick={() => router.push("/recurrentes")}
+            onClick={() => router.push("/transaction/recurrent")}
           >
             {t("transactions.ui.recurringLink")}
           </button>

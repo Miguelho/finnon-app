@@ -321,9 +321,6 @@ export function ActiveAccountDetails({
                         </p>
                       )}
                     </div>
-                    <span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold capitalize text-foreground">
-                      {member.role}
-                    </span>
                   </div>
                 );
               })}

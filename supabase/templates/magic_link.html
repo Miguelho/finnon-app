@@ -1,8 +1,4 @@
-<h2>Sign in to Finnon</h2>
-<p>Click the link below to sign in:</p>
-
-<p>
-  <a href="{{ .SiteURL }}/api/auth/verify?token={{ .Token }}&type=magiclink&email={{ .Email }}">Sign In</a>
-</p>
-
-<p> One Time Code: {{.Token }}</p>
+<h2>Tu código de acceso a Finnon</h2>
+<p>Usa el siguiente código para iniciar sesión:</p>
+<p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">{{ .Token }}</p>
+<p>Este código expira en 1 hora.</p>

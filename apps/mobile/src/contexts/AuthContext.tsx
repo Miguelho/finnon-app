@@ -1,23 +1,12 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import * as Linking from "expo-linking";
-import { Session, User, EmailOtpType } from "@supabase/supabase-js";
+import { Session, User } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { signOutAndReset } from "@poleursus/shared";
 import { supabase } from "../lib/supabase";
 import { getVerifiedUser } from "../lib/auth";
 
 const SELECTED_ACCOUNT_KEY = "@finnon/selectedAccountId";
-const emailOtpTypes: EmailOtpType[] = [
-  "signup",
-  "invite",
-  "magiclink",
-  "recovery",
-  "email_change",
-  "email",
-];
-
-const isEmailOtpType = (value: string | null | undefined): value is EmailOtpType =>
-  !!value && emailOtpTypes.includes(value as EmailOtpType);
 
 interface AuthContextType {
   session: Session | null;
@@ -76,60 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const params = { ...queryParams, ...hashParams };
 
         const code = params.code;
-        const type = params.type;
-        const tokenHash = params.token_hash;
-        const token = params.token;
-        const email = params.email;
-        const accessToken = params.access_token;
-        const refreshToken = params.refresh_token;
 
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) {
             console.error("[AuthContext] exchangeCodeForSession error:", error);
-            if (accessToken && refreshToken) {
-              const { error: sessionError } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken,
-              });
-              if (sessionError) {
-                console.error("[AuthContext] setSession error:", sessionError);
-              }
-            }
-          }
-          return;
-        }
-
-        if (tokenHash && isEmailOtpType(type)) {
-          const { error } = await supabase.auth.verifyOtp({
-            token_hash: tokenHash,
-            type,
-          });
-          if (error) {
-            console.error("[AuthContext] verifyOtp(token_hash) error:", error);
-          }
-          return;
-        }
-
-        if (token && email && isEmailOtpType(type)) {
-          const { error } = await supabase.auth.verifyOtp({
-            token,
-            email,
-            type,
-          });
-          if (error) {
-            console.error("[AuthContext] verifyOtp(token) error:", error);
-          }
-          return;
-        }
-
-        if (accessToken && refreshToken) {
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-          if (error) {
-            console.error("[AuthContext] setSession error:", error);
           }
         }
       } catch (err) {

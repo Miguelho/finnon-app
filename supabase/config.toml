@@ -160,12 +160,6 @@ additional_redirect_urls = [
   "http://localhost:3001/auth/callback",
   "http://192.168.1.100:3000/auth/callback",
   "http://192.168.1.100:3001/auth/callback",
-  "http://127.0.0.1:3000/auth/confirm",
-  "http://127.0.0.1:3001/auth/confirm",
-  "http://localhost:3000/auth/confirm",
-  "http://localhost:3001/auth/confirm",
-  "http://192.168.1.100:3000/auth/confirm",
-  "http://192.168.1.100:3001/auth/confirm",
   "finnon://",
   "finnon:///",
 ]
@@ -227,7 +221,7 @@ secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
 max_frequency = "1s"
 # Number of characters used in the email OTP.
-otp_length = 8
+otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
@@ -247,7 +241,7 @@ otp_expiry = 3600
 # content_path = "./supabase/templates/invite.html"
 
 [auth.email.template.magic_link]
-subject = "Sign in to Finnon"
+subject = "Tu código de acceso a Finnon"
 content_path = "./supabase/templates/magic_link.html"
 
 # Uncomment to customize notification email template

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -8,8 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const OTP_MIN_LENGTH = 6;
-const OTP_MAX_LENGTH = 8;
+const OTP_LENGTH = 6;
 
 export default function LoginPage() {
   const t = useTranslations("login");
@@ -20,23 +19,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
-  const [mode, setMode] = useState<"link" | "code">("code");
   const [codeStep, setCodeStep] = useState<"request" | "verify">("request");
-  const [deliveryState, setDeliveryState] = useState<"idle" | "sentLink">("idle");
 
   const supabase = createClient();
   const isCooldownActive = cooldownSeconds > 0;
   const queryError = searchParams.get("error");
-  const queryEmail = searchParams.get("email");
 
-  const queryErrorMessage = useMemo(() => {
+  const queryErrorMessage = (() => {
     if (!queryError) return null;
 
     const normalized = queryError.toLowerCase();
-
-    if (normalized === "pkce_failed" || normalized.includes("pkce")) {
-      return t("redesign.authErrorPkceFailed");
-    }
 
     if (normalized.includes("no_code") || normalized.includes("missing")) {
       return t("redesign.authErrorNoCode");
@@ -55,7 +47,7 @@ export default function LoginPage() {
     }
 
     return t("redesign.authErrorGeneric");
-  }, [queryError, t]);
+  })();
 
   useEffect(() => {
     if (cooldownSeconds <= 0) return;
@@ -67,39 +59,17 @@ export default function LoginPage() {
     return () => clearInterval(timer);
   }, [cooldownSeconds]);
 
-  useEffect(() => {
-    if (!queryError || queryError.toLowerCase() !== "pkce_failed") return;
-
-    setMode("code");
-    setCodeStep("request");
-    setDeliveryState("idle");
-    setOtpCode("");
-
-    const normalizedEmail = queryEmail?.trim().toLowerCase() ?? "";
-    if (normalizedEmail && emailRegex.test(normalizedEmail)) {
-      setEmail(normalizedEmail);
-    }
-  }, [queryEmail, queryError]);
-
-  const submitLabel = useMemo(() => {
-    if (mode === "code" && codeStep === "request") {
+  const submitLabel = (() => {
+    if (codeStep === "request") {
       return loading ? t("otpSending") : t("redesign.continueButton");
     }
+    return loading ? t("redesign.verifyingButton") : t("redesign.verifyCodeButton");
+  })();
 
-    if (mode === "code" && codeStep === "verify") {
-      return loading ? t("redesign.verifyingButton") : t("redesign.verifyCodeButton");
-    }
-
-    if (loading) return t("redesign.sendingButton");
-    if (deliveryState === "sentLink") return t("redesign.linkSentButton");
-    return t("redesign.continueButton");
-  }, [codeStep, deliveryState, loading, mode, t]);
-
-  const isSubmitDisabled = useMemo(() => {
-    if (mode === "link") return loading || isCooldownActive;
-    if (codeStep === "request") return loading || isCooldownActive;
-    return loading || otpCode.length < OTP_MIN_LENGTH;
-  }, [codeStep, isCooldownActive, loading, mode, otpCode.length]);
+  const isSubmitDisabled =
+    codeStep === "request"
+      ? loading || isCooldownActive
+      : loading || otpCode.length < OTP_LENGTH;
 
   const validateEmail = () => {
     const normalized = email.trim().toLowerCase();
@@ -125,46 +95,12 @@ export default function LoginPage() {
       return null;
     }
 
-    if (!new RegExp(`^\\d{${OTP_MIN_LENGTH},${OTP_MAX_LENGTH}}$`).test(normalized)) {
+    if (!new RegExp(`^\\d{${OTP_LENGTH}}$`).test(normalized)) {
       setError(t("redesign.codeInvalid"));
       return null;
     }
 
     return normalized;
-  };
-
-  const sendMagicLink = async () => {
-    if (loading || isCooldownActive) return;
-
-    const normalizedEmail = validateEmail();
-    if (!normalizedEmail) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const redirectTo = `${window.location.origin}/auth/confirm`;
-      const { error: authError } = await supabase.auth.signInWithOtp({
-        email: normalizedEmail,
-        options: {
-          emailRedirectTo: redirectTo,
-          shouldCreateUser: true,
-        },
-      });
-
-      if (authError) throw authError;
-
-      setDeliveryState("sentLink");
-      setCooldownSeconds(60);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : t("redesign.sendError")
-      );
-    } finally {
-      setLoading(false);
-    }
   };
 
   const sendCode = async () => {
@@ -228,17 +164,11 @@ export default function LoginPage() {
 
   const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (mode === "code" && codeStep === "verify") {
+    if (codeStep === "verify") {
       void verifyCode();
       return;
     }
-
-    if (mode === "code") {
-      void sendCode();
-      return;
-    }
-
-    void sendMagicLink();
+    void sendCode();
   };
 
   return (
@@ -353,40 +283,37 @@ export default function LoginPage() {
             <form onSubmit={onSubmit} className="space-y-4">
               <div>
                 <label
-                  htmlFor={mode === "code" && codeStep === "verify" ? "code" : "email"}
+                  htmlFor={codeStep === "verify" ? "code" : "email"}
                   className="mb-2 block text-[13px] font-medium tracking-[0.2px] text-[#6B6B6B]"
                 >
-                  {mode === "code" && codeStep === "verify"
+                  {codeStep === "verify"
                     ? t("otpLabel")
                     : t("redesign.emailLabel")}
                 </label>
                 <input
-                  id={mode === "code" && codeStep === "verify" ? "code" : "email"}
-                  type={mode === "code" && codeStep === "verify" ? "text" : "email"}
-                  inputMode={mode === "code" && codeStep === "verify" ? "numeric" : "email"}
-                  pattern={mode === "code" && codeStep === "verify" ? "[0-9]*" : undefined}
-                  maxLength={mode === "code" && codeStep === "verify" ? OTP_MAX_LENGTH : undefined}
-                  value={mode === "code" && codeStep === "verify" ? otpCode : email}
+                  id={codeStep === "verify" ? "code" : "email"}
+                  type={codeStep === "verify" ? "text" : "email"}
+                  inputMode={codeStep === "verify" ? "numeric" : "email"}
+                  pattern={codeStep === "verify" ? "[0-9]*" : undefined}
+                  maxLength={codeStep === "verify" ? OTP_LENGTH : undefined}
+                  value={codeStep === "verify" ? otpCode : email}
                   onChange={(event) => {
-                    if (mode === "code" && codeStep === "verify") {
+                    if (codeStep === "verify") {
                       setOtpCode(event.target.value.replace(/\D/g, ""));
                     } else {
                       setEmail(event.target.value);
-                      if (mode === "link") {
-                        setDeliveryState("idle");
-                      }
                     }
                     setError(null);
                   }}
                   placeholder={
-                    mode === "code" && codeStep === "verify"
+                    codeStep === "verify"
                       ? t("otpPlaceholder")
                       : t("redesign.emailPlaceholder")
                   }
-                  autoComplete={mode === "code" && codeStep === "verify" ? "one-time-code" : "email"}
+                  autoComplete={codeStep === "verify" ? "one-time-code" : "email"}
                   disabled={loading}
                   className={`w-full rounded-[14px] border border-[#E5E3DE] bg-white px-[18px] py-4 text-base text-[#1A1A1A] outline-none transition-[border-color,box-shadow] placeholder:text-[#9A9A9A] focus:border-[#2D2D2D] focus:shadow-[0_0_0_3px_rgba(45,45,45,0.06)] ${
-                    mode === "code" && codeStep === "verify" ? "text-center tracking-[0.22em]" : ""
+                    codeStep === "verify" ? "text-center tracking-[0.22em]" : ""
                   }`}
                 />
               </div>
@@ -400,64 +327,16 @@ export default function LoginPage() {
               </button>
 
               <p className="pt-1 text-center text-[13px] leading-6 text-[#9A9A9A]">
-                {mode === "code" && codeStep === "request" ? (
+                {codeStep === "request" ? (
                   <span className="text-[#6B6B6B]">{t("otpPageDescription")}</span>
-                ) : mode === "code" ? (
+                ) : (
                   <span className="text-[#6B6B6B]">
                     {t("otpDescription", { email: email.trim() })}
                   </span>
-                ) : (
-                  <>
-                    {t("redesign.helperLine1")}
-                    <br />
-                    <span className="text-[#6B6B6B]">{t("redesign.helperLine2")}</span>
-                  </>
                 )}
               </p>
 
-              {mode === "code" && codeStep === "request" && (
-                <p className="text-center text-[12.5px] leading-5 text-[#9A9A9A]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode("link");
-                      setCodeStep("request");
-                      setDeliveryState("idle");
-                      setError(null);
-                      setOtpCode("");
-                    }}
-                    className="text-[#6B6B6B] underline decoration-[#E5E3DE] underline-offset-2"
-                  >
-                    {t("redesign.magicLinkSecondaryCta")}
-                  </button>
-                </p>
-              )}
-
-              {mode === "link" && deliveryState === "sentLink" && (
-                <p className="rounded-md border border-[#d9eadf] bg-[#edf9f1] p-3 text-center text-xs text-[#2A7B57]">
-                  {t("redesign.linkSentDescription")}
-                </p>
-              )}
-
-              {mode === "link" && codeStep === "request" && (
-                <p className="text-center text-[12.5px] leading-5 text-[#9A9A9A]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode("code");
-                      setCodeStep("request");
-                      setDeliveryState("idle");
-                      setError(null);
-                      setOtpCode("");
-                    }}
-                    className="text-[#6B6B6B] underline decoration-[#E5E3DE] underline-offset-2"
-                  >
-                    {t("redesign.backToCodeCta")}
-                  </button>
-                </p>
-              )}
-
-              {mode === "code" && codeStep === "verify" && (
+              {codeStep === "verify" && (
                 <div className="flex justify-center">
                   <button
                     type="button"
