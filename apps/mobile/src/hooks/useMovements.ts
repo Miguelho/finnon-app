@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIsFocused } from "@react-navigation/native";
 import {
   CURRENCIES,
@@ -18,6 +18,16 @@ import {
   useMovementsStore,
 } from "../stores/useMovementsStore";
 import type { Category, Movement, UserProfile } from "../types/movements";
+
+const PERIOD_DATA_CACHE_TTL_MS = 5 * 60 * 1000;
+
+type PeriodDataCacheEntry = {
+  periodMovements: Movement[];
+  categories: Category[];
+  recurringItems: RecurringItem[];
+  baseCurrency: string;
+  updatedAt: number;
+};
 
 type TransactionRow = {
   id: string;
@@ -114,6 +124,7 @@ export function useMovements() {
   const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const periodDataCacheRef = useRef<Record<string, PeriodDataCacheEntry>>({});
 
   const periodRange = useMemo(() => {
     const now = new Date();
@@ -123,6 +134,11 @@ export function useMovements() {
       end: formatDateISO(getPeriodEnd(selectedPeriod, now)),
     };
   }, [selectedPeriod]);
+
+  const periodCacheKey = useMemo(() => {
+    if (!selectedAccountId) return null;
+    return `${selectedAccountId}:${periodRange.start}:${periodRange.end}`;
+  }, [selectedAccountId, periodRange.end, periodRange.start]);
 
   const loadProfiles = useCallback(
     async (movements: Movement[]) => {
@@ -149,9 +165,25 @@ export function useMovements() {
     [mergeProfilesById]
   );
 
-  const loadPeriodData = useCallback(async () => {
-    if (!selectedAccountId) {
+  const loadPeriodData = useCallback(async (options?: { force?: boolean }) => {
+    const forceReload = options?.force ?? false;
+    if (!selectedAccountId || !periodCacheKey) {
       setLoading(false);
+      return;
+    }
+    const cacheEntry = periodDataCacheRef.current[periodCacheKey];
+    const isCacheFresh =
+      cacheEntry &&
+      Date.now() - cacheEntry.updatedAt <= PERIOD_DATA_CACHE_TTL_MS;
+
+    if (!forceReload && isCacheFresh) {
+      setError(null);
+      setPeriodMovements(cacheEntry.periodMovements);
+      setCategories(cacheEntry.categories);
+      setRecurringItems(cacheEntry.recurringItems);
+      setBaseCurrency(cacheEntry.baseCurrency);
+      setLoading(false);
+      await loadProfiles(cacheEntry.periodMovements);
       return;
     }
 
@@ -201,9 +233,8 @@ export function useMovements() {
       if (categoriesResult.error) throw categoriesResult.error;
       if (recurringResult.error) throw recurringResult.error;
 
-      if (accountResult.data?.base_currency) {
-        setBaseCurrency(accountResult.data.base_currency);
-      }
+      const nextBaseCurrency = accountResult.data?.base_currency ?? baseCurrency;
+      setBaseCurrency(nextBaseCurrency);
 
       const mappedMovements = (transactionsResult.data || []).map((row) =>
         mapTransactionToMovement(row as TransactionRow, {
@@ -211,10 +242,19 @@ export function useMovements() {
           movementFallback: t(dictionary, "transactions.ui.movementFallback"),
         })
       );
+      const nextCategories = (categoriesResult.data || []) as Category[];
+      const nextRecurringItems = (recurringResult.data || []) as RecurringItem[];
       setPeriodMovements(mappedMovements);
+      setCategories(nextCategories);
+      setRecurringItems(nextRecurringItems);
 
-      setCategories((categoriesResult.data || []) as Category[]);
-      setRecurringItems((recurringResult.data || []) as RecurringItem[]);
+      periodDataCacheRef.current[periodCacheKey] = {
+        periodMovements: mappedMovements,
+        categories: nextCategories,
+        recurringItems: nextRecurringItems,
+        baseCurrency: nextBaseCurrency,
+        updatedAt: Date.now(),
+      };
 
       await loadProfiles(mappedMovements);
     } catch (e: any) {
@@ -225,8 +265,10 @@ export function useMovements() {
     }
   }, [
     loadProfiles,
+    periodCacheKey,
     periodRange.end,
     periodRange.start,
+    baseCurrency,
     reportNetworkIssue,
     selectedAccountId,
     dictionary,
@@ -234,6 +276,25 @@ export function useMovements() {
     setCategories,
     setPeriodMovements,
     setRecurringItems,
+  ]);
+
+  useEffect(() => {
+    if (!periodCacheKey || loading || error) return;
+    periodDataCacheRef.current[periodCacheKey] = {
+      periodMovements,
+      categories,
+      recurringItems,
+      baseCurrency,
+      updatedAt: Date.now(),
+    };
+  }, [
+    periodCacheKey,
+    loading,
+    error,
+    periodMovements,
+    categories,
+    recurringItems,
+    baseCurrency,
   ]);
 
   const loadSearchResults = useCallback(async () => {
@@ -396,7 +457,7 @@ export function useMovements() {
     baseCurrency;
 
   const refresh = useCallback(async () => {
-    await loadPeriodData();
+    await loadPeriodData({ force: true });
     if (isSearchMode) {
       await loadSearchResults();
     }

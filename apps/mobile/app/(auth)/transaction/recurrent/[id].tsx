@@ -12,14 +12,14 @@ import {
 } from "react-native";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { supabase } from "../../../src/lib/supabase";
-import { useAuth } from "../../../src/contexts/AuthContext";
-import { useUserTheme } from "../../../src/contexts/UserThemeContext";
-import { Card } from "../../../src/components/Card";
-import { Button } from "../../../src/components/Button";
-import { DatePickerField } from "../../../src/components/DatePickerField";
-import { TopCategorySelector } from "../../../src/components/TopCategorySelector";
-import { MerchantAutocomplete } from "../../../src/components/MerchantAutocomplete";
+import { supabase } from "../../../../src/lib/supabase";
+import { useAuth } from "../../../../src/contexts/AuthContext";
+import { useUserTheme } from "../../../../src/contexts/UserThemeContext";
+import { Card } from "../../../../src/components/Card";
+import { Button } from "../../../../src/components/Button";
+import { DatePickerField } from "../../../../src/components/DatePickerField";
+import { TopCategorySelector } from "../../../../src/components/TopCategorySelector";
+import { MerchantAutocomplete } from "../../../../src/components/MerchantAutocomplete";
 import {
   themeTokens,
   type RecurringItem,
@@ -29,7 +29,7 @@ import {
   parseMoneyToMinor,
   CURRENCY_MINOR_UNITS,
 } from "@poleursus/shared";
-import { useCopy, t } from "../../../src/lib/i18n";
+import { useCopy, t } from "../../../../src/lib/i18n";
 
 type Category = {
   id: string;

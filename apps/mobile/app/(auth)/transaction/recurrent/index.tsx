@@ -11,14 +11,14 @@ import {
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { supabase } from "../../../src/lib/supabase";
-import { useAuth } from "../../../src/contexts/AuthContext";
-import { useUserTheme } from "../../../src/contexts/UserThemeContext";
-import { Card } from "../../../src/components/Card";
-import { Button } from "../../../src/components/Button";
-import { RecurringTile } from "../../../src/components/RecurringTile";
+import { supabase } from "../../../../src/lib/supabase";
+import { useAuth } from "../../../../src/contexts/AuthContext";
+import { useUserTheme } from "../../../../src/contexts/UserThemeContext";
+import { Card } from "../../../../src/components/Card";
+import { Button } from "../../../../src/components/Button";
+import { RecurringTile } from "../../../../src/components/RecurringTile";
 import { themeTokens, type RecurringItem } from "@poleursus/shared";
-import { useCopy, t } from "../../../src/lib/i18n";
+import { useCopy, t } from "../../../../src/lib/i18n";
 
 type Category = {
   id: string;

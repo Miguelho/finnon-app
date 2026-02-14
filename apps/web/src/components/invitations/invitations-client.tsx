@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { humanizeRole, isExpired, themeTokens } from "@poleursus/shared";
+import { humanizeRole, isExpired } from "@poleursus/shared";
 
 type InviteRow = {
   id: string;
@@ -35,11 +35,14 @@ type ProfileRow = {
   display_name: string | null;
 };
 
-export function InvitationsClient() {
+type InvitationsClientProps = {
+  onBack?: () => void;
+};
+
+export function InvitationsClient({ onBack }: InvitationsClientProps = {}) {
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
-  const colors = themeTokens.light.colors;
   const [invites, setInvites] = useState<InviteRow[]>([]);
   const [profiles, setProfiles] = useState<Record<string, ProfileRow>>({});
   const [loading, setLoading] = useState(true);
@@ -181,12 +184,18 @@ export function InvitationsClient() {
 
   return (
     <div className="space-y-6">
+      {onBack && (
+        <Button variant="ghost" onClick={onBack}>
+          {t("common.back")}
+        </Button>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>{t("invitations.joinWithCodeTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm" style={{ color: colors.text.secondary }}>
+          <p className="text-sm text-muted-foreground">
             {t("invitations.joinWithCodeDescription")}
           </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -201,7 +210,7 @@ export function InvitationsClient() {
             </Button>
           </div>
           {joinError && (
-            <p className="text-sm" style={{ color: colors.state.negative }}>
+            <p className="text-sm text-destructive">
               {joinError}
             </p>
           )}
@@ -214,15 +223,15 @@ export function InvitationsClient() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm" style={{ color: colors.text.secondary }}>
+            <p className="text-sm text-muted-foreground">
               {t("common.loading")}
             </p>
           ) : pendingInvites.length === 0 ? (
             <div className="space-y-2">
-              <p className="text-sm font-semibold" style={{ color: colors.text.primary }}>
+              <p className="text-sm font-semibold text-foreground">
                 {t("invitations.emptyTitle")}
               </p>
-              <p className="text-sm" style={{ color: colors.text.secondary }}>
+              <p className="text-sm text-muted-foreground">
                 {t("invitations.emptyDescription")}
               </p>
             </div>
@@ -247,25 +256,15 @@ export function InvitationsClient() {
                 return (
                   <div
                     key={invite.id}
-                    className="rounded-xl border p-4"
-                    style={{
-                      borderColor: colors.state.neutral,
-                      backgroundColor: colors.bg.secondary,
-                    }}
+                    className="rounded-xl border border-border bg-muted p-4"
                   >
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h3 className="text-base font-semibold">
+                        <h3 className="text-base font-semibold text-foreground">
                           {invite.accounts?.name ?? t("invites.accountUnknown")}
                         </h3>
                         <div className="flex items-center gap-2">
-                          <span
-                            className="rounded-full border px-3 py-1 text-xs font-semibold"
-                            style={{
-                              borderColor: colors.state.neutral,
-                              color: colors.text.secondary,
-                            }}
-                          >
+                          <span className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted-foreground">
                             {statusLabel}
                           </span>
                           {showActions && (
@@ -290,7 +289,7 @@ export function InvitationsClient() {
                                     event.stopPropagation();
                                     rejectInvite(invite.id);
                                   }}
-                                  style={{ color: colors.state.negative }}
+                                  className="text-destructive"
                                 >
                                   {t("invitations.rejectButton")}
                                 </DropdownMenuItem>
@@ -299,13 +298,10 @@ export function InvitationsClient() {
                           )}
                         </div>
                       </div>
-                      <p className="text-sm" style={{ color: colors.text.secondary }}>
+                      <p className="text-sm text-muted-foreground">
                         {t("invitations.pendingBadge")}
                       </p>
-                      <div
-                        className="flex flex-wrap gap-4 text-sm"
-                        style={{ color: colors.text.secondary }}
-                      >
+                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                         <span>{humanizeRole(invite.role, locale)}</span>
                         <span>
                           {t("invitations.expiresLabel", {

@@ -83,6 +83,7 @@
     --account-category-interests: #D1FAE5;
     --account-category-lottery: #EDE9FE;
     --account-category-default: #F3F4F6;
+    --account-category-icon: #1A1A18;
   }
 
   .dark {
@@ -107,6 +108,20 @@
     --ring: 217.5 5.3% 70.6%;
     --state-positive: 161.8 39.4% 49.2%;
     --state-negative: 0 68.7% 67.5%;
+    --account-income: #4CAF91;
+    --account-income-bg: #183026;
+    --account-income-light: #24513F;
+    --account-expense: #E57373;
+    --account-expense-bg: #382022;
+    --account-expense-light: #5A2E32;
+    --account-category-casa: #3A3420;
+    --account-category-familia: #392633;
+    --account-category-ocio: #233148;
+    --account-category-restaurantes: #3A2C1F;
+    --account-category-interests: #1E3932;
+    --account-category-lottery: #2D2943;
+    --account-category-default: #2A2D34;
+    --account-category-icon: #FFFFFF;
   }
 }
 

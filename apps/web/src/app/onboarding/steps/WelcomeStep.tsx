@@ -1,15 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
 type WelcomeStepProps = {
   onContinue: () => void;
+  onInvite?: () => void;
   showInvite?: boolean;
 };
 
-export function WelcomeStep({ onContinue, showInvite = true }: WelcomeStepProps) {
+export function WelcomeStep({ onContinue, onInvite, showInvite = true }: WelcomeStepProps) {
   const t = useTranslations("onboarding");
 
   return (
@@ -61,9 +61,9 @@ export function WelcomeStep({ onContinue, showInvite = true }: WelcomeStepProps)
         >
           {t("welcome.start")}
         </Button>
-        {showInvite && (
-          <Button variant="ghost" asChild className="w-full text-[#6b7280]">
-            <Link href="/join">{t("inviteCta")}</Link>
+        {showInvite && onInvite && (
+          <Button variant="ghost" className="w-full text-[#6b7280]" onClick={onInvite}>
+            {t("inviteCta")}
           </Button>
         )}
       </div>

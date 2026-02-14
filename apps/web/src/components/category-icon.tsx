@@ -132,11 +132,14 @@ const iconComponents: Record<CategoryIconKey, ComponentType<PhosphorIconProps>> 
 type ExtendedCategoryIconProps = CategoryIconProps & {
   /** Alias for iconKey (for backwards compatibility) */
   iconId?: string | null;
+  /** Optional direct color override */
+  color?: string;
 };
 
 export function CategoryIcon({
   iconKey,
   iconId,
+  color,
   size = 20,
   tone = "primary",
   weight = "regular",
@@ -145,13 +148,13 @@ export function CategoryIcon({
   const resolvedKey = resolveCategoryIconKey(iconKey ?? iconId);
   const IconComponent = iconComponents[resolvedKey] ?? Tag;
 
-  const color = toneColors[tone];
+  const resolvedColor = color ?? toneColors[tone];
 
   return (
     <IconComponent
       size={size}
       weight={weight}
-      color={color}
+      color={resolvedColor}
       aria-label={accessibilityLabel}
       aria-hidden={!accessibilityLabel}
     />

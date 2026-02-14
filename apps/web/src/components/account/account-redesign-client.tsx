@@ -9,6 +9,7 @@ import { CategoryIcon } from "@/components/category-icon";
 import type { AccountRedesignData, AccountRedesignPeriod } from "@/components/account/account-redesign-types";
 import { formatCurrency, formatDelta } from "@/components/account/account-redesign-utils";
 import { PeriodSelector } from "@/components/shared/PeriodSelector";
+import { useWebUserTheme } from "@/components/theme/web-user-theme-provider";
 import styles from "@/components/account/account-redesign.module.css";
 
 type ChartMode = "both" | "expenses" | "net";
@@ -22,6 +23,7 @@ type AccountRedesignClientProps = {
 export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientProps) {
   const t = useTranslations();
   const locale = useLocale();
+  const { resolvedMode } = useWebUserTheme();
   const [selectedPeriod, setSelectedPeriod] = useState<Period>("month");
   const [chartMode, setChartMode] = useState<ChartMode>("both");
 
@@ -275,7 +277,16 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
                     className={styles.categoryIcon}
                     style={{ backgroundColor: `var(--category-${category.colorKey})` }}
                   >
-                    <CategoryIcon iconId={category.iconId ?? "Tag"} size={16} tone="primary" />
+                    <CategoryIcon
+                      iconId={category.iconId ?? "Tag"}
+                      size={16}
+                      tone="primary"
+                      color={
+                        resolvedMode === "dark"
+                          ? "var(--account-category-icon, #FFFFFF)"
+                          : "var(--account-category-icon, hsl(var(--foreground)))"
+                      }
+                    />
                   </div>
                   <div className={styles.categoryInfo}>
                     <div className={styles.categoryName}>{category.name}</div>

@@ -158,6 +158,61 @@ function hexToHslToken(hexColor: string): string {
   return `${hue} ${satPct}% ${lightPct}%`;
 }
 
+type AccountSemanticColors = {
+  income: string;
+  incomeBg: string;
+  incomeLight: string;
+  expense: string;
+  expenseBg: string;
+  expenseLight: string;
+  categoryCasa: string;
+  categoryFamilia: string;
+  categoryOcio: string;
+  categoryRestaurantes: string;
+  categoryInterests: string;
+  categoryLottery: string;
+  categoryDefault: string;
+  categoryIcon: string;
+};
+
+function getAccountSemanticColors(mode: ResolvedThemeMode): AccountSemanticColors {
+  if (mode === "dark") {
+    return {
+      income: "#4CAF91",
+      incomeBg: "#183026",
+      incomeLight: "#24513F",
+      expense: "#E57373",
+      expenseBg: "#382022",
+      expenseLight: "#5A2E32",
+      categoryCasa: "#3A3420",
+      categoryFamilia: "#392633",
+      categoryOcio: "#233148",
+      categoryRestaurantes: "#3A2C1F",
+      categoryInterests: "#1E3932",
+      categoryLottery: "#2D2943",
+      categoryDefault: "#2A2D34",
+      categoryIcon: "#FFFFFF",
+    };
+  }
+
+  return {
+    income: "#1B7A4A",
+    incomeBg: "#E8F5EE",
+    incomeLight: "#D0EBDD",
+    expense: "#C4441A",
+    expenseBg: "#FDF0EB",
+    expenseLight: "#F9DDD2",
+    categoryCasa: "#FEF3C7",
+    categoryFamilia: "#FCE7F3",
+    categoryOcio: "#E0E7FF",
+    categoryRestaurantes: "#FFEDD5",
+    categoryInterests: "#D1FAE5",
+    categoryLottery: "#EDE9FE",
+    categoryDefault: "#F3F4F6",
+    categoryIcon: "#1A1A18",
+  };
+}
+
 function applyThemeCssVariables(
   tokens: UserThemeTokens,
   primaryTextHex: string,
@@ -166,6 +221,7 @@ function applyThemeCssVariables(
 ) {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
+  const accountColors = getAccountSemanticColors(resolvedMode);
 
   root.style.setProperty("--background", hexToHslToken(tokens.background));
   root.style.setProperty("--foreground", hexToHslToken(tokens.textPrimary));
@@ -198,8 +254,25 @@ function applyThemeCssVariables(
   root.style.setProperty("--account-text-primary", tokens.textPrimary);
   root.style.setProperty("--account-text-secondary", tokens.textSecondary);
   root.style.setProperty("--account-text-tertiary", tokens.textSecondary);
+  root.style.setProperty("--account-income", accountColors.income);
+  root.style.setProperty("--account-income-bg", accountColors.incomeBg);
+  root.style.setProperty("--account-income-light", accountColors.incomeLight);
+  root.style.setProperty("--account-expense", accountColors.expense);
+  root.style.setProperty("--account-expense-bg", accountColors.expenseBg);
+  root.style.setProperty("--account-expense-light", accountColors.expenseLight);
   root.style.setProperty("--account-accent", tokens.primary);
   root.style.setProperty("--account-accent-bg", tokens.surfaceAlt);
+  root.style.setProperty("--account-category-casa", accountColors.categoryCasa);
+  root.style.setProperty("--account-category-familia", accountColors.categoryFamilia);
+  root.style.setProperty("--account-category-ocio", accountColors.categoryOcio);
+  root.style.setProperty(
+    "--account-category-restaurantes",
+    accountColors.categoryRestaurantes
+  );
+  root.style.setProperty("--account-category-interests", accountColors.categoryInterests);
+  root.style.setProperty("--account-category-lottery", accountColors.categoryLottery);
+  root.style.setProperty("--account-category-default", accountColors.categoryDefault);
+  root.style.setProperty("--account-category-icon", accountColors.categoryIcon);
   root.style.setProperty("--period-text-tertiary", tokens.textSecondary);
   root.style.setProperty("color-scheme", resolvedMode);
   root.classList.toggle("dark", withDarkClass && resolvedMode === "dark");
@@ -235,8 +308,22 @@ function resetThemeCssVariables() {
   root.style.removeProperty("--account-text-primary");
   root.style.removeProperty("--account-text-secondary");
   root.style.removeProperty("--account-text-tertiary");
+  root.style.removeProperty("--account-income");
+  root.style.removeProperty("--account-income-bg");
+  root.style.removeProperty("--account-income-light");
+  root.style.removeProperty("--account-expense");
+  root.style.removeProperty("--account-expense-bg");
+  root.style.removeProperty("--account-expense-light");
   root.style.removeProperty("--account-accent");
   root.style.removeProperty("--account-accent-bg");
+  root.style.removeProperty("--account-category-casa");
+  root.style.removeProperty("--account-category-familia");
+  root.style.removeProperty("--account-category-ocio");
+  root.style.removeProperty("--account-category-restaurantes");
+  root.style.removeProperty("--account-category-interests");
+  root.style.removeProperty("--account-category-lottery");
+  root.style.removeProperty("--account-category-default");
+  root.style.removeProperty("--account-category-icon");
   root.style.removeProperty("--period-text-tertiary");
   root.style.removeProperty("color-scheme");
   root.classList.remove("dark");

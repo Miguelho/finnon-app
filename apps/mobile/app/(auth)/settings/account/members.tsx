@@ -645,8 +645,7 @@ export default function AccountMembersSettingsScreen() {
                             <X size={14} color={dangerColor} />
                           </Pressable>
                         </View>
-                      )
-                    ) : null}
+                      ) : null}
                   </View>
                 </View>
               );

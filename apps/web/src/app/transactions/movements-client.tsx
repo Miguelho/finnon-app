@@ -42,6 +42,7 @@ import {
   SlidePanelTitle,
 } from "@/components/ui/slide-panel";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 import { confirmRecurringTransaction, updateTransaction } from "./actions";
 
 type Category = {
@@ -137,6 +138,20 @@ type RecurringTemplate = {
 };
 
 const design = movementsTokens;
+const PERIOD_DATA_CACHE_TTL_MS = 5 * 60 * 1000;
+
+type PeriodDataCacheEntry = {
+  transactions: Transaction[];
+  recurrents: RecurringItem[];
+  profilesById: Record<string, Profile>;
+  updatedAt: number;
+};
+
+const buildProfilesById = (profiles: Profile[]) =>
+  profiles.reduce<Record<string, Profile>>((acc, profile) => {
+    acc[profile.user_id] = profile;
+    return acc;
+  }, {});
 
 const toBigInt = (value: unknown) => {
   try {
@@ -908,12 +923,16 @@ export function MovementsClient({
   role,
 }: MovementsClientProps) {
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
   const t = useTranslations();
   const locale = useLocale();
 
   const [selectedPeriod, setSelectedPeriod] = useState<Period>(initialPeriod);
   const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
   const [recurrents, setRecurrents] = useState<RecurringItem[]>(initialRecurringItems);
+  const [profilesById, setProfilesById] = useState<Record<string, Profile>>(
+    () => buildProfilesById(profiles)
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilters, setTypeFilters] = useState<Array<"income" | "expense">>([]);
   const [categoryFilters, setCategoryFilters] = useState<string[]>(() =>
@@ -932,6 +951,10 @@ export function MovementsClient({
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<TransactionDraft | null>(null);
+  const periodDataCacheRef = useRef<Record<string, PeriodDataCacheEntry>>({});
+  const loadPeriodRequestIdRef = useRef(0);
+  const profilesByIdRef = useRef<Record<string, Profile>>(buildProfilesById(profiles));
+  const currentDataCacheKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     setTransactions(initialTransactions);
@@ -950,24 +973,148 @@ export function MovementsClient({
   }, [initialCategoryFilter]);
 
   useEffect(() => {
+    const nextProfilesById = buildProfilesById(profiles);
+    setProfilesById(nextProfilesById);
+    profilesByIdRef.current = nextProfilesById;
+  }, [profiles]);
+
+  useEffect(() => {
     if (!initialCategoryFilter) return;
     setIsRecurrentCollapsed(false);
     setIsPendingCollapsed(false);
     setIsDoneCollapsed(false);
   }, [initialCategoryFilter]);
 
+  const getPeriodCacheKey = useCallback(
+    (period: Period) => {
+      const now = new Date();
+      const range = getPeriodRange(period, now);
+      const start = formatDateISO(range.start);
+      const end = formatDateISO(getPeriodEnd(period, now));
+      return `${accountId}:${period}:${start}:${end}`;
+    },
+    [accountId]
+  );
+
+  useEffect(() => {
+    const cacheKey = getPeriodCacheKey(initialPeriod);
+    const nextProfilesById = buildProfilesById(profiles);
+    periodDataCacheRef.current[cacheKey] = {
+      transactions: initialTransactions,
+      recurrents: initialRecurringItems,
+      profilesById: nextProfilesById,
+      updatedAt: Date.now(),
+    };
+    currentDataCacheKeyRef.current = cacheKey;
+  }, [
+    getPeriodCacheKey,
+    initialPeriod,
+    initialRecurringItems,
+    initialTransactions,
+    profiles,
+  ]);
+
+  const loadPeriodData = useCallback(
+    async (period: Period, options?: { force?: boolean }) => {
+      const forceReload = options?.force ?? false;
+      const cacheKey = getPeriodCacheKey(period);
+      const cached = periodDataCacheRef.current[cacheKey];
+      const isCacheFresh =
+        cached && Date.now() - cached.updatedAt <= PERIOD_DATA_CACHE_TTL_MS;
+
+      if (!forceReload && isCacheFresh) {
+        setTransactions(cached.transactions);
+        setRecurrents(cached.recurrents);
+        setProfilesById(cached.profilesById);
+        profilesByIdRef.current = cached.profilesById;
+        currentDataCacheKeyRef.current = cacheKey;
+        return;
+      }
+
+      const requestId = ++loadPeriodRequestIdRef.current;
+      const now = new Date();
+      const range = getPeriodRange(period, now);
+      const rangeStart = formatDateISO(range.start);
+      const rangeEnd = formatDateISO(getPeriodEnd(period, now));
+
+      const [transactionsResult, recurringResult] = await Promise.all([
+        supabase
+          .from("transactions")
+          .select("*, category:categories(id, name, icon_id, type)")
+          .eq("account_id", accountId)
+          .gte("date", rangeStart)
+          .lte("date", rangeEnd)
+          .order("date", { ascending: false })
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("recurring_items")
+          .select(
+            "id, account_id, type, amount_minor, currency, category_id, merchant, notes, start_date, frequency, interval, day_of_month, end_date, is_paused, created_by"
+          )
+          .eq("account_id", accountId)
+          .lte("start_date", rangeEnd)
+          .or(`end_date.is.null,end_date.gte.${rangeStart}`),
+      ]);
+
+      if (requestId !== loadPeriodRequestIdRef.current) return;
+
+      if (transactionsResult.error || recurringResult.error) {
+        console.error("[MovementsClient] Error loading period data:", {
+          transactions: transactionsResult.error,
+          recurrents: recurringResult.error,
+        });
+        return;
+      }
+
+      const nextTransactions = (transactionsResult.data as Transaction[]) ?? [];
+      const nextRecurrents = (recurringResult.data as RecurringItem[]) ?? [];
+      const userIds = Array.from(
+        new Set(nextTransactions.map((item) => item.created_by))
+      );
+
+      let nextProfilesById = profilesByIdRef.current;
+      if (userIds.length > 0) {
+        const { data: profileRows, error: profileError } = await supabase
+          .from("profiles")
+          .select(
+            "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
+          )
+          .in("user_id", userIds);
+
+        if (requestId !== loadPeriodRequestIdRef.current) return;
+
+        if (!profileError && profileRows) {
+          nextProfilesById = { ...profilesByIdRef.current };
+          (profileRows as Profile[]).forEach((profile) => {
+            nextProfilesById[profile.user_id] = profile;
+          });
+        }
+      }
+
+      setTransactions(nextTransactions);
+      setRecurrents(nextRecurrents);
+      setProfilesById(nextProfilesById);
+      profilesByIdRef.current = nextProfilesById;
+      currentDataCacheKeyRef.current = cacheKey;
+
+      periodDataCacheRef.current[cacheKey] = {
+        transactions: nextTransactions,
+        recurrents: nextRecurrents,
+        profilesById: nextProfilesById,
+        updatedAt: Date.now(),
+      };
+    },
+    [accountId, getPeriodCacheKey, supabase]
+  );
+
+  useEffect(() => {
+    void loadPeriodData(selectedPeriod);
+  }, [selectedPeriod, loadPeriodData]);
+
   const currencySymbol =
     CURRENCIES.find((currency) => currency.code === baseCurrency)?.symbol ??
     baseCurrency;
   const canEdit = role !== "viewer";
-
-  const profilesById = useMemo(() => {
-    const map: Record<string, Profile> = {};
-    profiles.forEach((profile) => {
-      map[profile.user_id] = profile;
-    });
-    return map;
-  }, [profiles]);
 
   const movements = useMemo(
     () =>
@@ -1234,17 +1381,8 @@ export function MovementsClient({
   const handlePeriodChange = useCallback(
     (newPeriod: Period) => {
       setSelectedPeriod(newPeriod);
-
-      const params = new URLSearchParams();
-      params.set("period", newPeriod);
-      const firstCategory = categoryFilters[0];
-      if (firstCategory) {
-        params.set("category", firstCategory);
-      }
-
-      router.push(`/transactions?${params.toString()}`);
     },
-    [categoryFilters, router]
+    []
   );
 
   useEffect(() => {
@@ -1260,8 +1398,28 @@ export function MovementsClient({
       params.set("type", typeFilters.join(","));
     }
 
-    router.replace(`/transactions?${params.toString()}`, { scroll: false });
-  }, [selectedPeriod, categoryFilters, merchantFilters, typeFilters, router]);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `/transactions?${params.toString()}`
+    );
+  }, [selectedPeriod, categoryFilters, merchantFilters, typeFilters]);
+
+  useEffect(() => {
+    const cacheKey = currentDataCacheKeyRef.current;
+    if (!cacheKey) return;
+    periodDataCacheRef.current[cacheKey] = {
+      transactions,
+      recurrents,
+      profilesById,
+      updatedAt: Date.now(),
+    };
+    profilesByIdRef.current = profilesById;
+  }, [
+    transactions,
+    recurrents,
+    profilesById,
+  ]);
 
   const showPendingGroup = groupedByStatus.pending.length > 0;
 

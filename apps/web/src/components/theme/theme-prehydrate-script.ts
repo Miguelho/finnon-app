@@ -132,6 +132,40 @@ export function getThemePrehydrateScript(): string {
     };
 
     const primaryTextHex = getReadableTextColor(tokens.primary);
+    const accountColors =
+      resolvedMode === "dark"
+        ? {
+            income: "#4CAF91",
+            incomeBg: "#183026",
+            incomeLight: "#24513F",
+            expense: "#E57373",
+            expenseBg: "#382022",
+            expenseLight: "#5A2E32",
+            categoryCasa: "#3A3420",
+            categoryFamilia: "#392633",
+            categoryOcio: "#233148",
+            categoryRestaurantes: "#3A2C1F",
+            categoryInterests: "#1E3932",
+            categoryLottery: "#2D2943",
+            categoryDefault: "#2A2D34",
+            categoryIcon: "#FFFFFF",
+          }
+        : {
+            income: "#1B7A4A",
+            incomeBg: "#E8F5EE",
+            incomeLight: "#D0EBDD",
+            expense: "#C4441A",
+            expenseBg: "#FDF0EB",
+            expenseLight: "#F9DDD2",
+            categoryCasa: "#FEF3C7",
+            categoryFamilia: "#FCE7F3",
+            categoryOcio: "#E0E7FF",
+            categoryRestaurantes: "#FFEDD5",
+            categoryInterests: "#D1FAE5",
+            categoryLottery: "#EDE9FE",
+            categoryDefault: "#F3F4F6",
+            categoryIcon: "#1A1A18",
+          };
 
     styleElement.textContent = [
       ":root {",
@@ -160,8 +194,22 @@ export function getThemePrehydrateScript(): string {
       "--account-text-primary: " + tokens.textPrimary + ";",
       "--account-text-secondary: " + tokens.textSecondary + ";",
       "--account-text-tertiary: " + tokens.textSecondary + ";",
+      "--account-income: " + accountColors.income + ";",
+      "--account-income-bg: " + accountColors.incomeBg + ";",
+      "--account-income-light: " + accountColors.incomeLight + ";",
+      "--account-expense: " + accountColors.expense + ";",
+      "--account-expense-bg: " + accountColors.expenseBg + ";",
+      "--account-expense-light: " + accountColors.expenseLight + ";",
       "--account-accent: " + tokens.primary + ";",
       "--account-accent-bg: " + tokens.surfaceAlt + ";",
+      "--account-category-casa: " + accountColors.categoryCasa + ";",
+      "--account-category-familia: " + accountColors.categoryFamilia + ";",
+      "--account-category-ocio: " + accountColors.categoryOcio + ";",
+      "--account-category-restaurantes: " + accountColors.categoryRestaurantes + ";",
+      "--account-category-interests: " + accountColors.categoryInterests + ";",
+      "--account-category-lottery: " + accountColors.categoryLottery + ";",
+      "--account-category-default: " + accountColors.categoryDefault + ";",
+      "--account-category-icon: " + accountColors.categoryIcon + ";",
       "--period-text-tertiary: " + tokens.textSecondary + ";",
       "color-scheme: " + resolvedMode + ";",
       "}",

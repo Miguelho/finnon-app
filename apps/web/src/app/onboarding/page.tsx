@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { InvitationsClient } from "@/components/invitations/invitations-client";
 import { CreateAccountStep } from "./steps/CreateAccountStep";
 import { WelcomeStep } from "./steps/WelcomeStep";
 import { CategoriesStep } from "./steps/CategoriesStep";
@@ -24,6 +25,7 @@ import {
 
 type OnboardingStep =
   | "welcome"
+  | "invitations"
   | "categories"
   | "recurrents"
   | "objective"
@@ -56,6 +58,7 @@ export default function OnboardingPage() {
   const isOnboardingStep = (value: string): value is OnboardingStep =>
     [
       "welcome",
+      "invitations",
       "categories",
       "recurrents",
       "objective",
@@ -120,8 +123,14 @@ export default function OnboardingPage() {
       content = (
         <WelcomeStep
           onContinue={() => goTo("create-account")}
+          onInvite={() => goTo("invitations")}
           showInvite={!accountId}
         />
+      );
+      break;
+    case "invitations":
+      content = (
+        <InvitationsClient onBack={() => goTo("welcome")} />
       );
       break;
     case "create-account":
