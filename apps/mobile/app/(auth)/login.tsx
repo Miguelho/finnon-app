@@ -1,40 +1,80 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
+  Animated,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
 } from "react-native";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
-import { Card } from "../../src/components/Card";
-import { Input } from "../../src/components/Input";
-import { Button } from "../../src/components/Button";
-import { useCopy, t } from "../../src/lib/i18n";
 import { useAuth } from "../../src/contexts/AuthContext";
-import { themeTokens } from "@poleursus/shared";
 
-const colors = themeTokens.light.colors;
 const OTP_MIN_LENGTH = 6;
 const OTP_MAX_LENGTH = 8;
+
+const loginColors = {
+  bg: "#F6F5F1",
+  surface: "#FFFFFF",
+  textPrimary: "#1A1A1A",
+  textSecondary: "#6B6B6B",
+  textTertiary: "#9A9A9A",
+  border: "#E5E3DE",
+  accent: "#2D2D2D",
+  blueMuted: "#B0BEC5",
+  brandPanel: "#1A1A1A",
+  error: "#B54848",
+  success: "#2A7B57",
+};
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const finnonLogo = require("../../assets/icon.png");
+
+function getFadeUpStyle(value: Animated.Value) {
+  return {
+    opacity: value,
+    transform: [
+      {
+        translateY: value.interpolate({
+          inputRange: [0, 1],
+          outputRange: [16, 0],
+        }),
+      },
+    ],
+  };
+}
 
 export default function LoginScreen() {
   const { session } = useAuth();
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<"email" | "otp" | "magicLinkSent">("email");
+  const [step, setStep] = useState<"email" | "otp">("email");
+  const [deliveryMode, setDeliveryMode] = useState<"magic" | "code">("magic");
   const [loadingAction, setLoadingAction] = useState<
     "otp" | "magic" | "verify" | null
   >(null);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [otpFocused, setOtpFocused] = useState(false);
+
   const router = useRouter();
-  const { dictionary } = useCopy();
+  const { width } = useWindowDimensions();
+  const isWideWeb = Platform.OS === "web" && width >= 1024;
   const isLoading = loadingAction !== null;
   const isCooldown = cooldownSeconds > 0;
+
+  const logoAnim = useRef(new Animated.Value(0)).current;
+  const formAnim = useRef(new Animated.Value(0)).current;
+  const brandAnim = useRef(new Animated.Value(0)).current;
+  const panelAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (session) {
@@ -52,272 +92,848 @@ export default function LoginScreen() {
     return () => clearInterval(timer);
   }, [cooldownSeconds]);
 
+  useEffect(() => {
+    [logoAnim, formAnim, brandAnim, panelAnim].forEach((value) =>
+      value.setValue(0)
+    );
+
+    Animated.stagger(120, [
+      Animated.timing(logoAnim, {
+        toValue: 1,
+        duration: 420,
+        useNativeDriver: true,
+      }),
+      Animated.timing(formAnim, {
+        toValue: 1,
+        duration: 420,
+        useNativeDriver: true,
+      }),
+      Animated.timing(brandAnim, {
+        toValue: 1,
+        duration: 420,
+        useNativeDriver: true,
+      }),
+      Animated.timing(panelAnim, {
+        toValue: 1,
+        duration: 420,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [brandAnim, formAnim, logoAnim, panelAnim]);
+
+  const primaryButtonTitle = useMemo(() => {
+    if (deliveryMode === "code") {
+      return loadingAction === "otp" ? "Enviando..." : "Enviar código";
+    }
+
+    if (loadingAction === "magic") {
+      return "Enviando...";
+    }
+
+    if (magicLinkSent) {
+      return "Enlace enviado ✓";
+    }
+
+    return "Continuar";
+  }, [deliveryMode, loadingAction, magicLinkSent]);
+
+  const validateEmail = () => {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      setError("Ingresa tu correo electrónico.");
+      return null;
+    }
+
+    if (!emailRegex.test(trimmedEmail)) {
+      setError("Ingresa un correo electrónico válido.");
+      return null;
+    }
+
+    return trimmedEmail;
+  };
+
   const handleSendOtp = async () => {
-    if (isLoading || isCooldown || !email.trim()) return;
+    if (isLoading || isCooldown) return;
+
+    const normalizedEmail = validateEmail();
+    if (!normalizedEmail) return;
 
     setLoadingAction("otp");
     setError(null);
+    setMagicLinkSent(false);
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: normalizedEmail,
         options: {
           shouldCreateUser: true,
         },
       });
 
-      if (error) throw error;
+      if (otpError) throw otpError;
+
       setStep("otp");
       setCooldownSeconds(60);
     } catch (err) {
-      console.error("Send OTP error:", err);
-      setError(err instanceof Error ? err.message : t(dictionary, "mobile.login.sendError"));
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No pudimos enviar el código. Inténtalo de nuevo."
+      );
     } finally {
       setLoadingAction(null);
     }
   };
 
   const handleSendMagicLink = async () => {
-    if (isLoading || isCooldown || !email.trim()) return;
+    if (isLoading || isCooldown) return;
+
+    const normalizedEmail = validateEmail();
+    if (!normalizedEmail) return;
 
     setLoadingAction("magic");
     setError(null);
 
     try {
       const redirectTo = Linking.createURL("/");
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
+      const { error: magicError } = await supabase.auth.signInWithOtp({
+        email: normalizedEmail,
         options: {
           emailRedirectTo: redirectTo,
           shouldCreateUser: true,
         },
       });
 
-      if (error) throw error;
-      setStep("magicLinkSent");
+      if (magicError) throw magicError;
+
+      setMagicLinkSent(true);
       setCooldownSeconds(60);
     } catch (err) {
-      console.error("Send magic link error:", err);
       setError(
-        err instanceof Error ? err.message : t(dictionary, "mobile.login.sendError")
+        err instanceof Error
+          ? err.message
+          : "No pudimos enviar el enlace. Inténtalo de nuevo."
       );
     } finally {
       setLoadingAction(null);
     }
   };
 
+  const handlePrimaryAction = async () => {
+    if (deliveryMode === "code") {
+      await handleSendOtp();
+      return;
+    }
+
+    await handleSendMagicLink();
+  };
+
   const handleVerifyOtp = async () => {
-    if (otp.length < OTP_MIN_LENGTH) return;
+    if (isLoading || otp.length < OTP_MIN_LENGTH) return;
+
+    const normalizedEmail = validateEmail();
+    if (!normalizedEmail) return;
 
     setLoadingAction("verify");
     setError(null);
 
     try {
-      console.log("[Login] Verifying OTP for:", email);
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email: normalizedEmail,
         token: otp,
         type: "email",
       });
 
-      if (error) {
-        console.error("[Login] Verify OTP error:", error);
-        throw error;
-      }
-
-      console.log("[Login] OTP verified successfully:", {
-        hasSession: !!data.session,
-        hasUser: !!data.user,
-        userId: data.user?.id,
-      });
+      if (verifyError) throw verifyError;
 
       if (data.session) {
-        console.log("[Login] Session created, navigating to trigger account check");
-        // Navigate to root to trigger account verification in _layout
-        // This will redirect to onboarding (no account), select-account (multiple), or home (single account)
         router.replace("/");
       } else {
-        console.warn("[Login] No session in response");
-        setError(t(dictionary, "mobile.login.sessionError"));
+        setError("No se pudo iniciar la sesión. Inténtalo de nuevo.");
       }
     } catch (err) {
-      console.error("[Login] Verify OTP error:", err);
       setError(
-        err instanceof Error ? err.message : t(dictionary, "mobile.login.invalidOtp")
+        err instanceof Error
+          ? err.message
+          : "Código inválido. Revisa e inténtalo de nuevo."
       );
     } finally {
       setLoadingAction(null);
     }
   };
 
-  if (step === "magicLinkSent") {
+  const handleEnableCodeMode = () => {
+    if (deliveryMode === "code") return;
+
+    setDeliveryMode("code");
+    setMagicLinkSent(false);
+    setError(null);
+  };
+
+  const handleBackToEmail = () => {
+    setStep("email");
+    setOtp("");
+    setError(null);
+  };
+
+  const renderEmailForm = () => {
     return (
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.container}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Card
-            title={t(dictionary, "mobile.login.magicLinkTitle")}
-            description={t(dictionary, "mobile.login.magicLinkDescription", { email })}
-          >
-            <Text style={styles.helperText}>
-              {t(dictionary, "mobile.login.magicLinkMessage")}
+      <>
+        <Text style={styles.inputLabel}>Correo electrónico</Text>
+        <TextInput
+          style={[
+            styles.input,
+            emailFocused && styles.inputFocused,
+            error && styles.inputError,
+          ]}
+          value={email}
+          onChangeText={(text) => {
+            setEmail(text);
+            setError(null);
+            setMagicLinkSent(false);
+          }}
+          onFocus={() => setEmailFocused(true)}
+          onBlur={() => setEmailFocused(false)}
+          placeholder="tu@email.com"
+          placeholderTextColor={loginColors.textTertiary}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!isLoading}
+          onSubmitEditing={() => {
+            void handlePrimaryAction();
+          }}
+        />
+
+        <Pressable
+          style={[
+            styles.primaryButton,
+            (isLoading || isCooldown) && styles.primaryButtonDisabled,
+          ]}
+          onPress={() => {
+            void handlePrimaryAction();
+          }}
+          disabled={isLoading || isCooldown}
+        >
+          <Text style={styles.primaryButtonText}>{primaryButtonTitle}</Text>
+        </Pressable>
+
+        <Text style={styles.helperText}>
+          {deliveryMode === "magic"
+            ? "Te enviaremos un enlace mágico.\nSin contraseñas, sin complicaciones."
+            : "Te enviaremos un código de verificación.\nSin contraseñas, sin complicaciones."}
+        </Text>
+
+        {deliveryMode === "magic" && (
+          <Text style={styles.fallbackText}>
+            ¿Problemas con el enlace?{" "}
+            <Text style={styles.fallbackLink} onPress={handleEnableCodeMode}>
+              Prueba con un código
             </Text>
-            {isCooldown && (
-              <Text style={styles.cooldownText}>
-                {t(dictionary, "mobile.login.cooldownMessage", { seconds: cooldownSeconds })}
-              </Text>
-            )}
+          </Text>
+        )}
 
-            <View style={styles.buttonStack}>
-              <Button
-                title={t(dictionary, "mobile.login.backButton")}
-                onPress={() => {
-                  setStep("email");
-                  setError(null);
-                }}
-                disabled={isLoading}
-                variant="secondary"
-              />
-            </View>
-          </Card>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        {magicLinkSent && deliveryMode === "magic" && (
+          <Text style={styles.successText}>
+            Revisa tu bandeja de entrada para continuar.
+          </Text>
+        )}
+
+        {isCooldown && (
+          <Text style={styles.cooldownText}>Podrás reenviar en {cooldownSeconds}s.</Text>
+        )}
+
+        {error && <Text style={styles.errorText}>{error}</Text>}
+      </>
     );
-  }
+  };
 
-  if (step === "otp") {
+  const renderOtpForm = () => {
     return (
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.container}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Card
-            title={t(dictionary, "mobile.login.otpTitle")}
-            description={t(dictionary, "mobile.login.otpDescription", { email })}
-          >
-            <Input
-              label={t(dictionary, "mobile.login.otpLabel")}
-              value={otp}
-              onChangeText={(text) => setOtp(text.replace(/\D/g, ""))}
-              placeholder={t(dictionary, "mobile.login.otpPlaceholder")}
-              keyboardType="numeric"
-              maxLength={OTP_MAX_LENGTH}
-              disabled={isLoading}
-              error={error || undefined}
-            />
-            {isCooldown && (
-              <Text style={styles.cooldownText}>
-                {t(dictionary, "mobile.login.cooldownMessage", { seconds: cooldownSeconds })}
-              </Text>
-            )}
+      <>
+        <Text style={styles.otpTitle}>Verifica tu código</Text>
+        <Text style={styles.otpDescription}>
+          Introduce el código que enviamos a {email.trim()}.
+        </Text>
 
-            <View style={styles.buttonGroup}>
-              <View style={styles.buttonHalf}>
-                <Button
-                  title={t(dictionary, "mobile.login.backButton")}
-                  onPress={() => {
-                    setStep("email");
-                    setOtp("");
-                    setError(null);
-                  }}
-                  disabled={isLoading}
-                  variant="secondary"
-                />
+        <Text style={styles.inputLabel}>Código de verificación</Text>
+        <TextInput
+          style={[
+            styles.input,
+            otpFocused && styles.inputFocused,
+            error && styles.inputError,
+          ]}
+          value={otp}
+          onChangeText={(text) => {
+            setOtp(text.replace(/\D/g, ""));
+            setError(null);
+          }}
+          onFocus={() => setOtpFocused(true)}
+          onBlur={() => setOtpFocused(false)}
+          placeholder="123456"
+          placeholderTextColor={loginColors.textTertiary}
+          keyboardType="numeric"
+          autoCapitalize="none"
+          autoCorrect={false}
+          maxLength={OTP_MAX_LENGTH}
+          editable={!isLoading}
+          onSubmitEditing={() => {
+            void handleVerifyOtp();
+          }}
+        />
+
+        {isCooldown && (
+          <Text style={styles.cooldownText}>Podrás reenviar en {cooldownSeconds}s.</Text>
+        )}
+
+        {error && <Text style={styles.errorText}>{error}</Text>}
+
+        <View style={styles.otpActions}>
+          <Pressable
+            style={[styles.secondaryButton, isLoading && styles.secondaryButtonDisabled]}
+            onPress={handleBackToEmail}
+            disabled={isLoading}
+          >
+            <Text style={styles.secondaryButtonText}>Volver</Text>
+          </Pressable>
+
+          <Pressable
+            style={[
+              styles.primaryButton,
+              styles.otpVerifyButton,
+              (isLoading || otp.length < OTP_MIN_LENGTH) && styles.primaryButtonDisabled,
+            ]}
+            onPress={() => {
+              void handleVerifyOtp();
+            }}
+            disabled={isLoading || otp.length < OTP_MIN_LENGTH}
+          >
+            <Text style={styles.primaryButtonText}>
+              {loadingAction === "verify" ? "Verificando..." : "Verificar"}
+            </Text>
+          </Pressable>
+        </View>
+      </>
+    );
+  };
+
+  const renderFormBody = () => {
+    if (step === "otp") {
+      return renderOtpForm();
+    }
+
+    return renderEmailForm();
+  };
+
+  const renderMobile = () => {
+    return (
+      <ScrollView
+        contentContainerStyle={styles.mobileScrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.mobileShell}>
+          <Animated.View style={[styles.mobileBrandPanel, getFadeUpStyle(logoAnim)]}>
+            <View style={styles.mobileBrandHeader}>
+              <View style={styles.mobileBrandLogoWrap}>
+                <Animated.Image source={finnonLogo} style={styles.mobileBrandLogoImage} />
               </View>
-              <View style={styles.buttonHalf}>
-                <Button
-                  title={t(dictionary, "mobile.login.verifyButton")}
-                  onPress={handleVerifyOtp}
-                  disabled={isLoading || otp.length < OTP_MIN_LENGTH}
-                  loading={loadingAction === "verify"}
-                />
+              <Text style={styles.mobileBrandWordmark}>Finnon</Text>
+            </View>
+
+            <Text style={styles.mobileBrandHeadline}>Tus finanzas en equipo.</Text>
+            <Text style={styles.mobileBrandDescription}>
+              Gestiona gastos, ahorros y objetivos junto a quien compartes tu vida.
+            </Text>
+
+            <View style={styles.mobileBrandCircles}>
+              <View style={styles.mobileBrandCircleLight} />
+              <View style={styles.mobileBrandCircleBlue} />
+            </View>
+          </Animated.View>
+
+          <Animated.View style={[styles.mobileFormArea, getFadeUpStyle(formAnim)]}>
+            {step === "email" && (
+              <View style={styles.mobileWelcomeBlock}>
+                <Text style={styles.mobileWelcomeTitle}>Bienvenido</Text>
+                <Text style={styles.mobileWelcomeSubtitle}>
+                  Empieza directamente con tu correo electrónico.
+                </Text>
+              </View>
+            )}
+            {renderFormBody()}
+          </Animated.View>
+        </View>
+      </ScrollView>
+    );
+  };
+
+  const renderDesktop = () => {
+    return (
+      <View style={styles.desktopRoot}>
+        <Animated.View style={[styles.brandPanel, getFadeUpStyle(brandAnim)]}>
+          <View style={styles.brandTop}>
+            <View style={styles.brandLogoWrap}>
+              <Animated.Image source={finnonLogo} style={styles.brandLogo} />
+            </View>
+            <Text style={styles.brandWordmark}>Finnon</Text>
+          </View>
+
+          <View style={styles.brandCenter}>
+            <Text style={styles.brandHeadline}>Tus finanzas en equipo.</Text>
+            <Text style={styles.brandSub}>
+              Gestiona gastos, ahorros y objetivos junto a quien compartes tu vida.
+            </Text>
+
+            <View style={styles.brandFeatureList}>
+              <View style={styles.brandFeatureItem}>
+                <View style={styles.brandFeatureDot} />
+                <Text style={styles.brandFeatureText}>
+                  Cuentas compartidas con control individual
+                </Text>
+              </View>
+
+              <View style={styles.brandFeatureItem}>
+                <View style={styles.brandFeatureDot} />
+                <Text style={styles.brandFeatureText}>Objetivos de ahorro en equipo</Text>
+              </View>
+
+              <View style={styles.brandFeatureItem}>
+                <View style={styles.brandFeatureDot} />
+                <Text style={styles.brandFeatureText}>
+                  Insights que motivan, no que venden
+                </Text>
               </View>
             </View>
-          </Card>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </View>
+        </Animated.View>
+
+        <Animated.View style={[styles.formPanel, getFadeUpStyle(panelAnim)]}>
+          <View style={styles.formPanelInner}>
+            <Text style={styles.webTitle}>{step === "otp" ? "Verifica tu código" : "Bienvenido"}</Text>
+            <Text style={styles.webSubtitle}>
+              {step === "otp"
+                ? `Introduce el código enviado a ${email.trim()}.`
+                : "Empieza directamente con tu correo electrónico."}
+            </Text>
+
+            {renderFormBody()}
+
+            <View style={styles.webFooter}>
+              <Text style={styles.webFooterText}>
+                Finnon no se conecta a tu banco. Tú decides qué compartir.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.webCircles}>
+            <View style={styles.webCircleDark} />
+            <View style={styles.webCircleBlue} />
+          </View>
+        </Animated.View>
+      </View>
     );
-  }
+  };
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={styles.root}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Card
-          title={t(dictionary, "mobile.login.title")}
-          description={t(dictionary, "mobile.login.description")}
-        >
-          <Input
-            label={t(dictionary, "mobile.login.emailLabel")}
-            value={email}
-            onChangeText={setEmail}
-            placeholder={t(dictionary, "mobile.login.emailPlaceholder")}
-            keyboardType="email-address"
-            disabled={isLoading}
-            error={error || undefined}
-          />
-          {isCooldown && (
-            <Text style={styles.cooldownText}>
-              {t(dictionary, "mobile.login.cooldownMessage", { seconds: cooldownSeconds })}
-            </Text>
-          )}
-
-          <View style={styles.buttonStack}>
-            <Button
-              title={t(dictionary, "mobile.login.sendButton")}
-              onPress={handleSendOtp}
-              disabled={isLoading || isCooldown || !email}
-              loading={loadingAction === "otp"}
-            />
-            <Button
-              title={t(dictionary, "mobile.login.sendMagicLinkButton")}
-              onPress={handleSendMagicLink}
-              disabled={isLoading || isCooldown || !email}
-              loading={loadingAction === "magic"}
-              variant="secondary"
-            />
-          </View>
-        </Card>
-      </ScrollView>
+      {isWideWeb ? renderDesktop() : renderMobile()}
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
+    backgroundColor: loginColors.bg,
   },
-  scrollContent: {
+  mobileScrollContent: {
     flexGrow: 1,
-    justifyContent: "center",
-    padding: 20,
   },
-  buttonGroup: {
+  mobileShell: {
+    flex: 1,
+    minHeight: 760,
+    paddingHorizontal: 28,
+    paddingTop: 0,
+    paddingBottom: 34,
+    backgroundColor: loginColors.bg,
+    position: "relative",
+    overflow: "hidden",
+  },
+  mobileBrandPanel: {
+    marginHorizontal: -28,
+    paddingHorizontal: 28,
+    paddingTop: 56,
+    paddingBottom: 30,
+    backgroundColor: loginColors.brandPanel,
+    position: "relative",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  mobileBrandHeader: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 8,
+    alignItems: "center",
+    gap: 14,
+    marginBottom: 20,
   },
-  buttonHalf: {
+  mobileBrandLogoWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: loginColors.surface,
+  },
+  mobileBrandLogoImage: {
+    width: "100%",
+    height: "100%",
+  },
+  mobileBrandWordmark: {
+    fontSize: 26,
+    lineHeight: 30,
+    color: "#FFFFFF",
+    letterSpacing: -0.35,
+    fontFamily: "DMSans-SemiBold",
+  },
+  mobileBrandHeadline: {
+    maxWidth: 320,
+    textAlign: "center",
+    fontSize: 30,
+    lineHeight: 36,
+    color: "#FFFFFF",
+    letterSpacing: -0.6,
+    fontFamily: "DMSans-SemiBold",
+    marginBottom: 8,
+  },
+  mobileBrandDescription: {
+    maxWidth: 340,
+    textAlign: "center",
+    fontSize: 15,
+    lineHeight: 24,
+    color: "rgba(255,255,255,0.65)",
+    fontFamily: "DMSans",
+  },
+  mobileBrandCircles: {
+    position: "absolute",
+    right: 18,
+    bottom: 18,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    opacity: 0.2,
+  },
+  mobileBrandCircleLight: {
+    width: 48,
+    height: 48,
+    borderRadius: 48,
+    backgroundColor: "rgba(255,255,255,0.45)",
+  },
+  mobileBrandCircleBlue: {
+    width: 48,
+    height: 48,
+    borderRadius: 48,
+    backgroundColor: "rgba(176,190,197,0.62)",
+    marginLeft: -12,
+  },
+  mobileFormArea: {
+    flex: 1,
+    paddingTop: 26,
+  },
+  mobileWelcomeBlock: {
+    marginBottom: 22,
+  },
+  mobileWelcomeTitle: {
+    fontSize: 26,
+    lineHeight: 32,
+    color: loginColors.textPrimary,
+    letterSpacing: -0.3,
+    fontFamily: "DMSans-SemiBold",
+    marginBottom: 8,
+  },
+  mobileWelcomeSubtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: loginColors.textSecondary,
+    fontFamily: "DMSans",
+  },
+  inputLabel: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: loginColors.textSecondary,
+    marginBottom: 8,
+    fontFamily: "DMSans-Medium",
+  },
+  input: {
+    width: "100%",
+    borderWidth: 1.5,
+    borderColor: loginColors.border,
+    borderRadius: 14,
+    paddingVertical: 15,
+    paddingHorizontal: 18,
+    fontSize: 16,
+    lineHeight: 22,
+    color: loginColors.textPrimary,
+    backgroundColor: loginColors.surface,
+    fontFamily: "DMSans",
+  },
+  inputFocused: {
+    borderColor: loginColors.accent,
+    shadowColor: loginColors.accent,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  inputError: {
+    borderColor: loginColors.error,
+  },
+  primaryButton: {
+    width: "100%",
+    marginTop: 16,
+    paddingVertical: 16,
+    borderRadius: 14,
+    backgroundColor: loginColors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  otpVerifyButton: {
+    marginTop: 0,
     flex: 1,
   },
-  buttonStack: {
-    marginTop: 12,
-    gap: 10,
+  primaryButtonDisabled: {
+    opacity: 0.58,
+  },
+  primaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    lineHeight: 22,
+    fontFamily: "DMSans-Medium",
   },
   helperText: {
-    marginBottom: 12,
+    marginTop: 20,
     fontSize: 13,
-    color: "#555",
+    lineHeight: 20,
+    color: loginColors.textTertiary,
+    textAlign: "center",
+    fontFamily: "DMSans",
+  },
+  fallbackText: {
+    marginTop: 12,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: loginColors.textTertiary,
+    textAlign: "center",
+    fontFamily: "DMSans",
+  },
+  fallbackLink: {
+    color: loginColors.textSecondary,
+    textDecorationLine: "underline",
+  },
+  successText: {
+    marginTop: 10,
+    textAlign: "center",
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: loginColors.success,
+    fontFamily: "DMSans-Medium",
   },
   cooldownText: {
-    marginBottom: 12,
-    fontSize: 13,
-    color: colors.text.secondary,
+    marginTop: 10,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: loginColors.textSecondary,
+    textAlign: "center",
+    fontFamily: "DMSans",
+  },
+  errorText: {
+    marginTop: 10,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: loginColors.error,
+    textAlign: "center",
+    fontFamily: "DMSans-Medium",
+  },
+  otpTitle: {
+    fontSize: 26,
+    lineHeight: 32,
+    color: loginColors.textPrimary,
+    letterSpacing: -0.3,
+    fontFamily: "DMSans-SemiBold",
+    marginBottom: 8,
+  },
+  otpDescription: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: loginColors.textSecondary,
+    fontFamily: "DMSans",
+    marginBottom: 22,
+  },
+  otpActions: {
+    marginTop: 16,
+    flexDirection: "row",
+    gap: 12,
+  },
+  secondaryButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: loginColors.border,
+    backgroundColor: loginColors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryButtonDisabled: {
+    opacity: 0.65,
+  },
+  secondaryButtonText: {
+    color: loginColors.textPrimary,
+    fontSize: 16,
+    lineHeight: 22,
+    fontFamily: "DMSans-Medium",
+  },
+  desktopRoot: {
+    flex: 1,
+    flexDirection: "row",
+  },
+  brandPanel: {
+    flex: 1,
+    minHeight: "100%",
+    backgroundColor: loginColors.brandPanel,
+    paddingVertical: 48,
+    paddingHorizontal: 56,
+    justifyContent: "space-between",
+  },
+  brandTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  brandLogoWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: loginColors.surface,
+  },
+  brandLogo: {
+    width: "100%",
+    height: "100%",
+  },
+  brandWordmark: {
+    fontSize: 22,
+    lineHeight: 28,
+    color: "#FFFFFF",
+    letterSpacing: -0.3,
+    fontFamily: "DMSans-SemiBold",
+  },
+  brandCenter: {
+    flex: 1,
+    justifyContent: "center",
+    maxWidth: 460,
+  },
+  brandHeadline: {
+    fontSize: 44,
+    lineHeight: 50,
+    color: "#FFFFFF",
+    letterSpacing: -1,
+    fontFamily: "DMSans-SemiBold",
+    marginBottom: 20,
+  },
+  brandSub: {
+    fontSize: 17,
+    lineHeight: 27,
+    color: "rgba(255,255,255,0.58)",
+    fontFamily: "DMSans",
+    maxWidth: 400,
+  },
+  brandFeatureList: {
+    marginTop: 42,
+    gap: 15,
+  },
+  brandFeatureItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  brandFeatureDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 8,
+    backgroundColor: loginColors.blueMuted,
+    flexShrink: 0,
+  },
+  brandFeatureText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "rgba(255,255,255,0.56)",
+    fontFamily: "DMSans",
+  },
+  formPanel: {
+    width: 440,
+    maxWidth: 440,
+    minHeight: "100%",
+    backgroundColor: loginColors.bg,
+    paddingHorizontal: 48,
+    paddingVertical: 48,
+    justifyContent: "center",
+    position: "relative",
+    overflow: "hidden",
+  },
+  formPanelInner: {
+    width: "100%",
+    maxWidth: 380,
+    alignSelf: "center",
+  },
+  webTitle: {
+    fontSize: 26,
+    lineHeight: 32,
+    color: loginColors.textPrimary,
+    letterSpacing: -0.3,
+    fontFamily: "DMSans-SemiBold",
+    marginBottom: 8,
+  },
+  webSubtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: loginColors.textSecondary,
+    fontFamily: "DMSans",
+    marginBottom: 34,
+  },
+  webFooter: {
+    marginTop: 30,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: loginColors.border,
+  },
+  webFooterText: {
+    fontSize: 12,
+    lineHeight: 19,
+    color: loginColors.textTertiary,
+    textAlign: "center",
+    fontFamily: "DMSans",
+  },
+  webCircles: {
+    position: "absolute",
+    right: 48,
+    bottom: 48,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    opacity: 0.12,
+  },
+  webCircleDark: {
+    width: 72,
+    height: 72,
+    borderRadius: 72,
+    backgroundColor: loginColors.textPrimary,
+    zIndex: 1,
+  },
+  webCircleBlue: {
+    width: 72,
+    height: 72,
+    borderRadius: 72,
+    backgroundColor: loginColors.blueMuted,
+    marginLeft: -18,
   },
 });

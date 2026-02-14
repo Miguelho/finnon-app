@@ -133,12 +133,29 @@ export const en = {
       footerLine2: "You decide what to share.",
       continueButton: "Continue",
       sendCodeButton: "Send code",
+      verifyCodeButton: "Verify code",
+      verifyingButton: "Verifying...",
       sendingButton: "Sending...",
       linkSentButton: "Link sent ✓",
       codeSentButton: "Code sent ✓",
       cooldown: "You can resend in {seconds}s.",
       emailRequired: "Enter your email address.",
       emailInvalid: "Enter a valid email address.",
+      emailRequiredForCode:
+        "To verify a code, first enter your email in magic-link mode.",
+      codeRequired: "Enter your verification code.",
+      codeInvalid: "The code must contain between 6 and 8 digits.",
+      codeModeHelp: "Enter the 6 to 8-digit code you received by email.",
+      authErrorTitle: "We couldn't complete your sign-in",
+      authErrorRetry: "You can try again from this screen.",
+      authErrorNoCode:
+        "No valid authentication code was found in the link.",
+      authErrorNoSession:
+        "We couldn't create your session. Check your email and try again.",
+      authErrorExpired:
+        "The sign-in link is invalid or expired. Request a new one.",
+      authErrorGeneric:
+        "An authentication error occurred. Please try again.",
       sendError: "We couldn't send access. Please try again.",
     },
   },

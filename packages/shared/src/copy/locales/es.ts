@@ -133,12 +133,29 @@ export const es = {
       footerLine2: "Tú decides qué compartir.",
       continueButton: "Continuar",
       sendCodeButton: "Enviar código",
+      verifyCodeButton: "Verificar código",
+      verifyingButton: "Verificando...",
       sendingButton: "Enviando...",
       linkSentButton: "Enlace enviado ✓",
       codeSentButton: "Código enviado ✓",
       cooldown: "Podrás reenviar en {seconds}s.",
       emailRequired: "Ingresa tu correo electrónico.",
       emailInvalid: "Ingresa un correo electrónico válido.",
+      emailRequiredForCode:
+        "Para verificar el código, primero introduce tu correo en modo enlace.",
+      codeRequired: "Ingresa tu código de verificación.",
+      codeInvalid: "El código debe tener entre 6 y 8 dígitos.",
+      codeModeHelp: "Introduce el código de 6 a 8 dígitos que recibiste por correo.",
+      authErrorTitle: "No pudimos completar tu acceso",
+      authErrorRetry: "Puedes volver a intentarlo desde esta pantalla.",
+      authErrorNoCode:
+        "No se recibió un código de autenticación válido en el enlace.",
+      authErrorNoSession:
+        "No pudimos crear tu sesión. Revisa tu correo e inténtalo de nuevo.",
+      authErrorExpired:
+        "El enlace de acceso es inválido o ha expirado. Solicita uno nuevo.",
+      authErrorGeneric:
+        "Ha ocurrido un error durante la autenticación. Vuelve a intentarlo.",
       sendError: "No pudimos enviar el acceso. Inténtalo de nuevo.",
     },
   },

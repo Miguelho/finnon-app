@@ -1,27 +1,56 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const OTP_MIN_LENGTH = 6;
+const OTP_MAX_LENGTH = 8;
 
 export default function LoginPage() {
   const t = useTranslations("login");
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [mode, setMode] = useState<"link" | "code">("link");
-  const [deliveryState, setDeliveryState] = useState<"idle" | "sentLink" | "sentCode">(
-    "idle"
-  );
+  const [codeStep, setCodeStep] = useState<"request" | "verify">("request");
+  const [deliveryState, setDeliveryState] = useState<"idle" | "sentLink">("idle");
 
   const supabase = createClient();
   const isCooldownActive = cooldownSeconds > 0;
+  const queryError = searchParams.get("error");
+
+  const queryErrorMessage = useMemo(() => {
+    if (!queryError) return null;
+
+    const normalized = queryError.toLowerCase();
+
+    if (normalized.includes("no_code") || normalized.includes("missing")) {
+      return t("redesign.authErrorNoCode");
+    }
+
+    if (normalized.includes("no_session")) {
+      return t("redesign.authErrorNoSession");
+    }
+
+    if (
+      normalized.includes("expired") ||
+      normalized.includes("invalid") ||
+      normalized.includes("token")
+    ) {
+      return t("redesign.authErrorExpired");
+    }
+
+    return t("redesign.authErrorGeneric");
+  }, [queryError, t]);
 
   useEffect(() => {
     if (cooldownSeconds <= 0) return;
@@ -34,11 +63,24 @@ export default function LoginPage() {
   }, [cooldownSeconds]);
 
   const submitLabel = useMemo(() => {
+    if (mode === "code" && codeStep === "request") {
+      return loading ? t("otpSending") : t("otpSendButton");
+    }
+
+    if (mode === "code" && codeStep === "verify") {
+      return loading ? t("redesign.verifyingButton") : t("redesign.verifyCodeButton");
+    }
+
     if (loading) return t("redesign.sendingButton");
     if (deliveryState === "sentLink") return t("redesign.linkSentButton");
-    if (deliveryState === "sentCode") return t("redesign.codeSentButton");
-    return mode === "code" ? t("redesign.sendCodeButton") : t("redesign.continueButton");
-  }, [deliveryState, loading, mode, t]);
+    return t("redesign.continueButton");
+  }, [codeStep, deliveryState, loading, mode, t]);
+
+  const isSubmitDisabled = useMemo(() => {
+    if (mode === "link") return loading || isCooldownActive;
+    if (codeStep === "request") return loading || isCooldownActive;
+    return loading || otpCode.length < OTP_MIN_LENGTH;
+  }, [codeStep, isCooldownActive, loading, mode, otpCode.length]);
 
   const validateEmail = () => {
     const normalized = email.trim().toLowerCase();
@@ -56,7 +98,23 @@ export default function LoginPage() {
     return normalized;
   };
 
-  const sendAuth = async () => {
+  const validateCode = () => {
+    const normalized = otpCode.trim();
+
+    if (!normalized) {
+      setError(t("redesign.codeRequired"));
+      return null;
+    }
+
+    if (!new RegExp(`^\\d{${OTP_MIN_LENGTH},${OTP_MAX_LENGTH}}$`).test(normalized)) {
+      setError(t("redesign.codeInvalid"));
+      return null;
+    }
+
+    return normalized;
+  };
+
+  const sendMagicLink = async () => {
     if (loading || isCooldownActive) return;
 
     const normalizedEmail = validateEmail();
@@ -69,20 +127,15 @@ export default function LoginPage() {
       const redirectTo = `${window.location.origin}/auth/confirm`;
       const { error: authError } = await supabase.auth.signInWithOtp({
         email: normalizedEmail,
-        options:
-          mode === "link"
-            ? {
-                emailRedirectTo: redirectTo,
-                shouldCreateUser: true,
-              }
-            : {
-                shouldCreateUser: true,
-              },
+        options: {
+          emailRedirectTo: redirectTo,
+          shouldCreateUser: true,
+        },
       });
 
       if (authError) throw authError;
 
-      setDeliveryState(mode === "link" ? "sentLink" : "sentCode");
+      setDeliveryState("sentLink");
       setCooldownSeconds(60);
     } catch (err) {
       setError(
@@ -95,9 +148,78 @@ export default function LoginPage() {
     }
   };
 
+  const sendCode = async () => {
+    if (loading || isCooldownActive) return;
+
+    const normalizedEmail = validateEmail();
+    if (!normalizedEmail) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: normalizedEmail,
+        options: {
+          shouldCreateUser: true,
+        },
+      });
+
+      if (otpError) throw otpError;
+
+      setCodeStep("verify");
+      setCooldownSeconds(60);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("sendError"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyCode = async () => {
+    if (loading) return;
+
+    const normalizedCode = validateCode();
+    if (!normalizedCode) return;
+
+    const normalizedEmail = validateEmail();
+    if (!normalizedEmail) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email: normalizedEmail,
+        token: normalizedCode,
+        type: "email",
+      });
+
+      if (verifyError) throw verifyError;
+      if (!data.session) throw new Error("no_session");
+
+      router.replace("/");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("invalidOtp"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    void sendAuth();
+    if (mode === "code" && codeStep === "verify") {
+      void verifyCode();
+      return;
+    }
+
+    if (mode === "code") {
+      void sendCode();
+      return;
+    }
+
+    void sendMagicLink();
   };
 
   return (
@@ -197,42 +319,81 @@ export default function LoginPage() {
               {t("redesign.welcomeSubtitle")}
             </p>
 
+            {queryErrorMessage && (
+              <div className="mb-5 rounded-[14px] border border-[#f1d3d3] bg-[#fff1f1] p-4">
+                <p className="text-sm font-semibold text-[#7A2E2E]">
+                  {t("redesign.authErrorTitle")}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[#8B4B4B]">
+                  {queryErrorMessage}
+                </p>
+                <p className="mt-2 text-xs text-[#8B4B4B]">{t("redesign.authErrorRetry")}</p>
+              </div>
+            )}
+
             <form onSubmit={onSubmit} className="space-y-4">
               <div>
                 <label
-                  htmlFor="email"
+                  htmlFor={mode === "code" && codeStep === "verify" ? "code" : "email"}
                   className="mb-2 block text-[13px] font-medium tracking-[0.2px] text-[#6B6B6B]"
                 >
-                  {t("redesign.emailLabel")}
+                  {mode === "code" && codeStep === "verify"
+                    ? t("otpLabel")
+                    : t("redesign.emailLabel")}
                 </label>
                 <input
-                  id="email"
-                  type="email"
-                  value={email}
+                  id={mode === "code" && codeStep === "verify" ? "code" : "email"}
+                  type={mode === "code" && codeStep === "verify" ? "text" : "email"}
+                  inputMode={mode === "code" && codeStep === "verify" ? "numeric" : "email"}
+                  pattern={mode === "code" && codeStep === "verify" ? "[0-9]*" : undefined}
+                  maxLength={mode === "code" && codeStep === "verify" ? OTP_MAX_LENGTH : undefined}
+                  value={mode === "code" && codeStep === "verify" ? otpCode : email}
                   onChange={(event) => {
-                    setEmail(event.target.value);
+                    if (mode === "code" && codeStep === "verify") {
+                      setOtpCode(event.target.value.replace(/\D/g, ""));
+                    } else {
+                      setEmail(event.target.value);
+                      if (mode === "link") {
+                        setDeliveryState("idle");
+                      }
+                    }
                     setError(null);
-                    setDeliveryState("idle");
                   }}
-                  placeholder={t("redesign.emailPlaceholder")}
-                  autoComplete="email"
+                  placeholder={
+                    mode === "code" && codeStep === "verify"
+                      ? t("otpPlaceholder")
+                      : t("redesign.emailPlaceholder")
+                  }
+                  autoComplete={mode === "code" && codeStep === "verify" ? "one-time-code" : "email"}
                   disabled={loading}
-                  className="w-full rounded-[14px] border border-[#E5E3DE] bg-white px-[18px] py-4 text-base text-[#1A1A1A] outline-none transition-[border-color,box-shadow] placeholder:text-[#9A9A9A] focus:border-[#2D2D2D] focus:shadow-[0_0_0_3px_rgba(45,45,45,0.06)]"
+                  className={`w-full rounded-[14px] border border-[#E5E3DE] bg-white px-[18px] py-4 text-base text-[#1A1A1A] outline-none transition-[border-color,box-shadow] placeholder:text-[#9A9A9A] focus:border-[#2D2D2D] focus:shadow-[0_0_0_3px_rgba(45,45,45,0.06)] ${
+                    mode === "code" && codeStep === "verify" ? "text-center tracking-[0.22em]" : ""
+                  }`}
                 />
               </div>
 
               <button
                 type="submit"
-                disabled={loading || isCooldownActive}
+                disabled={isSubmitDisabled}
                 className="w-full rounded-[14px] bg-[#2D2D2D] px-4 py-4 text-base font-medium text-white transition hover:bg-[#444] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitLabel}
               </button>
 
               <p className="pt-1 text-center text-[13px] leading-6 text-[#9A9A9A]">
-                {t("redesign.helperLine1")}
-                <br />
-                <span className="text-[#6B6B6B]">{t("redesign.helperLine2")}</span>
+                {mode === "code" && codeStep === "request" ? (
+                  <span className="text-[#6B6B6B]">{t("otpPageDescription")}</span>
+                ) : mode === "code" ? (
+                  <span className="text-[#6B6B6B]">
+                    {t("otpDescription", { email: email.trim() })}
+                  </span>
+                ) : (
+                  <>
+                    {t("redesign.helperLine1")}
+                    <br />
+                    <span className="text-[#6B6B6B]">{t("redesign.helperLine2")}</span>
+                  </>
+                )}
               </p>
 
               {mode === "link" && (
@@ -242,8 +403,9 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => {
                       setMode("code");
-                      setDeliveryState("idle");
+                      setCodeStep("request");
                       setError(null);
+                      setOtpCode("");
                     }}
                     className="text-[#6B6B6B] underline decoration-[#E5E3DE] underline-offset-2"
                   >
@@ -259,8 +421,10 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => {
                       setMode("link");
+                      setCodeStep("request");
                       setDeliveryState("idle");
                       setError(null);
+                      setOtpCode("");
                     }}
                     className="text-[#6B6B6B] underline decoration-[#E5E3DE] underline-offset-2"
                   >
@@ -269,14 +433,20 @@ export default function LoginPage() {
                 </p>
               )}
 
-              {mode === "code" && deliveryState === "sentCode" && (
-                <p className="rounded-md border border-[#E5E3DE] bg-white/60 p-3 text-center text-xs text-[#6B6B6B]">
-                  {t("redesign.codeSentPrefix")}{" "}
-                  <Link href="/login-otp" className="underline">
-                    {t("redesign.codeSentLink")}
-                  </Link>
-                  .
-                </p>
+              {mode === "code" && codeStep === "verify" && (
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCodeStep("request");
+                      setOtpCode("");
+                      setError(null);
+                    }}
+                    className="text-[12.5px] text-[#6B6B6B] underline decoration-[#E5E3DE] underline-offset-2"
+                  >
+                    {t("otpBackButton")}
+                  </button>
+                </div>
               )}
 
               {isCooldownActive && (
