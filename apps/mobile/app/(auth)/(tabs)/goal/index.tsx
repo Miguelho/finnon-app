@@ -767,6 +767,50 @@ export default function GoalScreen() {
   const progressColor = getStatusColor(displayProgress?.status ?? "neutral");
   const progressWidth = displayProgress ? `${Math.round(displayProgress.progressRatio * 100)}%` : "0%";
   const hasTransactions = transactions.length > 0;
+  const simulatorCategoriesById = useMemo(() => {
+    return transactions.reduce<Record<string, { name: string; icon_id: string | null }>>(
+      (acc, tx) => {
+        const categoryId = tx.category?.id;
+        if (!categoryId || acc[categoryId]) return acc;
+        acc[categoryId] = {
+          name: tx.category?.name ?? t(dictionary, "transactions.uncategorized"),
+          icon_id: tx.category?.icon_id ?? null,
+        };
+        return acc;
+      },
+      {}
+    );
+  }, [dictionary, transactions]);
+
+  const simulatorMonthStatus = useMemo<
+    "adelantado" | "en_riesgo" | "retrasado" | null
+  >(() => {
+    if (summaryViewV2?.monthStatus) return summaryViewV2.monthStatus;
+    if (!displayProgress) return null;
+    switch (displayProgress.status) {
+      case "positive":
+        return "adelantado";
+      case "negative":
+        return "retrasado";
+      case "neutral":
+      default:
+        return "en_riesgo";
+    }
+  }, [displayProgress, summaryViewV2?.monthStatus]);
+
+  const goalAmountStatus = useMemo(() => {
+    if (heroDisplay && goalSummary) {
+      const savedReal = heroDisplay.savedRealMinor;
+      const savedTotal = goalSummary.savedTotalMinor ?? savedReal;
+      const target = heroDisplay.targetMinor;
+      if (savedReal >= target) return "positive";
+      if (savedTotal >= target) return "warning";
+      return "negative";
+    }
+    if (displayProgress?.status === "positive") return "positive";
+    if (displayProgress?.status === "negative") return "negative";
+    return "warning";
+  }, [displayProgress?.status, goalSummary, heroDisplay]);
 
   // V2: Hero dinámico basado en fecha estimada
   const heroV2Text = useMemo(() => {
@@ -1159,23 +1203,11 @@ export default function GoalScreen() {
               <Text
                 style={[
                   styles.heroMainAmount,
-                  { color: userThemeTokens.textPrimary },
-                  (() => {
-                    if (!heroDisplay || !goalSummary) return null;
-
-                    const savedReal = heroDisplay.savedRealMinor;
-                    const savedTotal = goalSummary.savedTotalMinor ?? savedReal;
-                    const target = heroDisplay.targetMinor;
-
-                    // Verde: El ahorro real ya cumple el objetivo
-                    if (savedReal >= target) return { color: colors.state.positive };
-
-                    // Amarillo: El ahorro real no cumple, pero con los pendientes sí llegará
-                    if (savedTotal >= target) return { color: colors.state.warning };
-
-                    // Rojo: Ni con los pendientes llegará al objetivo
-                    return { color: colors.state.negative };
-                  })(),
+                  goalAmountStatus === "positive"
+                    ? { color: colors.state.positive }
+                    : goalAmountStatus === "warning"
+                      ? { color: colors.state.warning }
+                      : { color: colors.state.negative },
                 ]}
               >
                 {heroDisplay
@@ -1194,6 +1226,56 @@ export default function GoalScreen() {
               >
                 {t(dictionary, "goal.heroTargetContext", { amount: formattedTarget })}
               </Text>
+              <View style={styles.heroLegendRow}>
+                <View style={styles.heroLegendItem}>
+                  <View
+                    style={[
+                      styles.heroLegendDot,
+                      { backgroundColor: colors.state.positive },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.heroLegendText,
+                      { color: userThemeTokens.textSecondary },
+                    ]}
+                  >
+                    {t(dictionary, "goal.amountLegend.onTarget")}
+                  </Text>
+                </View>
+                <View style={styles.heroLegendItem}>
+                  <View
+                    style={[
+                      styles.heroLegendDot,
+                      { backgroundColor: colors.state.warning },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.heroLegendText,
+                      { color: userThemeTokens.textSecondary },
+                    ]}
+                  >
+                    {t(dictionary, "goal.amountLegend.pendingTarget")}
+                  </Text>
+                </View>
+                <View style={styles.heroLegendItem}>
+                  <View
+                    style={[
+                      styles.heroLegendDot,
+                      { backgroundColor: colors.state.negative },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.heroLegendText,
+                      { color: userThemeTokens.textSecondary },
+                    ]}
+                  >
+                    {t(dictionary, "goal.amountLegend.offTarget")}
+                  </Text>
+                </View>
+              </View>
             </View>
 
             {/* Progress bar based on real savings */}
@@ -1263,16 +1345,19 @@ export default function GoalScreen() {
           )}
 
           {/* Simulator - Only for current month */}
-          {summaryViewV2?.monthStatus && (
+          {simulatorMonthStatus && (
             <GoalSimulator
-              monthStatus={summaryViewV2.monthStatus}
+              monthStatus={simulatorMonthStatus}
               candidates={savingsCandidates}
               baseCurrency={baseCurrency}
               currencySymbol={currencySymbol}
               gapToGoalMinor={
-                summaryViewV2?.remainingMinor ?? goalSummary?.gapToGoalMinor ?? null
+                summaryViewV2?.remainingMinor ??
+                displayProgress?.remainingMinor ??
+                goalSummary?.gapToGoalMinor ??
+                null
               }
-              categoriesById={{}}
+              categoriesById={simulatorCategoriesById}
               copy={simulatorCopy}
             />
           )}
@@ -1426,6 +1511,28 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.medium,
     color: colors.text.secondary,
+  },
+  heroLegendRow: {
+    marginTop: tokens.spacing.sm,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    rowGap: tokens.spacing.xs,
+    columnGap: tokens.spacing.md,
+  },
+  heroLegendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  heroLegendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+  },
+  heroLegendText: {
+    fontSize: tokens.typography.size.xs,
+    fontWeight: tokens.typography.weight.medium,
   },
   projectionChip: {
     flexDirection: "row",

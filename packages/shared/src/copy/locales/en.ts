@@ -504,6 +504,11 @@ export const en = {
     // V3: Simplified hero
     heroEditShort: "Edit",
     heroTargetContext: "of {amount} this month",
+    amountLegend: {
+      onTarget: "On target",
+      pendingTarget: "With pending",
+      offTarget: "Off target",
+    },
     heroProjection: "With your income on day {day}, you'll reach {amount}",
     // V2: Dynamic hero based on estimated completion date
     hero: {

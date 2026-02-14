@@ -9,9 +9,9 @@ import {
 import { CaretRight, CaretDown } from "phosphor-react-native";
 import { themeTokens, type TopCategory, type CategoryIconKey } from "@poleursus/shared";
 import { CategoryIcon } from "./CategoryIcon";
+import { useUserTheme } from "../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
-const colors = tokens.colors;
 const typography = tokens.typography;
 const radii = tokens.radii;
 
@@ -36,6 +36,7 @@ export function TopCategorySelector({
   hideOthersLabel,
   style,
 }: TopCategorySelectorProps) {
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   if (topCategories.length === 0) {
     return null;
   }
@@ -56,7 +57,10 @@ export function TopCategorySelector({
             accessibilityLabel={category.name}
             style={({ pressed }) => [
               styles.pill,
-              isSelected ? styles.pillSelected : styles.pillDefault,
+              {
+                borderColor: isSelected ? primaryActionColor : userTokens.border,
+                backgroundColor: isSelected ? userTokens.surfaceAlt : userTokens.surface,
+              },
               pressed && styles.pillPressed,
             ]}
           >
@@ -69,7 +73,7 @@ export function TopCategorySelector({
             <Text
               style={[
                 styles.pillText,
-                isSelected ? styles.pillTextSelected : styles.pillTextDefault,
+                { color: isSelected ? primaryActionColor : userTokens.textPrimary },
               ]}
               numberOfLines={1}
             >
@@ -84,11 +88,17 @@ export function TopCategorySelector({
         accessibilityLabel={toggleLabel}
         style={({ pressed }) => [
           styles.seeOthers,
+          {
+            borderColor: userTokens.border,
+            backgroundColor: isExpanded ? userTokens.surfaceAlt : userTokens.surface,
+          },
           pressed && styles.seeOthersPressed,
         ]}
       >
-        <Text style={styles.seeOthersText}>{toggleLabel}</Text>
-        <IconComponent size={16} weight="bold" color={colors.text.secondary} />
+        <Text style={[styles.seeOthersText, { color: userTokens.textPrimary }]}>
+          {toggleLabel}
+        </Text>
+        <IconComponent size={16} weight="bold" color={userTokens.textPrimary} />
       </Pressable>
     </View>
   );
@@ -111,14 +121,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minHeight: 44,
   },
-  pillDefault: {
-    borderColor: colors.state.neutral,
-    backgroundColor: colors.bg.primary,
-  },
-  pillSelected: {
-    borderColor: colors.action.primary,
-    backgroundColor: colors.action.secondary,
-  },
   pillPressed: {
     opacity: 0.7,
   },
@@ -126,19 +128,15 @@ const styles = StyleSheet.create({
     fontSize: typography.size.md,
     fontWeight: typography.weight.medium,
   },
-  pillTextDefault: {
-    color: colors.text.primary,
-  },
-  pillTextSelected: {
-    color: colors.action.primary,
-  },
   seeOthers: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 12,
-    minHeight: 48,
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: radii.md,
   },
   seeOthersPressed: {
     opacity: 0.7,
@@ -146,6 +144,5 @@ const styles = StyleSheet.create({
   seeOthersText: {
     fontSize: typography.size.md,
     fontWeight: typography.weight.semibold,
-    color: colors.text.secondary,
   },
 });

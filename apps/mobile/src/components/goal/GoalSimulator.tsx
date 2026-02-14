@@ -201,7 +201,61 @@ export function GoalSimulator({
   }
 
   if (simulatorCandidates.length === 0) {
-    return null;
+    return (
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: cardStyles.backgroundColor, borderColor: cardStyles.borderColor },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() => setIsExpanded((prev) => !prev)}
+          style={styles.header}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isExpanded }}
+        >
+          <View style={styles.headerText}>
+            <Text style={[styles.title, { color: userTokens.textPrimary }]}>
+              {copy.title}
+            </Text>
+            <Text style={[styles.subtitle, { color: subtitleColor }]}>
+              {subtitle}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.chevronContainer,
+              { backgroundColor: userTokens.surface },
+              { transform: [{ rotate: isExpanded ? "180deg" : "0deg" }] },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name="chevron-down"
+              size={16}
+              color={userTokens.textSecondary}
+            />
+          </View>
+        </TouchableOpacity>
+
+        {isExpanded ? (
+          <View style={styles.content}>
+            <View
+              style={[
+                styles.impactPanel,
+                {
+                  backgroundColor: userTokens.surface,
+                  marginBottom: 0,
+                },
+              ]}
+            >
+              <Text style={[styles.impactEmpty, { color: userTokens.textSecondary }]}>
+                {copy.noItems}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+      </View>
+    );
   }
 
   return (
@@ -418,16 +472,16 @@ const styles = StyleSheet.create({
     marginTop: tokens.spacing.xs,
   },
   list: {
-    gap: tokens.spacing.sm,
+    gap: tokens.spacing.md,
   },
   listItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: tokens.spacing.sm,
-    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.md,
+    paddingHorizontal: tokens.spacing.lg,
     borderWidth: 1,
-    borderRadius: tokens.radii.md,
+    borderRadius: tokens.radii.lg,
   },
   listItemDisabled: {
     opacity: 0.5,
@@ -439,8 +493,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconContainer: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: tokens.radii.md,
     alignItems: "center",
     justifyContent: "center",
@@ -450,6 +504,7 @@ const styles = StyleSheet.create({
   },
   itemInfo: {
     flex: 1,
+    gap: 2,
   },
   itemName: {
     fontWeight: String(tokens.typography.weight.medium) as "500",

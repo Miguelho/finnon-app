@@ -12,9 +12,9 @@ import { Calendar } from "phosphor-react-native";
 import { themeTokens, getToday, getYesterday, getTomorrow, formatDateForDisplay } from "@poleursus/shared";
 import { useCopy, t } from "../../lib/i18n";
 import { MonthMap } from "../home/MonthMap";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
-const colors = tokens.colors;
 
 interface DateQuickPickerProps {
   value: string;
@@ -51,6 +51,7 @@ const startOfMonth = (date: Date) =>
 
 export function DateQuickPicker({ value, onChange, error }: DateQuickPickerProps) {
   const { locale, dictionary } = useCopy();
+  const { tokens: userTokens, primaryActionColor, primaryActionTextColor } = useUserTheme();
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(() =>
     startOfMonth(parseIsoDate(value) ?? new Date())
@@ -94,7 +95,9 @@ export function DateQuickPicker({ value, onChange, error }: DateQuickPickerProps
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{t(dictionary, "addTransaction.dateLabel")}</Text>
+      <Text style={[styles.label, { color: userTokens.textPrimary }]}>
+        {t(dictionary, "addTransaction.dateLabel")}
+      </Text>
 
       {/* Quick option chips */}
       <ScrollView
@@ -108,13 +111,23 @@ export function DateQuickPicker({ value, onChange, error }: DateQuickPickerProps
             onPress={() => handleQuickSelect(option.getValue)}
             style={[
               styles.chip,
+              {
+                borderColor: userTokens.border,
+                backgroundColor: userTokens.surface,
+              },
               isSelected(option.getValue) && styles.chipSelected,
+              isSelected(option.getValue) && {
+                backgroundColor: primaryActionColor,
+                borderColor: primaryActionColor,
+              },
             ]}
           >
             <Text
               style={[
                 styles.chipText,
+                { color: userTokens.textPrimary },
                 isSelected(option.getValue) && styles.chipTextSelected,
+                isSelected(option.getValue) && { color: primaryActionTextColor },
               ]}
             >
               {t(dictionary, `addTransaction.${option.labelKey}`)}
@@ -123,9 +136,15 @@ export function DateQuickPicker({ value, onChange, error }: DateQuickPickerProps
         ))}
 
         {/* Calendar button */}
-        <TouchableOpacity onPress={handleCalendarOpen} style={styles.chip}>
-          <Calendar size={14} color={colors.text.primary} style={styles.chipIcon} />
-          <Text style={styles.chipText}>
+        <TouchableOpacity
+          onPress={handleCalendarOpen}
+          style={[
+            styles.chip,
+            { borderColor: userTokens.border, backgroundColor: userTokens.surface },
+          ]}
+        >
+          <Calendar size={14} color={userTokens.textPrimary} style={styles.chipIcon} />
+          <Text style={[styles.chipText, { color: userTokens.textPrimary }]}>
             {t(dictionary, "addTransaction.datePickOther")}
           </Text>
         </TouchableOpacity>
@@ -133,13 +152,13 @@ export function DateQuickPicker({ value, onChange, error }: DateQuickPickerProps
 
       {/* Selected date display */}
       {value && (
-        <Text style={styles.selectedDate}>
+        <Text style={[styles.selectedDate, { color: userTokens.textSecondary }]}>
           {formatDateForDisplay(value, locale)}
         </Text>
       )}
 
       {/* Error message */}
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && <Text style={[styles.errorText, { color: userTokens.dangerText }]}>{error}</Text>}
 
       {/* Calendar Modal */}
       <Modal
@@ -153,25 +172,47 @@ export function DateQuickPicker({ value, onChange, error }: DateQuickPickerProps
             style={styles.sheetBackdrop}
             onPress={() => setIsCalendarOpen(false)}
           />
-          <View style={styles.sheetContainer}>
-            <View style={styles.sheetHandle} />
+          <View
+            style={[
+              styles.sheetContainer,
+              {
+                backgroundColor: userTokens.surface,
+                borderTopColor: userTokens.border,
+              },
+            ]}
+          >
+            <View style={[styles.sheetHandle, { backgroundColor: userTokens.border }]} />
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>
+              <Text style={[styles.sheetTitle, { color: userTokens.textPrimary }]}>
                 {t(dictionary, "addTransaction.dateLabel")}
               </Text>
               <TouchableOpacity onPress={() => setIsCalendarOpen(false)}>
-                <Text style={styles.sheetAction}>
+                <Text style={[styles.sheetAction, { color: primaryActionColor }]}>
                   {t(dictionary, "common.close")}
                 </Text>
               </TouchableOpacity>
             </View>
             <View style={styles.monthNav}>
-              <TouchableOpacity onPress={goToPreviousMonth} style={styles.navButton}>
-                <Text style={styles.navText}>{"<"}</Text>
+              <TouchableOpacity
+                onPress={goToPreviousMonth}
+                style={[
+                  styles.navButton,
+                  { borderColor: userTokens.border, backgroundColor: userTokens.surfaceAlt },
+                ]}
+              >
+                <Text style={[styles.navText, { color: userTokens.textPrimary }]}>{"<"}</Text>
               </TouchableOpacity>
-              <Text style={styles.monthLabel}>{monthLabel}</Text>
-              <TouchableOpacity onPress={goToNextMonth} style={styles.navButton}>
-                <Text style={styles.navText}>{">"}</Text>
+              <Text style={[styles.monthLabel, { color: userTokens.textPrimary }]}>
+                {monthLabel}
+              </Text>
+              <TouchableOpacity
+                onPress={goToNextMonth}
+                style={[
+                  styles.navButton,
+                  { borderColor: userTokens.border, backgroundColor: userTokens.surfaceAlt },
+                ]}
+              >
+                <Text style={[styles.navText, { color: userTokens.textPrimary }]}>{">"}</Text>
               </TouchableOpacity>
             </View>
             <MonthMap
@@ -200,7 +241,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
     marginBottom: tokens.spacing.xs,
   },
   chipsRow: {
@@ -216,13 +256,9 @@ const styles = StyleSheet.create({
     paddingVertical: tokens.spacing.sm,
     borderRadius: tokens.radii.pill,
     borderWidth: 1,
-    borderColor: colors.state.neutral,
-    backgroundColor: colors.bg.surface,
     minHeight: 36,
   },
   chipSelected: {
-    backgroundColor: colors.action.primary,
-    borderColor: colors.action.primary,
   },
   chipIcon: {
     marginRight: tokens.spacing.xs,
@@ -230,20 +266,16 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.text.primary,
   },
   chipTextSelected: {
-    color: colors.bg.primary,
   },
   selectedDate: {
     fontSize: tokens.typography.size.md,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.text.secondary,
     marginTop: tokens.spacing.xs,
   },
   errorText: {
     fontSize: tokens.typography.size.sm,
-    color: colors.state.negative,
     marginTop: tokens.spacing.xs,
   },
   sheetOverlay: {
@@ -255,12 +287,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.35)",
   },
   sheetContainer: {
-    backgroundColor: colors.bg.surface,
     paddingHorizontal: tokens.spacing.lg,
     paddingTop: tokens.spacing.sm,
     paddingBottom: tokens.spacing.xl,
     borderTopLeftRadius: tokens.radii.lg,
     borderTopRightRadius: tokens.radii.lg,
+    borderTopWidth: 1,
     gap: tokens.spacing.md,
   },
   sheetHandle: {
@@ -268,7 +300,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 4,
     borderRadius: tokens.radii.pill,
-    backgroundColor: colors.state.neutral,
   },
   sheetHeader: {
     flexDirection: "row",
@@ -278,12 +309,10 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontSize: tokens.typography.size.lg,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
   },
   sheetAction: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.text.secondary,
   },
   monthNav: {
     flexDirection: "row",
@@ -291,17 +320,18 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   navButton: {
-    paddingHorizontal: tokens.spacing.md,
-    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: tokens.spacing.xs,
+    borderRadius: tokens.radii.md,
+    borderWidth: 1,
   },
   navText: {
     fontSize: tokens.typography.size.lg,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
   },
   monthLabel: {
     fontSize: tokens.typography.size.md,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.text.primary,
+    textTransform: "capitalize",
   },
 });

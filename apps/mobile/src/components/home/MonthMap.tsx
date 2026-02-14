@@ -52,7 +52,7 @@ export function MonthMap({
   markerData,
   renderDayContent,
 }: MonthMapProps) {
-  const { primaryActionColor } = useUserTheme();
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const monthStart = startOfMonth(month);
   const monthEnd = endOfMonth(month);
   const weekdayStart = toMondayIndex(monthStart.getDay());
@@ -103,6 +103,7 @@ export function MonthMap({
             key={`${label}-${index}`}
             style={[
               styles.weekdayLabel,
+              { color: userTokens.textTertiary },
               index < 6 && styles.weekdayLabelGap,
             ]}
           >
@@ -152,7 +153,14 @@ export function MonthMap({
               style={[
                 styles.cell,
                 dayIndex < 6 && styles.cellGap,
-                isHighlighted && styles.cellHighlight,
+                {
+                  borderColor: userTokens.border,
+                  backgroundColor: userTokens.surfaceAlt,
+                },
+                isHighlighted && {
+                  backgroundColor: userTokens.surface,
+                  borderColor: primaryActionColor,
+                },
                 isSelected && { borderColor: primaryActionColor },
                 isToday && { borderColor: primaryActionColor },
               ]}
@@ -162,7 +170,8 @@ export function MonthMap({
               <Text
                 style={[
                   styles.dayLabel,
-                  !isCurrentMonth && styles.dayLabelMuted,
+                  { color: userTokens.textPrimary },
+                  !isCurrentMonth && { color: userTokens.textTertiary },
                   isToday && { color: primaryActionColor },
                 ]}
               >
@@ -196,7 +205,9 @@ export function MonthMap({
                         );
                       })}
                       {overflowCount > 0 && (
-                        <Text style={styles.overflowText}>+{overflowCount}</Text>
+                        <Text style={[styles.overflowText, { color: userTokens.textTertiary }]}>
+                          +{overflowCount}
+                        </Text>
                       )}
                     </View>
                   )}
@@ -219,7 +230,6 @@ const styles = StyleSheet.create({
   },
   weekdayLabel: {
     ...typography.meta,
-    color: colors.text.muted,
     textAlign: "center",
     flex: 1,
   },
@@ -242,26 +252,16 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     borderRadius: tokens.radii.sm,
     borderWidth: 1,
-    borderColor: colors.state.neutral,
     paddingVertical: tokens.spacing.xs,
     paddingHorizontal: 2,
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: colors.bg.secondary,
   },
   cellGap: {
     marginRight: tokens.spacing.xs,
   },
-  cellHighlight: {
-    backgroundColor: colors.action.secondary,
-    borderColor: colors.action.secondary,
-  },
   dayLabel: {
     ...typography.meta,
-    color: colors.text.primary,
-  },
-  dayLabelMuted: {
-    color: colors.text.muted,
   },
   markerRow: {
     flexDirection: "row",
@@ -288,6 +288,5 @@ const styles = StyleSheet.create({
   },
   overflowText: {
     ...typography.meta,
-    color: colors.text.muted,
   },
 });

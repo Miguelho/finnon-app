@@ -15,9 +15,9 @@ import {
   filterMerchantSuggestions,
   type MerchantSuggestion,
 } from "@poleursus/shared";
+import { useUserTheme } from "../contexts/UserThemeContext";
 
 const tokens = themeTokens.light;
-const colors = tokens.colors;
 
 export interface MerchantAutocompleteProps {
   label: string;
@@ -42,6 +42,7 @@ export function MerchantAutocomplete({
 }: MerchantAutocompleteProps) {
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
 
   const filteredSuggestions = useMemo(
     () => filterMerchantSuggestions(suggestions, value),
@@ -61,11 +62,24 @@ export function MerchantAutocomplete({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
-      {helperText ? <Text style={styles.helperText}>{helperText}</Text> : null}
+      <Text style={[styles.label, { color: userTokens.textPrimary }]}>{label}</Text>
+      {helperText ? (
+        <Text style={[styles.helperText, { color: userTokens.textSecondary }]}>
+          {helperText}
+        </Text>
+      ) : null}
       <TextInput
         ref={inputRef}
-        style={[styles.input, disabled && styles.inputDisabled]}
+        style={[
+          styles.input,
+          {
+            borderColor: isFocused ? primaryActionColor : userTokens.border,
+            backgroundColor: userTokens.surface,
+            color: userTokens.textPrimary,
+          },
+          disabled && styles.inputDisabled,
+          disabled && { backgroundColor: userTokens.surfaceAlt },
+        ]}
         value={value}
         onChangeText={onChangeText}
         onFocus={(event) => {
@@ -77,13 +91,22 @@ export function MerchantAutocomplete({
           setTimeout(() => setIsFocused(false), 150);
         }}
         placeholder={placeholder}
+        placeholderTextColor={userTokens.textTertiary}
         editable={!disabled}
         autoCapitalize="words"
         autoCorrect={false}
       />
 
       {showSuggestions && (
-        <View style={styles.suggestionsContainer}>
+        <View
+          style={[
+            styles.suggestionsContainer,
+            {
+              backgroundColor: userTokens.surface,
+              borderColor: userTokens.border,
+            },
+          ]}
+        >
           <ScrollView
             style={styles.suggestionsList}
             keyboardShouldPersistTaps="handled"
@@ -94,12 +117,18 @@ export function MerchantAutocomplete({
                 key={item.normalized}
                 style={({ pressed }) => [
                   styles.suggestionItem,
+                  { borderBottomColor: userTokens.border },
                   pressed && styles.suggestionItemPressed,
+                  pressed && { backgroundColor: userTokens.surfaceAlt },
                 ]}
                 onPress={() => handleSelect(item.merchant)}
               >
-                <Text style={styles.suggestionText}>{item.merchant}</Text>
-                <Text style={styles.frequencyText}>({item.frequency}x)</Text>
+                <Text style={[styles.suggestionText, { color: userTokens.textPrimary }]}>
+                  {item.merchant}
+                </Text>
+                <Text style={[styles.frequencyText, { color: userTokens.textTertiary }]}>
+                  ({item.frequency}x)
+                </Text>
               </Pressable>
             ))}
           </ScrollView>
@@ -118,27 +147,21 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.lg,
     fontWeight: tokens.typography.weight.semibold,
     marginBottom: tokens.spacing.md,
-    color: colors.text.primary,
   },
   helperText: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.text.secondary,
     marginBottom: tokens.spacing.md,
   },
   input: {
     borderWidth: 1,
-    borderColor: colors.state.neutral,
     borderRadius: tokens.radii.lg,
     paddingVertical: tokens.spacing.lg,
     paddingHorizontal: tokens.spacing.xl,
     fontSize: tokens.typography.size.lg,
-    backgroundColor: colors.bg.surface,
-    color: colors.text.primary,
     minHeight: 56,
   },
   inputDisabled: {
-    backgroundColor: colors.bg.secondary,
     opacity: 0.6,
   },
   suggestionsContainer: {
@@ -147,9 +170,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     marginTop: 4,
-    backgroundColor: colors.bg.surface,
     borderWidth: 1,
-    borderColor: colors.state.neutral,
     borderRadius: tokens.radii.lg,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -169,19 +190,15 @@ const styles = StyleSheet.create({
     paddingVertical: tokens.spacing.md,
     paddingHorizontal: tokens.spacing.lg,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.state.neutral,
     minHeight: 48,
   },
   suggestionItemPressed: {
-    backgroundColor: colors.bg.secondary,
   },
   suggestionText: {
     fontSize: tokens.typography.size.md,
     fontWeight: tokens.typography.weight.medium,
-    color: colors.text.primary,
   },
   frequencyText: {
     fontSize: tokens.typography.size.sm,
-    color: colors.text.muted,
   },
 });
