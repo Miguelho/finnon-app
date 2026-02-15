@@ -117,7 +117,7 @@ export default function UserProfileScreen() {
   const [deleteEmailInput, setDeleteEmailInput] = useState("");
   const [deleteKeywordInput, setDeleteKeywordInput] = useState("");
   const [isDeletingUser, setIsDeletingUser] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
+
 
   const systemMode = colorScheme === "dark" ? "dark" : "light";
   const activeTheme = useMemo(
@@ -483,20 +483,6 @@ export default function UserProfileScreen() {
       });
     } finally {
       setIsDeletingUser(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    if (isSigningOut) return;
-    setIsSigningOut(true);
-
-    try {
-      await signOut();
-    } catch (error) {
-      console.error("[UserProfile] Sign out failed:", error);
-      reportNetworkIssue({ message: t(dictionary, "settings.signOut.error") });
-    } finally {
-      setIsSigningOut(false);
     }
   };
 
@@ -899,34 +885,6 @@ export default function UserProfileScreen() {
           {notice}
         </Text>
       ) : null}
-
-      <Pressable
-        onPress={() => {
-          void handleSignOut();
-        }}
-        disabled={isSigningOut}
-        style={({ pressed }) => [
-          styles.signOutButton,
-          {
-            backgroundColor: pressed ? activeTheme.dangerBackground : activeTheme.surface,
-            borderColor: pressed ? activeTheme.dangerBorder : activeTheme.border,
-          },
-        ]}
-      >
-        <View style={styles.signOutCopy}>
-          <Text style={[styles.signOutTitle, { color: activeTheme.dangerText }]}>
-            {t(dictionary, "settings.signOut.label")}
-          </Text>
-          <Text style={[styles.signOutSubtitle, { color: activeTheme.textTertiary }]}>
-            {t(dictionary, "settings.signOut.description")}
-          </Text>
-        </View>
-        {isSigningOut ? (
-          <ActivityIndicator size="small" color={activeTheme.dangerText} />
-        ) : (
-          <Text style={[styles.signOutArrow, { color: activeTheme.dangerText }]}>→</Text>
-        )}
-      </Pressable>
 
       <Modal
         transparent
@@ -1405,30 +1363,5 @@ const styles = StyleSheet.create({
   deleteConfirmText: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.semibold,
-  },
-  signOutButton: {
-    marginTop: tokens.spacing.sm,
-    borderWidth: 1,
-    borderRadius: tokens.radii.md,
-    paddingHorizontal: tokens.spacing.lg,
-    paddingVertical: tokens.spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  signOutCopy: {
-    flex: 1,
-  },
-  signOutTitle: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: tokens.typography.weight.semibold,
-  },
-  signOutSubtitle: {
-    fontSize: tokens.typography.size.xs,
-    marginTop: 2,
-  },
-  signOutArrow: {
-    fontSize: 16,
-    marginLeft: tokens.spacing.sm,
   },
 });

@@ -12,10 +12,16 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
+import Constants from "expo-constants";
 import { supabase } from "../../src/lib/supabase";
 import { useAuth } from "../../src/contexts/AuthContext";
+import { isDemoEmail, parseDemoEmails } from "@poleursus/shared";
 
 const OTP_LENGTH = 6;
+const demoEmails = parseDemoEmails(
+  Constants.expoConfig?.extra?.demoEmails as string | undefined
+);
+const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 
 const loginColors = {
   bg: "#F6F5F1",
@@ -49,7 +55,7 @@ function getFadeUpStyle(value: Animated.Value) {
 }
 
 export default function LoginScreen() {
-  const { session } = useAuth();
+  const { session, setSelectedAccountId } = useAuth();
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"email" | "otp">("email");
@@ -141,6 +147,12 @@ export default function LoginScreen() {
     const normalizedEmail = validateEmail();
     if (!normalizedEmail) return;
 
+    if (isDemoEmail(normalizedEmail, demoEmails)) {
+      console.warn("[Demo] Skipping OTP send for demo account");
+      setStep("otp");
+      return;
+    }
+
     setLoadingAction("otp");
     setError(null);
 
@@ -178,6 +190,45 @@ export default function LoginScreen() {
     setError(null);
 
     try {
+      if (isDemoEmail(normalizedEmail, demoEmails)) {
+        console.warn("[Demo] Using demo login API");
+        const response = await fetch(`${API_URL}/api/auth/demo-login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-client-type": "mobile",
+          },
+          body: JSON.stringify({ email: normalizedEmail, otp }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Demo login failed");
+        }
+
+        const sessionData = await response.json();
+        const { error: setSessionError } = await supabase.auth.setSession({
+          access_token: sessionData.access_token,
+          refresh_token: sessionData.refresh_token,
+        });
+
+        if (setSessionError) throw setSessionError;
+
+        // Auto-select the demo user's account
+        const { data: memberships } = await supabase
+          .from("account_members")
+          .select("account_id")
+          .eq("user_id", sessionData.user.id)
+          .limit(1);
+
+        if (memberships && memberships.length > 0) {
+          await setSelectedAccountId(memberships[0]!.account_id as string);
+        }
+
+        router.replace("/");
+        return;
+      }
+
       const { data, error: verifyError } = await supabase.auth.verifyOtp({
         email: normalizedEmail,
         token: otp,

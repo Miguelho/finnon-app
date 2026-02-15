@@ -42,6 +42,7 @@ export * from "./categories/top-categories";
 export * from "./onboarding";
 export * from "./merchants";
 export * from "./auth/signOut";
+export * from "./auth/demo";
 export * from "./add-transaction";
 export * from "./types/period";
 

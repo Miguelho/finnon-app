@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
+  Modal,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -55,6 +58,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
     email: null,
   });
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isSignOutDialogOpen, setIsSignOutDialogOpen] = useState(false);
 
   const viewModel = useMemo(
     () =>
@@ -155,10 +159,9 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
     props.navigation.closeDrawer();
   };
 
-  const handleConfirmSignOut = async () => {
+  const handleSignOut = async () => {
     if (isSigningOut) return;
     setIsSigningOut(true);
-    props.navigation.closeDrawer();
 
     try {
       await signOutAndReset({
@@ -166,7 +169,9 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
           await supabase.auth.signOut();
         },
         clearLocalSessionArtifacts: clearSelectedAccount,
+        onReset: () => setIsSignOutDialogOpen(false),
         onNavigate: () => {
+          props.navigation.closeDrawer();
           router.replace("/(auth)/login");
         },
       });
@@ -176,25 +181,6 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
     } finally {
       setIsSigningOut(false);
     }
-  };
-
-  const handleSignOut = () => {
-    Alert.alert(
-      t(dictionary, "settings.signOut.confirmTitle"),
-      t(dictionary, "settings.signOut.confirmDescription"),
-      [
-        {
-          text: t(dictionary, "settings.signOut.confirmCancel"),
-          style: "cancel",
-        },
-        {
-          text: t(dictionary, "settings.signOut.confirmAction"),
-          onPress: () => {
-            void handleConfirmSignOut();
-          },
-        },
-      ]
-    );
   };
 
   return (
@@ -274,7 +260,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
         <View style={[styles.signOutDivider, { backgroundColor: userTokens.border }]} />
         <TouchableOpacity
           style={styles.signOutRow}
-          onPress={handleSignOut}
+          onPress={() => setIsSignOutDialogOpen(true)}
           disabled={isSigningOut}
           accessibilityRole="button"
           accessibilityLabel={t(dictionary, "settings.signOut.label")}
@@ -292,6 +278,83 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
           <Text style={[styles.signOutChevron, { color: userTokens.textTertiary }]}>›</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal
+        transparent
+        visible={isSignOutDialogOpen}
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isSigningOut) setIsSignOutDialogOpen(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => {
+              if (!isSigningOut) setIsSignOutDialogOpen(false);
+            }}
+            disabled={isSigningOut}
+          />
+
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: userTokens.surface,
+                borderColor: userTokens.border,
+              },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: userTokens.textPrimary }]}>
+              {t(dictionary, "settings.signOut.confirmTitle")}
+            </Text>
+            <Text style={[styles.modalDescription, { color: userTokens.textSecondary }]}>
+              {t(dictionary, "settings.signOut.confirmDescription")}
+            </Text>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => {
+                  if (!isSigningOut) setIsSignOutDialogOpen(false);
+                }}
+                disabled={isSigningOut}
+                style={styles.modalCancelButton}
+              >
+                <Text
+                  style={[
+                    styles.modalCancelText,
+                    { color: isSigningOut ? userTokens.textTertiary : userTokens.textSecondary },
+                  ]}
+                >
+                  {t(dictionary, "settings.signOut.confirmCancel")}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  void handleSignOut();
+                }}
+                disabled={isSigningOut}
+                style={[
+                  styles.modalConfirmButton,
+                  {
+                    borderColor: userTokens.dangerText,
+                    opacity: isSigningOut ? 0.55 : 1,
+                  },
+                ]}
+              >
+                {isSigningOut ? (
+                  <ActivityIndicator size="small" color={userTokens.dangerText} />
+                ) : (
+                  <Text style={[styles.modalConfirmText, { color: userTokens.dangerText }]}>
+                    {t(dictionary, "settings.signOut.confirmAction")}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </DrawerContentScrollView>
   );
 }
@@ -372,5 +435,52 @@ const styles = StyleSheet.create({
   signOutChevron: {
     fontSize: tokens.typography.size.xl,
     marginLeft: tokens.spacing.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    padding: tokens.spacing.lg,
+    backgroundColor: "rgba(0, 0, 0, 0.32)",
+  },
+  modalCard: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.lg,
+  },
+  modalTitle: {
+    fontSize: tokens.typography.size.lg,
+    fontWeight: tokens.typography.weight.semibold,
+    marginBottom: tokens.spacing.xs,
+  },
+  modalDescription: {
+    fontSize: tokens.typography.size.sm,
+    marginBottom: tokens.spacing.lg,
+  },
+  modalActions: {
+    marginTop: tokens.spacing.xs,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: tokens.spacing.sm,
+  },
+  modalCancelButton: {
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+  },
+  modalCancelText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.medium,
+  },
+  modalConfirmButton: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 134,
+  },
+  modalConfirmText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
   },
 });

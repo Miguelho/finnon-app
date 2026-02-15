@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { isDemoEmail, parseDemoEmails } from "@poleursus/shared";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const OTP_LENGTH = 6;
@@ -22,6 +23,7 @@ export default function LoginPage() {
   const [codeStep, setCodeStep] = useState<"request" | "verify">("request");
 
   const supabase = createClient();
+  const demoEmails = parseDemoEmails(process.env.NEXT_PUBLIC_DEMO_EMAILS);
   const isCooldownActive = cooldownSeconds > 0;
   const queryError = searchParams.get("error");
 
@@ -109,6 +111,12 @@ export default function LoginPage() {
     const normalizedEmail = validateEmail();
     if (!normalizedEmail) return;
 
+    if (isDemoEmail(normalizedEmail, demoEmails)) {
+      console.warn("[Demo] Skipping OTP send for demo account");
+      setCodeStep("verify");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -144,6 +152,24 @@ export default function LoginPage() {
     setError(null);
 
     try {
+      if (isDemoEmail(normalizedEmail, demoEmails)) {
+        console.warn("[Demo] Using demo login API");
+        const response = await fetch("/api/auth/demo-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: normalizedEmail, otp: normalizedCode }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Demo login failed");
+        }
+
+        router.replace("/");
+        router.refresh();
+        return;
+      }
+
       const { data, error: verifyError } = await supabase.auth.verifyOtp({
         email: normalizedEmail,
         token: normalizedCode,
