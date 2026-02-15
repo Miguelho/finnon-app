@@ -923,6 +923,22 @@ export const en = {
       language: {
         title: "Language",
       },
+      deleteUser: {
+        dangerTitle: "Danger zone",
+        title: "Delete user",
+        description:
+          "Your user and personal data will be permanently deleted.",
+        button: "Delete",
+        dialogTitle: "Delete user",
+        dialogDescription:
+          "To confirm, type your email and the word {keyword}. This action cannot be undone.",
+        emailLabel: "Your account email",
+        emailPlaceholder: "you@email.com",
+        keywordLabel: "Type {keyword}",
+        keywordPlaceholder: "confirm",
+        keywordValue: "confirm",
+        confirmAction: "Delete user",
+      },
       errors: {
         loadProfile: "Could not load your profile.",
         notAuthenticated: "No active session.",
@@ -930,6 +946,12 @@ export const en = {
         saveTheme: "Could not save theme.",
         saveColorMode: "Could not save color mode.",
         saveLocale: "Could not save language.",
+        deleteUser: "Could not delete your user. Please try again.",
+        deleteUserAdminKeyInvalid:
+          "Invalid server configuration to delete user. Define SUPABASE_SECRET_KEY.",
+        deleteUserNoEmail: "No valid email was found for this account.",
+        deleteUserEmailMismatch: "The entered email does not match your account.",
+        deleteUserKeywordMismatch: "You must type the confirmation word to continue.",
       },
     },
     language: {

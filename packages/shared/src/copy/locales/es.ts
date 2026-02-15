@@ -924,6 +924,22 @@ export const es = {
       language: {
         title: "Idioma",
       },
+      deleteUser: {
+        dangerTitle: "Zona de peligro",
+        title: "Eliminar usuario",
+        description:
+          "Tu usuario y tus datos personales se eliminarán de forma permanente.",
+        button: "Eliminar",
+        dialogTitle: "Eliminar usuario",
+        dialogDescription:
+          "Para confirmar, escribe tu correo y la palabra {keyword}. Esta acción no se puede deshacer.",
+        emailLabel: "Correo de tu cuenta",
+        emailPlaceholder: "tu@email.com",
+        keywordLabel: "Escribe {keyword}",
+        keywordPlaceholder: "confirmar",
+        keywordValue: "confirmar",
+        confirmAction: "Eliminar usuario",
+      },
       errors: {
         loadProfile: "No se pudo cargar tu perfil.",
         notAuthenticated: "No hay sesión activa.",
@@ -931,6 +947,12 @@ export const es = {
         saveTheme: "No se pudo guardar el tema.",
         saveColorMode: "No se pudo guardar el modo de color.",
         saveLocale: "No se pudo guardar el idioma.",
+        deleteUser: "No se pudo eliminar tu usuario. Inténtalo de nuevo.",
+        deleteUserAdminKeyInvalid:
+          "Configuración de servidor inválida para eliminar usuario. Define SUPABASE_SECRET_KEY.",
+        deleteUserNoEmail: "No se encontró un correo válido para esta cuenta.",
+        deleteUserEmailMismatch: "El correo ingresado no coincide con tu cuenta.",
+        deleteUserKeywordMismatch: "Debes escribir la palabra de confirmación para continuar.",
       },
     },
     language: {

@@ -29,3 +29,9 @@ export const getSupabaseServiceRoleKey = () =>
     process.env.SUPABASE_SERVICE_ROLE_KEY,
     "Missing Supabase service role key. Define SUPABASE_SERVICE_ROLE_KEY."
   );
+
+export const getSupabaseAdminKey = () =>
+  requireValue(
+    process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY,
+    "Missing Supabase admin key. Define SUPABASE_SECRET_KEY (preferred) or SUPABASE_SERVICE_ROLE_KEY."
+  );

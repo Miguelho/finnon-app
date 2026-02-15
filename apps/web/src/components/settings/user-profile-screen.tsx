@@ -8,6 +8,17 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useWebUserTheme } from "@/components/theme/web-user-theme-provider";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import {
   DEFAULT_USER_THEME,
   DEFAULT_USER_THEME_MODE,
   getAvatarInitials,
@@ -105,7 +116,10 @@ export function UserProfileScreen({ userId, userEmail }: UserProfileScreenProps)
   const [noticeTone, setNoticeTone] = useState<"positive" | "negative" | null>(
     null
   );
-  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteEmailInput, setDeleteEmailInput] = useState("");
+  const [deleteKeywordInput, setDeleteKeywordInput] = useState("");
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
 
   const activeTheme = useMemo(
     () => resolveUserThemeTokens(profile.theme, profile.colorMode, resolvedMode),
@@ -353,35 +367,69 @@ export function UserProfileScreen({ userId, userEmail }: UserProfileScreenProps)
     }
   };
 
-  const handleSignOut = async () => {
-    if (isSigningOut) return;
-    setIsSigningOut(true);
+  const closeDeleteDialog = () => {
+    if (isDeletingUser) return;
+    setIsDeleteDialogOpen(false);
+    setDeleteEmailInput("");
+    setDeleteKeywordInput("");
+  };
+
+  const handleDeleteUser = async () => {
+    if (isDeletingUser || !canDeleteUser) return;
+    setIsDeletingUser(true);
 
     try {
-      await signOutAndReset({
-        signOut: async () => {
-          const res = await fetch("/api/auth/signout", {
-            method: "POST",
-            credentials: "include",
-          });
-          if (!res.ok) {
-            throw new Error("sign_out_failed");
-          }
+      const response = await fetch("/api/auth/delete-user", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          email: deleteEmailInput.trim(),
+          confirmation: deleteKeywordInput.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const errorKey =
+          typeof payload?.errorKey === "string"
+            ? payload.errorKey
+            : "settings.userProfile.errors.deleteUser";
+        toast.error(t(errorKey as any));
+        return;
+      }
+
+      await signOutAndReset({
+        signOut: async () => {},
         clearLocalSessionArtifacts: async () => {
           localStorage.removeItem(STORAGE_KEY);
+        },
+        onReset: async () => {
+          setIsDeleteDialogOpen(false);
+          setDeleteEmailInput("");
+          setDeleteKeywordInput("");
         },
         onNavigate: () => router.replace("/login"),
       });
     } catch (error) {
-      console.error("[UserProfileWeb] Sign out failed:", error);
-      toast.error(t("settings.signOut.error"));
+      console.error("[UserProfileWeb] Delete user failed:", error);
+      toast.error(t("settings.userProfile.errors.deleteUser"));
     } finally {
-      setIsSigningOut(false);
+      setIsDeletingUser(false);
     }
   };
 
+  const deleteKeywordValue = t("settings.userProfile.deleteUser.keywordValue")
+    .trim()
+    .toLowerCase();
   const mainAvatar = USER_AVATAR_COLORS[profile.avatarColor];
+  const emailMatches =
+    deleteEmailInput.trim().toLowerCase() === profile.email.trim().toLowerCase();
+  const keywordMatches =
+    deleteKeywordInput.trim().toLowerCase() === deleteKeywordValue;
+  const canDeleteUser = emailMatches && keywordMatches && !isDeletingUser;
 
   return (
     <div className="space-y-3" style={{ color: activeTheme.textPrimary }}>
@@ -637,6 +685,44 @@ export function UserProfileScreen({ userId, userEmail }: UserProfileScreenProps)
         </div>
       </section>
 
+      <section className="mt-4 border-t pt-8" style={{ borderColor: activeTheme.border }}>
+        <p
+          className="mb-3 text-xs font-semibold uppercase tracking-[0.5px]"
+          style={{ color: activeTheme.dangerText }}
+        >
+          {t("settings.userProfile.deleteUser.dangerTitle")}
+        </p>
+        <div
+          className="flex items-center justify-between gap-4 rounded-2xl border px-5 py-4"
+          style={{
+            backgroundColor: activeTheme.surface,
+            borderColor: activeTheme.border,
+          }}
+        >
+          <div>
+            <p className="text-sm font-semibold">
+              {t("settings.userProfile.deleteUser.title")}
+            </p>
+            <p className="text-xs" style={{ color: activeTheme.textTertiary }}>
+              {t("settings.userProfile.deleteUser.description")}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsDeleteDialogOpen(true)}
+            disabled={isDeletingUser}
+            className="rounded-md border px-4 py-2 text-sm font-semibold transition disabled:opacity-60"
+            style={{
+              borderColor: activeTheme.dangerText,
+              color: activeTheme.dangerText,
+              backgroundColor: "transparent",
+            }}
+          >
+            {isDeletingUser ? t("common.deleting") : t("settings.userProfile.deleteUser.button")}
+          </button>
+        </div>
+      </section>
+
       {notice ? (
         <p
           className="px-1 text-center text-xs"
@@ -651,28 +737,78 @@ export function UserProfileScreen({ userId, userEmail }: UserProfileScreenProps)
         </p>
       ) : null}
 
-      <button
-        type="button"
-        onClick={() => void handleSignOut()}
-        disabled={isSigningOut}
-        className="mt-2 flex w-full items-center justify-between rounded-xl border px-5 py-3 text-left transition disabled:opacity-60"
-        style={{
-          backgroundColor: activeTheme.surface,
-          borderColor: activeTheme.border,
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeDeleteDialog();
+            return;
+          }
+          if (!isDeletingUser) {
+            setIsDeleteDialogOpen(true);
+          }
         }}
       >
-        <div>
-          <p className="text-sm font-semibold" style={{ color: activeTheme.dangerText }}>
-            {t("settings.signOut.label")}
-          </p>
-          <p className="text-xs" style={{ color: activeTheme.textTertiary }}>
-            {t("settings.signOut.description")}
-          </p>
-        </div>
-        <span className="text-base" style={{ color: activeTheme.dangerText }}>
-          {isSigningOut ? "…" : "→"}
-        </span>
-      </button>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("settings.userProfile.deleteUser.dialogTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("settings.userProfile.deleteUser.dialogDescription", {
+                keyword: deleteKeywordValue,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">
+                {t("settings.userProfile.deleteUser.emailLabel")}
+              </label>
+              <Input
+                type="email"
+                autoComplete="email"
+                value={deleteEmailInput}
+                onChange={(event) => setDeleteEmailInput(event.target.value)}
+                placeholder={t("settings.userProfile.deleteUser.emailPlaceholder")}
+                disabled={isDeletingUser}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">
+                {t("settings.userProfile.deleteUser.keywordLabel", {
+                  keyword: deleteKeywordValue,
+                })}
+              </label>
+              <Input
+                type="text"
+                value={deleteKeywordInput}
+                onChange={(event) => setDeleteKeywordInput(event.target.value)}
+                placeholder={t("settings.userProfile.deleteUser.keywordPlaceholder")}
+                disabled={isDeletingUser}
+              />
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingUser}>
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!canDeleteUser}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDeleteUser();
+              }}
+            >
+              {isDeletingUser
+                ? t("common.deleting")
+                : t("settings.userProfile.deleteUser.confirmAction")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

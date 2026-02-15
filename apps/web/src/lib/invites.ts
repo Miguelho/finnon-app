@@ -2,8 +2,8 @@ import type { NextRequest } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createAuthenticatedClient } from "@/lib/supabase/server";
 import {
+  getSupabaseAdminKey,
   getSupabaseAnonKey,
-  getSupabaseServiceRoleKey,
   getSupabaseUrl,
 } from "@/lib/supabase/env";
 
@@ -24,7 +24,7 @@ export type InviteLookup = {
 export function createServiceRoleClient() {
   return createSupabaseClient(
     getSupabaseUrl(),
-    getSupabaseServiceRoleKey(),
+    getSupabaseAdminKey(),
     {
       auth: {
         autoRefreshToken: false,

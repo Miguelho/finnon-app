@@ -1,8 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
-import { getSupabaseServiceRoleKey, getSupabaseUrl } from "./supabase/env";
+import { getSupabaseAdminKey, getSupabaseUrl } from "./supabase/env";
 
 const supabaseUrl = getSupabaseUrl();
-const supabaseServiceRoleKey = getSupabaseServiceRoleKey();
+const supabaseServiceRoleKey = getSupabaseAdminKey();
 
 /**
  * Supabase client for server-side operations with service role.

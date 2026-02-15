@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useColorScheme,
   View,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
-import { useRouter } from "expo-router";
 import {
   DEFAULT_USER_THEME,
   DEFAULT_USER_THEME_MODE,
@@ -20,7 +21,6 @@ import {
   getUserThemeId,
   getUserThemeMode,
   isExpired,
-  signOutAndReset,
   themeTokens,
   USER_AVATAR_COLORS,
   USER_AVATAR_COLOR_ORDER,
@@ -83,13 +83,12 @@ type SavingField = "avatarColor" | "theme" | "colorMode" | "locale" | null;
 type InviteAction = "accept" | "reject" | null;
 
 export default function UserProfileScreen() {
-  const { user, loading, session, clearSelectedAccount } = useAuth();
+  const { user, loading, session, signOut } = useAuth();
   const { dictionary, locale } = useCopy();
   const { setLocale } = useLocale();
   const { reportNetworkIssue } = useNetworkNotice();
   const { primaryActionTextColor, setThemePreferences } = useUserTheme();
   const isFocused = useIsFocused();
-  const router = useRouter();
   const colorScheme = useColorScheme();
 
   const runtimeLocale = locale.startsWith("en") ? "en" : "es";
@@ -114,6 +113,10 @@ export default function UserProfileScreen() {
   const [noticeTone, setNoticeTone] = useState<"positive" | "negative" | null>(
     null
   );
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteEmailInput, setDeleteEmailInput] = useState("");
+  const [deleteKeywordInput, setDeleteKeywordInput] = useState("");
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const systemMode = colorScheme === "dark" ? "dark" : "light";
@@ -421,21 +424,74 @@ export default function UserProfileScreen() {
     }
   };
 
+  const closeDeleteDialog = () => {
+    if (isDeletingUser) return;
+    setIsDeleteDialogOpen(false);
+    setDeleteEmailInput("");
+    setDeleteKeywordInput("");
+  };
+
+  const forceCloseDeleteDialog = () => {
+    setIsDeleteDialogOpen(false);
+    setDeleteEmailInput("");
+    setDeleteKeywordInput("");
+  };
+
+  const handleDeleteUser = async () => {
+    if (!session?.access_token || !canDeleteUser || isDeletingUser) return;
+
+    setIsDeletingUser(true);
+    setNotice(null);
+    setNoticeTone(null);
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/delete-user`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          email: deleteEmailInput.trim(),
+          confirmation: deleteKeywordInput.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const message =
+          typeof payload?.errorKey === "string"
+            ? t(dictionary, payload.errorKey as any, payload.errorParams)
+            : t(dictionary, "settings.userProfile.errors.deleteUser");
+        setNotice(message);
+        setNoticeTone("negative");
+        return;
+      }
+
+      forceCloseDeleteDialog();
+      await signOut();
+    } catch (error) {
+      console.error("[UserProfile] Delete user error:", error);
+      const message = t(dictionary, "settings.userProfile.errors.deleteUser");
+      setNotice(message);
+      setNoticeTone("negative");
+      reportNetworkIssue({
+        message,
+        onRetry: () => {
+          void handleDeleteUser();
+        },
+      });
+    } finally {
+      setIsDeletingUser(false);
+    }
+  };
+
   const handleSignOut = async () => {
     if (isSigningOut) return;
     setIsSigningOut(true);
 
     try {
-      await signOutAndReset({
-        signOut: async () => {
-          const { error } = await supabase.auth.signOut();
-          if (error) throw error;
-        },
-        clearLocalSessionArtifacts: clearSelectedAccount,
-        onNavigate: () => {
-          router.replace("/(auth)/login");
-        },
-      });
+      await signOut();
     } catch (error) {
       console.error("[UserProfile] Sign out failed:", error);
       reportNetworkIssue({ message: t(dictionary, "settings.signOut.error") });
@@ -463,6 +519,14 @@ export default function UserProfileScreen() {
   }
 
   const mainAvatar = USER_AVATAR_COLORS[profile.avatarColor];
+  const deleteKeywordValue = t(dictionary, "settings.userProfile.deleteUser.keywordValue")
+    .trim()
+    .toLowerCase();
+  const emailMatches =
+    deleteEmailInput.trim().toLowerCase() === profile.email.trim().toLowerCase();
+  const keywordMatches =
+    deleteKeywordInput.trim().toLowerCase() === deleteKeywordValue;
+  const canDeleteUser = emailMatches && keywordMatches && !isDeletingUser;
 
   return (
     <ScrollView
@@ -785,6 +849,41 @@ export default function UserProfileScreen() {
         </View>
       </View>
 
+      <View style={[styles.dangerSection, { borderTopColor: activeTheme.border }]}>
+        <Text style={styles.dangerTitle}>
+          {t(dictionary, "settings.userProfile.deleteUser.dangerTitle")}
+        </Text>
+        <View
+          style={[
+            styles.dangerCard,
+            {
+              borderColor: activeTheme.border,
+              backgroundColor: activeTheme.surface,
+            },
+          ]}
+        >
+          <View style={styles.dangerInfo}>
+            <Text style={[styles.dangerActionTitle, { color: activeTheme.textPrimary }]}>
+              {t(dictionary, "settings.userProfile.deleteUser.title")}
+            </Text>
+            <Text style={[styles.dangerDescription, { color: activeTheme.textSecondary }]}>
+              {t(dictionary, "settings.userProfile.deleteUser.description")}
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => setIsDeleteDialogOpen(true)}
+            disabled={isDeletingUser}
+            style={[styles.dangerButton, { borderColor: activeTheme.border }]}
+          >
+            <Text style={styles.dangerButtonText}>
+              {isDeletingUser
+                ? t(dictionary, "common.deleting")
+                : t(dictionary, "settings.userProfile.deleteUser.button")}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
       {notice ? (
         <Text
           style={[
@@ -828,6 +927,129 @@ export default function UserProfileScreen() {
           <Text style={[styles.signOutArrow, { color: activeTheme.dangerText }]}>→</Text>
         )}
       </Pressable>
+
+      <Modal
+        transparent
+        visible={isDeleteDialogOpen}
+        animationType="fade"
+        onRequestClose={closeDeleteDialog}
+      >
+        <View style={styles.deleteModalOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={closeDeleteDialog}
+            disabled={isDeletingUser}
+          />
+
+          <View
+            style={[
+              styles.deleteModalCard,
+              {
+                backgroundColor: activeTheme.surface,
+                borderColor: activeTheme.border,
+              },
+            ]}
+          >
+            <Text style={[styles.deleteModalTitle, { color: activeTheme.textPrimary }]}>
+              {t(dictionary, "settings.userProfile.deleteUser.dialogTitle")}
+            </Text>
+            <Text style={[styles.deleteModalDescription, { color: activeTheme.textSecondary }]}>
+              {t(dictionary, "settings.userProfile.deleteUser.dialogDescription", {
+                keyword: deleteKeywordValue,
+              })}
+            </Text>
+
+            <View style={styles.deleteFieldGroup}>
+              <Text style={[styles.deleteFieldLabel, { color: activeTheme.textTertiary }]}>
+                {t(dictionary, "settings.userProfile.deleteUser.emailLabel")}
+              </Text>
+              <TextInput
+                value={deleteEmailInput}
+                onChangeText={setDeleteEmailInput}
+                editable={!isDeletingUser}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                placeholder={t(dictionary, "settings.userProfile.deleteUser.emailPlaceholder")}
+                placeholderTextColor={activeTheme.textTertiary}
+                style={[
+                  styles.deleteInput,
+                  {
+                    borderColor: activeTheme.border,
+                    color: activeTheme.textPrimary,
+                    backgroundColor: activeTheme.background,
+                  },
+                ]}
+              />
+            </View>
+
+            <View style={styles.deleteFieldGroup}>
+              <Text style={[styles.deleteFieldLabel, { color: activeTheme.textTertiary }]}>
+                {t(dictionary, "settings.userProfile.deleteUser.keywordLabel", {
+                  keyword: deleteKeywordValue,
+                })}
+              </Text>
+              <TextInput
+                value={deleteKeywordInput}
+                onChangeText={setDeleteKeywordInput}
+                editable={!isDeletingUser}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder={t(dictionary, "settings.userProfile.deleteUser.keywordPlaceholder")}
+                placeholderTextColor={activeTheme.textTertiary}
+                style={[
+                  styles.deleteInput,
+                  {
+                    borderColor: activeTheme.border,
+                    color: activeTheme.textPrimary,
+                    backgroundColor: activeTheme.background,
+                  },
+                ]}
+              />
+            </View>
+
+            <View style={styles.deleteModalActions}>
+              <Pressable
+                onPress={closeDeleteDialog}
+                disabled={isDeletingUser}
+                style={styles.deleteCancelButton}
+              >
+                <Text
+                  style={[
+                    styles.deleteCancelText,
+                    { color: isDeletingUser ? activeTheme.textTertiary : activeTheme.textSecondary },
+                  ]}
+                >
+                  {t(dictionary, "common.cancel")}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  void handleDeleteUser();
+                }}
+                disabled={!canDeleteUser}
+                style={[
+                  styles.deleteConfirmButton,
+                  {
+                    borderColor: activeTheme.dangerText,
+                    opacity: canDeleteUser ? 1 : 0.55,
+                  },
+                ]}
+              >
+                {isDeletingUser ? (
+                  <ActivityIndicator size="small" color={activeTheme.dangerText} />
+                ) : (
+                  <Text style={[styles.deleteConfirmText, { color: activeTheme.dangerText }]}>
+                    {t(dictionary, "settings.userProfile.deleteUser.confirmAction")}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </ScrollView>
   );
 }
@@ -1080,6 +1302,109 @@ const styles = StyleSheet.create({
     marginBottom: tokens.spacing.sm,
     fontSize: tokens.typography.size.xs,
     textAlign: "center",
+  },
+  dangerSection: {
+    borderTopWidth: 1,
+    paddingTop: tokens.spacing.xl,
+    marginBottom: tokens.spacing.md,
+  },
+  dangerTitle: {
+    fontSize: tokens.typography.size.xs,
+    fontWeight: tokens.typography.weight.semibold,
+    color: tokens.colors.state.negative,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: tokens.spacing.md,
+  },
+  dangerCard: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.lg,
+    gap: tokens.spacing.md,
+  },
+  dangerInfo: {
+    gap: tokens.spacing.xs,
+  },
+  dangerActionTitle: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+  },
+  dangerDescription: {
+    fontSize: tokens.typography.size.xs,
+  },
+  dangerButton: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.sm,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: 8,
+    alignSelf: "flex-start",
+  },
+  dangerButtonText: {
+    color: tokens.colors.state.negative,
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+  },
+  deleteModalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    padding: tokens.spacing.lg,
+    backgroundColor: "rgba(0, 0, 0, 0.32)",
+  },
+  deleteModalCard: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.lg,
+  },
+  deleteModalTitle: {
+    fontSize: tokens.typography.size.lg,
+    fontWeight: tokens.typography.weight.semibold,
+    marginBottom: tokens.spacing.xs,
+  },
+  deleteModalDescription: {
+    fontSize: tokens.typography.size.sm,
+    marginBottom: tokens.spacing.lg,
+  },
+  deleteFieldGroup: {
+    marginBottom: tokens.spacing.md,
+  },
+  deleteFieldLabel: {
+    fontSize: tokens.typography.size.xs,
+    fontWeight: tokens.typography.weight.semibold,
+    marginBottom: tokens.spacing.xs,
+  },
+  deleteInput: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.sm,
+    fontSize: tokens.typography.size.sm,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: 10,
+  },
+  deleteModalActions: {
+    marginTop: tokens.spacing.xs,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: tokens.spacing.sm,
+  },
+  deleteCancelButton: {
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+  },
+  deleteCancelText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.medium,
+  },
+  deleteConfirmButton: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 134,
+  },
+  deleteConfirmText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
   },
   signOutButton: {
     marginTop: tokens.spacing.sm,
