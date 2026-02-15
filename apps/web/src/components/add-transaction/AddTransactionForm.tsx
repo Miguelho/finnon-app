@@ -4,6 +4,15 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { TransactionStepperBreadcrumb } from "./TransactionStepperBreadcrumb";
 import { TransactionStepCarousel } from "./TransactionStepCarousel";
 import { FormModeToggle } from "./FormModeToggle";
@@ -18,6 +27,7 @@ import {
   type StepStatus,
   type TopCategory,
   type MerchantSuggestion,
+  type RecurringFrequency,
   createInitialDraft,
   validateStep1,
   validateStep2,
@@ -54,6 +64,16 @@ interface Category {
   type: "income" | "expense";
 }
 
+type SubmitMode = "transaction" | "recurring";
+type FormStepKey = "details" | "recurring" | "category" | "notes";
+
+type RecurringSubmitData = {
+  frequency: RecurringFrequency;
+  interval: number;
+  startDate: string;
+  endDate: string | null;
+};
+
 interface AddTransactionFormProps {
   type?: "income" | "expense";
   accountId: string;
@@ -72,7 +92,13 @@ interface AddTransactionFormProps {
   mode?: "create" | "edit";
   initialDraft?: TransactionDraft;
   allowObligation?: boolean;
-  onSubmitDraft?: (draft: TransactionDraft) => Promise<void>;
+  submitMode?: SubmitMode;
+  successMessageKey?: string;
+  errorMessageKey?: string;
+  onSubmitDraft?: (
+    draft: TransactionDraft,
+    extra?: { recurring?: RecurringSubmitData }
+  ) => Promise<void>;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
@@ -89,12 +115,24 @@ export function AddTransactionForm({
   mode = "create",
   initialDraft,
   allowObligation = true,
+  submitMode = "transaction",
+  successMessageKey,
+  errorMessageKey,
   onSubmitDraft,
   onSuccess,
   onCancel,
 }: AddTransactionFormProps) {
   const t = useTranslations("addTransaction");
   const tTransactions = useTranslations("transactions");
+  const tGlobal = useTranslations();
+  const translateDynamic = (key: string, params?: Record<string, unknown>) =>
+    tGlobal(key as never, params as never);
+
+  const isRecurringMode = submitMode === "recurring";
+  const stepOrder: FormStepKey[] = isRecurringMode
+    ? ["details", "recurring", "category", "notes"]
+    : ["details", "category", "notes"];
+  const totalSteps = stepOrder.length;
 
   // Form state
   const [draft, setDraft] = React.useState<TransactionDraft>(() =>
@@ -104,9 +142,13 @@ export function AddTransactionForm({
   // Get current top categories and merchant suggestions based on draft type
   const currentTopCategories = topCategories[draft.type];
   const currentMerchantSuggestions = merchantSuggestions[draft.type];
-  const [currentStep, setCurrentStep] = React.useState<1 | 2 | 3>(1);
+  const [currentStep, setCurrentStep] = React.useState(1);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [recurringFrequency, setRecurringFrequency] =
+    React.useState<RecurringFrequency>("monthly");
+  const [recurringInterval, setRecurringInterval] = React.useState("1");
+  const [recurringEndDate, setRecurringEndDate] = React.useState("");
 
   React.useEffect(() => {
     if (initialDraft) {
@@ -117,6 +159,13 @@ export function AddTransactionForm({
     setCurrentStep(1);
     setErrors({});
   }, [currency, defaultDate, initialDraft, type]);
+
+  React.useEffect(() => {
+    if (!isRecurringMode) return;
+    setRecurringFrequency("monthly");
+    setRecurringInterval("1");
+    setRecurringEndDate("");
+  }, [isRecurringMode, accountId]);
 
   React.useEffect(() => {
     if (allowObligation) return;
@@ -143,6 +192,10 @@ export function AddTransactionForm({
     setFormMode(mode);
   };
 
+  const getStepKey = (step: number): FormStepKey => {
+    return stepOrder[step - 1] ?? "details";
+  };
+
   // Field change handler
   const handleFieldChange = <K extends keyof TransactionDraft>(
     field: K,
@@ -160,18 +213,42 @@ export function AddTransactionForm({
   };
 
   // Step navigation
-  const goToStep = (step: 1 | 2 | 3) => {
+  const goToStep = (step: number) => {
     setCurrentStep(step);
   };
 
+  const validateCurrentStep = (step: number) => {
+    const stepKey = getStepKey(step);
+
+    if (stepKey === "details") {
+      return validateStep1(draft);
+    }
+
+    if (stepKey === "recurring") {
+      const recurringErrors: Record<string, string> = {};
+      const interval = Number(recurringInterval);
+      if (!recurringInterval.trim() || !Number.isFinite(interval) || interval < 1) {
+        recurringErrors.recurringInterval = "errors.invalidRequest";
+      }
+      return {
+        valid: Object.keys(recurringErrors).length === 0,
+        errors: recurringErrors,
+      };
+    }
+
+    if (stepKey === "category") {
+      // Category is optional for recurring mode and obligations.
+      if (isRecurringMode || draft.isObligation) {
+        return { valid: true, errors: {} };
+      }
+      return validateStep2(draft);
+    }
+
+    return validateStep3(draft);
+  };
+
   const handleNext = () => {
-    // Validate current step
-    const validation =
-      currentStep === 1
-        ? validateStep1(draft)
-        : currentStep === 2
-          ? validateStep2(draft)
-          : validateStep3(draft);
+    const validation = validateCurrentStep(currentStep);
 
     if (!validation.valid) {
       setErrors(validation.errors);
@@ -179,45 +256,73 @@ export function AddTransactionForm({
     }
 
     setErrors({});
-    if (currentStep < 3) {
-      setCurrentStep((prev) => (prev + 1) as 1 | 2 | 3);
+    if (currentStep < totalSteps) {
+      setCurrentStep((prev) => prev + 1);
     }
   };
 
   const handleBack = () => {
     if (currentStep > 1) {
-      setCurrentStep((prev) => (prev - 1) as 1 | 2 | 3);
+      setCurrentStep((prev) => prev - 1);
     }
   };
 
   // Submit handler
   const handleSubmit = async () => {
-    // Validate all steps
-    const step1 = validateStep1(draft);
-    // Skip category validation for obligations
-    const step2 = draft.isObligation ? { valid: true, errors: {} } : validateStep2(draft);
-    const step3 = validateStep3(draft);
+    const aggregatedErrors: Record<string, string> = {};
+    let firstInvalidStep: number | null = null;
 
-    if (!step1.valid || !step2.valid || !step3.valid) {
-      setErrors({ ...step1.errors, ...step2.errors, ...step3.errors });
-      // Go to first invalid step
-      if (!step1.valid) setCurrentStep(1);
-      else if (!step2.valid) setCurrentStep(2);
+    for (let step = 1; step <= totalSteps; step += 1) {
+      const validation = validateCurrentStep(step);
+      if (!validation.valid) {
+        Object.assign(aggregatedErrors, validation.errors);
+        if (firstInvalidStep === null) {
+          firstInvalidStep = step;
+        }
+      }
+    }
+
+    if (firstInvalidStep !== null) {
+      setErrors(aggregatedErrors);
+      setCurrentStep(firstInvalidStep);
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      if (mode === "edit") {
-        if (!onSubmitDraft) {
-          throw new Error("Missing edit submit handler");
-        }
-        await onSubmitDraft(draft);
-        toast.success(tTransactions("updateSuccess"));
+      const recurringData =
+        isRecurringMode
+          ? {
+              recurring: {
+                frequency: recurringFrequency,
+                interval: Number(recurringInterval),
+                startDate: draft.date,
+                endDate: recurringEndDate.trim() || null,
+              },
+            }
+          : undefined;
+
+      if (onSubmitDraft) {
+        await onSubmitDraft(draft, recurringData);
+        toast.success(
+          successMessageKey
+            ? translateDynamic(successMessageKey)
+            : mode === "edit"
+              ? tTransactions("updateSuccess")
+              : t("successToast")
+        );
         onSuccess?.();
         return;
       }
+
+      if (mode === "edit") {
+        throw new Error("Missing edit submit handler");
+      }
+      if (isRecurringMode) {
+        throw new Error("Missing recurring submit handler");
+      }
+
       // If it's an obligation, create it via createObligation
       if (draft.isObligation) {
         const dueDate = resolveObligationDueDate(draft);
@@ -263,62 +368,146 @@ export function AddTransactionForm({
 
       toast.success(t("successToast"));
       onSuccess?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create transaction:", error);
       toast.error(
-        mode === "edit" ? tTransactions("updateError") : t("errorToast")
+        error?.message ||
+          (errorMessageKey
+            ? translateDynamic(errorMessageKey)
+            : mode === "edit"
+              ? tTransactions("updateError")
+              : t("errorToast"))
       );
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const recurringStepContent = (
+    <div className="space-y-6">
+      <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+        <Label className="text-base font-semibold">
+          {tTransactions("repeat.frequencyLabel")}
+        </Label>
+        <Select
+          value={recurringFrequency}
+          onValueChange={(value) =>
+            setRecurringFrequency(value as RecurringFrequency)
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="weekly">{tTransactions("repeat.weekly")}</SelectItem>
+            <SelectItem value="monthly">{tTransactions("repeat.monthly")}</SelectItem>
+            <SelectItem value="yearly">{tTransactions("repeat.yearly")}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+        <Label htmlFor="recurring-interval" className="text-base font-semibold">
+          {tTransactions("repeat.intervalLabel")}
+        </Label>
+        <Input
+          id="recurring-interval"
+          value={recurringInterval}
+          onChange={(event) => {
+            const sanitized = event.target.value.replace(/[^0-9]/g, "");
+            setRecurringInterval(sanitized);
+            if (errors.recurringInterval) {
+              setErrors((prev) => {
+                const next = { ...prev };
+                delete next.recurringInterval;
+                return next;
+              });
+            }
+          }}
+          placeholder="1"
+          inputMode="numeric"
+        />
+        {errors.recurringInterval ? (
+          <p className="text-sm text-destructive">
+            {translateDynamic(errors.recurringInterval)}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+        <Label htmlFor="recurring-end-date" className="text-base font-semibold">
+          {tTransactions("repeat.endDateLabel")}
+        </Label>
+        <Input
+          id="recurring-end-date"
+          type="date"
+          value={recurringEndDate}
+          onChange={(event) => setRecurringEndDate(event.target.value)}
+        />
+      </div>
+    </div>
+  );
+
+  const getStepLabel = (stepKey: FormStepKey) => {
+    if (stepKey === "details") return t("stepDetails");
+    if (stepKey === "recurring") return tTransactions("repeat.label");
+    if (stepKey === "category") return t("stepCategory");
+    return t("stepNotes");
+  };
+
   // Step status calculation
-  const getStepStatus = (step: 1 | 2 | 3): StepStatus => {
+  const getStepStatus = (step: number): StepStatus => {
     if (step === currentStep) return "active";
     if (step < currentStep) return "completed";
     return "pending";
   };
 
-  const steps = [
-    { number: 1 as const, label: t("stepDetails"), status: getStepStatus(1) },
-    { number: 2 as const, label: t("stepCategory"), status: getStepStatus(2) },
-    { number: 3 as const, label: t("stepNotes"), status: getStepStatus(3) },
-  ];
+  const steps = stepOrder.map((stepKey, index) => ({
+    number: index + 1,
+    label: getStepLabel(stepKey),
+    status: getStepStatus(index + 1),
+  }));
 
   // Render step content
-  const renderStepContent = (step: 1 | 2 | 3) => {
-    switch (step) {
-      case 1:
-        return (
-                <Step1Details
-                  draft={draft}
-                  errors={errors}
-                  locale={locale}
-                  onFieldChange={handleFieldChange}
-                  allowObligation={allowObligation}
-                />
-        );
-      case 2:
-        return (
-          <Step2Category
-            draft={draft}
-            errors={errors}
-            topCategories={currentTopCategories}
-            allCategories={categories}
-            merchantSuggestions={currentMerchantSuggestions}
-            onFieldChange={handleFieldChange}
-          />
-        );
-      case 3:
-        return (
-          <Step3Notes
-            draft={draft}
-            errors={errors}
-            onFieldChange={handleFieldChange}
-          />
-        );
+  const renderStepContent = (step: number) => {
+    const stepKey = getStepKey(step);
+
+    if (stepKey === "details") {
+      return (
+        <Step1Details
+          draft={draft}
+          errors={errors}
+          locale={locale}
+          onFieldChange={handleFieldChange}
+          allowObligation={allowObligation}
+        />
+      );
     }
+
+    if (stepKey === "recurring") {
+      return recurringStepContent;
+    }
+
+    if (stepKey === "category") {
+      return (
+        <Step2Category
+          draft={draft}
+          errors={errors}
+          topCategories={currentTopCategories}
+          allCategories={categories}
+          merchantSuggestions={currentMerchantSuggestions}
+          onFieldChange={handleFieldChange}
+        />
+      );
+    }
+
+    return (
+      <Step3Notes
+        draft={draft}
+        errors={errors}
+        onFieldChange={handleFieldChange}
+      />
+    );
   };
 
   // Panels mode
@@ -340,32 +529,7 @@ export function AddTransactionForm({
         <div className="flex-1 overflow-hidden py-6">
           <TransactionStepCarousel
             currentStep={currentStep}
-            step1={
-          <Step1Details
-            draft={draft}
-            errors={errors}
-            locale={locale}
-            onFieldChange={handleFieldChange}
-            allowObligation={allowObligation}
-          />
-            }
-            step2={
-              <Step2Category
-                draft={draft}
-                errors={errors}
-                topCategories={currentTopCategories}
-                allCategories={categories}
-                merchantSuggestions={currentMerchantSuggestions}
-                onFieldChange={handleFieldChange}
-              />
-            }
-            step3={
-              <Step3Notes
-                draft={draft}
-                errors={errors}
-                onFieldChange={handleFieldChange}
-              />
-            }
+            steps={stepOrder.map((_, index) => renderStepContent(index + 1))}
           />
         </div>
 
@@ -383,7 +547,7 @@ export function AddTransactionForm({
             )}
           </div>
           <div>
-            {currentStep < 3 ? (
+            {currentStep < totalSteps ? (
               <Button type="button" onClick={handleNext}>
                 {t("next")}
               </Button>
@@ -412,9 +576,9 @@ export function AddTransactionForm({
 
       {/* All steps */}
       <div className="flex-1 overflow-y-auto py-6 space-y-8">
-        <div>{renderStepContent(1)}</div>
-        <div>{renderStepContent(2)}</div>
-        <div>{renderStepContent(3)}</div>
+        {stepOrder.map((_, index) => (
+          <div key={index}>{renderStepContent(index + 1)}</div>
+        ))}
       </div>
 
       {/* Footer with submit button */}

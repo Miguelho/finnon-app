@@ -5,14 +5,14 @@ import { cn } from "@/lib/utils";
 import type { StepStatus } from "@poleursus/shared";
 
 interface StepItem {
-  number: 1 | 2 | 3;
+  number: number;
   label: string;
   status: StepStatus;
 }
 
 interface TransactionStepperBreadcrumbProps {
   steps: StepItem[];
-  onStepClick?: (stepNumber: 1 | 2 | 3) => void;
+  onStepClick?: (stepNumber: number) => void;
 }
 
 export function TransactionStepperBreadcrumb({

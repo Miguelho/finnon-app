@@ -2,12 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
   Alert,
   Animated,
+  TextInput,
+  Pressable,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
@@ -19,6 +20,7 @@ import {
   type StepStatus,
   type TopCategory,
   type MerchantSuggestion,
+  type RecurringFrequency,
   createInitialDraft,
   validateStep1,
   validateStep2,
@@ -31,6 +33,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useUserTheme } from "../../contexts/UserThemeContext";
 import { supabase } from "../../lib/supabase";
 import { Button } from "../Button";
+import { DatePickerField } from "../DatePickerField";
 import { TransactionStepperBreadcrumb } from "./TransactionStepperBreadcrumb";
 import { FormModeToggle } from "./FormModeToggle";
 import { Step1Details, Step2Category, Step3Notes } from "./steps";
@@ -70,6 +73,17 @@ interface Category {
   type: "income" | "expense";
 }
 
+type SubmitMode = "transaction" | "recurring";
+
+type FormStepKey = "details" | "recurring" | "category" | "notes";
+
+type RecurringSubmitData = {
+  frequency: RecurringFrequency;
+  interval: number;
+  startDate: string;
+  endDate: string | null;
+};
+
 interface AddTransactionFormProps {
   type?: "income" | "expense";
   accountId: string;
@@ -87,7 +101,13 @@ interface AddTransactionFormProps {
   mode?: "create" | "edit";
   initialDraft?: TransactionDraft;
   allowObligation?: boolean;
-  onSubmitDraft?: (draft: TransactionDraft) => Promise<void>;
+  submitMode?: SubmitMode;
+  successMessageKey?: string;
+  errorMessageKey?: string;
+  onSubmitDraft?: (
+    draft: TransactionDraft,
+    extra?: { recurring?: RecurringSubmitData }
+  ) => Promise<void>;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
@@ -103,13 +123,23 @@ export function AddTransactionForm({
   mode = "create",
   initialDraft,
   allowObligation = true,
+  submitMode = "transaction",
+  successMessageKey,
+  errorMessageKey,
   onSubmitDraft,
   onSuccess,
   onCancel,
 }: AddTransactionFormProps) {
   const { dictionary } = useCopy();
   const { user } = useAuth();
-  const { tokens: userTokens } = useUserTheme();
+  const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
+    useUserTheme();
+  const translateDynamic = (key: string) => t(dictionary, key as never);
+  const isRecurringMode = submitMode === "recurring";
+  const stepOrder: FormStepKey[] = isRecurringMode
+    ? ["details", "recurring", "category", "notes"]
+    : ["details", "category", "notes"];
+  const totalSteps = stepOrder.length;
 
   // Form state
   const [draft, setDraft] = useState<TransactionDraft>(() =>
@@ -119,10 +149,14 @@ export function AddTransactionForm({
   // Get current top categories and merchant suggestions based on draft type
   const currentTopCategories = topCategories[draft.type];
   const currentMerchantSuggestions = merchantSuggestions[draft.type];
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [recurringFrequency, setRecurringFrequency] =
+    useState<RecurringFrequency>("monthly");
+  const [recurringInterval, setRecurringInterval] = useState("1");
+  const [recurringEndDate, setRecurringEndDate] = useState("");
 
   useEffect(() => {
     if (initialDraft) {
@@ -133,6 +167,13 @@ export function AddTransactionForm({
     setCurrentStep(1);
     setErrors({});
   }, [currency, defaultDate, initialDraft, type]);
+
+  useEffect(() => {
+    if (!isRecurringMode) return;
+    setRecurringFrequency("monthly");
+    setRecurringInterval("1");
+    setRecurringEndDate("");
+  }, [isRecurringMode, accountId]);
 
   useEffect(() => {
     if (allowObligation) return;
@@ -176,6 +217,10 @@ export function AddTransactionForm({
     await AsyncStorage.setItem(FORM_MODE_KEY, mode);
   };
 
+  const getStepKey = (step: number): FormStepKey => {
+    return stepOrder[step - 1] ?? "details";
+  };
+
   // Field change handler
   const handleFieldChange = <K extends keyof TransactionDraft>(
     field: K,
@@ -193,18 +238,42 @@ export function AddTransactionForm({
   };
 
   // Step navigation
-  const goToStep = (step: 1 | 2 | 3) => {
+  const goToStep = (step: number) => {
     setCurrentStep(step);
   };
 
+  const validateCurrentStep = (step: number) => {
+    const stepKey = getStepKey(step);
+
+    if (stepKey === "details") {
+      return validateStep1(draft);
+    }
+
+    if (stepKey === "recurring") {
+      const recurringErrors: Record<string, string> = {};
+      const interval = Number(recurringInterval);
+      if (!recurringInterval.trim() || !Number.isFinite(interval) || interval < 1) {
+        recurringErrors.recurringInterval = "errors.invalidRequest";
+      }
+      return {
+        valid: Object.keys(recurringErrors).length === 0,
+        errors: recurringErrors,
+      };
+    }
+
+    if (stepKey === "category") {
+      // Category is optional for recurring mode and obligations.
+      if (isRecurringMode || draft.isObligation) {
+        return { valid: true, errors: {} };
+      }
+      return validateStep2(draft);
+    }
+
+    return validateStep3(draft);
+  };
+
   const handleNext = () => {
-    // Validate current step
-    const validation =
-      currentStep === 1
-        ? validateStep1(draft)
-        : currentStep === 2
-          ? validateStep2(draft)
-          : validateStep3(draft);
+    const validation = validateCurrentStep(currentStep);
 
     if (!validation.valid) {
       setErrors(validation.errors);
@@ -212,14 +281,14 @@ export function AddTransactionForm({
     }
 
     setErrors({});
-    if (currentStep < 3) {
-      setCurrentStep((prev) => (prev + 1) as 1 | 2 | 3);
+    if (currentStep < totalSteps) {
+      setCurrentStep((prev) => prev + 1);
     }
   };
 
   const handleBack = () => {
     if (currentStep > 1) {
-      setCurrentStep((prev) => (prev - 1) as 1 | 2 | 3);
+      setCurrentStep((prev) => prev - 1);
     }
   };
 
@@ -230,17 +299,22 @@ export function AddTransactionForm({
 
   // Submit handler
   const handleSubmit = async () => {
-    // Validate all steps
-    const step1 = validateStep1(draft);
-    // Skip category validation for obligations
-    const step2 = draft.isObligation ? { valid: true, errors: {} } : validateStep2(draft);
-    const step3 = validateStep3(draft);
+    const aggregatedErrors: Record<string, string> = {};
+    let firstInvalidStep: number | null = null;
 
-    if (!step1.valid || !step2.valid || !step3.valid) {
-      setErrors({ ...step1.errors, ...step2.errors, ...step3.errors });
-      // Go to first invalid step
-      if (!step1.valid) setCurrentStep(1);
-      else if (!step2.valid) setCurrentStep(2);
+    for (let step = 1; step <= totalSteps; step += 1) {
+      const validation = validateCurrentStep(step);
+      if (!validation.valid) {
+        Object.assign(aggregatedErrors, validation.errors);
+        if (firstInvalidStep === null) {
+          firstInvalidStep = step;
+        }
+      }
+    }
+
+    if (firstInvalidStep !== null) {
+      setErrors(aggregatedErrors);
+      setCurrentStep(firstInvalidStep);
       return;
     }
 
@@ -255,14 +329,31 @@ export function AddTransactionForm({
     setIsSubmitting(true);
 
     try {
-      if (mode === "edit") {
-        if (!onSubmitDraft) {
-          throw new Error("Missing edit submit handler");
-        }
-        await onSubmitDraft(draft);
+      const recurringData =
+        isRecurringMode
+          ? {
+              recurring: {
+                frequency: recurringFrequency,
+                interval: Number(recurringInterval),
+                startDate: draft.date,
+                endDate: recurringEndDate.trim() || null,
+              },
+            }
+          : undefined;
+
+      if (onSubmitDraft) {
+        await onSubmitDraft(draft, recurringData);
         setIsSuccessOpen(true);
         return;
       }
+
+      if (mode === "edit") {
+        throw new Error("Missing edit submit handler");
+      }
+      if (isRecurringMode) {
+        throw new Error("Missing recurring submit handler");
+      }
+
       // Parse amount to minor units
       const amountMinorResult = parseMoneyToMinor(
         draft.amount,
@@ -333,34 +424,128 @@ export function AddTransactionForm({
       Alert.alert(
         t(dictionary, "common.errorTitle"),
         error?.message ||
-          (mode === "edit"
-            ? t(dictionary, "transactions.updateError")
-            : t(dictionary, "addTransaction.errorToast"))
+          (errorMessageKey
+            ? translateDynamic(errorMessageKey)
+            : mode === "edit"
+              ? t(dictionary, "transactions.updateError")
+              : t(dictionary, "addTransaction.errorToast"))
       );
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const recurringFields = (
+    <View
+      style={[
+        styles.recurringSection,
+        { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+      ]}
+    >
+      <Text style={[styles.recurringLabel, { color: userTokens.textPrimary }]}>
+        {t(dictionary, "transactions.repeat.frequencyLabel")}
+      </Text>
+      <View
+        style={[
+          styles.frequencySelector,
+          { backgroundColor: userTokens.surface, borderColor: userTokens.border },
+        ]}
+      >
+        {(["weekly", "monthly", "yearly"] as const).map((value) => {
+          const isActive = recurringFrequency === value;
+          return (
+            <Pressable
+              key={value}
+              onPress={() => setRecurringFrequency(value)}
+              style={[
+                styles.frequencyOption,
+                isActive && { backgroundColor: primaryActionColor },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.frequencyOptionText,
+                  { color: userTokens.textSecondary },
+                  isActive && { color: primaryActionTextColor },
+                ]}
+              >
+                {translateDynamic(`transactions.repeat.${value}`)}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <Text style={[styles.recurringLabel, { color: userTokens.textPrimary }]}>
+        {t(dictionary, "transactions.repeat.intervalLabel")}
+      </Text>
+      <TextInput
+        value={recurringInterval}
+        onChangeText={(value) => {
+          const sanitized = value.replace(/[^0-9]/g, "");
+          setRecurringInterval(sanitized);
+          if (errors.recurringInterval) {
+            setErrors((prev) => {
+              const next = { ...prev };
+              delete next.recurringInterval;
+              return next;
+            });
+          }
+        }}
+        keyboardType="number-pad"
+        placeholder="1"
+        placeholderTextColor={userTokens.textTertiary}
+        style={[
+          styles.recurringIntervalInput,
+          {
+            backgroundColor: userTokens.surface,
+            borderColor: userTokens.border,
+            color: userTokens.textPrimary,
+          },
+        ]}
+      />
+      {errors.recurringInterval ? (
+        <Text style={styles.recurringErrorText}>
+          {translateDynamic(errors.recurringInterval)}
+        </Text>
+      ) : null}
+
+      <DatePickerField
+        label={t(dictionary, "transactions.repeat.endDateLabel")}
+        value={recurringEndDate}
+        onChangeText={setRecurringEndDate}
+        placeholder={t(dictionary, "transactions.datePlaceholder")}
+        allowClear
+      />
+    </View>
+  );
+
+  const getStepLabel = (stepKey: FormStepKey) => {
+    if (stepKey === "details") return translateDynamic("addTransaction.stepDetails");
+    if (stepKey === "recurring") return translateDynamic("transactions.repeat.label");
+    if (stepKey === "category") return translateDynamic("addTransaction.stepCategory");
+    return translateDynamic("addTransaction.stepNotes");
+  };
+
   // Step status calculation
-  const getStepStatus = (step: 1 | 2 | 3): StepStatus => {
+  const getStepStatus = (step: number): StepStatus => {
     if (step === currentStep) return "active";
     if (step < currentStep) return "completed";
     return "pending";
   };
 
-  const steps = [
-    { number: 1 as const, label: t(dictionary, "addTransaction.stepDetails"), status: getStepStatus(1) },
-    { number: 2 as const, label: t(dictionary, "addTransaction.stepCategory"), status: getStepStatus(2) },
-    { number: 3 as const, label: t(dictionary, "addTransaction.stepNotes"), status: getStepStatus(3) },
-  ];
+  const steps = stepOrder.map((stepKey, index) => ({
+    number: index + 1,
+    label: getStepLabel(stepKey),
+    status: getStepStatus(index + 1),
+  }));
 
   // Panels mode
   if (formMode === "panels") {
     return (
-      <View style={[styles.container, { backgroundColor: userTokens.background }]}>
+      <View style={[styles.container, { backgroundColor: userTokens.background }]}> 
         {/* Header with stepper and mode toggle */}
-        <View style={[styles.header, { borderBottomColor: userTokens.border }]}>
+        <View style={[styles.header, { borderBottomColor: userTokens.border }]}> 
           <TransactionStepperBreadcrumb
             steps={steps}
             onStepClick={(step) => step < currentStep && goToStep(step)}
@@ -373,7 +558,10 @@ export function AddTransactionForm({
           <Animated.View
             style={[
               styles.carousel,
-              { transform: [{ translateX: slideAnim }] },
+              {
+                width: SCREEN_WIDTH * totalSteps,
+                transform: [{ translateX: slideAnim }],
+              },
             ]}
           >
             <View style={styles.carouselStep}>
@@ -392,6 +580,21 @@ export function AddTransactionForm({
                 />
               </KeyboardAwareScrollView>
             </View>
+
+            {isRecurringMode && (
+              <View style={styles.carouselStep}>
+                <KeyboardAwareScrollView
+                  style={styles.stepScrollView}
+                  contentContainerStyle={styles.stepContent}
+                  enableOnAndroid
+                  extraScrollHeight={80}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {recurringFields}
+                </KeyboardAwareScrollView>
+              </View>
+            )}
+
             <View style={styles.carouselStep}>
               <KeyboardAwareScrollView
                 style={styles.stepScrollView}
@@ -410,6 +613,7 @@ export function AddTransactionForm({
                 />
               </KeyboardAwareScrollView>
             </View>
+
             <View style={styles.carouselStep}>
               <KeyboardAwareScrollView
                 style={styles.stepScrollView}
@@ -429,7 +633,7 @@ export function AddTransactionForm({
         </View>
 
         {/* Footer with navigation buttons */}
-        <View style={[styles.footer, { borderTopColor: userTokens.border }]}>
+        <View style={[styles.footer, { borderTopColor: userTokens.border }]}> 
           {currentStep > 1 ? (
             <Button
               onPress={handleBack}
@@ -443,7 +647,7 @@ export function AddTransactionForm({
               variant="secondary"
             />
           )}
-          {currentStep < 3 ? (
+          {currentStep < totalSteps ? (
             <Button
               onPress={handleNext}
               title={t(dictionary, "addTransaction.next")}
@@ -451,7 +655,11 @@ export function AddTransactionForm({
           ) : (
             <Button
               onPress={handleSubmit}
-              title={isSubmitting ? t(dictionary, "addTransaction.saving") : t(dictionary, "addTransaction.save")}
+              title={
+                isSubmitting
+                  ? t(dictionary, "addTransaction.saving")
+                  : t(dictionary, "addTransaction.save")
+              }
               disabled={isSubmitting}
               loading={isSubmitting}
             />
@@ -461,9 +669,11 @@ export function AddTransactionForm({
           open={isSuccessOpen}
           title={t(dictionary, "common.successTitle")}
           description={
-            mode === "edit"
-              ? t(dictionary, "transactions.updateSuccess")
-              : t(dictionary, "addTransaction.successToast")
+            successMessageKey
+              ? translateDynamic(successMessageKey)
+              : mode === "edit"
+                ? t(dictionary, "transactions.updateSuccess")
+                : t(dictionary, "addTransaction.successToast")
           }
           confirmLabel={t(dictionary, "common.ok")}
           onConfirm={handleSuccessAcknowledge}
@@ -475,9 +685,9 @@ export function AddTransactionForm({
 
   // List mode - all steps in one scroll
   return (
-    <View style={[styles.container, { backgroundColor: userTokens.background }]}>
+    <View style={[styles.container, { backgroundColor: userTokens.background }]}> 
       {/* Header with mode toggle */}
-      <View style={[styles.headerList, { borderBottomColor: userTokens.border }]}>
+      <View style={[styles.headerList, { borderBottomColor: userTokens.border }]}> 
         <FormModeToggle mode={formMode} onChange={handleFormModeChange} />
       </View>
 
@@ -496,6 +706,8 @@ export function AddTransactionForm({
             allowObligation={allowObligation}
           />
         </View>
+
+        {isRecurringMode && <View style={styles.listSection}>{recurringFields}</View>}
 
         <View style={styles.listSection}>
           <Step2Category
@@ -518,7 +730,7 @@ export function AddTransactionForm({
       </KeyboardAwareScrollView>
 
       {/* Footer with submit button */}
-      <View style={[styles.footer, { borderTopColor: userTokens.border }]}>
+      <View style={[styles.footer, { borderTopColor: userTokens.border }]}> 
         <Button
           onPress={() => onCancel?.()}
           title={t(dictionary, "addTransaction.cancel")}
@@ -526,7 +738,11 @@ export function AddTransactionForm({
         />
         <Button
           onPress={handleSubmit}
-          title={isSubmitting ? t(dictionary, "addTransaction.saving") : t(dictionary, "addTransaction.save")}
+          title={
+            isSubmitting
+              ? t(dictionary, "addTransaction.saving")
+              : t(dictionary, "addTransaction.save")
+          }
           disabled={isSubmitting}
           loading={isSubmitting}
         />
@@ -535,9 +751,11 @@ export function AddTransactionForm({
         open={isSuccessOpen}
         title={t(dictionary, "common.successTitle")}
         description={
-          mode === "edit"
-            ? t(dictionary, "transactions.updateSuccess")
-            : t(dictionary, "addTransaction.successToast")
+          successMessageKey
+            ? translateDynamic(successMessageKey)
+            : mode === "edit"
+              ? t(dictionary, "transactions.updateSuccess")
+              : t(dictionary, "addTransaction.successToast")
         }
         confirmLabel={t(dictionary, "common.ok")}
         onConfirm={handleSuccessAcknowledge}
@@ -575,7 +793,6 @@ const styles = StyleSheet.create({
   },
   carousel: {
     flexDirection: "row",
-    width: SCREEN_WIDTH * 3,
     flex: 1,
   },
   carouselStep: {
@@ -612,5 +829,44 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.state.neutral,
     gap: tokens.spacing.md,
+  },
+  recurringSection: {
+    gap: tokens.spacing.md,
+    padding: tokens.spacing.lg,
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+  },
+  recurringLabel: {
+    fontSize: tokens.typography.size.md,
+    fontWeight: tokens.typography.weight.semibold,
+  },
+  frequencySelector: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.xs,
+    flexDirection: "row",
+    gap: tokens.spacing.xs,
+  },
+  frequencyOption: {
+    flex: 1,
+    borderRadius: tokens.radii.md,
+    paddingVertical: tokens.spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  frequencyOptionText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.medium,
+  },
+  recurringIntervalInput: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+    paddingVertical: tokens.spacing.lg,
+    paddingHorizontal: tokens.spacing.lg,
+    fontSize: tokens.typography.size.md,
+  },
+  recurringErrorText: {
+    color: colors.state.negative,
+    fontSize: tokens.typography.size.sm,
   },
 });

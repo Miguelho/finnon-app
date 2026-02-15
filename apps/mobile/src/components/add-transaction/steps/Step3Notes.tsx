@@ -4,6 +4,7 @@ import {
   TextInput,
   StyleSheet,
 } from "react-native";
+import type { ReactNode } from "react";
 import { themeTokens, type TransactionDraft } from "@poleursus/shared";
 import { useCopy, t } from "../../../lib/i18n";
 import { useUserTheme } from "../../../contexts/UserThemeContext";
@@ -13,13 +14,19 @@ const tokens = themeTokens.light;
 interface Step3NotesProps {
   draft: TransactionDraft;
   errors: Record<string, string>;
+  children?: ReactNode;
   onFieldChange: <K extends keyof TransactionDraft>(
     field: K,
     value: TransactionDraft[K]
   ) => void;
 }
 
-export function Step3Notes({ draft, errors, onFieldChange }: Step3NotesProps) {
+export function Step3Notes({
+  draft,
+  errors,
+  children,
+  onFieldChange,
+}: Step3NotesProps) {
   const { dictionary } = useCopy();
   const { tokens: userTokens } = useUserTheme();
   void errors;
@@ -53,6 +60,7 @@ export function Step3Notes({ draft, errors, onFieldChange }: Step3NotesProps) {
           textAlignVertical="top"
         />
       </View>
+      {children}
     </View>
   );
 }

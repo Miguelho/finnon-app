@@ -65,11 +65,13 @@ import {
   type UserAvatarColorId,
   type TopCategory,
   type MerchantSuggestion,
+  type TransactionDraft,
 } from "@poleursus/shared";
 import { MerchantAutocomplete } from "@/components/ui/merchant-autocomplete";
 import { CategoryIcon } from "@/components/category-icon";
 import { TopCategorySelector } from "@/components/categories/top-category-selector";
 import { TransactionTile } from "@/components/transactions/transaction-tile";
+import { AddTransactionForm } from "@/components/add-transaction";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -170,9 +172,7 @@ const formatMerchantLabel = (value: string) =>
   value
     .split(" ")
     .filter(Boolean)
-    .map((part) =>
-      part.length > 0 ? `${part[0].toUpperCase()}${part.slice(1)}` : part
-    )
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
     .join(" ");
 
 const getMonthRangeFromKey = (monthKey: string) => {
@@ -376,6 +376,8 @@ export function TransactionsClient({
   const tGlobal = useTranslations();
   const t = useTranslations("transactions");
   const tObligations = useTranslations("obligations");
+  const translateDynamic = (key: string, params?: Record<string, unknown>) =>
+    tGlobal(key as never, params as never);
   const locale = useLocale();
   const monthParam = searchParams?.get("month");
   const [transactions, setTransactions] = useState(initialTransactions);
@@ -939,6 +941,74 @@ export function TransactionsClient({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCreateRecurringDraft = async (
+    draft: TransactionDraft,
+    extra?: {
+      recurring?: {
+        frequency: RecurringFrequency;
+        interval: number;
+        startDate: string;
+        endDate: string | null;
+      };
+    }
+  ) => {
+    if (!canEdit) {
+      throw new Error(translateDynamic("errors.invalidRequest"));
+    }
+
+    const recurring = extra?.recurring;
+    if (!recurring) {
+      throw new Error(translateDynamic("errors.invalidRequest"));
+    }
+
+    const result = await createRecurringItem({
+      account_id: accountId,
+      type: draft.type,
+      amount: draft.amount,
+      currency: draft.currency,
+      category_id: draft.categoryId || null,
+      start_date: recurring.startDate,
+      frequency: recurring.frequency,
+      interval: recurring.interval,
+      end_date: recurring.endDate,
+      merchant: draft.merchant.trim() || null,
+      notes: draft.notes.trim() || null,
+    });
+
+    if (!result.success) {
+      throw new Error(
+        result.error
+          ? translateDynamic(result.error.key, result.error.params)
+          : t("repeat.createError")
+      );
+    }
+
+    if (result.data) {
+      setRecurringItems((prev) => [result.data as RecurringItem, ...prev]);
+    }
+  };
+
+  const handleRecurringCreateSuccess = () => {
+    setIsCreateOpen(false);
+    setCreateKind("transaction");
+    setRepeatConfig({
+      enabled: false,
+      frequency: "monthly",
+      interval: "1",
+      startDate: new Date().toISOString().slice(0, 10),
+      endDate: "",
+    });
+    router.replace("/transactions");
+    router.refresh();
+  };
+
+  const handleRecurringCreateCancel = () => {
+    setIsCreateOpen(false);
+    setCreateKind("transaction");
+    setRepeatConfig((prev) => ({ ...prev, enabled: false }));
+    router.replace("/transactions");
   };
 
   const handleEdit = async () => {
@@ -1614,6 +1684,27 @@ export function TransactionsClient({
                     </p>
                   </div>
                 </div>
+              ) : createKind === "recurring" ? (
+                <div className="px-2 py-1">
+                  <AddTransactionForm
+                    key={`${accountId}-${formData.type}-recurring-create`}
+                    type={formData.type}
+                    accountId={accountId}
+                    currency={baseCurrency}
+                    locale={locale}
+                    categories={categories}
+                    topCategories={initialTopCategories}
+                    merchantSuggestions={initialMerchantSuggestions}
+                    defaultDate={formData.date}
+                    allowObligation={false}
+                    submitMode="recurring"
+                    successMessageKey="transactions.repeat.createSuccess"
+                    errorMessageKey="transactions.repeat.createError"
+                    onSubmitDraft={handleCreateRecurringDraft}
+                    onSuccess={handleRecurringCreateSuccess}
+                    onCancel={handleRecurringCreateCancel}
+                  />
+                </div>
               ) : (
                 <div className="grid gap-6">
                   {/* 1. Transaction Type - Toggle */}
@@ -1992,18 +2083,20 @@ export function TransactionsClient({
                 </div>
               )}
             </SlidePanelBody>
-            <SlidePanelFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsCreateOpen(false)}
-                disabled={isSubmitting}
-              >
-                {t("create.cancel")}
-              </Button>
-              <Button onClick={handleCreate} disabled={isSubmitting}>
-                {isSubmitting ? t("create.saving") : t("create.save")}
-              </Button>
-            </SlidePanelFooter>
+            {createKind !== "recurring" && (
+              <SlidePanelFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsCreateOpen(false)}
+                  disabled={isSubmitting}
+                >
+                  {t("create.cancel")}
+                </Button>
+                <Button onClick={handleCreate} disabled={isSubmitting}>
+                  {isSubmitting ? t("create.saving") : t("create.save")}
+                </Button>
+              </SlidePanelFooter>
+            )}
           </SlidePanelContent>
         </SlidePanel>
       )}

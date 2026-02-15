@@ -6,14 +6,14 @@ import { useUserTheme } from "../../contexts/UserThemeContext";
 const tokens = themeTokens.light;
 
 interface Step {
-  number: 1 | 2 | 3;
+  number: number;
   label: string;
   status: StepStatus;
 }
 
 interface TransactionStepperBreadcrumbProps {
   steps: Step[];
-  onStepClick: (step: 1 | 2 | 3) => void;
+  onStepClick: (step: number) => void;
 }
 
 export function TransactionStepperBreadcrumb({
