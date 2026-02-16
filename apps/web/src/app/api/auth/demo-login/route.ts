@@ -11,7 +11,7 @@ import { isDemoEmail, parseDemoEmails } from "@poleursus/shared";
 
 const demoLoginSchema = z.object({
   email: z.string().trim().email(),
-  otp: z.string().trim().length(6),
+  otp: z.string().trim().length(8),
 });
 
 export async function POST(request: Request) {

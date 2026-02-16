@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/card";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 
-const OTP_MIN_LENGTH = 6;
+const OTP_MIN_LENGTH = 8;
 const OTP_MAX_LENGTH = 8;
 
 export default function LoginOTPPage() {

@@ -17,7 +17,7 @@ import { supabase } from "../../src/lib/supabase";
 import { useAuth } from "../../src/contexts/AuthContext";
 import { isDemoEmail, parseDemoEmails } from "@poleursus/shared";
 
-const OTP_LENGTH = 6;
+const OTP_LENGTH = 8;
 const demoEmails = parseDemoEmails(
   Constants.expoConfig?.extra?.demoEmails as string | undefined
 );
@@ -335,7 +335,7 @@ export default function LoginScreen() {
           }}
           onFocus={() => setOtpFocused(true)}
           onBlur={() => setOtpFocused(false)}
-          placeholder="123456"
+          placeholder="12345678"
           placeholderTextColor={loginColors.textTertiary}
           keyboardType="numeric"
           autoCapitalize="none"

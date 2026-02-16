@@ -9,7 +9,7 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { isDemoEmail, parseDemoEmails } from "@poleursus/shared";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const OTP_LENGTH = 6;
+const OTP_LENGTH = 8;
 
 export default function LoginPage() {
   const t = useTranslations("login");

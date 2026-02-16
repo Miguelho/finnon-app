@@ -5,7 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useUserTheme } from "../contexts/UserThemeContext";
 import { AppHeaderAvatar } from "../components/navigation/AppHeaderAvatar";
 import { AppHeaderBackButton } from "../components/navigation/AppHeaderBackButton";
-import { AppHeaderInvitesButton } from "../components/navigation/AppHeaderInvitesButton";
+import { AppHeaderActivityButton } from "../components/navigation/AppHeaderActivityButton";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -59,7 +59,7 @@ export function useStackScreenOptions() {
     headerLeft: (props: HeaderBackButtonProps) => <AppHeaderBackButton {...props} />,
     headerRight: () => (
       <View style={styles.headerRight}>
-        <AppHeaderInvitesButton />
+        <AppHeaderActivityButton />
         <AppHeaderAvatar />
       </View>
     ),

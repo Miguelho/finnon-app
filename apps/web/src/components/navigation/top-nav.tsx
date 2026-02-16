@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 import {
   buildSettingsMenuVM,
   getDictionary,
-  isExpired,
   navigationItems,
   t,
   type AvatarColorToken,
@@ -94,56 +93,6 @@ export async function TopNav({ containerClassName }: TopNavProps) {
   const settingsMenu = buildSettingsMenuVM(dictionary as any, "web", {
     accountId: activeAccountId,
   });
-  const inviteEmail = user.email?.trim().toLowerCase();
-  const inviteFilters: string[] = [];
-
-  if (inviteEmail) {
-    inviteFilters.push(
-      `invited_email.ilike.${inviteEmail}`,
-      `invitee_email.ilike.${inviteEmail}`
-    );
-  }
-
-  if (user.id) {
-    inviteFilters.push(`invitee_user_id.eq.${user.id}`);
-  }
-
-  const { data: pendingInviteRows } = inviteFilters.length
-    ? await supabase
-        .from("invites")
-        .select("id, expires_at, status, invited_email, invitee_email, invitee_user_id")
-        .or(inviteFilters.join(","))
-        .eq("status", "pending")
-    : { data: [] as Array<{ expires_at: string }> };
-  const pendingInviteCount = (pendingInviteRows ?? []).filter(
-    (invite) => !isExpired(invite.expires_at)
-  ).length;
-
-  const formatTimeAgo = (value: Date, currentLocale: string) => {
-    const diffMs = Date.now() - value.getTime();
-    const diffMinutes = Math.round(diffMs / (1000 * 60));
-    const isEs = currentLocale.startsWith("es");
-
-    if (diffMinutes < 1) {
-      return isEs ? "Hace unos segundos" : "Just now";
-    }
-    if (diffMinutes < 60) {
-      return isEs
-        ? `Hace ${diffMinutes} min`
-        : `${diffMinutes} min ago`;
-    }
-    const diffHours = Math.round(diffMinutes / 60);
-    if (diffHours < 24) {
-      return isEs
-        ? `Hace ${diffHours} hora${diffHours === 1 ? "" : "s"}`
-        : `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
-    }
-    const diffDays = Math.round(diffHours / 24);
-    return isEs
-      ? `Hace ${diffDays} día${diffDays === 1 ? "" : "s"}`
-      : `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
-  };
-
   const shellBackgroundColor = "hsl(var(--background))";
   const shellBorderColor = "hsl(var(--border))";
   const shellTextColor = "hsl(var(--foreground))";
@@ -182,83 +131,6 @@ export async function TopNav({ containerClassName }: TopNavProps) {
       (profile?.avatar_fallback_bg_token as AvatarColorToken | null) ?? null,
     avatarColor: (profile?.avatar_color as UserAvatarColorId | null) ?? null,
   };
-
-  const activitySince = new Date();
-  activitySince.setDate(activitySince.getDate() - 7);
-
-  const { data: activityRows } = activeAccountId
-    ? await supabase
-        .from("transactions")
-        .select("id, created_by, created_at")
-        .eq("account_id", activeAccountId)
-        .gte("created_at", activitySince.toISOString())
-        .neq("created_by", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50)
-    : { data: [] as { id: string; created_by: string | null; created_at: string }[] };
-
-  const activityByUser = new Map<
-    string,
-    { count: number; latest: Date }
-  >();
-
-  (activityRows ?? []).forEach((row) => {
-    if (!row.created_by) return;
-    const createdAt = new Date(row.created_at);
-    const existing = activityByUser.get(row.created_by);
-    if (existing) {
-      existing.count += 1;
-      if (createdAt > existing.latest) {
-        existing.latest = createdAt;
-      }
-    } else {
-      activityByUser.set(row.created_by, { count: 1, latest: createdAt });
-    }
-  });
-
-  const activityUserIds = Array.from(activityByUser.keys());
-  const { data: activityProfiles } = activityUserIds.length
-    ? await supabase
-        .from("profiles")
-        .select("user_id, display_name, email")
-        .in("user_id", activityUserIds)
-    : { data: [] as { user_id: string; display_name: string | null; email: string | null }[] };
-
-  const profileMap = new Map(
-    (activityProfiles ?? []).map((item) => [item.user_id, item])
-  );
-
-  const notifications = activityUserIds
-    .map((userId) => {
-      const activity = activityByUser.get(userId);
-      if (!activity) return null;
-      const profileInfo = profileMap.get(userId);
-      const fallbackName =
-        profileInfo?.display_name ??
-        profileInfo?.email ??
-        (locale.startsWith("es") ? "Usuario" : "User");
-      const userName = profileInfo?.display_name ?? fallbackName;
-      const userInitial = (userName?.trim().charAt(0) || "?").toUpperCase();
-
-      return {
-        id: userId,
-        userInitial,
-        userName,
-        count: activity.count,
-        timeAgo: formatTimeAgo(activity.latest, locale),
-        sortValue: activity.latest.getTime(),
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => (b?.sortValue ?? 0) - (a?.sortValue ?? 0))
-    .slice(0, 5)
-    .map((item) => ({
-      id: item?.id ?? "",
-      userInitial: item?.userInitial ?? "?",
-      userName: item?.userName ?? "",
-      count: item?.count ?? 0,
-      timeAgo: item?.timeAgo ?? "",
-    }));
 
   return (
     <div
@@ -304,8 +176,9 @@ export async function TopNav({ containerClassName }: TopNavProps) {
             )}
           </div>
           <NotificationDropdown
-            notifications={notifications}
-            badgeCount={pendingInviteCount}
+            userId={user.id}
+            accountId={activeAccountId}
+            locale={locale}
           />
           <SettingsDrawer
             settingsLabel={settingsLabel}
