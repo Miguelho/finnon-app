@@ -1,9 +1,11 @@
 /**
  * Seed script for demo accounts (Google Play Store review).
  *
- * Creates two demo users with realistic financial data:
- *   - review@finnon.app     → Spanish market (EUR)
- *   - review-en@finnon.app  → English market (GBP)
+ * Creates demo accounts with two users each to showcase shared finances:
+ *   - review@finnon.app      → Spanish market (EUR) – owner (Ana García)
+ *   - review2@finnon.app     → Spanish market (EUR) – contributor (Carlos García)
+ *   - review-en@finnon.app   → English market (GBP) – owner (Alex Smith)
+ *   - review-en2@finnon.app  → English market (GBP) – contributor (Jamie Smith)
  *
  * Usage (from apps/web):
  *   npx tsx scripts/seed-demo-accounts.ts
@@ -78,6 +80,10 @@ type DemoAccountConfig = {
   accountName: string;
   currency: string;
   locale: Locale;
+  secondaryUser: {
+    email: string;
+    displayName: string;
+  };
 };
 
 type SeedTransaction = {
@@ -107,6 +113,10 @@ const DEMO_ACCOUNTS: DemoAccountConfig[] = [
     accountName: "Hogar García",
     currency: "EUR",
     locale: "es",
+    secondaryUser: {
+      email: "review2@finnon.app",
+      displayName: "Carlos García",
+    },
   },
   {
     email: "review-en@finnon.app",
@@ -114,6 +124,10 @@ const DEMO_ACCOUNTS: DemoAccountConfig[] = [
     accountName: "Smith Household",
     currency: "GBP",
     locale: "en",
+    secondaryUser: {
+      email: "review-en2@finnon.app",
+      displayName: "Jamie Smith",
+    },
   },
 ];
 
@@ -216,6 +230,27 @@ async function ensureAccount(
   if (error) throw new Error(`Failed to create account: ${error.message}`);
   console.log(`  Created account: ${data.id}`);
   return data.id as string;
+}
+
+// ---------------------------------------------------------------------------
+// Step 2b: Ensure secondary user is a member of the account
+// ---------------------------------------------------------------------------
+
+async function ensureAccountMember(
+  accountId: string,
+  userId: string,
+  role: "viewer" | "contributor" | "admin"
+): Promise<void> {
+  const { error } = await admin
+    .from("account_members")
+    .upsert(
+      { account_id: accountId, user_id: userId, role },
+      { onConflict: "account_id,user_id", ignoreDuplicates: true }
+    );
+
+  if (error)
+    throw new Error(`Failed to add account member: ${error.message}`);
+  console.log(`  Account member added: ${userId} as ${role}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -363,6 +398,84 @@ function getEnglishTransactions(today: Date): SeedTransaction[] {
   ];
 }
 
+function getSpanishSecondaryTransactions(today: Date): SeedTransaction[] {
+  const cm = formatMonth(today);
+  const lm = formatMonth(subMonths(today, 1));
+  const lm2 = formatMonth(subMonths(today, 2));
+
+  return [
+    // 2 months ago
+    { type: "income", amountCents: 185000, categoryName: "nómina", date: clampDay(lm2, 1, today), merchant: "Clínica Dental Sonrisa" },
+    { type: "expense", amountCents: 6200, categoryName: "alimentación", date: clampDay(lm2, 4, today), merchant: "Lidl" },
+    { type: "expense", amountCents: 8500, categoryName: "alimentación", date: clampDay(lm2, 12, today), merchant: "Dia" },
+    { type: "expense", amountCents: 4200, categoryName: "restaurantes", date: clampDay(lm2, 9, today), merchant: "100 Montaditos" },
+    { type: "expense", amountCents: 5200, categoryName: "transporte", date: clampDay(lm2, 11, today), merchant: "Repsol" },
+    { type: "expense", amountCents: 3500, categoryName: "ocio", date: clampDay(lm2, 16, today), merchant: "Fnac" },
+    { type: "expense", amountCents: 2500, categoryName: "salud", date: clampDay(lm2, 18, today), merchant: "Farmacia" },
+
+    // Last month
+    { type: "income", amountCents: 185000, categoryName: "nómina", date: clampDay(lm, 1, today), merchant: "Clínica Dental Sonrisa" },
+    { type: "expense", amountCents: 7800, categoryName: "alimentación", date: clampDay(lm, 4, today), merchant: "Mercadona" },
+    { type: "expense", amountCents: 5500, categoryName: "alimentación", date: clampDay(lm, 11, today), merchant: "Lidl" },
+    { type: "expense", amountCents: 6900, categoryName: "alimentación", date: clampDay(lm, 21, today), merchant: "Dia" },
+    { type: "expense", amountCents: 3800, categoryName: "restaurantes", date: clampDay(lm, 7, today), merchant: "Telepizza" },
+    { type: "expense", amountCents: 5600, categoryName: "restaurantes", date: clampDay(lm, 17, today), merchant: "El Corte Inglés Gourmet" },
+    { type: "expense", amountCents: 4800, categoryName: "transporte", date: clampDay(lm, 9, today), merchant: "Cepsa" },
+    { type: "expense", amountCents: 1500, categoryName: "transporte", date: clampDay(lm, 23, today), merchant: "BiciMAD" },
+    { type: "expense", amountCents: 4500, categoryName: "ocio", date: clampDay(lm, 13, today), merchant: "GAME" },
+    { type: "expense", amountCents: 8900, categoryName: "ropa", date: clampDay(lm, 20, today), merchant: "Pull & Bear" },
+    { type: "expense", amountCents: 1800, categoryName: "salud", date: clampDay(lm, 24, today), merchant: "Farmacia" },
+
+    // Current month
+    { type: "income", amountCents: 185000, categoryName: "nómina", date: clampDay(cm, 1, today), merchant: "Clínica Dental Sonrisa" },
+    { type: "expense", amountCents: 9200, categoryName: "alimentación", date: clampDay(cm, 4, today), merchant: "Mercadona" },
+    { type: "expense", amountCents: 6100, categoryName: "alimentación", date: clampDay(cm, 10, today), merchant: "Lidl" },
+    { type: "expense", amountCents: 4500, categoryName: "restaurantes", date: clampDay(cm, 7, today), merchant: "La Tagliatella" },
+    { type: "expense", amountCents: 5000, categoryName: "transporte", date: clampDay(cm, 6, today), merchant: "Repsol" },
+    { type: "expense", amountCents: 3200, categoryName: "ocio", date: clampDay(cm, 9, today), merchant: "Amazon" },
+    { type: "expense", amountCents: 1500, categoryName: "salud", date: clampDay(cm, 11, today), merchant: "Farmacia" },
+  ];
+}
+
+function getEnglishSecondaryTransactions(today: Date): SeedTransaction[] {
+  const cm = formatMonth(today);
+  const lm = formatMonth(subMonths(today, 1));
+  const lm2 = formatMonth(subMonths(today, 2));
+
+  return [
+    // 2 months ago
+    { type: "income", amountCents: 200000, categoryName: "salary", date: clampDay(lm2, 1, today), merchant: "NHS Trust" },
+    { type: "expense", amountCents: 7200, categoryName: "groceries", date: clampDay(lm2, 4, today), merchant: "Waitrose" },
+    { type: "expense", amountCents: 5800, categoryName: "groceries", date: clampDay(lm2, 12, today), merchant: "M&S Food" },
+    { type: "expense", amountCents: 3500, categoryName: "restaurants", date: clampDay(lm2, 9, today), merchant: "Pret A Manger" },
+    { type: "expense", amountCents: 4800, categoryName: "transport", date: clampDay(lm2, 11, today), merchant: "Shell" },
+    { type: "expense", amountCents: 2800, categoryName: "leisure", date: clampDay(lm2, 16, today), merchant: "Waterstones" },
+    { type: "expense", amountCents: 1500, categoryName: "health", date: clampDay(lm2, 18, today), merchant: "Boots" },
+
+    // Last month
+    { type: "income", amountCents: 200000, categoryName: "salary", date: clampDay(lm, 1, today), merchant: "NHS Trust" },
+    { type: "expense", amountCents: 8500, categoryName: "groceries", date: clampDay(lm, 4, today), merchant: "Waitrose" },
+    { type: "expense", amountCents: 4200, categoryName: "groceries", date: clampDay(lm, 11, today), merchant: "M&S Food" },
+    { type: "expense", amountCents: 6300, categoryName: "groceries", date: clampDay(lm, 21, today), merchant: "Ocado" },
+    { type: "expense", amountCents: 3200, categoryName: "restaurants", date: clampDay(lm, 7, today), merchant: "Greggs" },
+    { type: "expense", amountCents: 4800, categoryName: "restaurants", date: clampDay(lm, 17, today), merchant: "Five Guys" },
+    { type: "expense", amountCents: 5200, categoryName: "transport", date: clampDay(lm, 9, today), merchant: "BP" },
+    { type: "expense", amountCents: 1800, categoryName: "transport", date: clampDay(lm, 23, today), merchant: "TfL Oyster" },
+    { type: "expense", amountCents: 3500, categoryName: "leisure", date: clampDay(lm, 13, today), merchant: "Vue Cinema" },
+    { type: "expense", amountCents: 7200, categoryName: "clothing", date: clampDay(lm, 20, today), merchant: "John Lewis" },
+    { type: "expense", amountCents: 1200, categoryName: "health", date: clampDay(lm, 24, today), merchant: "Superdrug" },
+
+    // Current month
+    { type: "income", amountCents: 200000, categoryName: "salary", date: clampDay(cm, 1, today), merchant: "NHS Trust" },
+    { type: "expense", amountCents: 8800, categoryName: "groceries", date: clampDay(cm, 4, today), merchant: "Waitrose" },
+    { type: "expense", amountCents: 5500, categoryName: "groceries", date: clampDay(cm, 10, today), merchant: "M&S Food" },
+    { type: "expense", amountCents: 3800, categoryName: "restaurants", date: clampDay(cm, 7, today), merchant: "Costa Coffee" },
+    { type: "expense", amountCents: 4500, categoryName: "transport", date: clampDay(cm, 6, today), merchant: "Shell" },
+    { type: "expense", amountCents: 2500, categoryName: "leisure", date: clampDay(cm, 9, today), merchant: "Amazon" },
+    { type: "expense", amountCents: 900, categoryName: "health", date: clampDay(cm, 11, today), merchant: "Boots" },
+  ];
+}
+
 async function seedTransactions(
   accountId: string,
   userId: string,
@@ -374,10 +487,11 @@ async function seedTransactions(
     .from("transactions")
     .select("id", { count: "exact", head: true })
     .eq("account_id", accountId)
+    .eq("created_by", userId)
     .like("notes", `%${SEED_MARKER}%`);
 
   if (count && count > 0) {
-    console.log(`  Transactions: already seeded (${count} found), skipping`);
+    console.log(`  Transactions: already seeded (${count} found for user), skipping`);
     return;
   }
 
@@ -581,6 +695,27 @@ async function main() {
         ? getSpanishTransactions(new Date())
         : getEnglishTransactions(new Date());
     await seedTransactions(accountId, userId, config.currency, categoryMap, txns);
+
+    // Secondary user (shared finances)
+    console.log(`\n  Secondary user: ${config.secondaryUser.email}`);
+    const secondaryUserId = await ensureAuthUser(
+      config.secondaryUser.email,
+      DEMO_PASSWORD,
+      config.secondaryUser.displayName
+    );
+    await ensureAccountMember(accountId, secondaryUserId, "contributor");
+
+    const secondaryTxns =
+      config.locale === "es"
+        ? getSpanishSecondaryTransactions(new Date())
+        : getEnglishSecondaryTransactions(new Date());
+    await seedTransactions(
+      accountId,
+      secondaryUserId,
+      config.currency,
+      categoryMap,
+      secondaryTxns
+    );
 
     const recurrents =
       config.locale === "es"
