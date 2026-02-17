@@ -18,6 +18,7 @@ type ProfileAvatarState = {
   fallbackBgToken: AvatarColorToken | null;
   avatarColor: UserAvatarColorId | null;
   email: string | null;
+  displayName: string | null;
 };
 
 const tokens = themeTokens.light;
@@ -32,6 +33,7 @@ export function AppHeaderAvatar() {
     fallbackBgToken: null,
     avatarColor: null,
     email: null,
+    displayName: null,
   });
 
   useEffect(() => {
@@ -46,6 +48,7 @@ export function AppHeaderAvatar() {
             fallbackBgToken: null,
             avatarColor: null,
             email: null,
+            displayName: null,
           });
         }
         return;
@@ -54,7 +57,7 @@ export function AppHeaderAvatar() {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "avatar_path, email, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
+          "avatar_path, email, display_name, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
         )
         .eq("user_id", user.id)
         .maybeSingle();
@@ -68,6 +71,7 @@ export function AppHeaderAvatar() {
           fallbackBgToken: null,
           avatarColor: null,
           email: user.email ?? null,
+          displayName: null,
         });
         return;
       }
@@ -84,6 +88,7 @@ export function AppHeaderAvatar() {
         fallbackBgToken: bgToken,
         avatarColor: (data?.avatar_color as UserAvatarColorId | null) ?? null,
         email: data?.email ?? user.email ?? null,
+        displayName: data?.display_name ?? null,
       });
     }
 
@@ -109,6 +114,7 @@ export function AppHeaderAvatar() {
     >
       <UserAvatar
         email={email}
+        displayName={profile.displayName}
         userId={user?.id ?? null}
         avatarPath={profile.avatarPath}
         fallbackText={profile.fallbackText}

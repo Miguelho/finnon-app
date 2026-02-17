@@ -170,6 +170,13 @@ export const en = {
     backToLogin: "Back to sign in",
     redirecting: "Redirecting authentication...",
   },
+  nameSetup: {
+    title: "What's your name?",
+    subtitle: "This name will identify you in your shared account.",
+    label: "Display name",
+    placeholder: "E.g: Alex Smith",
+    continue: "Continue",
+  },
   onboarding: {
     title: "Create your first account",
     description: "Set up your personal finance account",
@@ -313,6 +320,7 @@ export const en = {
     transactionsCount:
       "{count, plural, =0 {No transactions} =1 {1 transaction} other {# transactions}}",
     createdBy: "Created by {name}",
+    addedBy: "Added by {name}",
     noTransactions: "No transactions this month. Create one to get started.",
     noTransactionsReadOnly: "No transactions this month.",
     readOnlyNotice:
@@ -907,8 +915,12 @@ export const en = {
       subtitle: "Personalize your Finnon experience",
       avatar: {
         title: "Avatar",
-        hint: "Shown next to your movements",
         colorLabel: "Avatar color",
+      },
+      displayName: {
+        label: "Display name",
+        placeholder: "E.g: Alex Smith",
+        hint: "This name will appear in your avatar and activity.",
       },
       invitations: {
         title: "Pending invitations",
@@ -957,6 +969,7 @@ export const en = {
       errors: {
         loadProfile: "Could not load your profile.",
         notAuthenticated: "No active session.",
+        saveDisplayName: "Could not save your name.",
         saveAvatarColor: "Could not save avatar color.",
         saveTheme: "Could not save theme.",
         saveColorMode: "Could not save color mode.",

@@ -86,6 +86,7 @@ export function MovementRow({
         </Text>
         <UserAvatar
           email={profile?.email ?? null}
+          displayName={profile?.display_name ?? null}
           userId={movement.userId}
           avatarPath={profile?.avatar_path ?? null}
           fallbackText={profile?.avatar_fallback_text ?? null}

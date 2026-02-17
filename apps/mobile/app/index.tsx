@@ -11,6 +11,7 @@ const colors = tokens.colors;
 export default function IndexGateAndHome() {
   const { session, user, loading: authLoading, isInitialized, selectedAccountId } =
     useAuth();
+  const effectiveUser = user ?? session?.user ?? null;
 
   const [accountCount, setAccountCount] = useState<number | null>(null);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
@@ -20,7 +21,7 @@ export default function IndexGateAndHome() {
     let cancelled = false;
 
     async function run() {
-      if (!isInitialized || !session || !user) {
+      if (!isInitialized || !session || !effectiveUser) {
         if (!cancelled) {
           setAccountCount(null);
           setLoadingAccounts(false);
@@ -34,7 +35,7 @@ export default function IndexGateAndHome() {
         const { data: memberships, error } = await supabase
           .from("account_members")
           .select("account_id")
-          .eq("user_id", user.id);
+          .eq("user_id", effectiveUser.id);
 
         if (error) throw error;
 
@@ -51,7 +52,7 @@ export default function IndexGateAndHome() {
     return () => {
       cancelled = true;
     };
-  }, [isInitialized, session?.access_token, user?.id]);
+  }, [effectiveUser?.id, isInitialized, session?.access_token]);
 
   // Loader estable (aquí sí tiene sentido)
   if (!isInitialized || authLoading || loadingAccounts) {
@@ -64,6 +65,10 @@ export default function IndexGateAndHome() {
 
   // 1) No sesión -> login
   if (!session) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  if (!effectiveUser) {
     return <Redirect href="/(auth)/login" />;
   }
 

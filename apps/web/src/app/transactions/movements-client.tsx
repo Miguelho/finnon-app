@@ -642,6 +642,7 @@ function MovementRow({
         </span>
         <UserAvatar
           email={profile?.email ?? null}
+          displayName={profile?.display_name ?? null}
           userId={movement.userId}
           avatarPath={profile?.avatar_path ?? null}
           fallbackText={profile?.avatar_fallback_text ?? null}
@@ -1131,6 +1132,15 @@ export function MovementsClient({
     () => transactions.find((item) => item.id === selectedTransactionId) ?? null,
     [selectedTransactionId, transactions]
   );
+  const selectedTransactionAddedBy = useMemo(() => {
+    if (!selectedTransaction) return null;
+    const profile = profilesById[selectedTransaction.created_by];
+    return (
+      profile?.display_name ??
+      profile?.email ??
+      selectedTransaction.created_by.slice(0, 6)
+    );
+  }, [profilesById, selectedTransaction]);
 
   const isSearchMode = searchQuery.trim().length > 0;
 
@@ -1658,6 +1668,9 @@ export function MovementsClient({
               <SlidePanelTitle>{t("transactions.ui.editPanelTitle")}</SlidePanelTitle>
               <SlidePanelDescription>
                 {t("transactions.ui.editPanelDescription")}
+                {selectedTransactionAddedBy
+                  ? ` ${t("transactions.addedBy", { name: selectedTransactionAddedBy })}`
+                  : ""}
               </SlidePanelDescription>
             </SlidePanelHeader>
             <SlidePanelBody className="p-0">

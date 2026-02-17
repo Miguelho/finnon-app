@@ -15,6 +15,7 @@ import {
 
 type UserAvatarProps = {
   email?: string | null;
+  displayName?: string | null;
   userId?: string | null;
   avatarPath?: string | null;
   fallbackText?: string | null;
@@ -32,6 +33,7 @@ const avatarUrlCache = new Map<string, string>();
 
 export function UserAvatar({
   email,
+  displayName,
   userId,
   avatarPath,
   fallbackText,
@@ -67,8 +69,11 @@ export function UserAvatar({
     [avatarColor]
   );
   const preferredFallbackText = useMemo(
-    () => (avatarPalette ? getAvatarInitials(email) : fallback.text),
-    [avatarPalette, email, fallback.text]
+    () =>
+      avatarPalette
+        ? getAvatarInitials(email, displayName)
+        : fallback.text,
+    [avatarPalette, displayName, email, fallback.text]
   );
   const fallbackFontSize = useMemo(
     () => Math.max(9, Math.round(size * 0.38)),

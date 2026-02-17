@@ -170,6 +170,13 @@ export const es = {
     backToLogin: "Volver a iniciar sesión",
     redirecting: "Redirigiendo autenticación...",
   },
+  nameSetup: {
+    title: "¿Cómo te llamas?",
+    subtitle: "Este nombre se usará para identificarte en la cuenta compartida.",
+    label: "Nombre para mostrar",
+    placeholder: "Ej: Ana García",
+    continue: "Continuar",
+  },
   onboarding: {
     title: "Crea tu primera cuenta",
     description: "Configura tu cuenta de finanzas personales",
@@ -314,6 +321,7 @@ export const es = {
     transactionsCount:
       "{count, plural, =0 {Sin movimientos} =1 {1 movimiento} other {# movimientos}}",
     createdBy: "Creado por {name}",
+    addedBy: "Añadido por {name}",
     noTransactions: "No hay movimientos este mes. Crea uno para empezar.",
     noTransactionsReadOnly: "No hay movimientos este mes.",
     readOnlyNotice:
@@ -908,8 +916,12 @@ export const es = {
       subtitle: "Personaliza tu experiencia en Finnon",
       avatar: {
         title: "Avatar",
-        hint: "Se muestra junto a tus movimientos",
         colorLabel: "Color del avatar",
+      },
+      displayName: {
+        label: "Nombre para mostrar",
+        placeholder: "Ej: Ana García",
+        hint: "Este nombre se mostrará en tu avatar y actividad.",
       },
       invitations: {
         title: "Invitaciones pendientes",
@@ -958,6 +970,7 @@ export const es = {
       errors: {
         loadProfile: "No se pudo cargar tu perfil.",
         notAuthenticated: "No hay sesión activa.",
+        saveDisplayName: "No se pudo guardar tu nombre.",
         saveAvatarColor: "No se pudo guardar el color del avatar.",
         saveTheme: "No se pudo guardar el tema.",
         saveColorMode: "No se pudo guardar el modo de color.",

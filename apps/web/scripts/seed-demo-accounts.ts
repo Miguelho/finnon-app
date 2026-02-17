@@ -61,6 +61,7 @@ if (!DEMO_PASSWORD) {
   console.error("Missing DEMO_USER_PASSWORD env var.");
   process.exit(1);
 }
+const DEMO_PASSWORD_VALUE: string = DEMO_PASSWORD;
 
 const admin = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -73,16 +74,19 @@ const SEED_MARKER = "[demo-seed]";
 // ---------------------------------------------------------------------------
 
 type Locale = "es" | "en";
+type AvatarColor = "blue" | "green" | "coral" | "purple";
 
 type DemoAccountConfig = {
   email: string;
   displayName: string;
+  avatarColor: AvatarColor;
   accountName: string;
   currency: string;
   locale: Locale;
   secondaryUser: {
     email: string;
     displayName: string;
+    avatarColor: AvatarColor;
   };
 };
 
@@ -110,23 +114,27 @@ const DEMO_ACCOUNTS: DemoAccountConfig[] = [
   {
     email: "review@finnon.app",
     displayName: "Ana García",
+    avatarColor: "blue",
     accountName: "Hogar García",
     currency: "EUR",
     locale: "es",
     secondaryUser: {
       email: "review2@finnon.app",
       displayName: "Carlos García",
+      avatarColor: "coral",
     },
   },
   {
     email: "review-en@finnon.app",
     displayName: "Alex Smith",
+    avatarColor: "green",
     accountName: "Smith Household",
     currency: "GBP",
     locale: "en",
     secondaryUser: {
       email: "review-en2@finnon.app",
       displayName: "Jamie Smith",
+      avatarColor: "purple",
     },
   },
 ];
@@ -177,7 +185,7 @@ async function ensureAuthUser(
 
   if (existing) {
     console.log(`  Auth user exists: ${email} (${existing.id})`);
-    await admin.auth.admin.updateUser(existing.id, {
+    await admin.auth.admin.updateUserById(existing.id, {
       password,
       email_confirm: true,
       user_metadata: { display_name: displayName },
@@ -195,6 +203,24 @@ async function ensureAuthUser(
   if (error) throw new Error(`Failed to create user ${email}: ${error.message}`);
   console.log(`  Created auth user: ${email} (${data.user.id})`);
   return data.user.id;
+}
+
+async function ensureProfileAvatarColor(
+  userId: string,
+  color: AvatarColor
+): Promise<void> {
+  const { error } = await admin
+    .from("profiles")
+    .update({ avatar_color: color })
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(
+      `Failed to set avatar color for ${userId}: ${error.message}`
+    );
+  }
+
+  console.log(`  Profile color set: ${userId} -> ${color}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -682,9 +708,10 @@ async function main() {
 
     const userId = await ensureAuthUser(
       config.email,
-      DEMO_PASSWORD,
+      DEMO_PASSWORD_VALUE,
       config.displayName
     );
+    await ensureProfileAvatarColor(userId, config.avatarColor);
 
     const accountId = await ensureAccount(userId, config);
 
@@ -700,8 +727,12 @@ async function main() {
     console.log(`\n  Secondary user: ${config.secondaryUser.email}`);
     const secondaryUserId = await ensureAuthUser(
       config.secondaryUser.email,
-      DEMO_PASSWORD,
+      DEMO_PASSWORD_VALUE,
       config.secondaryUser.displayName
+    );
+    await ensureProfileAvatarColor(
+      secondaryUserId,
+      config.secondaryUser.avatarColor
     );
     await ensureAccountMember(accountId, secondaryUserId, "contributor");
 

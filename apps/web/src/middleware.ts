@@ -85,8 +85,44 @@ export async function middleware(request: NextRequest) {
     return applyLocaleCookie(NextResponse.redirect(loginUrl));
   }
 
+  // Si hay usuario, verificar si completó su nombre público
+  const nameSetupRoute = "/name-setup";
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const profileDisplayName =
+    typeof profile?.display_name === "string" ? profile.display_name.trim() : "";
+  const metadataDisplayName =
+    (typeof user.user_metadata?.display_name === "string"
+      ? user.user_metadata.display_name
+      : typeof user.user_metadata?.full_name === "string"
+        ? user.user_metadata.full_name
+        : ""
+    ).trim();
+  const hasDisplayName = Boolean(profileDisplayName || metadataDisplayName);
+  const isNameSetupRoute =
+    pathname === nameSetupRoute || pathname.startsWith(`${nameSetupRoute}/`);
+
+  if (!hasDisplayName && !isNameSetupRoute) {
+    return applyLocaleCookie(
+      NextResponse.redirect(new URL(nameSetupRoute, request.url))
+    );
+  }
+
+  if (hasDisplayName && isNameSetupRoute) {
+    return applyLocaleCookie(NextResponse.redirect(new URL("/", request.url)));
+  }
+
   // Si hay usuario, verificar si tiene cuentas (como owner O como miembro)
-  const accountGateExemptRoutes = ["/select-account", "/onboarding", "/invitations"];
+  const accountGateExemptRoutes = [
+    "/select-account",
+    "/onboarding",
+    "/invitations",
+    "/name-setup",
+  ];
   const isAccountGateExempt = accountGateExemptRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );

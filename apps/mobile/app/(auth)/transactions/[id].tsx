@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@poleursus/shared";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/contexts/AuthContext";
+import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../src/lib/i18n";
 import { AddTransactionForm } from "../../../src/components/add-transaction";
 
@@ -46,6 +47,7 @@ export default function EditTransactionScreen(): React.JSX.Element {
   const { id } = useLocalSearchParams();
   const isFocused = useIsFocused();
   const { selectedAccountId } = useAuth();
+  const { tokens: userTokens } = useUserTheme();
   const { dictionary } = useCopy();
 
   const transactionId = useMemo(() => {
@@ -65,6 +67,7 @@ export default function EditTransactionScreen(): React.JSX.Element {
     income: MerchantSuggestion[];
   }>({ expense: [], income: [] });
   const [baseCurrency, setBaseCurrency] = useState("EUR");
+  const [addedByName, setAddedByName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const buildDraft = useCallback((row: Transaction): TransactionDraft => {
@@ -100,6 +103,7 @@ export default function EditTransactionScreen(): React.JSX.Element {
 
     const loadData = async () => {
       setIsLoading(true);
+      setAddedByName(null);
       try {
         const [
           transactionResult,
@@ -156,8 +160,20 @@ export default function EditTransactionScreen(): React.JSX.Element {
           throw new Error(t(dictionary, "transactions.loadError"));
         }
 
+        const { data: creatorProfile } = await supabase
+          .from("profiles")
+          .select("display_name, email")
+          .eq("user_id", tx.created_by)
+          .maybeSingle();
+
+        const resolvedAddedBy =
+          creatorProfile?.display_name?.trim() ||
+          creatorProfile?.email?.trim() ||
+          tx.created_by.slice(0, 6);
+
         setTransaction(tx);
         setInitialDraft(buildDraft(tx));
+        setAddedByName(resolvedAddedBy);
         setCategories((categoriesResult.data ?? []) as Category[]);
         setBaseCurrency(accountResult.data?.base_currency ?? "EUR");
         setTopCategories({
@@ -257,7 +273,7 @@ export default function EditTransactionScreen(): React.JSX.Element {
     [baseCurrency, dictionary, transaction]
   );
 
-  if (isLoading || !initialDraft || !transactionId) {
+  if (isLoading || !initialDraft || !transactionId || !transaction) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#2563eb" />
@@ -267,6 +283,13 @@ export default function EditTransactionScreen(): React.JSX.Element {
 
   return (
     <View style={styles.container}>
+      {addedByName ? (
+        <View style={styles.addedByContainer}>
+          <Text style={[styles.addedByText, { color: userTokens.textSecondary }]}>
+            {t(dictionary, "transactions.addedBy", { name: addedByName })}
+          </Text>
+        </View>
+      ) : null}
       <AddTransactionForm
         key={transactionId}
         mode="edit"
@@ -288,6 +311,15 @@ export default function EditTransactionScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  addedByContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  addedByText: {
+    fontSize: 13,
+    fontWeight: "500",
   },
   loadingContainer: {
     flex: 1,

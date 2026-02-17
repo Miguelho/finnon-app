@@ -456,6 +456,7 @@ export function AccountSummaryClient({
                 <div className="flex items-center gap-4">
                   <UserAvatar
                     email={activeMember.email}
+                    displayName={activeMember.displayName ?? null}
                     userId={activeMember.userId}
                     avatarPath={activeMember.avatarPath}
                     fallbackText={activeMember.avatarFallbackText}
@@ -524,6 +525,7 @@ export function AccountSummaryClient({
                     <div className="flex items-center gap-3">
                       <UserAvatar
                         email={participant.email}
+                        displayName={participant.displayName ?? null}
                         userId={participant.userId}
                         avatarPath={participant.avatarPath}
                         fallbackText={participant.avatarFallbackText}
@@ -610,6 +612,7 @@ function MemberAvatarsRow({
           >
             <UserAvatar
               email={participant.email}
+              displayName={participant.displayName ?? null}
               userId={participant.userId}
               avatarPath={participant.avatarPath}
               fallbackText={participant.avatarFallbackText}

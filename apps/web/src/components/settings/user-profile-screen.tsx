@@ -47,6 +47,7 @@ type UserProfileScreenProps = {
 
 type ProfileRow = {
   email: string | null;
+  display_name: string | null;
   avatar_color: string | null;
   theme: string | null;
   color_mode: string | null;
@@ -64,6 +65,7 @@ type InviteRow = {
 type InviterProfile = {
   user_id: string;
   email: string | null;
+  display_name: string | null;
   avatar_color: string | null;
 };
 
@@ -71,18 +73,26 @@ type PendingInvite = {
   id: string;
   accountName: string;
   inviterEmail: string;
+  inviterDisplayName: string | null;
   inviterColor: UserAvatarColorId;
 };
 
 type ProfileState = {
   email: string;
+  displayName: string;
   avatarColor: UserAvatarColorId;
   theme: UserThemeId;
   colorMode: UserThemeMode;
   locale: UserLocale;
 };
 
-type SavingField = "avatarColor" | "theme" | "colorMode" | "locale" | null;
+type SavingField =
+  | "displayName"
+  | "avatarColor"
+  | "theme"
+  | "colorMode"
+  | "locale"
+  | null;
 type InviteAction = "accept" | "reject" | null;
 
 const STORAGE_KEY = "finnon:activeAccountId";
@@ -99,11 +109,13 @@ export function UserProfileScreen({ userId, userEmail }: UserProfileScreenProps)
 
   const [profile, setProfile] = useState<ProfileState>({
     email: userEmail,
+    displayName: "",
     avatarColor: getUserAvatarColor(null),
     theme: DEFAULT_USER_THEME,
     colorMode: DEFAULT_USER_THEME_MODE,
     locale: runtimeLocale,
   });
+  const [displayNameInput, setDisplayNameInput] = useState("");
   const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [savingField, setSavingField] = useState<SavingField>(null);
 
@@ -131,7 +143,7 @@ export function UserProfileScreen({ userId, userEmail }: UserProfileScreenProps)
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("email, avatar_color, theme, color_mode, locale")
+      .select("email, display_name, avatar_color, theme, color_mode, locale")
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -142,14 +154,17 @@ export function UserProfileScreen({ userId, userEmail }: UserProfileScreenProps)
     const row = (data ?? {}) as ProfileRow;
     const resolvedTheme = getUserThemeId(row.theme);
     const resolvedColorMode = getUserThemeMode(row.color_mode);
+    const resolvedDisplayName = row.display_name?.trim() ?? "";
 
     setProfile({
       email: row.email ?? userEmail,
+      displayName: resolvedDisplayName,
       avatarColor: getUserAvatarColor(row.avatar_color),
       theme: resolvedTheme,
       colorMode: resolvedColorMode,
       locale: getSupportedUserLocale(row.locale, runtimeLocale),
     });
+    setDisplayNameInput(resolvedDisplayName);
     setThemePreferences({
       theme: resolvedTheme,
       colorMode: resolvedColorMode,
@@ -206,7 +221,7 @@ export function UserProfileScreen({ userId, userEmail }: UserProfileScreenProps)
     if (creatorIds.length > 0) {
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("user_id, email, avatar_color")
+        .select("user_id, email, display_name, avatar_color")
         .in("user_id", creatorIds);
 
       creatorProfiles = (profiles ?? []).reduce<Record<string, InviterProfile>>(
@@ -229,6 +244,7 @@ export function UserProfileScreen({ userId, userEmail }: UserProfileScreenProps)
         accountName: accountName ?? t("settings.userProfile.invitations.unknownAccount"),
         inviterEmail:
           inviter?.email ?? t("settings.userProfile.invitations.unknownInviter"),
+        inviterDisplayName: inviter?.display_name ?? null,
         inviterColor: getUserAvatarColor(inviter?.avatar_color),
       };
     });
@@ -322,6 +338,35 @@ export function UserProfileScreen({ userId, userEmail }: UserProfileScreenProps)
 
     document.cookie = `NEXT_LOCALE=${nextLocale}; path=/; max-age=31536000`;
     window.location.reload();
+  };
+
+  const updateDisplayName = async () => {
+    if (savingField) return;
+
+    const normalizedName = displayNameInput.trim();
+    if (!normalizedName || normalizedName === profile.displayName.trim()) return;
+
+    const previous = profile.displayName;
+    setSavingField("displayName");
+    setProfile((current) => ({ ...current, displayName: normalizedName }));
+
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        display_name: normalizedName,
+        full_name: normalizedName,
+      },
+    });
+
+    if (error) {
+      console.error("[UserProfileWeb] Failed to save display_name:", error);
+      setProfile((current) => ({ ...current, displayName: previous }));
+      setDisplayNameInput(previous);
+      toast.error(t("settings.userProfile.errors.saveDisplayName"));
+    } else {
+      setDisplayNameInput(normalizedName);
+    }
+
+    setSavingField(null);
   };
 
   const handleInviteAction = async (
@@ -425,6 +470,9 @@ export function UserProfileScreen({ userId, userEmail }: UserProfileScreenProps)
     .trim()
     .toLowerCase();
   const mainAvatar = USER_AVATAR_COLORS[profile.avatarColor];
+  const normalizedDisplayNameInput = displayNameInput.trim();
+  const hasDisplayNameChanges =
+    normalizedDisplayNameInput !== profile.displayName.trim();
   const emailMatches =
     deleteEmailInput.trim().toLowerCase() === profile.email.trim().toLowerCase();
   const keywordMatches =
@@ -453,12 +501,41 @@ export function UserProfileScreen({ userId, userEmail }: UserProfileScreenProps)
             className="flex h-[52px] w-[52px] items-center justify-center rounded-full text-[17px] font-bold"
             style={{ backgroundColor: mainAvatar.bg, color: mainAvatar.fg }}
           >
-            {getAvatarInitials(profile.email)}
+            {getAvatarInitials(profile.email, profile.displayName)}
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">{profile.email}</p>
-            <p className="text-xs" style={{ color: activeTheme.textTertiary }}>
-              {t("settings.userProfile.avatar.hint")}
+            <p
+              className="mb-1 mt-2 text-[11px] font-semibold uppercase tracking-wide"
+              style={{ color: activeTheme.textTertiary }}
+            >
+              {t("settings.userProfile.displayName.label")}
+            </p>
+            <div className="flex items-center gap-2">
+              <Input
+                value={displayNameInput}
+                onChange={(event) => setDisplayNameInput(event.target.value)}
+                placeholder={t("settings.userProfile.displayName.placeholder")}
+                maxLength={80}
+                disabled={savingField === "displayName"}
+                className="flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => void updateDisplayName()}
+                disabled={!normalizedDisplayNameInput || !hasDisplayNameChanges || savingField !== null}
+                className="shrink-0 rounded-md border px-3 py-[8px] text-xs font-semibold transition disabled:opacity-50"
+                style={{
+                  borderColor: activeTheme.border,
+                  color: activeTheme.textSecondary,
+                  backgroundColor: activeTheme.surface,
+                }}
+              >
+                {savingField === "displayName" ? t("common.saving") : t("common.save")}
+              </button>
+            </div>
+            <p className="mt-1 text-[11px]" style={{ color: activeTheme.textTertiary }}>
+              {t("settings.userProfile.displayName.hint")}
             </p>
           </div>
         </div>
@@ -534,7 +611,7 @@ export function UserProfileScreen({ userId, userEmail }: UserProfileScreenProps)
                     className="flex h-[34px] w-[34px] items-center justify-center rounded-full text-xs font-bold"
                     style={{ backgroundColor: avatar.bg, color: avatar.fg }}
                   >
-                    {getAvatarInitials(invite.inviterEmail)}
+                    {getAvatarInitials(invite.inviterEmail, invite.inviterDisplayName)}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{invite.accountName}</p>

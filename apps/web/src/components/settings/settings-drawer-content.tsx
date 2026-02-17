@@ -72,6 +72,7 @@ export function SettingsDrawerContent({
                   <div className="flex items-center gap-3 p-4">
                     <UserAvatar
                       email={profile.email}
+                      displayName={profile.displayName}
                       userId={profile.userId}
                       avatarPath={profile.avatarPath}
                       fallbackText={profile.fallbackText}

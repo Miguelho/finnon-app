@@ -52,6 +52,7 @@ export function SettingsDrawer({
       <DialogPrimitive.Trigger asChild>
         <AvatarButton
           email={profile.email}
+          displayName={profile.displayName}
           userId={profile.userId}
           avatarPath={profile.avatarPath}
           fallbackText={profile.fallbackText}

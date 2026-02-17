@@ -27,6 +27,7 @@ type TransactionTileProps = {
       initial: string;
       userId?: string | null;
       email?: string | null;
+      displayName?: string | null;
       avatarPath?: string | null;
       fallbackText?: string | null;
       fallbackBgToken?: AvatarColorToken | null;
@@ -216,6 +217,7 @@ export function TransactionTile({
           {transaction.createdBy && (
             <UserAvatar
               email={transaction.createdBy.email ?? null}
+              displayName={transaction.createdBy.displayName ?? null}
               userId={transaction.createdBy.userId ?? null}
               avatarPath={transaction.createdBy.avatarPath ?? null}
               fallbackText={

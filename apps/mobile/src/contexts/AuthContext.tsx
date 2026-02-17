@@ -119,19 +119,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let isMounted = true;
 
-    const syncUser = async () => {
+    const syncUser = async (fallbackUser: User | null = null) => {
       try {
         const user = await getVerifiedUser();
         if (isMounted) {
-          setUser(user);
+          setUser(user ?? fallbackUser);
         }
-        return user;
+        return user ?? fallbackUser;
       } catch (userError) {
         console.error("[AuthContext] getUser error:", userError);
         if (isMounted) {
-          setUser(null);
+          setUser(fallbackUser);
         }
-        return null;
+        return fallbackUser;
       }
     };
 
@@ -145,7 +145,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("[AuthContext] getSession error:", sessionError);
       }
 
-      const safeUser = await syncUser();
+      if (!isMounted) return;
+
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      const safeUser = await syncUser(session?.user ?? null);
 
       if (!isMounted) return;
 
@@ -153,7 +158,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hasSession: !!session,
         userId: safeUser?.id,
       });
-      setSession(session);
       setLoading(false);
       setIsInitialized(true);
     };
@@ -178,7 +182,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      void syncUser();
+      setUser(session.user ?? null);
+      void syncUser(session.user ?? null);
     });
 
     return () => {
@@ -208,7 +213,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await signOutAndReset({
-      signOut: () => supabase.auth.signOut(),
+      signOut: async () => {
+        await supabase.auth.signOut();
+      },
       clearLocalSessionArtifacts: clearSelectedAccount,
     });
   };

@@ -10,6 +10,7 @@ type AvatarButtonProps = Omit<
   "children"
 > & {
   email: string;
+  displayName?: string | null;
   userId: string;
   avatarPath?: string | null;
   fallbackText?: string | null;
@@ -27,6 +28,7 @@ export const AvatarButton = React.forwardRef<
   (
     {
       email,
+      displayName,
       userId,
       avatarPath,
       fallbackText,
@@ -56,6 +58,7 @@ export const AvatarButton = React.forwardRef<
       >
         <UserAvatar
           email={email}
+          displayName={displayName}
           userId={userId}
           avatarPath={avatarPath}
           fallbackText={fallbackText}

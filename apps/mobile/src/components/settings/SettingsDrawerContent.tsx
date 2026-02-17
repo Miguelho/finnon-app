@@ -199,6 +199,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
         <View style={styles.profileRow}>
           <UserAvatar
             email={email}
+            displayName={userDetails?.displayName ?? null}
             userId={user?.id ?? null}
             avatarPath={profile.avatarPath}
             fallbackText={profile.fallbackText}

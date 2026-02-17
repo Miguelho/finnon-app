@@ -46,7 +46,27 @@ export function getUserAvatarColor(
   return isUserAvatarColorId(value) ? value : DEFAULT_USER_AVATAR_COLOR;
 }
 
-export function getAvatarInitials(email: string | null | undefined): string {
+export function getAvatarInitials(
+  email: string | null | undefined,
+  displayName?: string | null
+): string {
+  const normalizedDisplayName =
+    typeof displayName === "string" ? displayName.trim() : "";
+
+  if (normalizedDisplayName) {
+    const words = normalizedDisplayName.split(/\s+/).filter(Boolean);
+    if (words.length >= 2) {
+      const firstInitial = words[0]?.charAt(0) ?? "";
+      const lastInitial = words[words.length - 1]?.charAt(0) ?? "";
+      const initials = `${firstInitial}${lastInitial}`.toUpperCase();
+      if (initials) return initials;
+    }
+
+    const compactName = words[0] ?? normalizedDisplayName;
+    const initials = compactName.slice(0, 2).toUpperCase();
+    if (initials) return initials;
+  }
+
   const normalized = typeof email === "string" ? email.trim() : "";
   if (!normalized) return "??";
   const local = normalized.split("@")[0] ?? "";

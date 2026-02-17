@@ -1436,6 +1436,7 @@ export function TransactionsClient({
                           initial: creatorName.slice(0, 2),
                           userId: transaction.created_by,
                           email: profile?.email ?? null,
+                          displayName: profile?.display_name ?? creatorName,
                           avatarPath: profile?.avatar_path ?? null,
                           fallbackText: profile?.avatar_fallback_text ?? null,
                           fallbackBgToken:

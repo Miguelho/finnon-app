@@ -44,6 +44,7 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 
 type ProfileRow = {
   email: string | null;
+  display_name: string | null;
   avatar_color: string | null;
   theme: string | null;
   color_mode: string | null;
@@ -61,6 +62,7 @@ type InviteRow = {
 type InviterProfile = {
   user_id: string;
   email: string | null;
+  display_name: string | null;
   avatar_color: string | null;
 };
 
@@ -68,18 +70,26 @@ type PendingInvite = {
   id: string;
   accountName: string;
   inviterEmail: string;
+  inviterDisplayName: string | null;
   inviterColor: UserAvatarColorId;
 };
 
 type ProfileState = {
   email: string;
+  displayName: string;
   avatarColor: UserAvatarColorId;
   theme: UserThemeId;
   colorMode: UserThemeMode;
   locale: UserLocale;
 };
 
-type SavingField = "avatarColor" | "theme" | "colorMode" | "locale" | null;
+type SavingField =
+  | "displayName"
+  | "avatarColor"
+  | "theme"
+  | "colorMode"
+  | "locale"
+  | null;
 type InviteAction = "accept" | "reject" | null;
 
 export default function UserProfileScreen() {
@@ -95,11 +105,13 @@ export default function UserProfileScreen() {
 
   const [profile, setProfile] = useState<ProfileState>({
     email: "",
+    displayName: "",
     avatarColor: getUserAvatarColor(null),
     theme: DEFAULT_USER_THEME,
     colorMode: DEFAULT_USER_THEME_MODE,
     locale: runtimeLocale,
   });
+  const [displayNameInput, setDisplayNameInput] = useState("");
   const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [savingField, setSavingField] = useState<SavingField>(null);
@@ -136,7 +148,7 @@ export default function UserProfileScreen() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("email, avatar_color, theme, color_mode, locale")
+      .select("email, display_name, avatar_color, theme, color_mode, locale")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -151,14 +163,23 @@ export default function UserProfileScreen() {
     const row = (data ?? {}) as ProfileRow;
     const resolvedTheme = getUserThemeId(row.theme);
     const resolvedColorMode = getUserThemeMode(row.color_mode);
+    const resolvedDisplayName =
+      row.display_name?.trim() ||
+      (typeof user.user_metadata?.display_name === "string"
+        ? user.user_metadata.display_name.trim()
+        : typeof user.user_metadata?.full_name === "string"
+          ? user.user_metadata.full_name.trim()
+          : "");
 
     setProfile({
       email: row.email ?? user.email ?? "",
+      displayName: resolvedDisplayName,
       avatarColor: getUserAvatarColor(row.avatar_color),
       theme: resolvedTheme,
       colorMode: resolvedColorMode,
       locale: getSupportedUserLocale(row.locale, runtimeLocale),
     });
+    setDisplayNameInput(resolvedDisplayName);
     setThemePreferences({
       theme: resolvedTheme,
       colorMode: resolvedColorMode,
@@ -229,7 +250,7 @@ export default function UserProfileScreen() {
     if (creatorIds.length > 0) {
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("user_id, email, avatar_color")
+        .select("user_id, email, display_name, avatar_color")
         .in("user_id", creatorIds);
 
       creatorProfiles = (profiles ?? []).reduce<Record<string, InviterProfile>>(
@@ -254,6 +275,7 @@ export default function UserProfileScreen() {
         inviterEmail:
           inviter?.email ??
           t(dictionary, "settings.userProfile.invitations.unknownInviter"),
+        inviterDisplayName: inviter?.display_name ?? null,
         inviterColor: getUserAvatarColor(inviter?.avatar_color),
       };
     });
@@ -370,6 +392,40 @@ export default function UserProfileScreen() {
           void updateLanguage(nextLocale);
         },
       });
+    }
+
+    setSavingField(null);
+  };
+
+  const updateDisplayName = async () => {
+    if (!session || !user?.id || savingField) return;
+
+    const normalizedName = displayNameInput.trim();
+    if (!normalizedName || normalizedName === profile.displayName) return;
+
+    const previous = profile.displayName;
+    setSavingField("displayName");
+    setProfile((current) => ({ ...current, displayName: normalizedName }));
+
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        display_name: normalizedName,
+        full_name: normalizedName,
+      },
+    });
+
+    if (error) {
+      console.error("[UserProfile] Failed to save display_name:", error);
+      setProfile((current) => ({ ...current, displayName: previous }));
+      setDisplayNameInput(previous);
+      reportNetworkIssue({
+        message: t(dictionary, "settings.userProfile.errors.saveDisplayName"),
+        onRetry: () => {
+          void updateDisplayName();
+        },
+      });
+    } else {
+      setDisplayNameInput(normalizedName);
     }
 
     setSavingField(null);
@@ -505,6 +561,9 @@ export default function UserProfileScreen() {
   }
 
   const mainAvatar = USER_AVATAR_COLORS[profile.avatarColor];
+  const normalizedDisplayNameInput = displayNameInput.trim();
+  const hasDisplayNameChanges =
+    normalizedDisplayNameInput !== profile.displayName.trim();
   const deleteKeywordValue = t(dictionary, "settings.userProfile.deleteUser.keywordValue")
     .trim()
     .toLowerCase();
@@ -550,15 +609,66 @@ export default function UserProfileScreen() {
             ]}
           >
             <Text style={[styles.mainAvatarText, { color: mainAvatar.fg }]}>
-              {getAvatarInitials(profile.email)}
+              {getAvatarInitials(profile.email, profile.displayName)}
             </Text>
           </View>
           <View style={styles.avatarInfo}>
             <Text style={[styles.emailValue, { color: activeTheme.textPrimary }]}>
               {profile.email}
             </Text>
-            <Text style={[styles.avatarHint, { color: activeTheme.textTertiary }]}>
-              {t(dictionary, "settings.userProfile.avatar.hint")}
+            <Text style={[styles.displayNameLabel, { color: activeTheme.textTertiary }]}>
+              {t(dictionary, "settings.userProfile.displayName.label")}
+            </Text>
+            <View style={styles.displayNameRow}>
+              <TextInput
+                value={displayNameInput}
+                onChangeText={setDisplayNameInput}
+                placeholder={t(dictionary, "settings.userProfile.displayName.placeholder")}
+                placeholderTextColor={activeTheme.textTertiary}
+                editable={savingField !== "displayName"}
+                maxLength={80}
+                autoCapitalize="words"
+                autoCorrect={false}
+                style={[
+                  styles.displayNameInput,
+                  {
+                    color: activeTheme.textPrimary,
+                    borderColor: activeTheme.border,
+                    backgroundColor: activeTheme.surfaceAlt,
+                  },
+                ]}
+              />
+              <Pressable
+                onPress={() => {
+                  void updateDisplayName();
+                }}
+                disabled={!normalizedDisplayNameInput || !hasDisplayNameChanges || savingField !== null}
+                style={[
+                  styles.displayNameSaveButton,
+                  {
+                    borderColor: activeTheme.border,
+                    backgroundColor: activeTheme.surface,
+                  },
+                  (!normalizedDisplayNameInput || !hasDisplayNameChanges || savingField !== null) &&
+                    styles.displayNameSaveButtonDisabled,
+                ]}
+              >
+                {savingField === "displayName" ? (
+                  <ActivityIndicator size="small" color={activeTheme.textSecondary} />
+                ) : (
+                  <Text
+                    style={[
+                      styles.displayNameSaveButtonText,
+                      { color: activeTheme.textSecondary },
+                    ]}
+                  >
+                    {t(dictionary, "common.save")}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+            <Text style={[styles.displayNameHint, { color: activeTheme.textTertiary }]}>
+              {t(dictionary, "settings.userProfile.displayName.hint")}
             </Text>
           </View>
         </View>
@@ -636,7 +746,7 @@ export default function UserProfileScreen() {
                 >
                   <View style={[styles.inviteAvatar, { backgroundColor: avatar.bg }]}>
                     <Text style={[styles.inviteAvatarText, { color: avatar.fg }]}>
-                      {getAvatarInitials(invite.inviterEmail)}
+                      {getAvatarInitials(invite.inviterEmail, invite.inviterDisplayName)}
                     </Text>
                   </View>
 
@@ -1081,9 +1191,46 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.medium,
   },
-  avatarHint: {
-    marginTop: 2,
-    fontSize: tokens.typography.size.xs,
+  displayNameLabel: {
+    marginTop: tokens.spacing.xs,
+    marginBottom: 4,
+    fontSize: 11,
+    fontWeight: tokens.typography.weight.semibold,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  displayNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.xs,
+  },
+  displayNameInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: tokens.radii.sm,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: 10,
+    fontSize: tokens.typography.size.sm,
+  },
+  displayNameHint: {
+    marginTop: 6,
+    fontSize: 11,
+  },
+  displayNameSaveButton: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.sm,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: 10,
+    minWidth: 72,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  displayNameSaveButtonDisabled: {
+    opacity: 0.55,
+  },
+  displayNameSaveButtonText: {
+    fontSize: 12,
+    fontWeight: tokens.typography.weight.semibold,
   },
   selectorLabel: {
     marginTop: tokens.spacing.lg,
