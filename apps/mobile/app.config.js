@@ -1,4 +1,10 @@
-require("dotenv").config();
+const path = require("path");
+const profile = process.env.EAS_BUILD_PROFILE;
+const envFile =
+  profile === "preview" || profile === "production"
+    ? ".env.production"
+    : ".env.local";
+require("dotenv").config({ path: path.resolve(__dirname, envFile) });
 
 module.exports = {
   expo: {
@@ -69,6 +75,7 @@ module.exports = {
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
       demoEmails: process.env.EXPO_PUBLIC_DEMO_EMAILS,
+      apiUrl: process.env.EXPO_PUBLIC_API_URL,
       eas: {
         projectId: "e89e0bcd-c347-47df-87ce-1f6ea0d5a8f0",
       },

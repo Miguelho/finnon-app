@@ -158,8 +158,14 @@ export default function HomeScreen() {
   useEffect(() => {
     let cancelled = false;
 
+    if (!session || !user) {
+      setAccounts(null);
+      setLoadingAccounts(false);
+      return;
+    }
+
     async function loadAccounts() {
-      if (!session || !user || !isFocused) {
+      if (!isFocused) {
         setLoadingAccounts(false);
         return;
       }

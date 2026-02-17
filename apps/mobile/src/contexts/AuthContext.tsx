@@ -174,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!session || event === "SIGNED_OUT") {
         setUser(null);
+        void clearSelectedAccount();
         return;
       }
 
