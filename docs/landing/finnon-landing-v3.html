@@ -125,6 +125,43 @@
   .screens-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 2px; }
   .scroll-item { flex-shrink: 0; width: 220px; scroll-snap-align: start; border-radius: 20px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.06); transition: transform 0.3s; }
   .scroll-item:hover { transform: translateY(-4px); }
+  .zoomable-image { cursor: zoom-in; }
+
+  /* IMAGE LIGHTBOX */
+  #image-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(14, 15, 18, 0.82);
+    backdrop-filter: blur(4px);
+  }
+  #image-lightbox[hidden] { display: none; }
+  #image-lightbox .lightbox-image {
+    width: auto;
+    height: auto;
+    max-width: min(1100px, 92vw);
+    max-height: 88vh;
+    border-radius: 16px;
+    box-shadow: 0 28px 90px rgba(0,0,0,0.45);
+  }
+  #image-lightbox .lightbox-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 999px;
+    background: rgba(0,0,0,0.35);
+    color: #fff;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+  }
 
   /* STEPS BREADCRUMB */
   .steps-breadcrumb { margin-top: 60px; }
@@ -455,6 +492,11 @@
   </div>
 </footer>
 
+<div id="image-lightbox" hidden aria-hidden="true" role="dialog" aria-modal="true">
+  <button type="button" class="lightbox-close" aria-label="Close image">×</button>
+  <img class="lightbox-image" src="" alt="">
+</div>
+
 <script>
   lucide.createIcons();
 
@@ -465,6 +507,58 @@
     });
     localStorage.setItem('finnon-lang', lang);
   }
+
+  const lightbox = document.getElementById('image-lightbox');
+  const lightboxImage = lightbox ? lightbox.querySelector('.lightbox-image') : null;
+  const lightboxClose = lightbox ? lightbox.querySelector('.lightbox-close') : null;
+  let previousBodyOverflow = '';
+
+  function openLightbox(src, alt) {
+    if (!lightbox || !lightboxImage || !src) return;
+    lightboxImage.src = src;
+    lightboxImage.alt = alt || 'Screenshot';
+    lightbox.hidden = false;
+    lightbox.setAttribute('aria-hidden', 'false');
+    previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    if (!lightbox || !lightboxImage) return;
+    lightbox.hidden = true;
+    lightbox.setAttribute('aria-hidden', 'true');
+    lightboxImage.src = '';
+    document.body.style.overflow = previousBodyOverflow;
+  }
+
+  function enableImageZoom() {
+    document.querySelectorAll('.screen-wrap img, .scroll-item img').forEach((image) => {
+      image.classList.add('zoomable-image');
+      if (image.dataset.zoomBound === '1') return;
+      image.dataset.zoomBound = '1';
+      image.addEventListener('click', () => {
+        openLightbox(image.currentSrc || image.src, image.alt);
+      });
+    });
+  }
+
+  if (lightbox) {
+    lightbox.addEventListener('click', (event) => {
+      if (event.target === lightbox) closeLightbox();
+    });
+  }
+
+  if (lightboxClose) {
+    lightboxClose.addEventListener('click', closeLightbox);
+  }
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && lightbox && !lightbox.hidden) {
+      closeLightbox();
+    }
+  });
+
+  enableImageZoom();
 
   // Auto-detect browser language
   (function() {
