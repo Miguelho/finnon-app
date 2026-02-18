@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
@@ -89,6 +90,7 @@ export default async function RootLayout({
             <WebUserThemeProvider>{children}</WebUserThemeProvider>
           </NetworkNoticeProvider>
           <Toaster />
+          <Analytics />
         </NextIntlClientProvider>
       </body>
     </html>
