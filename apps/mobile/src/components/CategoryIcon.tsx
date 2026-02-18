@@ -2,57 +2,56 @@ import * as React from "react";
 import {
   House,
   ShoppingCart,
-  ForkKnife,
+  UtensilsCrossed,
   Car,
   Bus,
-  Train,
-  Airplane,
+  TrainFront,
+  Plane,
   Ticket,
-  GasPump,
+  Fuel,
   CreditCard,
   Wallet,
   Receipt,
   PiggyBank,
-  Bank,
+  Landmark,
   Heart,
-  FirstAidKit,
+  BriefcaseMedical,
   Pill,
   Stethoscope,
   GraduationCap,
   BookOpen,
-  GameController,
-  FilmSlate,
-  MusicNotes,
-  Basketball,
-  Barbell,
-  TShirt,
-  Handbag,
+  Gamepad2,
+  Clapperboard,
+  Music,
+  Circle,
+  Dumbbell,
+  Shirt,
+  ShoppingBag,
   Tag,
   Gift,
   PawPrint,
   Leaf,
-  Tree,
+  TreePine,
   Lightbulb,
   Plug,
-  WifiHigh,
-  Phone,
+  Wifi,
+  Smartphone,
   Laptop,
   Monitor,
   Camera,
   Wrench,
-  Gear,
+  Settings,
   Hammer,
   Scissors,
-  Broom,
-  Bed,
-  Couch,
-  Storefront,
-  Buildings,
+  Brush,
+  BedDouble,
+  Sofa,
+  Store,
+  Building2,
   Briefcase,
-  UsersThree,
-  type IconWeight,
-} from "phosphor-react-native";
-import type { ComponentType } from "react";
+  Users,
+  type LucideIcon,
+} from "lucide-react-native";
 import {
   type CategoryIconKey,
   type CategoryIconProps,
@@ -62,65 +61,60 @@ import {
 } from "@poleursus/shared";
 import { useUserTheme } from "../contexts/UserThemeContext";
 
-type PhosphorIconProps = {
-  size?: number;
-  weight?: IconWeight;
-  color?: string;
-  accessibilityLabel?: string;
-};
-
-const iconComponents: Record<CategoryIconKey, ComponentType<PhosphorIconProps>> = {
+const iconComponents: Record<CategoryIconKey, LucideIcon> = {
   House,
   ShoppingCart,
-  ForkKnife,
+  ForkKnife: UtensilsCrossed,
   Car,
   Bus,
-  Train,
-  Airplane,
+  Train: TrainFront,
+  Airplane: Plane,
   Ticket,
-  GasPump,
+  GasPump: Fuel,
   CreditCard,
   Wallet,
   Receipt,
   PiggyBank,
-  Bank,
+  Bank: Landmark,
   Heart,
-  FirstAidKit,
+  FirstAidKit: BriefcaseMedical,
   Pill,
   Stethoscope,
   GraduationCap,
   BookOpen,
-  GameController,
-  FilmSlate,
-  MusicNotes,
-  Basketball,
-  Barbell,
-  TShirt,
-  Handbag,
+  GameController: Gamepad2,
+  FilmSlate: Clapperboard,
+  MusicNotes: Music,
+  Basketball: Circle,
+  Barbell: Dumbbell,
+  TShirt: Shirt,
+  Handbag: ShoppingBag,
   Tag,
   Gift,
   PawPrint,
   Leaf,
-  Tree,
+  Tree: TreePine,
   Lightbulb,
   Plug,
-  WifiHigh,
-  Phone,
+  WifiHigh: Wifi,
+  Phone: Smartphone,
   Laptop,
   Monitor,
   Camera,
   Wrench,
-  Gear,
+  Gear: Settings,
   Hammer,
   Scissors,
-  Broom,
-  Bed,
-  Couch,
-  Storefront,
-  Buildings,
+  Broom: Brush,
+  Bed: BedDouble,
+  Couch: Sofa,
+  Storefront: Store,
+  Buildings: Building2,
   Briefcase,
-  UsersThree,
+  UsersThree: Users,
 };
+
+const fallbackIcon: LucideIcon = Tag;
 
 export function CategoryIcon({
   iconKey,
@@ -132,7 +126,7 @@ export function CategoryIcon({
   const { tokens: userTokens, resolvedMode } = useUserTheme();
   const modeColors = themeTokens[resolvedMode].colors;
   const resolvedKey = resolveCategoryIconKey(iconKey);
-  const IconComponent = iconComponents[resolvedKey] ?? Tag;
+  const IconComponent = iconComponents[resolvedKey] ?? fallbackIcon;
   const toneColors: Record<CategoryIconTone, string> = {
     primary: userTokens.textPrimary,
     muted: userTokens.textSecondary,
@@ -140,12 +134,14 @@ export function CategoryIcon({
     negative: modeColors.state.negative,
   };
   const color = toneColors[tone];
+  const isFilled = weight === "fill";
 
   return (
     <IconComponent
       size={size}
-      weight={weight}
       color={color}
+      strokeWidth={isFilled ? 0 : 1.5}
+      fill={isFilled ? color : "none"}
       accessibilityLabel={accessibilityLabel}
     />
   );

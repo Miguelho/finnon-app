@@ -20,6 +20,11 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
+        source: "/landing",
+        destination: "/",
+        permanent: true,
+      },
+      {
         source: "/recurrentes",
         destination: "/transaction/recurrent",
         permanent: true,

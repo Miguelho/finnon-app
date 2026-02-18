@@ -7,7 +7,7 @@ import {
   Modal,
   Pressable,
 } from "react-native";
-import { Info, CaretLeft, CaretRight } from "phosphor-react-native";
+import { Info, ChevronLeft, ChevronRight } from "lucide-react-native";
 import {
   createTypographyStyles,
   themeTokens,
@@ -88,11 +88,11 @@ export function WeekStrip({
 
       <View style={styles.weekNavRow}>
         <TouchableOpacity onPress={onPrevWeek} style={styles.navButton}>
-          <CaretLeft size={18} color={colors.text.secondary} />
+          <ChevronLeft size={18} color={colors.text.secondary} />
         </TouchableOpacity>
         <Text style={styles.weekLabel}>{weekLabel}</Text>
         <TouchableOpacity onPress={onNextWeek} style={styles.navButton}>
-          <CaretRight size={18} color={colors.text.secondary} />
+          <ChevronRight size={18} color={colors.text.secondary} />
         </TouchableOpacity>
       </View>
 

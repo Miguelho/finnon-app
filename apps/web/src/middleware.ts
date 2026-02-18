@@ -30,10 +30,23 @@ export async function middleware(request: NextRequest) {
   }
 
   // Rutas públicas que no requieren autenticación
-  const publicRoutes = ["/login", "/login-otp", "/auth/callback", "/auth/confirm", "/join", "/privacy", "/delete-account"];
-  const isPublicRoute = publicRoutes.some((route) =>
-    pathname.startsWith(route)
-  );
+  const publicRoutes = [
+    "/",
+    "/landing",
+    "/landing-v3.html",
+    "/login",
+    "/login-otp",
+    "/auth/callback",
+    "/auth/confirm",
+    "/join",
+    "/privacy",
+    "/delete-account",
+    "/terms",
+  ];
+  const isPublicRoute = publicRoutes.some((route) => {
+    if (route === "/") return pathname === "/";
+    return pathname === route || pathname.startsWith(`${route}/`);
+  });
 
   let response = NextResponse.next({
     request: {
@@ -71,9 +84,23 @@ export async function middleware(request: NextRequest) {
 
   // Si es ruta pública, permitir acceso
   if (isPublicRoute) {
+    if (pathname === "/landing") {
+      const landingTarget = user ? "/home" : "/";
+      return applyLocaleCookie(
+        NextResponse.redirect(new URL(landingTarget, request.url), 308)
+      );
+    }
+    if (pathname === "/") {
+      if (user) {
+        return applyLocaleCookie(NextResponse.redirect(new URL("/home", request.url)));
+      }
+      return applyLocaleCookie(
+        NextResponse.rewrite(new URL("/landing-v3.html", request.url))
+      );
+    }
     // Si está en login y ya tiene usuario, redirigir a home
     if (pathname === "/login" && user) {
-      return applyLocaleCookie(NextResponse.redirect(new URL("/", request.url)));
+      return applyLocaleCookie(NextResponse.redirect(new URL("/home", request.url)));
     }
     return applyLocaleCookie(response);
   }
@@ -113,7 +140,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (hasDisplayName && isNameSetupRoute) {
-    return applyLocaleCookie(NextResponse.redirect(new URL("/", request.url)));
+    return applyLocaleCookie(NextResponse.redirect(new URL("/home", request.url)));
   }
 
   // Si hay usuario, verificar si tiene cuentas (como owner O como miembro)

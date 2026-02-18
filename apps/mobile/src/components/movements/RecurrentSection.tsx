@@ -6,7 +6,7 @@ import {
   StyleSheet,
   Animated,
 } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Repeat } from "lucide-react-native";
 import { isCategoryIconKey, formatMinorToMoney } from "@poleursus/shared";
 import { CategoryIcon } from "../CategoryIcon";
 import { movementsDesignTokens, type RecurringTemplate } from "../../types/movements";
@@ -61,11 +61,7 @@ export function RecurrentSection({
     >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <MaterialCommunityIcons
-            name="repeat"
-            size={18}
-            color={primaryActionColor}
-          />
+          <Repeat size={18} color={primaryActionColor} />
           <Text style={[styles.headerTitle, { color: userTokens.textPrimary }]}>
             {t(dictionary, "transactions.ui.toRegisterSection")}
           </Text>

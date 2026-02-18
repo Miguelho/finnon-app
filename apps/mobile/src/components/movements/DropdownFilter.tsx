@@ -8,7 +8,7 @@ import {
   Modal,
   ScrollView,
 } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { ChevronDown, Search, Check } from "lucide-react-native";
 import { movementsDesignTokens } from "../../types/movements";
 import { useUserTheme } from "../../contexts/UserThemeContext";
 import { useCopy, t } from "../../lib/i18n";
@@ -64,11 +64,7 @@ export function DropdownFilter({
           {label}
           {selectedCount > 0 ? ` (${selectedCount})` : ""}
         </Text>
-        <MaterialCommunityIcons
-          name="chevron-down"
-          size={18}
-          color={userTokens.textSecondary}
-        />
+        <ChevronDown size={18} color={userTokens.textSecondary} />
       </Pressable>
 
       <Modal
@@ -96,11 +92,7 @@ export function DropdownFilter({
               </Pressable>
             </View>
             <View style={[styles.searchRow, { backgroundColor: userTokens.surfaceAlt }]}>
-              <MaterialCommunityIcons
-                name="magnify"
-                size={18}
-                color={userTokens.textSecondary}
-              />
+              <Search size={18} color={userTokens.textSecondary} />
               <TextInput
                 style={[styles.searchInput, { color: userTokens.textPrimary }]}
                 placeholder={t(dictionary, "transactions.ui.filterSearchPlaceholder", {
@@ -130,11 +122,7 @@ export function DropdownFilter({
                       {option.name}
                     </Text>
                     {isSelected && (
-                      <MaterialCommunityIcons
-                        name="check"
-                        size={18}
-                        color={primaryActionColor}
-                      />
+                      <Check size={18} color={primaryActionColor} />
                     )}
                   </Pressable>
                 );

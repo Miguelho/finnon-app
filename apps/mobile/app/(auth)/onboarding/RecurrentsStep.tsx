@@ -1,4 +1,4 @@
-import type { ComponentProps, Dispatch, SetStateAction } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import {
   View,
   StyleSheet,
@@ -9,8 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { ArrowDownRight, ArrowUpRight } from "phosphor-react-native";
+import { ArrowDownLeft, ArrowUpRight, Briefcase, House, Tv, Music, Dumbbell, Smartphone, Banknote, type LucideIcon } from "lucide-react-native";
 import { Button } from "../../../src/components/Button";
 import { DatePickerField } from "../../../src/components/DatePickerField";
 import { Input } from "../../../src/components/Input";
@@ -37,13 +36,13 @@ interface RecurrentsStepProps {
   onBack: () => void;
 }
 
-const recurrentIcons: Record<string, ComponentProps<typeof MaterialCommunityIcons>["name"]> = {
-  sug_salary: "briefcase-outline",
-  sug_rent: "home-outline",
-  sug_netflix: "television-classic",
-  sug_spotify: "music-note-outline",
-  sug_gym: "dumbbell",
-  sug_phone: "cellphone",
+const recurrentIcons: Record<string, LucideIcon> = {
+  sug_salary: Briefcase,
+  sug_rent: House,
+  sug_netflix: Tv,
+  sug_spotify: Music,
+  sug_gym: Dumbbell,
+  sug_phone: Smartphone,
 };
 
 export function RecurrentsStep({
@@ -205,7 +204,7 @@ export function RecurrentsStep({
                 item.type === "income"
                   ? t(dictionary, "common.incomeLabel")
                   : t(dictionary, "common.expenseLabel");
-              const iconName = recurrentIcons[item.id] ?? "cash-multiple";
+              const IconComponent = recurrentIcons[item.id] ?? Banknote;
               return (
                 <TouchableOpacity
                   key={item.id}
@@ -228,8 +227,7 @@ export function RecurrentsStep({
                       { backgroundColor: userTokens.background },
                     ]}
                   >
-                    <MaterialCommunityIcons
-                      name={iconName}
+                    <IconComponent
                       size={18}
                       color={userTokens.textSecondary}
                     />
@@ -422,9 +420,8 @@ export function RecurrentsStep({
                       onChangeState((prev) => ({ ...prev, customType: "expense" }))
                     }
                   >
-                    <ArrowDownRight
+                    <ArrowDownLeft
                       size={18}
-                      weight="regular"
                       color={
                         customType === "expense"
                           ? userTokens.textPrimary
@@ -452,7 +449,6 @@ export function RecurrentsStep({
                   >
                     <ArrowUpRight
                       size={18}
-                      weight="regular"
                       color={
                         customType === "income"
                           ? userTokens.textPrimary

@@ -38,7 +38,7 @@ function loadEnvFile(filePath: string) {
   }
 }
 
-loadEnvFile(resolve(__dirname, "..", ".env.local"));
+loadEnvFile(resolve(__dirname, "..", ".env.production"));
 
 // ---------------------------------------------------------------------------
 // Config

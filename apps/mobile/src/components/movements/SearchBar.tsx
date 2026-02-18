@@ -6,7 +6,7 @@ import {
   StyleSheet,
   Pressable,
 } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Search, XCircle } from "lucide-react-native";
 import { withAlpha } from "@poleursus/shared";
 import { movementsDesignTokens } from "../../types/movements";
 import { useUserTheme } from "../../contexts/UserThemeContext";
@@ -35,11 +35,7 @@ export function SearchBar({ value, onChange, onClear }: SearchBarProps) {
           },
         ]}
       >
-        <MaterialCommunityIcons
-          name="magnify"
-          size={18}
-          color={userTokens.textSecondary}
-        />
+        <Search size={18} color={userTokens.textSecondary} />
         <TextInput
           style={[styles.input, { color: userTokens.textPrimary }]}
           placeholder={t(dictionary, "transactions.ui.searchPlaceholder")}
@@ -66,11 +62,7 @@ export function SearchBar({ value, onChange, onClear }: SearchBarProps) {
         )}
         {value.trim().length > 0 && (
           <Pressable onPress={onClear} hitSlop={8}>
-            <MaterialCommunityIcons
-              name="close-circle"
-              size={18}
-              color={userTokens.textSecondary}
-            />
+            <XCircle size={18} color={userTokens.textSecondary} />
           </Pressable>
         )}
       </View>

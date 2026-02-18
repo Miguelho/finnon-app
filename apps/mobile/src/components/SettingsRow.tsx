@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import type { LucideIcon } from "lucide-react-native";
 import { themeTokens } from "@poleursus/shared";
 import { useUserTheme } from "../contexts/UserThemeContext";
 
@@ -9,7 +9,7 @@ interface SettingsRowProps {
   title: string;
   description: string;
   onPress: () => void;
-  iconName?: keyof typeof MaterialCommunityIcons.glyphMap;
+  icon?: LucideIcon;
   isActive?: boolean;
 }
 
@@ -17,7 +17,7 @@ export function SettingsRow({
   title,
   description,
   onPress,
-  iconName,
+  icon: Icon,
   isActive = false,
 }: SettingsRowProps) {
   const { tokens: userTokens } = useUserTheme();
@@ -34,7 +34,7 @@ export function SettingsRow({
       onPress={onPress}
       activeOpacity={0.7}
     >
-      {iconName ? (
+      {Icon ? (
         <View
           style={[
             styles.iconWrapper,
@@ -43,8 +43,7 @@ export function SettingsRow({
             },
           ]}
         >
-          <MaterialCommunityIcons
-            name={iconName}
+          <Icon
             size={18}
             color={isActive ? userTokens.textPrimary : userTokens.textSecondary}
           />

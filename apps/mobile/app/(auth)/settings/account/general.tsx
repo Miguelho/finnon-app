@@ -232,7 +232,7 @@ export default function AccountGeneralSettingsScreen() {
             {
               backgroundColor: userThemeTokens.surface,
               borderColor: userThemeTokens.border,
-              overflow: Platform.OS === "android" ? "visible" : "hidden",
+              overflow: "hidden",
             },
           ]}
         >
@@ -286,7 +286,6 @@ export default function AccountGeneralSettingsScreen() {
             style={[
               styles.formRow,
               styles.formRowLast,
-              Platform.OS === "android" && styles.formRowPicker,
             ]}
           >
             <Text style={[styles.formLabel, { color: userThemeTokens.textSecondary }]}>
@@ -299,7 +298,7 @@ export default function AccountGeneralSettingsScreen() {
                   {
                     borderColor: userThemeTokens.border,
                     backgroundColor: userThemeTokens.surfaceAlt,
-                    overflow: Platform.OS === "ios" ? "hidden" : "visible",
+                    overflow: "hidden",
                   },
                   (!canEdit || isSaving) && styles.inputDisabled,
                 ]}
@@ -308,6 +307,7 @@ export default function AccountGeneralSettingsScreen() {
                   selectedValue={currency}
                   onValueChange={(value) => setCurrency(String(value))}
                   enabled={canEdit && !isSaving}
+                  mode={Platform.OS === "android" ? "dialog" : undefined}
                   style={[styles.picker, { color: userThemeTokens.textPrimary }]}
                   dropdownIconColor={userThemeTokens.textSecondary}
                 >
@@ -442,10 +442,6 @@ const styles = StyleSheet.create({
   },
   formRowLast: {
     borderBottomWidth: 0,
-  },
-  formRowPicker: {
-    zIndex: 20,
-    elevation: 20,
   },
   formLabel: {
     width: 118,

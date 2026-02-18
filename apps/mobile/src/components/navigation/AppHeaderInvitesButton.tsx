@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Mail } from "lucide-react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { isExpired, themeTokens } from "@poleursus/shared";
@@ -80,8 +80,7 @@ export function AppHeaderInvitesButton() {
       hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
       style={styles.button}
     >
-      <MaterialCommunityIcons
-        name="email-outline"
+      <Mail
         size={21}
         color={colors.text.primary}
       />

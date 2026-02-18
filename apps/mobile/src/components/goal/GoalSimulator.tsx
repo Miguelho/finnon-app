@@ -7,7 +7,7 @@ import {
   Switch,
   Animated,
 } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { ChevronDown } from "lucide-react-native";
 import {
   computeSimulatorImpact,
   filterSimulatorCandidates,
@@ -191,8 +191,7 @@ export function GoalSimulator({
         <Text style={[styles.linkText, { color: userTokens.textSecondary }]}>
           {copy.linkText}
         </Text>
-        <MaterialCommunityIcons
-          name="chevron-down"
+        <ChevronDown
           size={16}
           color={userTokens.textSecondary}
         />
@@ -229,8 +228,7 @@ export function GoalSimulator({
               { transform: [{ rotate: isExpanded ? "180deg" : "0deg" }] },
             ]}
           >
-            <MaterialCommunityIcons
-              name="chevron-down"
+            <ChevronDown
               size={16}
               color={userTokens.textSecondary}
             />
@@ -287,8 +285,7 @@ export function GoalSimulator({
             { transform: [{ rotate: isExpanded ? "180deg" : "0deg" }] },
           ]}
         >
-          <MaterialCommunityIcons
-            name="chevron-down"
+          <ChevronDown
             size={16}
             color={userTokens.textSecondary}
           />

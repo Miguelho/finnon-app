@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { House, ClipboardList, Flag, Bookmark, Plus, type LucideIcon } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { themeTokens, type AddActionKey } from "@poleursus/shared";
@@ -9,7 +9,6 @@ import { AddActionSheet } from "../AddActionSheet";
 import { useCopy, t } from "../../lib/i18n";
 
 const tokens = themeTokens.light;
-const colors = tokens.colors;
 
 const tabLabelKeys = {
   home: "navigation.home",
@@ -18,12 +17,12 @@ const tabLabelKeys = {
   account: "navigation.account",
 } as const;
 
-const tabIconMap = {
-  home: { active: "home", inactive: "home-outline" },
-  transactions: { active: "clipboard-list", inactive: "clipboard-list-outline" },
-  goal: { active: "flag", inactive: "flag-outline" },
-  account: { active: "bookmark", inactive: "bookmark-outline" },
-} as const;
+const tabIconMap: Record<keyof typeof tabLabelKeys, LucideIcon> = {
+  home: House,
+  transactions: ClipboardList,
+  goal: Flag,
+  account: Bookmark,
+};
 
 export function TabBarWithAdd({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -56,9 +55,7 @@ export function TabBarWithAdd({ state, navigation }: BottomTabBarProps) {
   const renderTab = (route: { key: string; name: keyof typeof tabLabelKeys }, index: number) => {
     const isFocused = state.index === index;
     const label = t(dictionary, tabLabelKeys[route.name]);
-    const iconName = isFocused
-      ? tabIconMap[route.name].active
-      : tabIconMap[route.name].inactive;
+    const Icon = tabIconMap[route.name];
     const shouldResetToRoot = route.name === "transactions" || route.name === "account";
 
     const onPress = () => {
@@ -87,10 +84,11 @@ export function TabBarWithAdd({ state, navigation }: BottomTabBarProps) {
         accessibilityRole="button"
         accessibilityLabel={label}
       >
-        <MaterialCommunityIcons
-          name={iconName}
+        <Icon
           size={tokens.typography.size.lg}
           color={isFocused ? primaryActionColor : userTokens.textSecondary}
+          fill={isFocused ? primaryActionColor : "none"}
+          strokeWidth={isFocused ? 0 : 1.5}
         />
         <Text
           style={[
@@ -128,7 +126,7 @@ export function TabBarWithAdd({ state, navigation }: BottomTabBarProps) {
             accessibilityRole="button"
             accessibilityLabel={t(dictionary, "home.addCta")}
           >
-            <MaterialCommunityIcons name="plus" size={22} color={primaryActionTextColor} />
+            <Plus size={22} color={primaryActionTextColor} />
           </TouchableOpacity>
         )}
       />

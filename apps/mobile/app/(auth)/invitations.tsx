@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ellipsis } from "lucide-react-native";
 import { useActionSheet } from "@expo/react-native-action-sheet";
 import { Stack, useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
@@ -385,8 +385,7 @@ export default function InvitationsScreen() {
                             accessibilityLabel={t(dictionary, "common.moreActions")}
                             style={styles.inviteMenuButton}
                           >
-                            <MaterialCommunityIcons
-                              name="dots-horizontal"
+                            <Ellipsis
                               size={18}
                               color={colors.text.muted}
                             />

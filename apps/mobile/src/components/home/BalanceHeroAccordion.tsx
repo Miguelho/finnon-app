@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { CaretDown } from "phosphor-react-native";
+import { ChevronDown } from "lucide-react-native";
 import {
   createTypographyStyles,
   formatMoneyWithSymbol,
@@ -156,7 +156,7 @@ export function BalanceHeroAccordion({
                   {isOpen ? copy.balanceBreakdownCloseCta : copy.balanceBreakdownCta}
                 </Text>
                 <Animated.View style={[styles.chevron, rotateStyle]}>
-                  <CaretDown size={18} color={colors.text.secondary} />
+                  <ChevronDown size={18} color={colors.text.secondary} />
                 </Animated.View>
               </View>
               <Text style={styles.balanceValue}>

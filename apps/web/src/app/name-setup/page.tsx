@@ -61,7 +61,7 @@ export default function NameSetupPage() {
       const resolvedName = profileName || metadataName;
 
       if (resolvedName) {
-        router.replace("/");
+        router.replace("/home");
         router.refresh();
         setIsLoading(false);
         return;
@@ -99,7 +99,7 @@ export default function NameSetupPage() {
     }
 
     setIsSaving(false);
-    router.replace("/");
+    router.replace("/home");
     router.refresh();
   };
 

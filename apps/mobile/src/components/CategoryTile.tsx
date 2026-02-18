@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MoreHorizontal } from "lucide-react-native";
 import { useActionSheet } from "@expo/react-native-action-sheet";
 import { themeTokens, type CategoryIconKey } from "@poleursus/shared";
 import { useCopy, t } from "../lib/i18n";
@@ -135,11 +135,7 @@ export function CategoryTile({
           style={stylesText.actionsButton}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <MaterialCommunityIcons
-            name="dots-horizontal"
-            size={18}
-            color={colors.text.muted}
-          />
+          <MoreHorizontal size={18} color={colors.text.muted} />
         </Pressable>
       )}
     </Pressable>

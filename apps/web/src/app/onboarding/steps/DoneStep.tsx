@@ -89,7 +89,7 @@ export function DoneStep({
         window.localStorage.setItem("finnon:activeAccountId", result.accountId);
       }
       sessionStorage.removeItem(ONBOARDING_STORAGE_KEY);
-      router.replace("/");
+      router.replace("/home");
     } catch (err) {
       console.error("Error persisting onboarding:", err);
       setError(tGlobal("errors.internalServer"));

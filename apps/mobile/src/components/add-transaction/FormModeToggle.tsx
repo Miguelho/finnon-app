@@ -1,5 +1,5 @@
 import { TouchableOpacity, StyleSheet } from "react-native";
-import { SquaresFour, List } from "phosphor-react-native";
+import { LayoutGrid, List } from "lucide-react-native";
 import { themeTokens, type FormMode } from "@poleursus/shared";
 import { useCopy, t } from "../../lib/i18n";
 import { useUserTheme } from "../../contexts/UserThemeContext";
@@ -19,7 +19,7 @@ export function FormModeToggle({ mode, onChange }: FormModeToggleProps) {
     onChange(mode === "panels" ? "list" : "panels");
   };
 
-  const Icon = mode === "panels" ? SquaresFour : List;
+  const Icon = mode === "panels" ? LayoutGrid : List;
   const label = mode === "panels"
     ? (t(dictionary, "addTransaction.modePanels" as any) as string)
     : (t(dictionary, "addTransaction.modeList" as any) as string);

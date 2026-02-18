@@ -9,7 +9,7 @@ export async function BottomNavWrapper() {
   const dictionary = getDictionary(locale);
 
   const navItems = [
-    { href: "/", label: t(dictionary, "navigation.home"), iconKey: "home" as const },
+    { href: "/home", label: t(dictionary, "navigation.home"), iconKey: "home" as const },
     {
       href: "/transactions",
       label: t(dictionary, "transactions.pageTitle"),

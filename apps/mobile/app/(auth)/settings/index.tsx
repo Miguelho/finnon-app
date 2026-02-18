@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, View, Text, ScrollView, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+import { UserCircle, Globe, Settings, Users, Tags, type LucideIcon } from "lucide-react-native";
 import { buildSettingsMenuVM, themeTokens } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
 import { SettingsRow } from "../../../src/components/SettingsRow";
@@ -39,18 +40,18 @@ export default function SettingsMenuScreen() {
     router.push(route as any);
   };
 
-  const resolveIcon = (itemId: string) => {
+  const resolveIcon = (itemId: string): LucideIcon | undefined => {
     switch (itemId) {
       case "user-details":
-        return "account-circle-outline" as const;
+        return UserCircle;
       case "language":
-        return "translate" as const;
+        return Globe;
       case "general":
-        return "cog-outline" as const;
+        return Settings;
       case "members":
-        return "account-group-outline" as const;
+        return Users;
       case "categories":
-        return "tag-outline" as const;
+        return Tags;
       default:
         return undefined;
     }
@@ -81,7 +82,7 @@ export default function SettingsMenuScreen() {
                 title={item.title}
                 description={item.description}
                 onPress={() => handleNavigate(item.route)}
-                iconName={resolveIcon(item.id)}
+                icon={resolveIcon(item.id)}
               />
             ))}
           </View>

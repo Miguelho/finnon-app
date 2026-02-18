@@ -27,7 +27,7 @@ export function AccountSelection({
 
   const handleSelected = () => {
     setIsRedirecting(true);
-    router.replace("/");
+    router.replace("/home");
   };
 
   return (

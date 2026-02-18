@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { themeTokens } from "@poleursus/shared";
+import { themeTokens, withAlpha } from "@poleursus/shared";
 import { formatCurrencyParts, toMinor } from "./utils";
 import { useCopy, t } from "../../lib/i18n";
 import { useUserTheme } from "../../contexts/UserThemeContext";
@@ -33,27 +33,32 @@ export function ObjectiveCard({
   currencySymbol,
 }: ObjectiveCardProps) {
   const { dictionary } = useCopy();
-  const { tokens: userTokens, primaryActionColor } = useUserTheme();
+  const { tokens: userTokens, primaryActionColor, resolvedMode } = useUserTheme();
+  const modeColors = themeTokens[resolvedMode].colors;
+
   if (!objective) return null;
 
   const statusConfig: Record<
     ObjectiveStatus,
-    { icon: string; bgColor: string; progressColor: string }
+    { icon: string; bgColor: string; progressColor: string; iconColor: string }
   > = {
     "on-track": {
       icon: "✓",
-      bgColor: "#F0FDF4",
-      progressColor: colors.state.positive,
+      bgColor: withAlpha(modeColors.state.positive, resolvedMode === "dark" ? 0.32 : 0.16),
+      progressColor: modeColors.state.positive,
+      iconColor: modeColors.text.primary,
     },
     "at-risk": {
       icon: "⚠",
-      bgColor: "#FFFBEB",
-      progressColor: colors.state.warning,
+      bgColor: withAlpha(modeColors.state.warning, resolvedMode === "dark" ? 0.32 : 0.2),
+      progressColor: modeColors.state.warning,
+      iconColor: modeColors.text.primary,
     },
     "off-track": {
       icon: "✕",
-      bgColor: "#FEF2F2",
-      progressColor: colors.state.negative,
+      bgColor: withAlpha(modeColors.state.negative, resolvedMode === "dark" ? 0.32 : 0.16),
+      progressColor: modeColors.state.negative,
+      iconColor: modeColors.text.primary,
     },
   };
 
@@ -88,7 +93,7 @@ export function ObjectiveCard({
       <View style={styles.statusRow}>
         <View style={[styles.statusIcon, { backgroundColor: config.bgColor }]}
         >
-          <Text style={[styles.statusIconText, { color: userTokens.textPrimary }]}>
+          <Text style={[styles.statusIconText, { color: config.iconColor }]}>
             {config.icon}
           </Text>
         </View>

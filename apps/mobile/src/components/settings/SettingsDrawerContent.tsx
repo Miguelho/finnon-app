@@ -13,7 +13,7 @@ import {
   DrawerContentComponentProps,
   DrawerContentScrollView,
 } from "@react-navigation/drawer";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { X, UserCircle, Globe, Settings, Users, Tags, ChevronRight, type LucideIcon } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usePathname, useRouter } from "expo-router";
 import {
@@ -138,20 +138,20 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
     router.push(route as any);
   };
 
-  const resolveIcon = (itemId: string) => {
+  const resolveIcon = (itemId: string): LucideIcon => {
     switch (itemId) {
       case "user-details":
-        return "account-circle-outline" as const;
+        return UserCircle;
       case "language":
-        return "translate" as const;
+        return Globe;
       case "general":
-        return "cog-outline" as const;
+        return Settings;
       case "members":
-        return "account-group-outline" as const;
+        return Users;
       case "categories":
-        return "tag-outline" as const;
+        return Tags;
       default:
-        return "chevron-right" as const;
+        return ChevronRight;
     }
   };
 
@@ -226,8 +226,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
           hitSlop={8}
           style={styles.closeButton}
         >
-          <MaterialCommunityIcons
-            name="close"
+          <X
             size={20}
             color={userTokens.textSecondary}
           />
@@ -246,7 +245,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
                 title={item.title}
                 description={item.description}
                 onPress={() => handleNavigate(item.route)}
-                iconName={resolveIcon(item.id)}
+                icon={resolveIcon(item.id)}
                 isActive={
                   pathname === item.route ||
                   pathname.startsWith(`${item.route}/`)

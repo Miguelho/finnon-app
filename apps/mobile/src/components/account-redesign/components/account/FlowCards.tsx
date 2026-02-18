@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ArrowUp, ArrowDown } from "lucide-react-native";
 import { colors, typography, spacing, radii } from '../../theme/tokens';
 import { formatCurrency, formatDelta } from '../../utils/currency';
 import type { FlowSummary } from '../../types/account';
@@ -41,7 +41,7 @@ export function FlowCards({
       >
         <View style={styles.cardHeader}>
           <View style={[styles.arrow, styles.arrowUp]}>
-            <Ionicons name="arrow-up" size={10} color="#FFFFFF" />
+            <ArrowUp size={10} color="#FFFFFF" />
           </View>
           <Text style={[styles.label, styles.incomeText]}>
             {t(dictionary, "account.redesign.incomeLabel").toUpperCase()}
@@ -71,7 +71,7 @@ export function FlowCards({
       >
         <View style={styles.cardHeader}>
           <View style={[styles.arrow, styles.arrowDown]}>
-            <Ionicons name="arrow-down" size={10} color="#FFFFFF" />
+            <ArrowDown size={10} color="#FFFFFF" />
           </View>
           <Text style={[styles.label, styles.expenseText]}>
             {t(dictionary, "account.redesign.expenseLabel").toUpperCase()}

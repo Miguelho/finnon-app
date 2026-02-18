@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Pressable } from "react-native";
-import { CaretDown, CaretLeft, CaretRight } from "phosphor-react-native";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react-native";
 import {
   createTypographyStyles,
   themeTokens,
@@ -140,14 +140,14 @@ export function CalendarCard({
                 style={styles.navButton}
                 accessibilityLabel="Mes anterior"
               >
-                <CaretLeft size={18} color={colors.text.secondary} />
+                <ChevronLeft size={18} color={colors.text.secondary} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleNextMonth}
                 style={styles.navButton}
                 accessibilityLabel="Mes siguiente"
               >
-                <CaretRight size={18} color={colors.text.secondary} />
+                <ChevronRight size={18} color={colors.text.secondary} />
               </TouchableOpacity>
             </>
           )}
@@ -160,14 +160,14 @@ export function CalendarCard({
                 style={styles.navButton}
                 accessibilityLabel="Semana anterior"
               >
-                <CaretLeft size={18} color={colors.text.secondary} />
+                <ChevronLeft size={18} color={colors.text.secondary} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={onNextWeek}
                 style={styles.navButton}
                 accessibilityLabel="Semana siguiente"
               >
-                <CaretRight size={18} color={colors.text.secondary} />
+                <ChevronRight size={18} color={colors.text.secondary} />
               </TouchableOpacity>
             </>
           )}
@@ -182,7 +182,7 @@ export function CalendarCard({
             <Text style={[styles.toggleText, { color: primaryActionColor }]}>
               {isMonthOpen ? viewWeekCta : viewMonthCta}
             </Text>
-            <CaretDown
+            <ChevronDown
               size={16}
               color={primaryActionColor}
               style={{

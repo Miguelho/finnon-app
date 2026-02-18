@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ChevronRight } from "lucide-react-native";
 import { CategoryIcon } from '../../../CategoryIcon';
 import { colors, typography, spacing, radii } from '../../theme/tokens';
 import { formatCurrency } from '../../utils/currency';
@@ -138,8 +138,7 @@ export function CategoryList({
               </View>
 
               {/* Chevron */}
-              <Ionicons
-                name="chevron-forward"
+              <ChevronRight
                 size={14}
                 color={userTokens.textSecondary}
                 style={styles.chevron}

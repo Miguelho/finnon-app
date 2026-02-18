@@ -8,7 +8,7 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
-import { Calendar } from "phosphor-react-native";
+import { Calendar } from "lucide-react-native";
 import { themeTokens, getToday, getYesterday, getTomorrow, formatDateForDisplay } from "@poleursus/shared";
 import { useCopy, t } from "../../lib/i18n";
 import { MonthMap } from "../home/MonthMap";

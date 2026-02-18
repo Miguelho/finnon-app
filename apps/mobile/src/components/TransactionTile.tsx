@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MoreHorizontal } from "lucide-react-native";
 import { useActionSheet } from "@expo/react-native-action-sheet";
 import {
   CURRENCIES,
@@ -240,11 +240,7 @@ export function TransactionTile({
               accessibilityLabel={t(dictionary, "common.moreActions")}
               style={stylesText.actionsButton}
             >
-              <MaterialCommunityIcons
-                name="dots-horizontal"
-                size={18}
-                color={colors.text.muted}
-              />
+              <MoreHorizontal size={18} color={colors.text.muted} />
             </Pressable>
           )}
         </View>

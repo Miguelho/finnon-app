@@ -13,7 +13,7 @@ import {
   UIManager,
   View,
 } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { X } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { PERIODS, withAlpha, type Period } from "@poleursus/shared";
 import { movementsDesignTokens } from "../types/movements";
@@ -306,11 +306,7 @@ export default function MovementsScreen() {
               🔍 {t(dictionary, "transactions.ui.searchResultsInPeriod")}
             </Text>
             <Pressable onPress={() => setSearchQuery("")}>
-              <MaterialCommunityIcons
-                name="close"
-                size={16}
-                color={primaryActionColor}
-              />
+              <X size={16} color={primaryActionColor} />
             </Pressable>
           </View>
         )}
@@ -363,11 +359,7 @@ export default function MovementsScreen() {
                 <Text style={[styles.activeTagText, { color: primaryActionColor }]}>
                   {tag.label}
                 </Text>
-                <MaterialCommunityIcons
-                  name="close"
-                  size={12}
-                  color={primaryActionColor}
-                />
+                <X size={12} color={primaryActionColor} />
               </Pressable>
             ))}
             <Pressable style={styles.clearAll} onPress={clearFilters}>

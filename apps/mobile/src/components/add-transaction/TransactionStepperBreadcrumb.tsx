@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Check } from "phosphor-react-native";
+import { Check } from "lucide-react-native";
 import { themeTokens, type StepStatus } from "@poleursus/shared";
 import { useUserTheme } from "../../contexts/UserThemeContext";
 
@@ -62,7 +62,7 @@ export function TransactionStepperBreadcrumb({
             accessibilityLabel={`${step.label} - ${step.status}`}
           >
             {step.status === "completed" ? (
-              <Check size={14} color={primaryActionTextColor} weight="bold" />
+              <Check size={14} color={primaryActionTextColor} strokeWidth={3} />
             ) : (
               <Text
                 style={[

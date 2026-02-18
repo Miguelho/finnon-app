@@ -9,7 +9,7 @@ import {
   Modal,
   TouchableOpacity,
 } from "react-native";
-import { ArrowDownRight, ArrowUpRight, Info } from "phosphor-react-native";
+import { ArrowDownLeft, ArrowUpRight, Info } from "lucide-react-native";
 import {
   themeTokens,
   type TransactionDraft,
@@ -232,9 +232,8 @@ export function Step1Details({
             onPress={() => handleTypeChange("expense")}
             disabled={draft.isObligation}
           >
-            <ArrowDownRight
+            <ArrowDownLeft
               size={18}
-              weight="regular"
               color={
                 draft.type === "expense"
                   ? userTokens.textPrimary
@@ -263,7 +262,6 @@ export function Step1Details({
           >
             <ArrowUpRight
               size={18}
-              weight="regular"
               color={
                 draft.type === "income"
                   ? userTokens.textPrimary

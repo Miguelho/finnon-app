@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { useRouter, Redirect } from "expo-router";
-import { Plus, PencilSimple, X } from "phosphor-react-native";
+import { Plus, Pencil, X } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { useNetworkNotice } from "../../../../src/contexts/NetworkNoticeContext";
@@ -367,7 +367,7 @@ export default function AccountCategoriesSettingsScreen() {
                         accessibilityRole="button"
                         accessibilityLabel={t(dictionary, "common.edit")}
                       >
-                        <PencilSimple size={14} color={userThemeTokens.textPrimary} />
+                        <Pencil size={14} color={userThemeTokens.textPrimary} />
                       </Pressable>
                       <Pressable
                         onPress={() => confirmDelete(category)}

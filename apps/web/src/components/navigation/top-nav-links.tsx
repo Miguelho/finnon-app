@@ -37,9 +37,8 @@ export function TopNavLinks({ items, className }: TopNavLinksProps) {
 
   const renderNavLink = (item: NavItem) => {
     const isActive =
-      item.href === "/"
-        ? normalizedPath === "/"
-        : normalizedPath.startsWith(item.href);
+      normalizedPath === item.href ||
+      normalizedPath.startsWith(`${item.href}/`);
 
     return (
       <Link

@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Search, Settings } from "lucide-react-native";
 import { typography, spacing, radii } from '../../theme/tokens';
 import type { Account } from '../../types/account';
 import { useUserTheme } from '../../../../contexts/UserThemeContext';
@@ -55,7 +55,7 @@ export function AccountHeader({
           onPress={onSearchPress}
           hitSlop={8}
         >
-          <Ionicons name="search-outline" size={16} color={userTokens.textSecondary} />
+          <Search size={16} color={userTokens.textSecondary} />
         </Pressable>
         <Pressable
           style={({ pressed }) => [
@@ -70,7 +70,7 @@ export function AccountHeader({
           onPress={onSettingsPress}
           hitSlop={8}
         >
-          <Ionicons name="settings-outline" size={16} color={userTokens.textSecondary} />
+          <Settings size={16} color={userTokens.textSecondary} />
         </Pressable>
       </View>
     </View>

@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Mail } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { themeTokens } from "@poleursus/shared";
 import { useAuth } from "../../contexts/AuthContext";
@@ -173,8 +173,7 @@ export function AppHeaderActivityButton() {
         hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
         style={styles.button}
       >
-        <MaterialCommunityIcons
-          name="email-outline"
+        <Mail
           size={21}
           color={userTokens.textPrimary}
         />

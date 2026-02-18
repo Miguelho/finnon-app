@@ -10,7 +10,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Mail } from "lucide-react-native";
 import { useIsFocused } from "@react-navigation/native";
 import {
   DEFAULT_USER_THEME,
@@ -721,8 +721,7 @@ export default function UserProfileScreen() {
           />
         ) : pendingInvites.length === 0 ? (
           <View style={styles.emptyState}>
-            <MaterialCommunityIcons
-              name="email-outline"
+            <Mail
               size={22}
               color={activeTheme.textTertiary}
             />

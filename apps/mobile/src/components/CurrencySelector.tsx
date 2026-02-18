@@ -8,7 +8,7 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from "react-native";
-import { CaretDown, Check } from "phosphor-react-native";
+import { ChevronDown, Check } from "lucide-react-native";
 import { themeTokens, CURRENCIES } from "@poleursus/shared";
 
 const tokens = themeTokens.light;
@@ -50,9 +50,9 @@ export function CurrencySelector({
         <Text style={[styles.triggerText, disabled && styles.triggerTextDisabled]}>
           {value}
         </Text>
-        <CaretDown
+        <ChevronDown
           size={14}
-          weight="bold"
+          strokeWidth={3}
           color={disabled ? colors.text.muted : colors.text.primary}
         />
       </Pressable>
@@ -109,7 +109,7 @@ export function CurrencySelector({
                         </Text>
                       </View>
                       {isSelected && (
-                        <Check size={18} weight="bold" color={colors.action.primary} />
+                        <Check size={18} strokeWidth={3} color={colors.action.primary} />
                       )}
                     </Pressable>
                   );

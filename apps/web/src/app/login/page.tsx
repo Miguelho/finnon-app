@@ -165,7 +165,7 @@ export default function LoginPage() {
           throw new Error(data.error || "Demo login failed");
         }
 
-        router.replace("/");
+        router.replace("/home");
         router.refresh();
         return;
       }
@@ -179,7 +179,7 @@ export default function LoginPage() {
       if (verifyError) throw verifyError;
       if (!data.session) throw new Error("no_session");
 
-      router.replace("/");
+      router.replace("/home");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("invalidOtp"));

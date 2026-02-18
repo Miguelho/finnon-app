@@ -6,7 +6,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { CaretRight, CaretDown } from "phosphor-react-native";
+import { ChevronRight, ChevronDown } from "lucide-react-native";
 import { themeTokens, type TopCategory, type CategoryIconKey } from "@poleursus/shared";
 import { CategoryIcon } from "./CategoryIcon";
 import { useUserTheme } from "../contexts/UserThemeContext";
@@ -42,7 +42,7 @@ export function TopCategorySelector({
   }
 
   const toggleLabel = isExpanded ? (hideOthersLabel ?? seeOthersLabel) : seeOthersLabel;
-  const IconComponent = isExpanded ? CaretDown : CaretRight;
+  const IconComponent = isExpanded ? ChevronDown : ChevronRight;
 
   return (
     <View style={[styles.container, style]}>
@@ -98,7 +98,7 @@ export function TopCategorySelector({
         <Text style={[styles.seeOthersText, { color: userTokens.textPrimary }]}>
           {toggleLabel}
         </Text>
-        <IconComponent size={16} weight="bold" color={userTokens.textPrimary} />
+        <IconComponent size={16} strokeWidth={3} color={userTokens.textPrimary} />
       </Pressable>
     </View>
   );

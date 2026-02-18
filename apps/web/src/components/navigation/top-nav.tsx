@@ -101,7 +101,7 @@ export async function TopNav({ containerClassName }: TopNavProps) {
     label: string;
     iconKey: "home" | "transactions" | "goal" | "account";
   }> = [
-    { href: "/", label: t(dictionary, "navigation.home"), iconKey: "home" },
+    { href: "/home", label: t(dictionary, "navigation.home"), iconKey: "home" },
     {
       href: "/transactions",
       label: t(dictionary, "transactions.pageTitle"),
@@ -144,7 +144,7 @@ export async function TopNav({ containerClassName }: TopNavProps) {
         {/* Logo */}
         <div className="flex shrink-0 items-center">
           <Link
-            href="/"
+            href="/home"
             aria-label={homeAriaLabel}
             className="flex items-center gap-2 rounded-md px-2 py-1"
             style={{ color: shellTextColor }}

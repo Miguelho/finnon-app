@@ -71,9 +71,8 @@ export function BottomNav({
       <div className="flex items-stretch justify-around">
         {leftItems.map((item) => {
           const isActive =
-            item.href === "/"
-              ? normalizedPath === "/"
-              : normalizedPath.startsWith(item.href);
+            normalizedPath === item.href ||
+            normalizedPath.startsWith(`${item.href}/`);
           const Icon = navIconMap[item.iconKey];
 
           return (
@@ -112,9 +111,8 @@ export function BottomNav({
 
         {rightItems.map((item) => {
           const isActive =
-            item.href === "/"
-              ? normalizedPath === "/"
-              : normalizedPath.startsWith(item.href);
+            normalizedPath === item.href ||
+            normalizedPath.startsWith(`${item.href}/`);
           const Icon = navIconMap[item.iconKey];
 
           return (

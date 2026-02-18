@@ -84,7 +84,7 @@ export default function LoginOTPPage() {
 
       if (data.session) {
         // Redirigir al dashboard
-        router.push("/");
+        router.push("/home");
         router.refresh();
       }
     } catch (err) {

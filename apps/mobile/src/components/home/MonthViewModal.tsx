@@ -7,7 +7,7 @@ import {
   Modal,
   SafeAreaView,
 } from "react-native";
-import { CaretLeft, CaretRight, X } from "phosphor-react-native";
+import { ChevronLeft, ChevronRight, X } from "lucide-react-native";
 import { MonthMap } from "./MonthMap";
 import {
   createTypographyStyles,
@@ -176,11 +176,11 @@ export function MonthViewModal({
           </TouchableOpacity>
           <View style={styles.navRow}>
             <TouchableOpacity onPress={handlePrevMonth} style={styles.navButton}>
-              <CaretLeft size={24} color={colors.text.secondary} />
+              <ChevronLeft size={24} color={colors.text.secondary} />
             </TouchableOpacity>
             <Text style={styles.monthLabel}>{viewMonthLabel}</Text>
             <TouchableOpacity onPress={handleNextMonth} style={styles.navButton}>
-              <CaretRight size={24} color={colors.text.secondary} />
+              <ChevronRight size={24} color={colors.text.secondary} />
             </TouchableOpacity>
           </View>
         </View>

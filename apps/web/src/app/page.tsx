@@ -1,302 +1,157 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { DM_Sans, JetBrains_Mono } from "next/font/google";
-import { TopNav } from "@/components/navigation/top-nav";
-import { BottomNavWrapper } from "@/components/navigation/bottom-nav-wrapper";
-import { HomePageClient } from "@/components/home-redesign/HomePageClient";
-import {
-  CURRENCIES,
-  computeGoalProgress,
-  getDictionary,
-  getExpandedMonthRange,
-  getGoalTotalsFromTransactions,
-  t,
-  toMonthKey,
-} from "@poleursus/shared";
-import { formatCurrencyParts, toDateKey } from "@/components/home-redesign/utils";
-import { cn } from "@/lib/utils";
+import Link from "next/link";
+import type { Metadata } from "next";
+import { getLocale } from "next-intl/server";
 
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-dm-sans",
-});
+type SupportedLocale = "es" | "en";
 
-const jetbrains = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-jetbrains-mono",
-});
-
-export default async function DashboardPage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
+const copy: Record<
+  SupportedLocale,
+  {
+    title: string;
+    description: string;
+    eyebrow: string;
+    headline: string;
+    subheadline: string;
+    ctaPrimary: string;
+    ctaSecondary: string;
+    featuresTitle: string;
+    features: string[];
+    legal: string;
+    privacy: string;
+    deleteAccount: string;
   }
+> = {
+  es: {
+    title: "Finnon | Finanzas compartidas sin complicaciones",
+    description:
+      "Controla gastos, pagos recurrentes y objetivos en pareja desde una sola app.",
+    eyebrow: "Now in beta",
+    headline: "Finanzas compartidas sin hojas de cálculo",
+    subheadline:
+      "Organiza gastos en pareja, sigue pagos recurrentes y visualiza el mes completo con claridad.",
+    ctaPrimary: "Entrar",
+    ctaSecondary: "Ir a la app",
+    featuresTitle: "Todo lo que necesitas",
+    features: [
+      "Calendario semanal de gastos e ingresos",
+      "Cuenta compartida en tiempo real",
+      "Objetivos de ahorro y simulación",
+    ],
+    legal: "Enlaces legales",
+    privacy: "Privacidad",
+    deleteAccount: "Eliminar cuenta",
+  },
+  en: {
+    title: "Finnon | Shared finances without complexity",
+    description:
+      "Track expenses, recurring payments and goals together in one app.",
+    eyebrow: "Now in beta",
+    headline: "Shared finances without spreadsheets",
+    subheadline:
+      "Track shared spending, recurring payments, and monthly progress with a simple workflow.",
+    ctaPrimary: "Sign in",
+    ctaSecondary: "Open app",
+    featuresTitle: "Everything you need",
+    features: [
+      "Weekly expenses and income calendar",
+      "Real-time shared account",
+      "Savings goals and forecasting",
+    ],
+    legal: "Legal links",
+    privacy: "Privacy",
+    deleteAccount: "Delete account",
+  },
+};
 
-  const { data: accounts } = await supabase
-    .from("accounts")
-    .select("id, name, base_currency, account_members!inner(role, user_id)")
-    .eq("account_members.user_id", user.id);
+const resolveLocale = (locale: string): SupportedLocale =>
+  locale.toLowerCase().startsWith("en") ? "en" : "es";
 
-  if (!accounts || accounts.length === 0) {
-    redirect("/onboarding");
-  }
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = resolveLocale(await getLocale());
+  const current = copy[locale];
 
-  const cookieStore = await cookies();
-  const cookieAccountId = cookieStore.get("finnon:activeAccountId")?.value;
-  const locale = cookieStore.get("NEXT_LOCALE")?.value === "en" ? "en" : "es";
-  const dictionary = getDictionary(locale) as any;
-  const tx = (key: string, params?: Record<string, string | number>) =>
-    (t as any)(dictionary, key, params) as string;
+  return {
+    title: current.title,
+    description: current.description,
+    robots: {
+      index: true,
+      follow: true,
+    },
+    alternates: {
+      canonical: "https://finnon.app/",
+    },
+  };
+}
 
-  if (!cookieAccountId) {
-    redirect("/select-account");
-  }
-
-  const mainAccount = accounts.find((account) => account.id === cookieAccountId);
-
-  if (!mainAccount) {
-    redirect("/select-account");
-  }
-
-  const today = new Date();
-  const expandedRange = getExpandedMonthRange(today);
-  const startDate = expandedRange.start.toISOString().slice(0, 10);
-  const endDate = expandedRange.end.toISOString().slice(0, 10);
-  const maxUpcomingDays = 30;
-  const upcomingEnd = new Date(today);
-  upcomingEnd.setDate(upcomingEnd.getDate() + maxUpcomingDays);
-  const obligationsEnd =
-    upcomingEnd > expandedRange.end ? upcomingEnd : expandedRange.end;
-  const obligationsEndDate = obligationsEnd.toISOString().slice(0, 10);
-  const upcomingStartDate = today.toISOString().slice(0, 10);
-  const upcomingEndDate = upcomingEnd.toISOString().slice(0, 10);
-
-  const { data: monthlyTransactions } = await supabase
-    .from("transactions")
-    .select(
-      "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_at, category:categories(id, name, icon_id)"
-    )
-    .eq("account_id", mainAccount.id)
-    .gte("date", startDate)
-    .lte("date", endDate)
-    .order("date", { ascending: false })
-    .order("created_at", { ascending: false });
-
-  const { data: upcomingTransactions } = await supabase
-    .from("transactions")
-    .select(
-      "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_at, category:categories(id, name, icon_id)"
-    )
-    .eq("account_id", mainAccount.id)
-    .gte("date", upcomingStartDate)
-    .lte("date", upcomingEndDate)
-    .order("date", { ascending: true });
-
-  const normalizeCategory = <T extends { category?: unknown }>(row: T) => ({
-    ...row,
-    category: Array.isArray(row.category)
-      ? (row.category[0] ?? null)
-      : (row.category ?? null),
-  });
-
-  const normalizedMonthlyTransactions = (monthlyTransactions ?? []).map(
-    normalizeCategory
-  );
-  const normalizedUpcomingTransactions = (upcomingTransactions ?? []).map(
-    normalizeCategory
-  );
-
-  const { data: obligationsRange } = await supabase
-    .from("obligations")
-    .select(
-      "id, account_id, name, amount_minor, amount_base_minor, currency, due_date, status, paid_at"
-    )
-    .eq("account_id", mainAccount.id)
-    .gte("due_date", startDate)
-    .lte("due_date", obligationsEndDate)
-    .order("due_date", { ascending: true });
-
-  const { data: obligationsNoDate } = await supabase
-    .from("obligations")
-    .select(
-      "id, account_id, name, amount_minor, amount_base_minor, currency, due_date, status, paid_at"
-    )
-    .eq("account_id", mainAccount.id)
-    .is("due_date", null);
-
-  const obligations = [...(obligationsRange ?? []), ...(obligationsNoDate ?? [])];
-
-  const monthKey = toMonthKey(today);
-  const { data: goal } = await supabase
-    .from("financial_goals")
-    .select("id, month, type, target_amount_base_minor")
-    .eq("account_id", mainAccount.id)
-    .eq("month", monthKey)
-    .eq("type", "save")
-    .maybeSingle();
-
-  const { data: goalHistory } = await supabase.rpc("get_goal_history", {
-    p_account_id: mainAccount.id,
-    p_limit: 5,
-  });
-
-  const currencySymbol =
-    CURRENCIES.find((currency) => currency.code === mainAccount.base_currency)
-      ?.symbol ?? mainAccount.base_currency;
-
-  const monthLabel = new Intl.DateTimeFormat(locale, {
-    month: "long",
-    year: "numeric",
-  }).format(today);
-  const monthLabelCapitalized =
-    monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
-
-  const todayKey = toDateKey(today);
-  const monthPrefix = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-  const monthTransactionsToDate = normalizedMonthlyTransactions.filter((tx) => {
-    const dateKey = toDateKey(tx.date);
-    return Boolean(dateKey) && dateKey.startsWith(monthPrefix) && dateKey <= todayKey;
-  });
-
-  const goalTotals = getGoalTotalsFromTransactions(
-    monthTransactionsToDate.map((tx) => ({
-      type: tx.type,
-      amount_minor: tx.amount_minor,
-      amount_base_minor: tx.amount_base_minor,
-    }))
-  );
-
-  const monthlyBalanceMinor =
-    goalTotals.incomeTotalMinor - goalTotals.expenseTotalMinor;
-  const progress = computeGoalProgress({
-    goal: goal
-      ? {
-          ...goal,
-          account_id: mainAccount.id,
-          created_by: user.id,
-        }
-      : null,
-    totals: goalTotals,
-    now: today,
-  });
-
-  const objective = progress
-    ? (() => {
-        const targetMinor = progress.targetMinor;
-        const currentMinor = progress.savedMinor;
-        const progressPercent =
-          targetMinor > 0n
-            ? Math.min(
-                100,
-                Math.max(
-                  0,
-                  (Number(currentMinor) / Number(targetMinor)) * 100
-                )
-              )
-            : 0;
-        const expectedPercent =
-          targetMinor > 0n
-            ? Math.min(
-                100,
-                Math.max(
-                  0,
-                  (Number(progress.expectedSavedMinor) / Number(targetMinor)) *
-                    100
-                )
-              )
-            : 0;
-
-        let status: "on-track" | "at-risk" | "off-track" = "at-risk";
-        if (currentMinor >= targetMinor) {
-          status = "on-track";
-        } else if (progress.forecastEndMinor < targetMinor) {
-          status = "off-track";
-        } else if (currentMinor >= progress.expectedSavedMinor) {
-          status = "on-track";
-        }
-
-        const statusLabel =
-          status === "on-track"
-            ? tx("mobile.home.objectiveStatusOnTrack")
-            : status === "off-track"
-            ? tx("mobile.home.objectiveStatusOffTrack")
-            : tx("mobile.home.objectiveStatusAtRisk");
-
-        const targetFormatted = formatCurrencyParts(
-          targetMinor,
-          currencySymbol
-        ).full;
-        const forecastFormatted = formatCurrencyParts(
-          progress.forecastEndMinor,
-          currencySymbol
-        ).full;
-        const remainingFormatted = formatCurrencyParts(
-          progress.remainingMinor,
-          currencySymbol
-        ).full;
-
-        let message = tx("mobile.home.objectiveForecastMessage", {
-          month: monthLabel,
-          amount: `<strong>${forecastFormatted}</strong>`,
-        });
-        if (progress.forecastEndMinor < targetMinor) {
-          message += ` ${tx("mobile.home.objectiveRemainingMessage", {
-            amount: `<strong>${remainingFormatted}</strong>`,
-          })}`;
-        } else if (currentMinor < progress.expectedSavedMinor) {
-          message += ` ${tx("mobile.home.objectiveCatchUpMessage")}`;
-        } else {
-          message += ` ${tx("mobile.home.objectiveKeepItUpMessage")}`;
-        }
-
-        return {
-          status,
-          statusLabel,
-          description: tx("mobile.home.objectiveDescription", {
-            amount: targetFormatted,
-            month: monthLabel,
-          }),
-          currentMinor: currentMinor.toString(),
-          targetMinor: targetMinor.toString(),
-          progressPercent,
-          expectedPercent,
-          messageHtml: message,
-          streak: (goalHistory ?? []).map((entry: { completed: boolean | null }) => ({
-            hit: entry.completed === true,
-          })),
-        };
-      })()
-    : null;
+export default async function LandingPage() {
+  const locale = resolveLocale(await getLocale());
+  const t = copy[locale];
 
   return (
-    <div
-      className={cn("min-h-screen bg-background", dmSans.className)}
-    >
-      <TopNav />
-      <HomePageClient
-        account={{
-          monthlyBalanceMinor: monthlyBalanceMinor.toString(),
-          currentMonth: monthLabelCapitalized,
-          currencySymbol,
-          baseCurrency: mainAccount.base_currency,
-        }}
-        monthlyTransactions={normalizedMonthlyTransactions}
-        upcomingTransactions={normalizedUpcomingTransactions}
-        obligations={obligations ?? []}
-        objective={objective}
-        locale={locale}
-        monoClassName={jetbrains.className}
-      />
-      <div className="h-16 sm:hidden" />
-      <BottomNavWrapper />
-    </div>
+    <main className="min-h-screen bg-[#f7f6f2] px-6 py-10 text-[#0f172a] sm:px-10">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-12">
+        <header className="flex items-center justify-between">
+          <p className="text-xl font-semibold tracking-tight">Finnon</p>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/login"
+              className="rounded-full border border-[#cbd5e1] px-4 py-2 text-sm font-medium text-[#0f172a] hover:bg-[#eef2ff]"
+            >
+              {t.ctaPrimary}
+            </Link>
+            <Link
+              href="/home"
+              className="rounded-full bg-[#0f172a] px-4 py-2 text-sm font-medium text-white hover:bg-[#1e293b]"
+            >
+              {t.ctaSecondary}
+            </Link>
+          </div>
+        </header>
+
+        <section className="rounded-3xl border border-[#e2e8f0] bg-white p-8 shadow-sm sm:p-12">
+          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#475569]">{t.eyebrow}</p>
+          <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-6xl">{t.headline}</h1>
+          <p className="mt-5 max-w-2xl text-lg leading-8 text-[#475569]">{t.subheadline}</p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link
+              href="/login"
+              className="rounded-full bg-[#0f172a] px-5 py-3 text-sm font-semibold text-white hover:bg-[#1e293b]"
+            >
+              {t.ctaPrimary}
+            </Link>
+            <Link
+              href="/home"
+              className="rounded-full border border-[#cbd5e1] px-5 py-3 text-sm font-semibold text-[#0f172a] hover:bg-[#f8fafc]"
+            >
+              {t.ctaSecondary}
+            </Link>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-[#e2e8f0] bg-white p-8 shadow-sm sm:p-10">
+          <h2 className="text-2xl font-semibold tracking-tight">{t.featuresTitle}</h2>
+          <ul className="mt-5 grid gap-3 sm:grid-cols-3">
+            {t.features.map((feature) => (
+              <li key={feature} className="rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-4 text-sm">
+                {feature}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <footer className="flex flex-wrap items-center justify-between gap-4 border-t border-[#e2e8f0] py-6 text-sm text-[#64748b]">
+          <span>© 2026 Finnon</span>
+          <div className="flex items-center gap-5">
+            <span>{t.legal}</span>
+            <Link href="/privacy" className="hover:text-[#0f172a]">
+              {t.privacy}
+            </Link>
+            <Link href="/delete-account" className="hover:text-[#0f172a]">
+              {t.deleteAccount}
+            </Link>
+          </div>
+        </footer>
+      </div>
+    </main>
   );
 }
