@@ -139,6 +139,7 @@ type RecurringTemplate = {
 
 const design = movementsTokens;
 const PERIOD_DATA_CACHE_TTL_MS = 5 * 60 * 1000;
+const SUMMARY_BAR_TRANSITION = "flex 360ms cubic-bezier(0.22, 1, 0.36, 1)";
 
 type PeriodDataCacheEntry = {
   transactions: Transaction[];
@@ -437,7 +438,7 @@ function MovementsSummary({
                   )}
                   style={{
                     flex: summary.hasExpense ? summary.incomeRatio : 100,
-                    transition: "flex 0.3s ease",
+                    transition: SUMMARY_BAR_TRANSITION,
                   }}
                 >
                   <div
@@ -445,7 +446,7 @@ function MovementsSummary({
                     style={{
                       backgroundColor: design.colors.incomeSolid,
                       flex: summary.incomeConfirmedRatio,
-                      transition: "flex 0.3s ease",
+                      transition: SUMMARY_BAR_TRANSITION,
                     }}
                   />
                   <div
@@ -453,7 +454,7 @@ function MovementsSummary({
                     style={{
                       backgroundColor: design.colors.incomePending,
                       flex: Math.max(0, 100 - summary.incomeConfirmedRatio),
-                      transition: "flex 0.3s ease",
+                      transition: SUMMARY_BAR_TRANSITION,
                     }}
                   />
                 </div>
@@ -469,7 +470,7 @@ function MovementsSummary({
                   )}
                   style={{
                     flex: summary.hasIncome ? summary.expenseRatio : 100,
-                    transition: "flex 0.3s ease",
+                    transition: SUMMARY_BAR_TRANSITION,
                   }}
                 >
                   <div
@@ -477,7 +478,7 @@ function MovementsSummary({
                     style={{
                       backgroundColor: design.colors.expenseSolid,
                       flex: summary.expenseConfirmedRatio,
-                      transition: "flex 0.3s ease",
+                      transition: SUMMARY_BAR_TRANSITION,
                     }}
                   />
                   <div
@@ -485,7 +486,7 @@ function MovementsSummary({
                     style={{
                       backgroundColor: design.colors.expensePending,
                       flex: Math.max(0, 100 - summary.expenseConfirmedRatio),
-                      transition: "flex 0.3s ease",
+                      transition: SUMMARY_BAR_TRANSITION,
                     }}
                   />
                 </div>

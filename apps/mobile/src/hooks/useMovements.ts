@@ -125,6 +125,9 @@ export function useMovements() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const periodDataCacheRef = useRef<Record<string, PeriodDataCacheEntry>>({});
+  const latestPeriodCacheKeyRef = useRef<string | null>(null);
+  const periodLoadRequestIdRef = useRef(0);
+  const loadedPeriodCacheKeyRef = useRef<string | null>(null);
 
   const periodRange = useMemo(() => {
     const now = new Date();
@@ -139,6 +142,10 @@ export function useMovements() {
     if (!selectedAccountId) return null;
     return `${selectedAccountId}:${periodRange.start}:${periodRange.end}`;
   }, [selectedAccountId, periodRange.end, periodRange.start]);
+
+  useEffect(() => {
+    latestPeriodCacheKeyRef.current = periodCacheKey;
+  }, [periodCacheKey]);
 
   const loadProfiles = useCallback(
     async (movements: Movement[]) => {
@@ -168,15 +175,25 @@ export function useMovements() {
   const loadPeriodData = useCallback(async (options?: { force?: boolean }) => {
     const forceReload = options?.force ?? false;
     if (!selectedAccountId || !periodCacheKey) {
+      loadedPeriodCacheKeyRef.current = null;
       setLoading(false);
       return;
     }
-    const cacheEntry = periodDataCacheRef.current[periodCacheKey];
+    const requestKey = periodCacheKey;
+    const requestId = periodLoadRequestIdRef.current + 1;
+    periodLoadRequestIdRef.current = requestId;
+    const isStaleRequest = () =>
+      periodLoadRequestIdRef.current !== requestId ||
+      latestPeriodCacheKeyRef.current !== requestKey;
+
+    const cacheEntry = periodDataCacheRef.current[requestKey];
     const isCacheFresh =
       cacheEntry &&
       Date.now() - cacheEntry.updatedAt <= PERIOD_DATA_CACHE_TTL_MS;
 
     if (!forceReload && isCacheFresh) {
+      if (isStaleRequest()) return;
+      loadedPeriodCacheKeyRef.current = requestKey;
       setError(null);
       setPeriodMovements(cacheEntry.periodMovements);
       setCategories(cacheEntry.categories);
@@ -228,6 +245,8 @@ export function useMovements() {
           recurringPromise,
         ]);
 
+      if (isStaleRequest()) return;
+
       if (accountResult.error) throw accountResult.error;
       if (transactionsResult.error) throw transactionsResult.error;
       if (categoriesResult.error) throw categoriesResult.error;
@@ -244,11 +263,12 @@ export function useMovements() {
       );
       const nextCategories = (categoriesResult.data || []) as Category[];
       const nextRecurringItems = (recurringResult.data || []) as RecurringItem[];
+      loadedPeriodCacheKeyRef.current = requestKey;
       setPeriodMovements(mappedMovements);
       setCategories(nextCategories);
       setRecurringItems(nextRecurringItems);
 
-      periodDataCacheRef.current[periodCacheKey] = {
+      periodDataCacheRef.current[requestKey] = {
         periodMovements: mappedMovements,
         categories: nextCategories,
         recurringItems: nextRecurringItems,
@@ -258,10 +278,13 @@ export function useMovements() {
 
       await loadProfiles(mappedMovements);
     } catch (e: any) {
+      if (isStaleRequest()) return;
       setError(e?.message || t(dictionary, "transactions.loadError"));
       reportNetworkIssue({ onRetry: loadPeriodData });
     } finally {
-      setLoading(false);
+      if (!isStaleRequest()) {
+        setLoading(false);
+      }
     }
   }, [
     loadProfiles,
@@ -279,7 +302,14 @@ export function useMovements() {
   ]);
 
   useEffect(() => {
-    if (!periodCacheKey || loading || error) return;
+    if (
+      !periodCacheKey ||
+      loading ||
+      error ||
+      loadedPeriodCacheKeyRef.current !== periodCacheKey
+    ) {
+      return;
+    }
     periodDataCacheRef.current[periodCacheKey] = {
       periodMovements,
       categories,

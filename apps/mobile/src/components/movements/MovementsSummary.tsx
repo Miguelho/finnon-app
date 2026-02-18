@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
+  Easing,
   LayoutAnimation,
   Modal,
   Pressable,
@@ -28,6 +30,7 @@ type TooltipAnchor = {
 
 const colors = movementsDesignTokens.colors;
 const TOOLTIP_WIDTH = 220;
+const BAR_ANIMATION_DURATION_MS = 360;
 
 const toPercent = (part: bigint, total: bigint) => {
   if (part <= 0n || total <= 0n) return 0;
@@ -73,6 +76,12 @@ export function MovementsSummary({
   const infoAnchorRef = useRef<View>(null);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
   const [tooltipAnchor, setTooltipAnchor] = useState<TooltipAnchor | null>(null);
+  const incomeSideFlex = useRef(new Animated.Value(0)).current;
+  const expenseSideFlex = useRef(new Animated.Value(0)).current;
+  const incomeConfirmedFlex = useRef(new Animated.Value(0)).current;
+  const incomePendingFlex = useRef(new Animated.Value(0)).current;
+  const expenseConfirmedFlex = useRef(new Animated.Value(0)).current;
+  const expensePendingFlex = useRef(new Animated.Value(0)).current;
 
   const summary = useMemo(() => {
     let totalIncome = 0n;
@@ -119,7 +128,57 @@ export function MovementsSummary({
   }, [movements]);
 
   useEffect(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    const nextIncomeSide = summary.hasIncome
+      ? summary.hasExpense
+        ? summary.incomeRatio
+        : 100
+      : 0;
+    const nextExpenseSide = summary.hasExpense
+      ? summary.hasIncome
+        ? summary.expenseRatio
+        : 100
+      : 0;
+    const nextIncomeConfirmed = summary.hasIncome ? summary.incomeConfirmedRatio : 0;
+    const nextExpenseConfirmed = summary.hasExpense ? summary.expenseConfirmedRatio : 0;
+
+    Animated.parallel([
+      Animated.timing(incomeSideFlex, {
+        toValue: nextIncomeSide,
+        duration: BAR_ANIMATION_DURATION_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }),
+      Animated.timing(expenseSideFlex, {
+        toValue: nextExpenseSide,
+        duration: BAR_ANIMATION_DURATION_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }),
+      Animated.timing(incomeConfirmedFlex, {
+        toValue: nextIncomeConfirmed,
+        duration: BAR_ANIMATION_DURATION_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }),
+      Animated.timing(incomePendingFlex, {
+        toValue: Math.max(0, 100 - nextIncomeConfirmed),
+        duration: BAR_ANIMATION_DURATION_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }),
+      Animated.timing(expenseConfirmedFlex, {
+        toValue: nextExpenseConfirmed,
+        duration: BAR_ANIMATION_DURATION_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }),
+      Animated.timing(expensePendingFlex, {
+        toValue: Math.max(0, 100 - nextExpenseConfirmed),
+        duration: BAR_ANIMATION_DURATION_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }),
+    ]).start();
   }, [
     summary.incomeRatio,
     summary.expenseRatio,
@@ -127,6 +186,20 @@ export function MovementsSummary({
     summary.expenseConfirmedRatio,
     summary.hasIncome,
     summary.hasExpense,
+    incomeSideFlex,
+    expenseSideFlex,
+    incomeConfirmedFlex,
+    incomePendingFlex,
+    expenseConfirmedFlex,
+    expensePendingFlex,
+  ]);
+
+  useEffect(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  }, [
+    summary.hasIncome,
+    summary.hasExpense,
+    summary.isEmpty,
   ]);
 
   const refreshTooltipAnchor = () => {
@@ -196,59 +269,59 @@ export function MovementsSummary({
           <View style={styles.barRow}>
             <View style={styles.proportionBar}>
               {summary.hasIncome && (
-                <View
+                <Animated.View
                   style={[
                     styles.barSide,
                     summary.hasExpense ? styles.barSideIncome : styles.barSideFull,
-                    { flex: summary.hasExpense ? summary.incomeRatio : 100 },
+                    { flex: incomeSideFlex },
                   ]}
                 >
-                  <View
+                  <Animated.View
                     style={[
                       styles.barSegment,
-                      { backgroundColor: colors.incomeSolid, flex: summary.incomeConfirmedRatio },
+                      { backgroundColor: colors.incomeSolid, flex: incomeConfirmedFlex },
                     ]}
                   />
-                  <View
+                  <Animated.View
                     style={[
                       styles.barSegment,
                       {
                         backgroundColor: colors.incomePending,
-                        flex: Math.max(0, 100 - summary.incomeConfirmedRatio),
+                        flex: incomePendingFlex,
                       },
                     ]}
                   />
-                </View>
+                </Animated.View>
               )}
 
               {summary.hasExpense && (
-                <View
+                <Animated.View
                   style={[
                     styles.barSide,
                     summary.hasIncome ? styles.barSideExpense : styles.barSideFull,
                     summary.hasIncome && styles.barSideWithGap,
-                    { flex: summary.hasIncome ? summary.expenseRatio : 100 },
+                    { flex: expenseSideFlex },
                   ]}
                 >
-                  <View
+                  <Animated.View
                     style={[
                       styles.barSegment,
                       {
                         backgroundColor: colors.expenseSolid,
-                        flex: summary.expenseConfirmedRatio,
+                        flex: expenseConfirmedFlex,
                       },
                     ]}
                   />
-                  <View
+                  <Animated.View
                     style={[
                       styles.barSegment,
                       {
                         backgroundColor: colors.expensePending,
-                        flex: Math.max(0, 100 - summary.expenseConfirmedRatio),
+                        flex: expensePendingFlex,
                       },
                     ]}
                   />
-                </View>
+                </Animated.View>
               )}
             </View>
 
