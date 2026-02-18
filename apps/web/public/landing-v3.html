@@ -191,6 +191,8 @@
   footer { padding: 40px 48px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--grey-light); font-size: 14px; color: #999; }
   footer a { color: #999; text-decoration: none; }
   footer a:hover { color: var(--dark); }
+  .promo-badge { display: flex; justify-content: center; padding: 0 24px 48px; }
+  .promo-badge img { display: block; width: 180px; height: 72px; }
 
   @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -490,6 +492,12 @@
     <a href="mailto:hello@finnon.app">hello@finnon.app</a>
   </div>
 </footer>
+
+<div class="promo-badge">
+  <a href="https://foundrlist.com/product/finnon" target="_blank" rel="noopener noreferrer">
+    <img src="https://foundrlist.com/api/badge/finnon" alt="Live on FoundrList" width="180" height="72" />
+  </a>
+</div>
 
 <div id="image-lightbox" hidden aria-hidden="true" role="dialog" aria-modal="true">
   <button type="button" class="lightbox-close" aria-label="Close image">×</button>
