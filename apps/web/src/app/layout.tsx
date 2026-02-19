@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
+import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "@/components/ui/sonner";
 import { NetworkNoticeProvider } from "@/components/network/network-notice";
 import { WebUserThemeProvider } from "@/components/theme/web-user-theme-provider";
@@ -90,6 +91,7 @@ export default async function RootLayout({
             <WebUserThemeProvider>{children}</WebUserThemeProvider>
           </NetworkNoticeProvider>
           <Toaster />
+          <Analytics />
           <Script src="/_vercel/insights/script.js" strategy="afterInteractive" />
         </NextIntlClientProvider>
       </body>
