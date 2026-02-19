@@ -45,3 +45,10 @@ next-env.d.ts
 .turbo
 
 build-*
+
+apps/mobile/scripts/play-store-files/output
+apps/mobile/scripts/play-store-files/screenshots
+
+**.pyc
+
+**.png
