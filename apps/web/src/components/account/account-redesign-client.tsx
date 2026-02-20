@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState, type TouchEvent } from "react";
 import Link from "next/link";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { Info, Search, Settings, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Info, Search, Settings, TrendingUp, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { CURRENCIES, getMinorUnits, type Period } from "@poleursus/shared";
 import { CategoryIcon } from "@/components/category-icon";
@@ -15,7 +15,8 @@ import styles from "@/components/account/account-redesign.module.css";
 
 type ChartMode = "both" | "income" | "expenses" | "net";
 
-const CHART_HEIGHT = 140;
+const CHART_HEIGHT = 200;
+const DEFAULT_VISIBLE_CONTRIBUTION_CATEGORIES = 2;
 
 type AccountRedesignClientProps = {
   dataByPeriod: Record<AccountRedesignPeriod, AccountRedesignData>;
@@ -26,6 +27,14 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
   const { resolvedMode } = useWebUserTheme();
   const [selectedPeriod, setSelectedPeriod] = useState<Period>("month");
   const [chartMode, setChartMode] = useState<ChartMode>("both");
+  const [isChartExpanded, setIsChartExpanded] = useState(false);
+  const [expandedContributionSections, setExpandedContributionSections] = useState<{
+    expense: boolean;
+    income: boolean;
+  }>({
+    expense: false,
+    income: false,
+  });
   const [isContributionDetailOpen, setIsContributionDetailOpen] = useState(false);
   const swipeStartYRef = useRef<number | null>(null);
   const swipeCurrentYRef = useRef<number | null>(null);
@@ -71,6 +80,17 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
     };
     return t(keyByPeriod[selectedPeriod]);
   }, [selectedPeriod, t]);
+  const chartCollapsedTitle = useMemo(() => {
+    const adjKeyByPeriod: Record<Period, string> = {
+      week: "account.evolution_adj_weekly",
+      month: "account.evolution_adj_monthly",
+      quarter: "account.evolution_adj_quarterly",
+      year: "account.evolution_adj_yearly",
+    };
+    return t("account.view_evolution", {
+      period_adj: t(adjKeyByPeriod[selectedPeriod]),
+    });
+  }, [selectedPeriod, t]);
 
   const chartMax = useMemo(() => {
     return data.monthlyHistory.reduce((max, point) => {
@@ -91,6 +111,7 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
     if (chartMax === 0) return 3;
     return Math.max(3, (value / chartMax) * CHART_HEIGHT);
   };
+  const showChartLegend = isCollaborative && (chartMode === "income" || chartMode === "expenses");
 
   const periodLabel = useMemo(() => {
     const keyByPeriod: Record<Period, string> = {
@@ -227,6 +248,11 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
       type === "expense"
         ? contributionData?.expenseCategories ?? []
         : contributionData?.incomeCategories ?? [];
+    const sortedCategories = [...categories].sort((a, b) => b.totalAmount - a.totalAmount);
+    const leadingCategories = sortedCategories.slice(0, DEFAULT_VISIBLE_CONTRIBUTION_CATEGORIES);
+    const extraCategories = sortedCategories.slice(DEFAULT_VISIBLE_CONTRIBUTION_CATEGORIES);
+    const hasExtraCategories = extraCategories.length > 0;
+    const isExpanded = expandedContributionSections[type];
     const title =
       isCollaborative
         ? type === "expense"
@@ -246,6 +272,105 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
       }
       return `/transactions?${params.toString()}`;
     };
+    const toggleSectionExpanded = () => {
+      setExpandedContributionSections((current) => ({
+        ...current,
+        [type]: !current[type],
+      }));
+    };
+
+    const renderCategoryItem = (
+      category: (typeof sortedCategories)[number],
+      options: { showDivider: boolean; keyPrefix?: string }
+    ) => {
+      const firstContributor = contributors[0];
+      const secondContributor = contributors[1];
+      const firstShare = category.shares.find((share) => share.userId === firstContributor?.userId);
+      const secondShare = category.shares.find((share) => share.userId === secondContributor?.userId);
+      const leftLabel =
+        firstShare && firstShare.amount > 0
+          ? `${formatCurrency(firstShare.amount, {
+              currency: currencySymbol,
+              decimals: currencyDecimals,
+            }).full} · ${Math.round(firstShare.percentage)}%`
+          : "—";
+      const rightLabel =
+        secondShare && secondShare.amount > 0
+          ? `${Math.round(secondShare.percentage)}% · ${formatCurrency(secondShare.amount, {
+              currency: currencySymbol,
+              decimals: currencyDecimals,
+            }).full}`
+          : "—";
+
+      return (
+        <Link
+          key={`${options.keyPrefix ?? "base"}-${type}-${category.id}`}
+          href={getCategoryHref(category.id)}
+          className={`${styles.contributionCategoryItem} ${
+            options.showDivider ? styles.contributionCategoryItemBorder : ""
+          }`}
+        >
+          <div className={styles.contributionCategoryRow1}>
+            <div
+              className={styles.contributionCategoryIcon}
+              style={{
+                backgroundColor: `var(--category-${type === "expense" ? "default" : "interests"})`,
+              }}
+            >
+              <CategoryIcon
+                iconId={category.iconId ?? "Tag"}
+                size={16}
+                tone="primary"
+                color={
+                  resolvedMode === "dark"
+                    ? "var(--account-category-icon, #FFFFFF)"
+                    : "var(--account-category-icon, hsl(var(--foreground)))"
+                }
+              />
+            </div>
+            <div className={styles.contributionCategoryInfo}>
+              <div className={styles.contributionCategoryName}>{category.name}</div>
+              <div className={styles.contributionCategoryCount}>
+                {t("account.redesign.movementCount", {
+                  count: category.transactionCount,
+                })}
+              </div>
+            </div>
+            <div className={`${styles.contributionCategoryTotal} ${totalClassName}`}>
+              {
+                formatCurrency(category.totalAmount, {
+                  currency: currencySymbol,
+                  decimals: currencyDecimals,
+                }).full
+              }
+            </div>
+          </div>
+
+          {isCollaborative ? (
+            <div className={styles.contributionCategoryRow2}>
+              <div className={styles.contributionBarLabel}>{leftLabel}</div>
+              <div className={styles.contributionBarTrack}>
+                {category.shares
+                  .filter((share) => share.amount > 0)
+                  .map((share) => (
+                    <div
+                      key={`${category.id}-${share.userId}`}
+                      className={styles.contributionBarSegment}
+                      style={{
+                        width: `${Math.max(0, share.percentage)}%`,
+                        backgroundColor: contributorByUserId.get(share.userId)?.color ?? "#2563EB",
+                      }}
+                    />
+                  ))}
+              </div>
+              <div className={`${styles.contributionBarLabel} ${styles.contributionBarLabelRight}`}>
+                {rightLabel}
+              </div>
+            </div>
+          ) : null}
+        </Link>
+      );
+    };
 
     return (
       <section
@@ -256,98 +381,45 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
         <div className={styles.contributionCard}>
           <div className={styles.contributionCardTitle}>{title}</div>
           <div className={styles.contributionCategoryList}>
-            {categories.slice(0, 4).map((category) => {
-              const firstContributor = contributors[0];
-              const secondContributor = contributors[1];
-              const firstShare = category.shares.find(
-                (share) => share.userId === firstContributor?.userId
-              );
-              const secondShare = category.shares.find(
-                (share) => share.userId === secondContributor?.userId
-              );
-              const leftLabel =
-                firstShare && firstShare.amount > 0
-                  ? `${formatCurrency(firstShare.amount, {
-                      currency: currencySymbol,
-                      decimals: currencyDecimals,
-                    }).full} · ${Math.round(firstShare.percentage)}%`
-                  : "—";
-              const rightLabel =
-                secondShare && secondShare.amount > 0
-                  ? `${Math.round(secondShare.percentage)}% · ${formatCurrency(secondShare.amount, {
-                      currency: currencySymbol,
-                      decimals: currencyDecimals,
-                    }).full}`
-                  : "—";
+            {leadingCategories.map((category, index) =>
+              renderCategoryItem(category, {
+                showDivider:
+                  index < leadingCategories.length - 1 || (isExpanded && extraCategories.length > 0),
+              })
+            )}
 
-              return (
-                <Link
-                  key={`${type}-${category.id}`}
-                  href={getCategoryHref(category.id)}
-                  className={styles.contributionCategoryItem}
-                >
-                  <div className={styles.contributionCategoryRow1}>
-                    <div
-                      className={styles.contributionCategoryIcon}
-                      style={{
-                        backgroundColor: `var(--category-${type === "expense" ? "default" : "interests"})`,
-                      }}
-                    >
-                      <CategoryIcon
-                        iconId={category.iconId ?? "Tag"}
-                        size={16}
-                        tone="primary"
-                        color={
-                          resolvedMode === "dark"
-                            ? "var(--account-category-icon, #FFFFFF)"
-                            : "var(--account-category-icon, hsl(var(--foreground)))"
-                        }
-                      />
-                    </div>
-                    <div className={styles.contributionCategoryInfo}>
-                      <div className={styles.contributionCategoryName}>{category.name}</div>
-                      <div className={styles.contributionCategoryCount}>
-                        {t("account.redesign.movementCount", {
-                          count: category.transactionCount,
-                        })}
-                      </div>
-                    </div>
-                    <div className={`${styles.contributionCategoryTotal} ${totalClassName}`}>
-                      {
-                        formatCurrency(category.totalAmount, {
-                          currency: currencySymbol,
-                          decimals: currencyDecimals,
-                        }).full
-                      }
-                    </div>
-                  </div>
+            {hasExtraCategories ? (
+              <div
+                className={`${styles.contributionExtraCategories} ${
+                  isExpanded ? styles.contributionExtraCategoriesExpanded : ""
+                }`}
+              >
+                <div className={styles.contributionExtraCategoriesInner}>
+                  {extraCategories.map((category, index) =>
+                    renderCategoryItem(category, {
+                      showDivider: index < extraCategories.length - 1,
+                      keyPrefix: "extra",
+                    })
+                  )}
+                </div>
+              </div>
+            ) : null}
 
-                  {isCollaborative ? (
-                    <div className={styles.contributionCategoryRow2}>
-                      <div className={styles.contributionBarLabel}>{leftLabel}</div>
-                      <div className={styles.contributionBarTrack}>
-                        {category.shares
-                          .filter((share) => share.amount > 0)
-                          .map((share) => (
-                            <div
-                              key={`${category.id}-${share.userId}`}
-                              className={styles.contributionBarSegment}
-                              style={{
-                                width: `${Math.max(0, share.percentage)}%`,
-                                backgroundColor:
-                                  contributorByUserId.get(share.userId)?.color ?? "#2563EB",
-                              }}
-                            />
-                          ))}
-                      </div>
-                      <div className={`${styles.contributionBarLabel} ${styles.contributionBarLabelRight}`}>
-                        {rightLabel}
-                      </div>
-                    </div>
-                  ) : null}
-                </Link>
-              );
-            })}
+            {hasExtraCategories ? (
+              <button
+                type="button"
+                className={styles.contributionExpandButton}
+                onClick={toggleSectionExpanded}
+                aria-expanded={isExpanded}
+              >
+                <span>
+                  {isExpanded
+                    ? t("account.view_less")
+                    : t("account.view_more_categories", { n: extraCategories.length })}
+                </span>
+                {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+            ) : null}
           </div>
         </div>
       </section>
@@ -661,13 +733,211 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
 
         <div className={styles.chartSection}>
           <div className={styles.chartContainer}>
-            <div className={styles.chartHeader}>
-              <span className={styles.chartTitle}>{chartTitle}</span>
-              <div className={styles.chartHeaderRight}>
-                {isCollaborative && (chartMode === "income" || chartMode === "expenses") ? (
-                  <div className={styles.chartUserLegend}>
+            {isChartExpanded ? (
+              <div className={styles.chartHeaderExpanded}>
+                <button
+                  type="button"
+                  className={styles.chartExpandedTitleButton}
+                  onClick={() => setIsChartExpanded(false)}
+                  aria-label={chartCollapsedTitle}
+                >
+                  <span className={styles.chartCollapsedTitleContent}>
+                    <span className={styles.chartCollapseIcon} aria-hidden>
+                      <TrendingUp size={14} />
+                    </span>
+                    <span className={styles.chartTitle}>{chartTitle}</span>
+                  </span>
+                </button>
+
+                <div className={styles.chartExpandedHeaderRight}>
+                  <div className={styles.chartHeaderRight}>
+                    {showChartLegend ? (
+                      <div className={styles.chartUserLegend}>
+                        {contributors.map((contributor) => (
+                          <div
+                            key={`chart-legend-${contributor.userId}`}
+                            className={styles.chartUserLegendItem}
+                          >
+                            <span
+                              className={styles.chartUserDot}
+                              style={{ backgroundColor: contributor.color }}
+                            />
+                            <span>{contributor.shortName}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className={styles.chartToggleScroll}>
+                      <div className={styles.chartToggle}>
+                        {(
+                          [
+                            { key: "both", label: t("account.redesign.monthlyEvolutionModeBoth") },
+                            { key: "income", label: t("account.redesign.monthlyEvolutionModeIncome") },
+                            { key: "expenses", label: t("account.redesign.monthlyEvolutionModeExpenses") },
+                            { key: "net", label: t("account.redesign.monthlyEvolutionModeNet") },
+                          ] as const
+                        ).map((item) => (
+                          <button
+                            key={item.key}
+                            type="button"
+                            className={`${styles.chartToggleBtn} ${
+                              chartMode === item.key ? styles.chartToggleBtnActive : ""
+                            }`}
+                            onClick={() => setChartMode(item.key)}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className={styles.chartCollapseButton}
+                    onClick={() => setIsChartExpanded(false)}
+                    aria-label={chartCollapsedTitle}
+                  >
+                    <ChevronUp size={16} />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className={styles.chartCollapsedTrigger}
+                onClick={() => setIsChartExpanded(true)}
+                aria-label={chartCollapsedTitle}
+                aria-expanded={isChartExpanded}
+              >
+                <span className={styles.chartCollapsedTitleContent}>
+                  <span className={styles.chartCollapseIcon} aria-hidden>
+                    <TrendingUp size={14} />
+                  </span>
+                  <span className={styles.chartTitle}>{chartCollapsedTitle}</span>
+                </span>
+                <ChevronDown size={16} />
+              </button>
+            )}
+
+            <div
+              className={`${styles.chartExpandable} ${
+                isChartExpanded ? styles.chartExpandableExpanded : ""
+              }`}
+            >
+              <div className={styles.chartExpandableInner}>
+                {data.monthlyHistory.length === 0 ? (
+                  <div className={styles.chartEmptyState}>
+                    <span className={styles.chartEmptyIcon}>📊</span>
+                    <span className={styles.chartEmptyText}>
+                      {t("account.redesign.monthlyEvolutionEmpty")}
+                    </span>
+                  </div>
+                ) : (
+                  <div className={styles.chartArea}>
+                    {data.monthlyHistory.map((point) => {
+                      const segmentedValues =
+                        chartMode === "income" ? point.incomeByUser : point.expenseByUser;
+                      const segmentedTotal = segmentedValues.reduce(
+                        (acc, value) => acc + Math.max(0, value.amount),
+                        0
+                      );
+
+                      return (
+                        <div key={point.label} className={styles.chartBarGroup}>
+                          <div className={styles.chartBars}>
+                            {chartMode === "both" ? (
+                              <>
+                                <div
+                                  className={`${styles.chartBar} ${styles.incomeBar} ${
+                                    point.isCurrent ? styles.chartBarCurrent : ""
+                                  }`}
+                                  style={{ height: `${getBarHeight(point.income)}px` }}
+                                />
+                                <div
+                                  className={`${styles.chartBar} ${styles.expenseBar} ${
+                                    point.isCurrent ? styles.chartBarCurrent : ""
+                                  }`}
+                                  style={{ height: `${getBarHeight(point.expense)}px` }}
+                                />
+                              </>
+                            ) : null}
+
+                            {chartMode === "income" || chartMode === "expenses" ? (
+                              isCollaborative ? (
+                                <div
+                                  className={`${styles.chartStackedBar} ${
+                                    point.isCurrent ? styles.chartBarCurrent : ""
+                                  }`}
+                                  style={{ height: `${getBarHeight(segmentedTotal)}px` }}
+                                >
+                                  {segmentedValues
+                                    .filter((value) => value.amount > 0)
+                                    .map((value) => (
+                                      <div
+                                        key={`${point.label}-${value.userId}`}
+                                        className={styles.chartSegment}
+                                        style={{
+                                          height:
+                                            segmentedTotal > 0
+                                              ? `${(value.amount / segmentedTotal) * 100}%`
+                                              : "0%",
+                                          backgroundColor:
+                                            contributorByUserId.get(value.userId)?.color ??
+                                            "#2563EB",
+                                        }}
+                                      />
+                                    ))}
+                                </div>
+                              ) : (
+                                <div
+                                  className={`${styles.chartBar} ${
+                                    chartMode === "income" ? styles.incomeBar : styles.expenseBar
+                                  } ${point.isCurrent ? styles.chartBarCurrent : ""}`}
+                                  style={{
+                                    height: `${
+                                      chartMode === "income"
+                                        ? getBarHeight(point.income)
+                                        : getBarHeight(point.expense)
+                                    }px`,
+                                  }}
+                                />
+                              )
+                            ) : null}
+
+                            {chartMode === "net" ? (
+                              <div
+                                className={`${styles.chartBar} ${
+                                  point.income - point.expense >= 0
+                                    ? styles.incomeBar
+                                    : styles.expenseBar
+                                } ${point.isCurrent ? styles.chartBarCurrent : ""}`}
+                                style={{
+                                  height: `${getBarHeight(Math.abs(point.income - point.expense))}px`,
+                                }}
+                              />
+                            ) : null}
+                          </div>
+                          <span
+                            className={`${styles.chartBarLabel} ${
+                              point.isCurrent ? styles.chartBarLabelCurrent : ""
+                            }`}
+                          >
+                            {point.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {showChartLegend ? (
+                  <div className={styles.chartUserLegendMobile}>
                     {contributors.map((contributor) => (
-                      <div key={`chart-legend-${contributor.userId}`} className={styles.chartUserLegendItem}>
+                      <div
+                        key={`chart-legend-mobile-${contributor.userId}`}
+                        className={styles.chartUserLegendItem}
+                      >
                         <span
                           className={styles.chartUserDot}
                           style={{ backgroundColor: contributor.color }}
@@ -677,131 +947,8 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
                     ))}
                   </div>
                 ) : null}
-                <div className={styles.chartToggle}>
-                  {(
-                    [
-                      { key: "both", label: t("account.redesign.monthlyEvolutionModeBoth") },
-                      { key: "income", label: t("account.redesign.monthlyEvolutionModeIncome") },
-                      { key: "expenses", label: t("account.redesign.monthlyEvolutionModeExpenses") },
-                      { key: "net", label: t("account.redesign.monthlyEvolutionModeNet") },
-                    ] as const
-                  ).map((item) => (
-                    <button
-                      key={item.key}
-                      type="button"
-                      className={`${styles.chartToggleBtn} ${chartMode === item.key ? styles.chartToggleBtnActive : ""}`}
-                      onClick={() => setChartMode(item.key)}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
-
-            {data.monthlyHistory.length === 0 ? (
-              <div className={styles.chartEmptyState}>
-                <span className={styles.chartEmptyIcon}>📊</span>
-                <span className={styles.chartEmptyText}>
-                  {t("account.redesign.monthlyEvolutionEmpty")}
-                </span>
-              </div>
-            ) : (
-              <div className={styles.chartArea}>
-                {data.monthlyHistory.map((point) => {
-                  const segmentedValues =
-                    chartMode === "income" ? point.incomeByUser : point.expenseByUser;
-                  const segmentedTotal = segmentedValues.reduce(
-                    (acc, value) => acc + Math.max(0, value.amount),
-                    0
-                  );
-
-                  return (
-                    <div key={point.label} className={styles.chartBarGroup}>
-                      <div className={styles.chartBars}>
-                        {chartMode === "both" ? (
-                          <>
-                            <div
-                              className={`${styles.chartBar} ${styles.incomeBar} ${
-                                point.isCurrent ? styles.chartBarCurrent : ""
-                              }`}
-                              style={{ height: `${getBarHeight(point.income)}px` }}
-                            />
-                            <div
-                              className={`${styles.chartBar} ${styles.expenseBar} ${
-                                point.isCurrent ? styles.chartBarCurrent : ""
-                              }`}
-                              style={{ height: `${getBarHeight(point.expense)}px` }}
-                            />
-                          </>
-                        ) : null}
-
-                        {chartMode === "income" || chartMode === "expenses" ? (
-                          isCollaborative ? (
-                            <div
-                              className={`${styles.chartStackedBar} ${
-                                point.isCurrent ? styles.chartBarCurrent : ""
-                              }`}
-                              style={{ height: `${getBarHeight(segmentedTotal)}px` }}
-                            >
-                              {segmentedValues
-                                .filter((value) => value.amount > 0)
-                                .map((value) => (
-                                  <div
-                                    key={`${point.label}-${value.userId}`}
-                                    className={styles.chartSegment}
-                                    style={{
-                                      height:
-                                        segmentedTotal > 0
-                                          ? `${(value.amount / segmentedTotal) * 100}%`
-                                          : "0%",
-                                      backgroundColor:
-                                        contributorByUserId.get(value.userId)?.color ?? "#2563EB",
-                                    }}
-                                  />
-                                ))}
-                            </div>
-                          ) : (
-                            <div
-                              className={`${styles.chartBar} ${
-                                chartMode === "income" ? styles.incomeBar : styles.expenseBar
-                              } ${point.isCurrent ? styles.chartBarCurrent : ""}`}
-                              style={{
-                                height: `${
-                                  chartMode === "income"
-                                    ? getBarHeight(point.income)
-                                    : getBarHeight(point.expense)
-                                }px`,
-                              }}
-                            />
-                          )
-                        ) : null}
-
-                        {chartMode === "net" ? (
-                          <div
-                            className={`${styles.chartBar} ${
-                              point.income - point.expense >= 0
-                                ? styles.incomeBar
-                                : styles.expenseBar
-                            } ${point.isCurrent ? styles.chartBarCurrent : ""}`}
-                            style={{
-                              height: `${getBarHeight(Math.abs(point.income - point.expense))}px`,
-                            }}
-                          />
-                        ) : null}
-                      </div>
-                      <span
-                        className={`${styles.chartBarLabel} ${
-                          point.isCurrent ? styles.chartBarLabelCurrent : ""
-                        }`}
-                      >
-                        {point.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
         </div>
 

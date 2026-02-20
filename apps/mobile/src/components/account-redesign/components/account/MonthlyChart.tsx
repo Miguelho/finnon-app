@@ -1,5 +1,16 @@
-import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  LayoutChangeEvent,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { ChevronDown, ChevronUp, TrendingUp } from "lucide-react-native";
 import { colors, typography, spacing, radii, shadows } from '../../theme/tokens';
 import type { AccountContributor, MonthlyDataPoint, Period } from '../../types/account';
 import { useUserTheme } from '../../../../contexts/UserThemeContext';
@@ -13,12 +24,17 @@ interface MonthlyChartProps {
   contributors: AccountContributor[];
 }
 
-const CHART_HEIGHT = 160;
+const CHART_HEIGHT = Platform.OS === 'web' ? 200 : 160;
+const EXPAND_DURATION_MS = 300;
 
 export function MonthlyChart({ data, period, contributors }: MonthlyChartProps) {
   const [mode, setMode] = useState<ChartMode>('both');
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isCollapsedHovered, setIsCollapsedHovered] = useState(false);
+  const [expandedContentHeight, setExpandedContentHeight] = useState(0);
   const { dictionary } = useCopy();
   const { tokens: userTokens } = useUserTheme();
+  const expandProgress = useRef(new Animated.Value(0)).current;
   const contributorByUserId = useMemo(
     () => new Map(contributors.map((contributor) => [contributor.userId, contributor])),
     [contributors]
@@ -38,31 +54,21 @@ export function MonthlyChart({ data, period, contributors }: MonthlyChartProps) 
     quarter: 'account.redesign.evolutionQuarterlyTitle',
     year: 'account.redesign.evolutionYearlyTitle',
   };
+  const periodAdjKeyByPeriod: Record<Period, string> = {
+    week: 'account.evolution_adj_weekly',
+    month: 'account.evolution_adj_monthly',
+    quarter: 'account.evolution_adj_quarterly',
+    year: 'account.evolution_adj_yearly',
+  };
 
-  if (data.length === 0) {
-    return (
-      <View style={styles.wrapper}>
-        <View
-          style={[
-            styles.container,
-            { backgroundColor: userTokens.surface, borderColor: userTokens.border },
-          ]}
-        >
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: userTokens.textPrimary }]}>
-              {t(dictionary, titleKeyByPeriod[period] as any)}
-            </Text>
-          </View>
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>📊</Text>
-            <Text style={[styles.emptyText, { color: userTokens.textSecondary }]}>
-              {t(dictionary, 'account.redesign.monthlyEvolutionEmpty')}
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-  }
+  useEffect(() => {
+    Animated.timing(expandProgress, {
+      toValue: isExpanded ? 1 : 0,
+      duration: EXPAND_DURATION_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [expandProgress, isExpanded]);
 
   const maxValue = data.reduce((max, point) => {
     if (mode === 'both') return Math.max(max, point.income, point.expense);
@@ -78,51 +84,45 @@ export function MonthlyChart({ data, period, contributors }: MonthlyChartProps) 
 
   const showLegend = isCollaborative && (mode === 'income' || mode === 'expenses');
 
-  return (
-    <View style={styles.wrapper}>
-      <View
-        style={[
-          styles.container,
-          { backgroundColor: userTokens.surface, borderColor: userTokens.border },
-        ]}
-      >
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: userTokens.textPrimary }]}>
-            {t(dictionary, titleKeyByPeriod[period] as any)}
+  const collapsedTitle = t(dictionary, 'account.view_evolution', {
+    period_adj: t(dictionary, periodAdjKeyByPeriod[period] as any),
+  });
+  const expandedTitle = t(dictionary, titleKeyByPeriod[period] as any);
+
+  const animatedHeight = expandProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, Math.max(expandedContentHeight, 1)],
+  });
+  const animatedOpacity = expandProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+  const animatedTranslateY = expandProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [10, 0],
+  });
+
+  const handleExpandedContentLayout = (event: LayoutChangeEvent) => {
+    const nextHeight = event.nativeEvent.layout.height;
+    if (Math.abs(nextHeight - expandedContentHeight) > 1) {
+      setExpandedContentHeight(nextHeight);
+    }
+  };
+
+  const renderChartBody = () => {
+    if (data.length === 0) {
+      return (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyIcon}>📊</Text>
+          <Text style={[styles.emptyText, { color: userTokens.textSecondary }]}>
+            {t(dictionary, 'account.redesign.monthlyEvolutionEmpty')}
           </Text>
         </View>
+      );
+    }
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.toggleScroll}
-          style={styles.toggleScrollView}
-        >
-          <View style={[styles.toggle, { backgroundColor: userTokens.surfaceAlt }]}> 
-            {(Object.keys(modeLabels) as ChartMode[]).map((value) => (
-              <Pressable
-                key={value}
-                style={[
-                  styles.toggleBtn,
-                  mode === value && styles.toggleBtnActive,
-                  mode === value && { backgroundColor: userTokens.surface },
-                ]}
-                onPress={() => setMode(value)}
-              >
-                <Text
-                  style={[
-                    styles.toggleText,
-                    { color: userTokens.textSecondary },
-                    mode === value && { color: userTokens.textPrimary },
-                  ]}
-                >
-                  {modeLabels[value]}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </ScrollView>
-
+    return (
+      <>
         <View style={styles.chartArea}>
           {data.map((point, index) => {
             const netValue = point.income - point.expense;
@@ -236,6 +236,134 @@ export function MonthlyChart({ data, period, contributors }: MonthlyChartProps) 
             ))}
           </View>
         ) : null}
+      </>
+    );
+  };
+
+  return (
+    <View style={styles.wrapper}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: userTokens.surface, borderColor: userTokens.border },
+        ]}
+      >
+        {isExpanded ? (
+          <View style={styles.headerExpanded}>
+            <Pressable
+              onPress={() => setIsExpanded(false)}
+              style={({ pressed }) => [styles.headerTitlePressable, pressed && styles.headerPressed]}
+              accessibilityRole="button"
+              accessibilityLabel={collapsedTitle}
+            >
+              <View style={styles.headerTitleGroup}>
+                <View
+                  style={[
+                    styles.headerIcon,
+                    {
+                      backgroundColor: userTokens.surfaceAlt,
+                      borderColor: userTokens.border,
+                    },
+                  ]}
+                >
+                  <TrendingUp size={14} color={userTokens.textSecondary} />
+                </View>
+                <Text style={[styles.title, { color: userTokens.textPrimary }]}>{expandedTitle}</Text>
+              </View>
+            </Pressable>
+
+            <View style={styles.headerControls}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.toggleScroll}
+                style={styles.toggleScrollView}
+              >
+                <View style={[styles.toggle, { backgroundColor: userTokens.surfaceAlt }]}>
+                  {(Object.keys(modeLabels) as ChartMode[]).map((value) => (
+                    <Pressable
+                      key={value}
+                      style={[
+                        styles.toggleBtn,
+                        mode === value && styles.toggleBtnActive,
+                        mode === value && { backgroundColor: userTokens.surface },
+                      ]}
+                      onPress={() => setMode(value)}
+                    >
+                      <Text
+                        style={[
+                          styles.toggleText,
+                          { color: userTokens.textSecondary },
+                          mode === value && { color: userTokens.textPrimary },
+                        ]}
+                      >
+                        {modeLabels[value]}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+
+              <Pressable
+                onPress={() => setIsExpanded(false)}
+                style={({ pressed }) => [styles.chevronButton, pressed && styles.headerPressed]}
+                accessibilityRole="button"
+                accessibilityLabel={collapsedTitle}
+              >
+                <ChevronUp size={18} color={userTokens.textSecondary} />
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <Pressable
+            onPress={() => setIsExpanded(true)}
+            onHoverIn={() => setIsCollapsedHovered(true)}
+            onHoverOut={() => setIsCollapsedHovered(false)}
+            style={({ pressed }) => [
+              styles.collapsedHeader,
+              {
+                backgroundColor: isCollapsedHovered ? userTokens.surfaceAlt : userTokens.surface,
+                opacity: pressed ? 0.9 : 1,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={collapsedTitle}
+          >
+            <View style={styles.headerTitleGroup}>
+              <View
+                style={[
+                  styles.headerIcon,
+                  {
+                    backgroundColor: userTokens.surfaceAlt,
+                    borderColor: userTokens.border,
+                  },
+                ]}
+              >
+                <TrendingUp size={14} color={userTokens.textSecondary} />
+              </View>
+              <Text style={[styles.title, { color: userTokens.textPrimary }]}>{collapsedTitle}</Text>
+            </View>
+
+            <ChevronDown size={18} color={userTokens.textSecondary} />
+          </Pressable>
+        )}
+
+        <View style={styles.measureLayer} pointerEvents="none">
+          <View onLayout={handleExpandedContentLayout}>{renderChartBody()}</View>
+        </View>
+
+        <Animated.View
+          style={[
+            styles.expandableContent,
+            {
+              height: animatedHeight,
+              opacity: animatedOpacity,
+              transform: [{ translateY: animatedTranslateY }],
+            },
+          ]}
+        >
+          <View style={styles.expandableContentInner}>{renderChartBody()}</View>
+        </Animated.View>
       </View>
     </View>
   );
@@ -252,18 +380,54 @@ const styles = StyleSheet.create({
     padding: spacing['3xl'],
     ...shadows.sm,
   },
-  header: {
+  headerExpanded: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  collapsedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 42,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.sm,
+  },
+  headerTitlePressable: {
+    flexShrink: 1,
+  },
+  headerPressed: {
+    opacity: 0.78,
+  },
+  headerTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexShrink: 1,
+  },
+  headerIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: radii.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontFamily: typography.family.sansSemiBold,
     fontSize: typography.size.md,
   },
+  headerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.xs,
+    flexShrink: 1,
+  },
   toggleScrollView: {
-    marginBottom: spacing['2xl'],
+    flexShrink: 1,
   },
   toggleScroll: {
     paddingRight: spacing.xs,
@@ -285,6 +449,26 @@ const styles = StyleSheet.create({
   toggleText: {
     fontFamily: typography.family.sansSemiBold,
     fontSize: typography.size.xs,
+  },
+  chevronButton: {
+    width: 30,
+    height: 30,
+    borderRadius: radii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  measureLayer: {
+    position: 'absolute',
+    opacity: 0,
+    left: spacing['3xl'],
+    right: spacing['3xl'],
+    pointerEvents: 'none',
+  },
+  expandableContent: {
+    overflow: 'hidden',
+  },
+  expandableContentInner: {
+    paddingTop: spacing.xs,
   },
   chartArea: {
     height: CHART_HEIGHT + 24,

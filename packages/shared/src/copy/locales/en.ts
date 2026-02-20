@@ -1063,6 +1063,13 @@ export const en = {
     loadError: "Could not load account",
     noSessionError: "No active session",
     participantsLoadError: "Error loading participants",
+    view_evolution: "View {period_adj} evolution",
+    evolution_adj_weekly: "weekly",
+    evolution_adj_monthly: "monthly",
+    evolution_adj_quarterly: "quarterly",
+    evolution_adj_yearly: "yearly",
+    view_more_categories: "See {n} more category(ies)",
+    view_less: "See less",
     summary: {
       balanceLabel: "Total balance",
       incomeLabel: "Total income",

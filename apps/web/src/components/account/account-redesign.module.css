@@ -402,12 +402,60 @@
   padding: 16px;
 }
 
-.chartHeader {
+.chartHeaderExpanded {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
-  margin-bottom: 14px;
+}
+
+.chartExpandedTitleButton {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  min-width: 0;
+}
+
+.chartCollapsedTrigger {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.chartCollapsedTrigger:hover {
+  background: var(--surface-alt);
+  border-color: var(--text-tertiary);
+}
+
+.chartCollapsedTitleContent {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.chartCollapseIcon {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .chartTitle {
@@ -415,16 +463,32 @@
   font-weight: 700;
 }
 
+.chartExpandedHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .chartHeaderRight {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .chartUserLegend {
   display: none;
   align-items: center;
   gap: 8px;
+}
+
+.chartUserLegendMobile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .chartUserLegendItem {
@@ -441,12 +505,19 @@
   border-radius: 50%;
 }
 
+.chartToggleScroll {
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
 .chartToggle {
   display: flex;
   gap: 2px;
   background: var(--surface-alt);
   border-radius: 8px;
   padding: 2px;
+  width: max-content;
 }
 
 .chartToggleBtn {
@@ -467,8 +538,52 @@
   box-shadow: var(--shadow-sm);
 }
 
+.chartCollapseButton {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.chartExpandable {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-top: 0;
+  transition:
+    grid-template-rows 300ms ease-out,
+    opacity 300ms ease-out,
+    margin-top 300ms ease-out;
+}
+
+.chartExpandableExpanded {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  margin-top: 12px;
+}
+
+.chartExpandableInner {
+  min-height: 0;
+  overflow: hidden;
+  transform: translateY(-8px);
+  opacity: 0;
+  transition: transform 300ms ease-out, opacity 220ms ease-out;
+}
+
+.chartExpandableExpanded .chartExpandableInner {
+  transform: translateY(0);
+  opacity: 1;
+}
+
 .chartArea {
-  height: 168px;
+  height: 224px;
   position: relative;
   display: flex;
   align-items: flex-end;
@@ -587,12 +702,61 @@
   text-decoration: none;
   color: inherit;
   padding: 12px 0;
+}
+
+.contributionCategoryItemBorder {
   border-bottom: 1px solid var(--border-light);
 }
 
-.contributionCategoryItem:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
+.contributionExtraCategories {
+  display: grid;
+  grid-template-rows: 0fr;
+  pointer-events: none;
+  transition: grid-template-rows 250ms ease-out;
+}
+
+.contributionExtraCategoriesExpanded {
+  grid-template-rows: 1fr;
+  pointer-events: auto;
+}
+
+.contributionExtraCategoriesInner {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 200ms ease-out, transform 250ms ease-out;
+}
+
+.contributionExtraCategories .contributionCategoryItem {
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 200ms ease-out, transform 250ms ease-out;
+}
+
+.contributionExtraCategoriesExpanded .contributionExtraCategoriesInner,
+.contributionExtraCategoriesExpanded .contributionCategoryItem {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.contributionExpandButton {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 8px 0 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  align-self: flex-start;
+}
+
+.contributionExpandButton:hover {
+  opacity: 0.82;
 }
 
 .contributionCategoryRow1 {
@@ -963,9 +1127,8 @@
     border-radius: 14px;
   }
 
-  .chartToggle {
-    overflow-x: auto;
-    max-width: 100%;
+  .chartExpandedHeaderRight {
+    align-items: flex-start;
   }
 }
 
@@ -985,7 +1148,8 @@
       "header header"
       "balance balance"
       "period period"
-      "flow chart"
+      "flow flow"
+      "chart chart"
       "expenses income";
     align-items: start;
   }
@@ -1039,6 +1203,10 @@
 
   .chartUserLegend {
     display: flex;
+  }
+
+  .chartUserLegendMobile {
+    display: none;
   }
 
   .contributionDetailContent {

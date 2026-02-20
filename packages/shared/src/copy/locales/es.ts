@@ -1064,6 +1064,13 @@ export const es = {
     loadError: "No se pudo cargar la cuenta",
     noSessionError: "No hay sesión activa",
     participantsLoadError: "Error cargando participantes",
+    view_evolution: "Ver evolución {period_adj}",
+    evolution_adj_weekly: "semanal",
+    evolution_adj_monthly: "mensual",
+    evolution_adj_quarterly: "trimestral",
+    evolution_adj_yearly: "anual",
+    view_more_categories: "Ver {n} categoría(s) más",
+    view_less: "Ver menos",
     summary: {
       balanceLabel: "Balance total",
       incomeLabel: "Ingresos totales",
