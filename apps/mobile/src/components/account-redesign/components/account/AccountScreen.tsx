@@ -1,6 +1,7 @@
 import { View, StyleSheet } from 'react-native';
 import { AccountHeader } from '../../components/account/AccountHeader';
 import { BalanceHero } from '../../components/account/BalanceHero';
+import { ContributionPeriodBanner } from '../../components/account/ContributionPeriodBanner';
 import { PeriodSelector } from '../../components/account/PeriodSelector';
 import { FlowCards } from '../../components/account/FlowCards';
 import { MonthlyChart } from '../../components/account/MonthlyChart';
@@ -48,9 +49,14 @@ export function AccountScreen({
         balance={data.account.balance}
         currency={currencySymbol}
         decimals={currencyDecimals}
+      />
+
+      <ContributionPeriodBanner
         contributors={data.contributors}
         contributionBalance={data.contributionBalance}
         period={period}
+        currency={currencySymbol}
+        decimals={currencyDecimals}
       />
 
       <PeriodSelector selected={period} onSelect={onPeriodChange} />

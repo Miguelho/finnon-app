@@ -1109,6 +1109,12 @@ export const es = {
       periodMonth: "mes",
       periodQuarter: "trimestre",
       periodYear: "año",
+      balanceDetailOpenAriaLabel: "Ver detalle de contribuciones",
+      balanceDetailCloseAriaLabel: "Cerrar detalle de contribuciones",
+      balanceDetailTitle: "Detalle de contribuciones",
+      balanceDetailPaid: "Pagó",
+      balanceDetailResponsibility: "Le corresponde",
+      balanceDetailPeriodContext: "Este {period}",
       contributionBanner:
         "{name} contribuyó en {amount} más que {otherName} este {period}",
       contributionBannerEqual:
@@ -1431,6 +1437,7 @@ export const es = {
     amountPlaceholder: "0,00",
     amountHelper: "Puedes escribir con coma o punto",
     paidByLabel: "¿Quién pagó?",
+    receivedByLabel: "¿Quién ingresó?",
     splitLabel: "Reparto",
     splitEqualOption: "Partes iguales",
     splitPersonalOption: "Solo mío",
@@ -1508,6 +1515,7 @@ export const es = {
       amountInvalid: "Formato no válido",
       categoryRequired: "Elige una categoría",
       paidByRequired: "Selecciona quién pagó",
+      receivedByRequired: "Selecciona quién ingresó",
       splitTotalMismatch: "El reparto no suma el total de la transacción",
     },
   },

@@ -561,7 +561,12 @@ export function Step1Details({
             ]}
           >
             <Text style={[styles.sectionLabel, { color: userTokens.textPrimary }]}>
-              {t(dictionary, "addTransaction.paidByLabel")}
+              {t(
+                dictionary,
+                draft.type === "income"
+                  ? "addTransaction.receivedByLabel"
+                  : "addTransaction.paidByLabel"
+              )}
             </Text>
             <View style={styles.memberWrap}>
               {visibleSplitParticipants.map((member) => {
@@ -598,7 +603,12 @@ export function Step1Details({
             </View>
             {errors.paidByUserId ? (
               <Text style={styles.errorText}>
-                {t(dictionary, "addTransaction.errors.paidByRequired")}
+                {t(
+                  dictionary,
+                  draft.type === "income"
+                    ? "addTransaction.errors.receivedByRequired"
+                    : "addTransaction.errors.paidByRequired"
+                )}
               </Text>
             ) : null}
           </View>

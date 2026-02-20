@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon – Balance visual (Opción C)</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --beige: #FAFAF8;
+    --dark: #0E0F12;
+    --green: #1B7A4A;
+    --red: #C4441A;
+    --grey-light: #E8E8E4;
+    --grey-mid: #888;
+    --card-bg: #FFFFFF;
+    --card-border: rgba(0,0,0,0.06);
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    --radius: 16px;
+    --radius-sm: 10px;
+    --user-1: #5B8DFF;
+    --user-1-light: rgba(91,141,255,0.12);
+    --user-2: #F59E0B;
+    --user-2-light: rgba(245,158,11,0.12);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--beige); color: var(--dark);
+    display: flex; justify-content: center;
+    padding: 40px 20px;
+  }
+
+  .container { max-width: 620px; width: 100%; }
+
+  .section-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--user-1); opacity: 0.5;
+    margin-bottom: 12px; margin-top: 32px;
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  /* Card */
+  .card {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: var(--radius); padding: 24px;
+    box-shadow: var(--card-shadow);
+  }
+
+  /* Balance header */
+  .balance-header {
+    text-align: center; margin-bottom: 24px;
+  }
+  .balance-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--grey-mid); margin-bottom: 4px;
+  }
+  .balance-amount {
+    font-size: 36px; font-weight: 700; letter-spacing: -1.5px;
+  }
+  .balance-cents { font-size: 18px; font-weight: 400; color: var(--grey-mid); }
+
+  /* User balance row */
+  .user-balance {
+    display: flex; flex-direction: column; gap: 20px;
+  }
+
+  .user-row {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+
+  .user-row-header {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .user-identity {
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .user-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #fff;
+  }
+  .user-avatar.u1 { background: var(--user-1); }
+  .user-avatar.u2 { background: var(--user-2); }
+
+  .user-name { font-size: 14px; font-weight: 600; }
+
+  .user-saldo {
+    font-size: 14px; font-weight: 700;
+    padding: 3px 10px; border-radius: 100px;
+  }
+  .user-saldo.positive {
+    color: var(--green);
+    background: rgba(27,122,74,0.08);
+  }
+  .user-saldo.negative {
+    color: var(--red);
+    background: rgba(196,68,26,0.08);
+  }
+
+  /* Dual bar system */
+  .dual-bars {
+    display: flex; flex-direction: column; gap: 4px;
+    position: relative;
+  }
+
+  .bar-row {
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .bar-label {
+    font-size: 11px; color: var(--grey-mid); font-weight: 500;
+    width: 72px; text-align: right; flex-shrink: 0;
+  }
+
+  .bar-track {
+    flex: 1; height: 12px; border-radius: 6px;
+    background: var(--grey-light);
+    position: relative; overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%; border-radius: 6px;
+    transition: width 0.5s ease;
+  }
+  .bar-fill.u1 { background: var(--user-1); }
+  .bar-fill.u2 { background: var(--user-2); }
+  .bar-fill.responsibility {
+    opacity: 0.3;
+  }
+
+  .bar-amount {
+    font-size: 11px; font-weight: 600; color: var(--dark);
+    min-width: 64px; flex-shrink: 0;
+  }
+
+  /* Difference indicator */
+  .difference-connector {
+    position: relative;
+    margin: 2px 0 2px 80px;
+    padding-left: 20px;
+  }
+  .difference-connector::before {
+    content: '';
+    position: absolute; left: 8px; top: -6px;
+    width: 1px; height: calc(100% + 12px);
+    border-left: 1.5px dashed var(--grey-light);
+  }
+  .difference-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 100px;
+  }
+  .difference-badge.positive {
+    color: var(--green); background: rgba(27,122,74,0.06);
+  }
+  .difference-badge.negative {
+    color: var(--red); background: rgba(196,68,26,0.06);
+  }
+  .difference-badge .arrow { font-size: 10px; }
+
+  /* Separator */
+  .separator {
+    border: none; border-top: 1px solid var(--card-border);
+    margin: 0;
+  }
+
+  /* Summary sentence */
+  .summary-sentence {
+    text-align: center; margin-top: 20px;
+    padding: 10px 16px;
+    background: var(--user-1-light);
+    border-radius: 100px;
+    font-size: 13px; font-weight: 500;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .summary-wrapper { text-align: center; }
+  .summary-sentence .mini-avatar {
+    width: 18px; height: 18px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 7px; font-weight: 700; color: #fff;
+    background: var(--user-1);
+  }
+  .summary-sentence .highlight { font-weight: 700; color: var(--user-1); }
+
+  /* Mobile version */
+  .mobile-frame {
+    width: 375px; margin: 0 auto;
+    background: var(--beige);
+    border: 1px solid var(--grey-light);
+    border-radius: 24px;
+    padding: 20px 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+  }
+  .mobile-label {
+    text-align: center; font-size: 12px; color: var(--grey-mid);
+    margin-bottom: 12px; font-weight: 500;
+  }
+
+  .mobile-frame .bar-label { width: 56px; font-size: 10px; }
+  .mobile-frame .bar-amount { font-size: 10px; min-width: 52px; }
+  .mobile-frame .user-name { font-size: 13px; }
+  .mobile-frame .user-saldo { font-size: 12px; }
+  .mobile-frame .difference-connector { margin-left: 64px; }
+  .mobile-frame .bar-track { height: 10px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="section-label">Versión Web — Componente de balance</div>
+
+  <div class="card">
+    <div class="balance-header">
+      <div class="balance-label">Balance total</div>
+      <div class="balance-amount">€6.935<span class="balance-cents">,09</span></div>
+    </div>
+
+    <div class="user-balance">
+
+      <!-- Ana -->
+      <div class="user-row">
+        <div class="user-row-header">
+          <div class="user-identity">
+            <div class="user-avatar u1">AG</div>
+            <div class="user-name">Ana García</div>
+          </div>
+          <div class="user-saldo positive">+€512,47</div>
+        </div>
+        <div class="dual-bars">
+          <div class="bar-row">
+            <div class="bar-label">Pagó</div>
+            <div class="bar-track">
+              <div class="bar-fill u1" style="width: 82%"></div>
+            </div>
+            <div class="bar-amount">€1.318,97</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label">Le corresponde</div>
+            <div class="bar-track">
+              <div class="bar-fill u1 responsibility" style="width: 50%"></div>
+            </div>
+            <div class="bar-amount">€806,50</div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="separator">
+
+      <!-- Carlos -->
+      <div class="user-row">
+        <div class="user-row-header">
+          <div class="user-identity">
+            <div class="user-avatar u2">CG</div>
+            <div class="user-name">Carlos García</div>
+          </div>
+          <div class="user-saldo negative">-€511,50</div>
+        </div>
+        <div class="dual-bars">
+          <div class="bar-row">
+            <div class="bar-label">Pagó</div>
+            <div class="bar-track">
+              <div class="bar-fill u2" style="width: 18%"></div>
+            </div>
+            <div class="bar-amount">€295,00</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label">Le corresponde</div>
+            <div class="bar-track">
+              <div class="bar-fill u2 responsibility" style="width: 50%"></div>
+            </div>
+            <div class="bar-amount">€806,50</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="summary-wrapper">
+      <div class="summary-sentence">
+        <span class="mini-avatar">AG</span>
+        <span><span class="highlight">Ana</span> contribuyó en <span class="highlight">€1.023,97</span> más que Carlos este mes</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile version -->
+  <div class="section-label">Versión Móvil</div>
+
+  <div class="mobile-frame">
+    <div class="mobile-label">📱 375px</div>
+
+    <div class="card">
+      <div class="balance-header">
+        <div class="balance-label">Balance total</div>
+        <div class="balance-amount" style="font-size: 30px;">€6.935<span class="balance-cents">,09</span></div>
+      </div>
+
+      <div class="user-balance">
+
+        <!-- Ana mobile -->
+        <div class="user-row">
+          <div class="user-row-header">
+            <div class="user-identity">
+              <div class="user-avatar u1" style="width:24px;height:24px;font-size:9px;">AG</div>
+              <div class="user-name">Ana García</div>
+            </div>
+            <div class="user-saldo positive">+€512,47</div>
+          </div>
+          <div class="dual-bars">
+            <div class="bar-row">
+              <div class="bar-label">Pagó</div>
+              <div class="bar-track">
+                <div class="bar-fill u1" style="width: 82%"></div>
+              </div>
+              <div class="bar-amount">€1.318,97</div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-label">Le corresponde</div>
+              <div class="bar-track">
+                <div class="bar-fill u1 responsibility" style="width: 50%"></div>
+              </div>
+              <div class="bar-amount">€806,50</div>
+            </div>
+          </div>
+        </div>
+
+        <hr class="separator">
+
+        <!-- Carlos mobile -->
+        <div class="user-row">
+          <div class="user-row-header">
+            <div class="user-identity">
+              <div class="user-avatar u2" style="width:24px;height:24px;font-size:9px;">CG</div>
+              <div class="user-name">Carlos García</div>
+            </div>
+            <div class="user-saldo negative">-€511,50</div>
+          </div>
+          <div class="dual-bars">
+            <div class="bar-row">
+              <div class="bar-label">Pagó</div>
+              <div class="bar-track">
+                <div class="bar-fill u2" style="width: 18%"></div>
+              </div>
+              <div class="bar-amount">€295,00</div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-label">Le corresponde</div>
+              <div class="bar-track">
+                <div class="bar-fill u2 responsibility" style="width: 50%"></div>
+              </div>
+              <div class="bar-amount">€806,50</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="summary-wrapper">
+        <div class="summary-sentence" style="font-size:11px; padding: 8px 12px;">
+          <span class="mini-avatar" style="width:16px;height:16px;font-size:6px;">AG</span>
+          <span><span class="highlight">Ana</span> contribuyó <span class="highlight">€1.023,97</span> más</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

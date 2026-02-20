@@ -2,6 +2,7 @@
 export { AccountHeader } from './AccountHeader';
 export { AccountScreen } from './AccountScreen';
 export { BalanceHero } from './BalanceHero';
+export { ContributionPeriodBanner } from './ContributionPeriodBanner';
 export { PeriodSelector } from './PeriodSelector';
 export { FlowCards } from './FlowCards';
 export { MonthlyChart } from './MonthlyChart';

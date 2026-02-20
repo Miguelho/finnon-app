@@ -153,12 +153,16 @@
   margin-bottom: 22px;
 }
 
+.balanceSection {
+  margin: 0 20px 18px;
+}
+
 .balanceHero {
-  background: var(--surface);
+  background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   text-align: center;
-  margin: 0 20px 18px;
+  margin: 0;
   padding: 24px 20px 22px;
 }
 
@@ -206,9 +210,20 @@
 }
 
 .contributionBannerWrapper {
-  margin-top: 16px;
   display: flex;
   justify-content: center;
+}
+
+.contributionBannerSection {
+  margin-top: 12px;
+}
+
+.contributionBannerButton {
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  padding: 0;
+  cursor: pointer;
 }
 
 .contributionBanner {
@@ -219,6 +234,17 @@
   border: 1px solid transparent;
   padding: 8px 14px;
   max-width: 100%;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.contributionBannerButton:hover .contributionBanner {
+  transform: scale(1.02);
+  filter: brightness(0.97);
+}
+
+.contributionBannerButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .contributionBannerAvatar {
@@ -251,17 +277,8 @@
   flex: 1;
   padding: 14px;
   border-radius: var(--radius-md);
-  border: 1px solid transparent;
-}
-
-.flowCardIncome {
-  background: var(--income-bg);
-  border-color: var(--income-light);
-}
-
-.flowCardExpense {
-  background: var(--expense-bg);
-  border-color: var(--expense-light);
+  border: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .flowCardHeader {
@@ -659,6 +676,284 @@
   height: 100%;
 }
 
+.contributionDetailOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 80;
+  animation: contributionOverlayIn 200ms ease-out;
+}
+
+.contributionDetailOverlay[data-state="closed"] {
+  animation: contributionOverlayOut 150ms ease-in;
+}
+
+.contributionDetailContent {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 81;
+  background: var(--account-surface, #ffffff);
+  border: 1px solid var(--account-border, #e8e6e1);
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px 14px;
+  outline: none;
+  animation: contributionSheetIn 250ms ease-out;
+}
+
+.contributionDetailContent[data-state="closed"] {
+  animation: contributionSheetOut 180ms ease-in;
+}
+
+.contributionDetailHandle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--account-border, #e8e6e1);
+  margin: 0 auto 12px;
+}
+
+.contributionDetailTitle {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  padding: 0 36px;
+}
+
+.contributionDetailPeriodContext {
+  text-align: center;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--account-text-tertiary, #9c9c95);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.contributionDetailCloseButton {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid var(--account-border, #e8e6e1);
+  background: var(--account-surface-alt, #f5f4f0);
+  color: var(--account-text-secondary, #6b6b65);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.contributionDetailCloseButton:hover {
+  border-color: var(--account-text-secondary, #6b6b65);
+}
+
+.contributionDetailBody {
+  margin-top: 14px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.contributionDetailMember {
+  display: block;
+}
+
+.contributionDetailMemberHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.contributionDetailIdentity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.contributionDetailAvatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.contributionDetailName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--account-text-primary, #1a1a18);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contributionDetailBalanceBadge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.contributionDetailBalanceBadgePositive {
+  color: var(--income);
+  background: rgba(27, 122, 74, 0.08);
+}
+
+.contributionDetailBalanceBadgeNegative {
+  color: var(--expense);
+  background: rgba(196, 68, 26, 0.08);
+}
+
+.contributionDetailBalanceBadgeNeutral {
+  color: var(--account-text-secondary, #6b6b65);
+  background: var(--account-surface-alt, #f5f4f0);
+}
+
+.contributionDetailBars {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.contributionDetailBarRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.contributionDetailBarLabel {
+  width: 56px;
+  flex-shrink: 0;
+  text-align: right;
+  font-size: 10px;
+  color: var(--account-text-secondary, #6b6b65);
+  font-weight: 600;
+}
+
+.contributionDetailBarTrack {
+  flex: 1;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--account-border-light, #f0eee9);
+  overflow: hidden;
+  position: relative;
+}
+
+.contributionDetailBarFill {
+  height: 100%;
+  border-radius: 5px;
+  display: block;
+}
+
+.contributionDetailBarFillResponsibility {
+  opacity: 0.3;
+}
+
+.contributionDetailBarAmount {
+  min-width: 52px;
+  font-size: 10px;
+  color: var(--account-text-primary, #1a1a18);
+  font-weight: 600;
+  font-family: var(--font-jetbrains-mono, "JetBrains Mono", monospace);
+}
+
+.contributionDetailSeparator {
+  border-top: 1px solid var(--account-border-light, #f0eee9);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.contributionDetailSummary {
+  margin-top: 8px;
+  border-top: 1px solid var(--account-border-light, #f0eee9);
+  padding-top: 14px;
+  display: flex;
+  justify-content: center;
+}
+
+.contributionDetailSummaryText {
+  font-size: 11px;
+}
+
+@keyframes contributionOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes contributionOverlayOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes contributionSheetIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes contributionSheetOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+@keyframes contributionModalIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes contributionModalOut {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+}
+
 @media (max-width: 640px) {
   .screen {
     max-width: 100%;
@@ -675,6 +970,11 @@
 }
 
 @media (min-width: 768px) {
+  .contributionDetailOverlay {
+    background: rgba(15, 23, 42, 0.2);
+    backdrop-filter: blur(2px);
+  }
+
   .screen {
     max-width: 1100px;
     display: grid;
@@ -700,7 +1000,7 @@
     margin-bottom: 0;
   }
 
-  .balanceHero {
+  .balanceSection {
     grid-area: balance;
     margin-bottom: 0;
   }
@@ -739,5 +1039,91 @@
 
   .chartUserLegend {
     display: flex;
+  }
+
+  .contributionDetailContent {
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    top: 50%;
+    width: min(560px, calc(100vw - 32px));
+    max-height: min(80vh, 760px);
+    border-radius: 16px;
+    border: 1px solid var(--account-border, #e8e6e1);
+    padding: 24px;
+    transform: translate(-50%, -50%);
+    box-shadow:
+      0 26px 80px rgba(0, 0, 0, 0.22),
+      0 4px 12px rgba(0, 0, 0, 0.08);
+    animation: contributionModalIn 200ms ease-out;
+  }
+
+  .contributionDetailContent[data-state="closed"] {
+    animation: contributionModalOut 150ms ease-in;
+  }
+
+  .contributionDetailHandle {
+    display: none;
+  }
+
+  .contributionDetailTitle {
+    font-size: 20px;
+    text-align: left;
+    padding-right: 40px;
+    padding-left: 0;
+  }
+
+  .contributionDetailPeriodContext {
+    text-align: left;
+  }
+
+  .contributionDetailBody {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--account-surface-alt, #f5f4f0);
+    border: 1px solid var(--account-border-light, #f0eee9);
+    border-radius: 14px;
+  }
+
+  .contributionDetailCloseButton {
+    top: 20px;
+    right: 20px;
+  }
+
+  .contributionDetailAvatar {
+    width: 28px;
+    height: 28px;
+    font-size: 10px;
+  }
+
+  .contributionDetailName {
+    font-size: 14px;
+  }
+
+  .contributionDetailBalanceBadge {
+    font-size: 14px;
+  }
+
+  .contributionDetailBarLabel {
+    width: 72px;
+    font-size: 11px;
+  }
+
+  .contributionDetailBarTrack {
+    height: 12px;
+    border-radius: 6px;
+  }
+
+  .contributionDetailBarFill {
+    border-radius: 6px;
+  }
+
+  .contributionDetailBarAmount {
+    min-width: 72px;
+    font-size: 11px;
+  }
+
+  .contributionDetailSummaryText {
+    font-size: 12px;
   }
 }

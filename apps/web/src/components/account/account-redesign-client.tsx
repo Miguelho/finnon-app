@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type TouchEvent } from "react";
 import Link from "next/link";
-import { Info, Search, Settings } from "lucide-react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { Info, Search, Settings, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { CURRENCIES, getMinorUnits, type Period } from "@poleursus/shared";
 import { CategoryIcon } from "@/components/category-icon";
@@ -25,6 +26,10 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
   const { resolvedMode } = useWebUserTheme();
   const [selectedPeriod, setSelectedPeriod] = useState<Period>("month");
   const [chartMode, setChartMode] = useState<ChartMode>("both");
+  const [isContributionDetailOpen, setIsContributionDetailOpen] = useState(false);
+  const swipeStartYRef = useRef<number | null>(null);
+  const swipeCurrentYRef = useRef<number | null>(null);
+  const contributionDetailScrollRef = useRef<HTMLDivElement | null>(null);
 
   const data = dataByPeriod[selectedPeriod];
   const contributionData = data.contributionBalance;
@@ -103,8 +108,8 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
     if (sorted.length < 2) return null;
 
     const leader = sorted[0];
-    const second = sorted[1];
-    const diff = leader.totalPaid - second.totalPaid;
+    const trailing = sorted[sorted.length - 1];
+    const diff = leader.totalPaid - trailing.totalPaid;
     const thresholdMajor = 100 / Math.pow(10, currencyDecimals);
     if (diff < thresholdMajor) {
       return {
@@ -121,13 +126,50 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
           currency: currencySymbol,
           decimals: currencyDecimals,
         }).full,
-        otherName: second.name,
+        otherName: trailing.name,
         period: periodLabel,
       }),
       color: leader.color,
       initials: leader.initials,
     };
   }, [contributionData, currencyDecimals, currencySymbol, isCollaborative, periodLabel, t]);
+
+  const contributionDetail = useMemo(() => {
+    if (!isCollaborative || !contributionData) return null;
+    const members = contributionData.members;
+    const maxValue = members.reduce(
+      (max, member) => Math.max(max, member.totalPaid, member.totalResponsible),
+      0
+    );
+    return { members, maxValue };
+  }, [contributionData, isCollaborative]);
+
+  const handleContributionDetailTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    const firstTouch = event.touches[0];
+    if (!firstTouch) return;
+    swipeStartYRef.current = firstTouch.clientY;
+    swipeCurrentYRef.current = firstTouch.clientY;
+  };
+
+  const handleContributionDetailTouchMove = (event: TouchEvent<HTMLDivElement>) => {
+    const firstTouch = event.touches[0];
+    if (!firstTouch) return;
+    swipeCurrentYRef.current = firstTouch.clientY;
+  };
+
+  const handleContributionDetailTouchEnd = () => {
+    const startY = swipeStartYRef.current;
+    const currentY = swipeCurrentYRef.current;
+    swipeStartYRef.current = null;
+    swipeCurrentYRef.current = null;
+    if (startY === null || currentY === null) return;
+
+    const swipedDown = currentY - startY > 72;
+    const atTop = (contributionDetailScrollRef.current?.scrollTop ?? 0) <= 0;
+    if (swipedDown && atTop) {
+      setIsContributionDetailOpen(false);
+    }
+  };
 
   const renderFlowContribution = (type: "income" | "expense") => {
     if (!isCollaborative) return null;
@@ -373,40 +415,204 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
           </div>
         </div>
 
-        <div className={styles.balanceHero}>
-          <div className={styles.balanceLabelRow}>
-            <div className={styles.balanceLabel}>{t("account.redesign.balanceTotalLabel")}</div>
-            <button
-              type="button"
-              className={styles.balanceTooltipButton}
-              title={t("account.redesign.balanceTotalTooltip")}
-              aria-label={t("account.redesign.balanceTotalTooltip")}
-            >
-              <Info size={14} />
-            </button>
-          </div>
-          <div className={styles.balanceAmount}>
-            {currencySymbol}
-            {balance.whole}
-            <span className={styles.balanceCents}>{balance.cents}</span>
-          </div>
-          {contributionBanner ? (
-            <div className={styles.contributionBannerWrapper}>
-              <div
-                className={styles.contributionBanner}
-                style={{
-                  backgroundColor: `${contributionBanner.color}22`,
-                  borderColor: `${contributionBanner.color}44`,
-                }}
+        <div className={styles.balanceSection}>
+          <div className={styles.balanceHero}>
+            <div className={styles.balanceLabelRow}>
+              <div className={styles.balanceLabel}>{t("account.redesign.balanceTotalLabel")}</div>
+              <button
+                type="button"
+                className={styles.balanceTooltipButton}
+                title={t("account.redesign.balanceTotalTooltip")}
+                aria-label={t("account.redesign.balanceTotalTooltip")}
               >
-                <span
-                  className={styles.contributionBannerAvatar}
-                  style={{ backgroundColor: contributionBanner.color }}
-                >
-                  {contributionBanner.initials}
-                </span>
-                <span className={styles.contributionBannerText}>{contributionBanner.text}</span>
-              </div>
+                <Info size={14} />
+              </button>
+            </div>
+            <div className={styles.balanceAmount}>
+              {currencySymbol}
+              {balance.whole}
+              <span className={styles.balanceCents}>{balance.cents}</span>
+            </div>
+          </div>
+
+          {contributionBanner && contributionDetail ? (
+            <div className={styles.contributionBannerSection}>
+              <DialogPrimitive.Root
+                open={isContributionDetailOpen}
+                onOpenChange={setIsContributionDetailOpen}
+              >
+                <div className={styles.contributionBannerWrapper}>
+                  <DialogPrimitive.Trigger asChild>
+                    <button
+                      type="button"
+                      className={styles.contributionBannerButton}
+                      aria-label={t("account.redesign.balanceDetailOpenAriaLabel")}
+                    >
+                      <span
+                        className={styles.contributionBanner}
+                        style={{
+                          backgroundColor: `${contributionBanner.color}22`,
+                          borderColor: `${contributionBanner.color}44`,
+                        }}
+                      >
+                        <span
+                          className={styles.contributionBannerAvatar}
+                          style={{ backgroundColor: contributionBanner.color }}
+                        >
+                          {contributionBanner.initials}
+                        </span>
+                        <span className={styles.contributionBannerText}>{contributionBanner.text}</span>
+                      </span>
+                    </button>
+                  </DialogPrimitive.Trigger>
+                </div>
+
+                <DialogPrimitive.Portal>
+                  <DialogPrimitive.Overlay className={styles.contributionDetailOverlay} />
+                  <DialogPrimitive.Content
+                    className={styles.contributionDetailContent}
+                    onTouchStart={handleContributionDetailTouchStart}
+                    onTouchMove={handleContributionDetailTouchMove}
+                    onTouchEnd={handleContributionDetailTouchEnd}
+                  >
+                    <div className={styles.contributionDetailHandle} aria-hidden />
+
+                    <DialogPrimitive.Title className={styles.contributionDetailTitle}>
+                      {t("account.redesign.balanceDetailTitle")}
+                    </DialogPrimitive.Title>
+                    <p className={styles.contributionDetailPeriodContext}>
+                      {t("account.redesign.balanceDetailPeriodContext", { period: periodLabel })}
+                    </p>
+
+                    <DialogPrimitive.Close asChild>
+                      <button
+                        type="button"
+                        className={styles.contributionDetailCloseButton}
+                        aria-label={t("account.redesign.balanceDetailCloseAriaLabel")}
+                      >
+                        <X size={16} />
+                      </button>
+                    </DialogPrimitive.Close>
+
+                    <div className={styles.contributionDetailBody} ref={contributionDetailScrollRef}>
+                      {contributionDetail.members.map((member, index) => {
+                        const net = formatCurrency(member.net, {
+                          currency: currencySymbol,
+                          decimals: currencyDecimals,
+                          showSign: true,
+                        });
+                        const paid = formatCurrency(member.totalPaid, {
+                          currency: currencySymbol,
+                          decimals: currencyDecimals,
+                        });
+                        const responsibility = formatCurrency(member.totalResponsible, {
+                          currency: currencySymbol,
+                          decimals: currencyDecimals,
+                        });
+                        const paidWidth =
+                          contributionDetail.maxValue > 0
+                            ? Math.min(100, (member.totalPaid / contributionDetail.maxValue) * 100)
+                            : 0;
+                        const responsibilityWidth =
+                          contributionDetail.maxValue > 0
+                            ? Math.min(
+                                100,
+                                (member.totalResponsible / contributionDetail.maxValue) * 100
+                              )
+                            : 0;
+
+                        return (
+                          <div key={member.userId} className={styles.contributionDetailMember}>
+                            <div className={styles.contributionDetailMemberHeader}>
+                              <div className={styles.contributionDetailIdentity}>
+                                <span
+                                  className={styles.contributionDetailAvatar}
+                                  style={{ backgroundColor: member.color }}
+                                >
+                                  {member.initials}
+                                </span>
+                                <span className={styles.contributionDetailName}>{member.name}</span>
+                              </div>
+                              <span
+                                className={`${styles.contributionDetailBalanceBadge} ${
+                                  member.net > 0
+                                    ? styles.contributionDetailBalanceBadgePositive
+                                    : member.net < 0
+                                      ? styles.contributionDetailBalanceBadgeNegative
+                                      : styles.contributionDetailBalanceBadgeNeutral
+                                }`}
+                              >
+                                {net.full}
+                              </span>
+                            </div>
+
+                            <div className={styles.contributionDetailBars}>
+                              <div className={styles.contributionDetailBarRow}>
+                                <span className={styles.contributionDetailBarLabel}>
+                                  {t("account.redesign.balanceDetailPaid")}
+                                </span>
+                                <span className={styles.contributionDetailBarTrack}>
+                                  <span
+                                    className={styles.contributionDetailBarFill}
+                                    style={{
+                                      width: `${paidWidth}%`,
+                                      backgroundColor: member.color,
+                                    }}
+                                  />
+                                </span>
+                                <span className={styles.contributionDetailBarAmount}>{paid.full}</span>
+                              </div>
+                              <div className={styles.contributionDetailBarRow}>
+                                <span className={styles.contributionDetailBarLabel}>
+                                  {t("account.redesign.balanceDetailResponsibility")}
+                                </span>
+                                <span className={styles.contributionDetailBarTrack}>
+                                  <span
+                                    className={`${styles.contributionDetailBarFill} ${styles.contributionDetailBarFillResponsibility}`}
+                                    style={{
+                                      width: `${responsibilityWidth}%`,
+                                      backgroundColor: member.color,
+                                    }}
+                                  />
+                                </span>
+                                <span className={styles.contributionDetailBarAmount}>
+                                  {responsibility.full}
+                                </span>
+                              </div>
+                            </div>
+
+                            {index < contributionDetail.members.length - 1 ? (
+                              <div className={styles.contributionDetailSeparator} />
+                            ) : null}
+                          </div>
+                        );
+                      })}
+
+                      <div className={styles.contributionDetailSummary}>
+                        <div
+                          className={styles.contributionBanner}
+                          style={{
+                            backgroundColor: `${contributionBanner.color}22`,
+                            borderColor: `${contributionBanner.color}44`,
+                          }}
+                        >
+                          <span
+                            className={styles.contributionBannerAvatar}
+                            style={{ backgroundColor: contributionBanner.color }}
+                          >
+                            {contributionBanner.initials}
+                          </span>
+                          <span
+                            className={`${styles.contributionBannerText} ${styles.contributionDetailSummaryText}`}
+                          >
+                            {contributionBanner.text}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </DialogPrimitive.Content>
+                </DialogPrimitive.Portal>
+              </DialogPrimitive.Root>
             </div>
           ) : null}
         </div>

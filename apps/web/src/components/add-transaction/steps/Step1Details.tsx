@@ -516,7 +516,7 @@ export function Step1Details({
         <>
           <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
             <Label className="text-sm font-semibold text-foreground">
-              {t("paidByLabel")}
+              {draft.type === "income" ? t("receivedByLabel") : t("paidByLabel")}
             </Label>
             <div className="flex flex-wrap gap-2">
               {visibleSplitParticipants.map((member) => {
@@ -540,7 +540,11 @@ export function Step1Details({
               })}
             </div>
             {errors.paidByUserId ? (
-              <p className="text-sm text-destructive">{t("errors.paidByRequired")}</p>
+              <p className="text-sm text-destructive">
+                {draft.type === "income"
+                  ? t("errors.receivedByRequired")
+                  : t("errors.paidByRequired")}
+              </p>
             ) : null}
           </div>
 

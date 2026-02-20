@@ -1107,6 +1107,12 @@ export const en = {
       periodMonth: "month",
       periodQuarter: "quarter",
       periodYear: "year",
+      balanceDetailOpenAriaLabel: "Open contribution details",
+      balanceDetailCloseAriaLabel: "Close contribution details",
+      balanceDetailTitle: "Contribution details",
+      balanceDetailPaid: "Paid",
+      balanceDetailResponsibility: "Owes",
+      balanceDetailPeriodContext: "This {period}",
       contributionBanner:
         "{name} contributed {amount} more than {otherName} this {period}",
       contributionBannerEqual:
@@ -1429,6 +1435,7 @@ export const en = {
     amountPlaceholder: "0.00",
     amountHelper: "You can use comma or period",
     paidByLabel: "Who paid?",
+    receivedByLabel: "Who received it?",
     splitLabel: "Split",
     splitEqualOption: "Equal parts",
     splitPersonalOption: "Only mine",
@@ -1506,6 +1513,7 @@ export const en = {
       amountInvalid: "Invalid format",
       categoryRequired: "Pick a category",
       paidByRequired: "Select who paid",
+      receivedByRequired: "Select who received it",
       splitTotalMismatch: "Split does not match transaction total",
     },
   },
