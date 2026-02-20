@@ -15,7 +15,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const { client: supabase } = await createAuthenticatedClient();
+    const { client: supabase, user } = await createAuthenticatedClient();
 
     const [
       categoriesResult,
@@ -23,6 +23,7 @@ export async function GET(request: Request) {
       topIncomeResult,
       merchantExpenseResult,
       merchantIncomeResult,
+      membersResult,
     ] = await Promise.all([
       supabase
         .from("categories")
@@ -49,6 +50,10 @@ export async function GET(request: Request) {
         p_tx_type: "income",
         p_limit: 20,
       }),
+      supabase
+        .from("account_members")
+        .select("user_id, role")
+        .eq("account_id", accountId),
     ]);
 
     if (categoriesResult.error) throw categoriesResult.error;
@@ -56,6 +61,18 @@ export async function GET(request: Request) {
     if (topIncomeResult.error) throw topIncomeResult.error;
     if (merchantExpenseResult.error) throw merchantExpenseResult.error;
     if (merchantIncomeResult.error) throw merchantIncomeResult.error;
+    if (membersResult.error) throw membersResult.error;
+
+    const memberUserIds = (membersResult.data ?? []).map((member) => member.user_id);
+    const { data: memberProfiles, error: memberProfilesError } =
+      memberUserIds.length > 0
+        ? await supabase
+            .from("profiles")
+            .select("user_id, email, display_name")
+            .in("user_id", memberUserIds)
+        : { data: [], error: null };
+
+    if (memberProfilesError) throw memberProfilesError;
 
     const normalizeRpcList = <T,>(value: unknown): T[] => {
       if (!value) return [];
@@ -71,6 +88,21 @@ export async function GET(request: Request) {
       return [];
     };
 
+    const profileByUserId = new Map(
+      (memberProfiles ?? []).map((profile) => [profile.user_id, profile])
+    );
+    const participants = (membersResult.data ?? []).map((member) => {
+      const profile = profileByUserId.get(member.user_id);
+      return {
+        userId: member.user_id,
+        role: member.role,
+        name:
+          profile?.display_name?.trim() ||
+          profile?.email?.trim() ||
+          member.user_id.slice(0, 6),
+      };
+    });
+
     return NextResponse.json({
       categories: categoriesResult.data ?? [],
       topCategories: {
@@ -81,6 +113,8 @@ export async function GET(request: Request) {
         expense: normalizeRpcList(merchantExpenseResult.data),
         income: normalizeRpcList(merchantIncomeResult.data),
       },
+      participants,
+      currentUserId: user.id,
     });
   } catch (error) {
     console.error("Add action data endpoint error:", error);

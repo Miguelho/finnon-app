@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,11 @@ import {
   type TransactionDraft,
   type TransactionType,
   type ObligationType,
+  type ContributionSplitType,
+  parseMoneyToMinor,
+  formatMinorToMoney,
+  buildEqualSplit,
+  CURRENCY_MINOR_UNITS,
   formatDateForDisplay,
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../lib/i18n";
@@ -54,6 +59,13 @@ interface Step1DetailsProps {
     value: TransactionDraft[K]
   ) => void;
   allowObligation?: boolean;
+  splitParticipants?: {
+    userId: string;
+    name: string;
+    role: "viewer" | "contributor" | "admin";
+  }[];
+  currentUserId?: string | null;
+  showSplitControls?: boolean;
 }
 
 export function Step1Details({
@@ -61,6 +73,9 @@ export function Step1Details({
   errors,
   onFieldChange,
   allowObligation = true,
+  splitParticipants = [],
+  currentUserId = null,
+  showSplitControls = true,
 }: Step1DetailsProps) {
   const { dictionary, locale } = useCopy();
   const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
@@ -71,6 +86,7 @@ export function Step1Details({
   const [sheetScheduledDate, setSheetScheduledDate] = useState(draft.date);
   const [sheetScheduledOverride, setSheetScheduledOverride] = useState(false);
   const [dismissedFutureSuggestion, setDismissedFutureSuggestion] = useState(false);
+  const [customSplitInputs, setCustomSplitInputs] = useState<Record<string, string>>({});
   const openedFromToggleRef = useRef(false);
 
   const handleAmountChange = (value: string) => {
@@ -203,6 +219,150 @@ export function Step1Details({
           locale
         )}`
       : t(dictionary, "addTransaction.obligationChipPending");
+
+  const visibleSplitParticipants = useMemo(
+    () => (showSplitControls ? splitParticipants : []),
+    [showSplitControls, splitParticipants]
+  );
+  const splitParticipantIds = useMemo(
+    () => visibleSplitParticipants.map((member) => member.userId),
+    [visibleSplitParticipants]
+  );
+  const canConfigureSplit = splitParticipantIds.length >= 2;
+
+  const resolveAmountMinor = () => {
+    const parsed = parseMoneyToMinor(
+      draft.amount,
+      draft.currency,
+      CURRENCY_MINOR_UNITS
+    );
+    if (typeof parsed !== "bigint") return null;
+    return Math.max(0, Number(parsed));
+  };
+
+  useEffect(() => {
+    if (!canConfigureSplit) return;
+    if (draft.paidByUserId) return;
+    const fallbackPaidBy = currentUserId ?? splitParticipantIds[0] ?? null;
+    if (fallbackPaidBy) {
+      onFieldChange("paidByUserId", fallbackPaidBy);
+    }
+  }, [
+    canConfigureSplit,
+    currentUserId,
+    draft.paidByUserId,
+    onFieldChange,
+    splitParticipantIds,
+  ]);
+
+  useEffect(() => {
+    if (!canConfigureSplit) return;
+    if (draft.splitType !== "custom") return;
+    if (draft.splitDetails && draft.splitDetails.length > 0) return;
+    const amountMinor = resolveAmountMinor();
+    if (amountMinor === null) return;
+    onFieldChange("splitDetails", buildEqualSplit(amountMinor, splitParticipantIds));
+  }, [
+    canConfigureSplit,
+    draft.amount,
+    draft.currency,
+    draft.splitDetails,
+    draft.splitType,
+    onFieldChange,
+    splitParticipantIds,
+  ]);
+
+  useEffect(() => {
+    if (!canConfigureSplit || draft.splitType !== "custom") {
+      setCustomSplitInputs((prev) => (Object.keys(prev).length > 0 ? {} : prev));
+      return;
+    }
+    const details = draft.splitDetails ?? [];
+    const nextInputs: Record<string, string> = {};
+    splitParticipantIds.forEach((userId) => {
+      const detail = details.find((item) => item.userId === userId);
+      const shareMinor = detail?.shareMinor ?? 0;
+      nextInputs[userId] = formatMinorToMoney(
+        BigInt(Math.max(0, shareMinor)),
+        draft.currency,
+        CURRENCY_MINOR_UNITS
+      ).replace(".", ",");
+    });
+    setCustomSplitInputs((prev) => {
+      const prevKeys = Object.keys(prev);
+      const nextKeys = Object.keys(nextInputs);
+      if (
+        prevKeys.length === nextKeys.length &&
+        nextKeys.every((key) => prev[key] === nextInputs[key])
+      ) {
+        return prev;
+      }
+      return nextInputs;
+    });
+  }, [
+    canConfigureSplit,
+    draft.currency,
+    draft.splitDetails,
+    draft.splitType,
+    splitParticipantIds,
+  ]);
+
+  const handlePaidByChange = (userId: string) => {
+    onFieldChange("paidByUserId", userId);
+  };
+
+  const handleSplitTypeChange = (value: ContributionSplitType) => {
+    onFieldChange("splitType", value);
+    if (value !== "custom") {
+      onFieldChange("splitDetails", null);
+      return;
+    }
+    const amountMinor = resolveAmountMinor() ?? 0;
+    onFieldChange("splitDetails", buildEqualSplit(amountMinor, splitParticipantIds));
+  };
+
+  const applyCustomSplitValue = (userId: string, rawValue: string) => {
+    const amountMinor = resolveAmountMinor();
+    if (amountMinor === null) return;
+
+    const sanitized = rawValue.replace(/[^0-9.,]/g, "");
+    setCustomSplitInputs((prev) => ({ ...prev, [userId]: sanitized }));
+
+    const parsedTarget = parseMoneyToMinor(
+      sanitized || "0",
+      draft.currency,
+      CURRENCY_MINOR_UNITS
+    );
+
+    const targetValue = Math.max(
+      0,
+      Math.min(
+        amountMinor,
+        typeof parsedTarget === "bigint" ? Number(parsedTarget) : 0
+      )
+    );
+
+    const otherUserIds = splitParticipantIds.filter((id) => id !== userId);
+    const remaining = Math.max(0, amountMinor - targetValue);
+    const baseShare =
+      otherUserIds.length > 0 ? Math.floor(remaining / otherUserIds.length) : 0;
+    const remainder =
+      otherUserIds.length > 0 ? remaining % otherUserIds.length : 0;
+
+    const nextDetails = splitParticipantIds.map((id) => {
+      if (id === userId) {
+        return { userId: id, shareMinor: targetValue };
+      }
+      const otherIndex = otherUserIds.indexOf(id);
+      return {
+        userId: id,
+        shareMinor:
+          baseShare + (otherIndex >= 0 && otherIndex < remainder ? 1 : 0),
+      };
+    });
+
+    onFieldChange("splitDetails", nextDetails);
+  };
 
   return (
     <View style={styles.container}>
@@ -391,6 +551,144 @@ export function Step1Details({
           </Text>
         )}
       </View>
+
+      {canConfigureSplit && (
+        <>
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+            ]}
+          >
+            <Text style={[styles.sectionLabel, { color: userTokens.textPrimary }]}>
+              {t(dictionary, "addTransaction.paidByLabel")}
+            </Text>
+            <View style={styles.memberWrap}>
+              {visibleSplitParticipants.map((member) => {
+                const isSelected = draft.paidByUserId === member.userId;
+                return (
+                  <Pressable
+                    key={member.userId}
+                    onPress={() => handlePaidByChange(member.userId)}
+                    style={[
+                      styles.memberChip,
+                      {
+                        borderColor: isSelected ? primaryActionColor : userTokens.border,
+                        backgroundColor: isSelected
+                          ? primaryActionColor
+                          : userTokens.surface,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.memberChipText,
+                        {
+                          color: isSelected
+                            ? primaryActionTextColor
+                            : userTokens.textPrimary,
+                        },
+                      ]}
+                    >
+                      {member.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {errors.paidByUserId ? (
+              <Text style={styles.errorText}>
+                {t(dictionary, "addTransaction.errors.paidByRequired")}
+              </Text>
+            ) : null}
+          </View>
+
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+            ]}
+          >
+            <Text style={[styles.sectionLabel, { color: userTokens.textPrimary }]}>
+              {t(dictionary, "addTransaction.splitLabel")}
+            </Text>
+            <View
+              style={[
+                styles.segmentedControl,
+                { borderColor: userTokens.border, backgroundColor: userTokens.surfaceAlt },
+              ]}
+            >
+              {(
+                [
+                  { key: "equal", label: "addTransaction.splitEqualOption" },
+                  { key: "personal", label: "addTransaction.splitPersonalOption" },
+                  { key: "custom", label: "addTransaction.splitCustomOption" },
+                ] as const
+              ).map((option) => {
+                const isActive = draft.splitType === option.key;
+                return (
+                  <Pressable
+                    key={option.key}
+                    onPress={() => handleSplitTypeChange(option.key)}
+                    style={[
+                      styles.segmentOption,
+                      isActive && styles.segmentOptionActive,
+                      isActive && { backgroundColor: primaryActionColor },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentOptionText,
+                        isActive && styles.segmentOptionTextActive,
+                        { color: userTokens.textSecondary },
+                        isActive && { color: primaryActionTextColor },
+                      ]}
+                    >
+                      {t(dictionary, option.label)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {draft.splitType === "custom" && (
+              <View style={styles.customSplitList}>
+                <Text style={[styles.helperText, { color: userTokens.textSecondary }]}>
+                  {t(dictionary, "addTransaction.splitCustomHelper")}
+                </Text>
+                {visibleSplitParticipants.map((member) => (
+                  <View key={member.userId} style={styles.customSplitRow}>
+                    <Text style={[styles.customSplitName, { color: userTokens.textPrimary }]}>
+                      {member.name}
+                    </Text>
+                    <TextInput
+                      value={customSplitInputs[member.userId] ?? ""}
+                      onChangeText={(value) => applyCustomSplitValue(member.userId, value)}
+                      placeholder="0,00"
+                      placeholderTextColor={userTokens.textTertiary}
+                      keyboardType="decimal-pad"
+                      style={[
+                        styles.customSplitInput,
+                        {
+                          borderColor: userTokens.border,
+                          backgroundColor: userTokens.surface,
+                          color: userTokens.textPrimary,
+                        },
+                      ]}
+                    />
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {errors.splitDetails ? (
+              <Text style={styles.errorText}>
+                {t(dictionary, "addTransaction.errors.splitTotalMismatch")}
+              </Text>
+            ) : null}
+          </View>
+        </>
+      )}
 
       {/* Date field */}
       <View
@@ -642,6 +940,47 @@ const styles = StyleSheet.create({
     fontWeight: tokens.typography.weight.medium,
     color: colors.text.secondary,
     marginTop: tokens.spacing.sm,
+  },
+  memberWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: tokens.spacing.sm,
+  },
+  memberChip: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.pill,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+    minHeight: 40,
+    justifyContent: "center",
+  },
+  memberChipText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+  },
+  customSplitList: {
+    gap: tokens.spacing.sm,
+  },
+  customSplitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: tokens.spacing.md,
+  },
+  customSplitName: {
+    flex: 1,
+    fontSize: tokens.typography.size.md,
+    fontWeight: tokens.typography.weight.medium,
+  },
+  customSplitInput: {
+    minWidth: 110,
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+    textAlign: "right",
+    fontSize: tokens.typography.size.md,
+    fontVariant: ["tabular-nums"],
   },
   typeToggle: {
     flexDirection: "row",

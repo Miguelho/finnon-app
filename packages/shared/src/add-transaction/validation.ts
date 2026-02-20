@@ -101,6 +101,16 @@ export function validateStep1(
     errors.amount = amountResult.error;
   }
 
+  if (draft.splitType === "custom" && amountResult.valid) {
+    const totalSplit = (draft.splitDetails ?? []).reduce(
+      (acc, split) => acc + split.shareMinor,
+      0
+    );
+    if (totalSplit !== Number(amountResult.value)) {
+      errors.splitDetails = "addTransaction.errors.splitTotalMismatch";
+    }
+  }
+
   return {
     valid: Object.keys(errors).length === 0,
     errors,

@@ -127,8 +127,8 @@ BEGIN
   test_count := test_count + 1;
   PERFORM set_test_user('22222222-2222-2222-2222-222222222222');
   BEGIN
-    INSERT INTO transactions (account_id, type, amount_minor, currency, amount_base_minor, category_id, date, created_by)
-    VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'expense', 1000, 'EUR', 1000, 'a1111111-1111-1111-1111-111111111111', '2025-01-20', '22222222-2222-2222-2222-222222222222');
+    INSERT INTO transactions (account_id, type, amount_minor, currency, amount_base_minor, category_id, date, created_by, paid_by)
+    VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'expense', 1000, 'EUR', 1000, 'a1111111-1111-1111-1111-111111111111', '2025-01-20', '22222222-2222-2222-2222-222222222222', '22222222-2222-2222-2222-222222222222');
     pass_count := pass_count + 1;
     RAISE NOTICE '[PASS] 2.4: Bob (contributor) can insert transaction';
     ROLLBACK;

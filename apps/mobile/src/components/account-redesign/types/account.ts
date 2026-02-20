@@ -22,6 +22,10 @@ export interface FlowSummary {
   // Porcentaje de cambio respecto al período anterior (null si no hay datos)
   incomeDelta: number | null;
   expenseDelta: number | null;
+  byUser: {
+    income: Array<{ userId: string; amount: number }>;
+    expense: Array<{ userId: string; amount: number }>;
+  };
 }
 
 export interface CategorySummary {
@@ -48,6 +52,57 @@ export interface MonthlyDataPoint {
   income: number;
   expense: number;
   isCurrent: boolean;
+  incomeByUser: Array<{ userId: string; amount: number }>;
+  expenseByUser: Array<{ userId: string; amount: number }>;
+}
+
+export interface ContributionMemberBalance {
+  userId: string;
+  name: string;
+  initials: string;
+  color: string;
+  totalPaid: number;
+  totalResponsible: number;
+  net: number;
+}
+
+export interface ContributionDebt {
+  fromUserId: string;
+  fromName: string;
+  toUserId: string;
+  toName: string;
+  amount: number;
+}
+
+export interface ContributionCategoryShare {
+  userId: string;
+  name: string;
+  amount: number;
+  percentage: number;
+}
+
+export interface ContributionCategorySummary {
+  id: string;
+  name: string;
+  iconId?: string | null;
+  totalAmount: number;
+  transactionCount: number;
+  shares: ContributionCategoryShare[];
+}
+
+export interface ContributionBalanceData {
+  members: ContributionMemberBalance[];
+  debts: ContributionDebt[];
+  expenseCategories: ContributionCategorySummary[];
+  incomeCategories: ContributionCategorySummary[];
+}
+
+export interface AccountContributor {
+  userId: string;
+  name: string;
+  shortName: string;
+  initials: string;
+  color: string;
 }
 
 export type Period = SharedPeriod;
@@ -58,4 +113,6 @@ export interface AccountScreenData {
   categories: CategorySummary[];
   recentTransactions: Transaction[];
   monthlyHistory: MonthlyDataPoint[];
+  contributors: AccountContributor[];
+  contributionBalance: ContributionBalanceData | null;
 }

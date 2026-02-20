@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon – Tu Cuenta: Layout final v2</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --beige: #FAFAF8;
+    --dark: #0E0F12;
+    --blue: #5B8DFF;
+    --blue-deep: #2563EB;
+    --green: #1B7A4A;
+    --green-bg: #ECFDF3;
+    --red: #C4441A;
+    --red-bg: #FEF3F0;
+    --grey-light: #E8E8E4;
+    --grey-mid: #888;
+    --card-bg: #FFFFFF;
+    --card-border: rgba(0,0,0,0.06);
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    --radius: 16px;
+    --radius-sm: 10px;
+    --user-1: #5B8DFF;
+    --user-1-light: rgba(91,141,255,0.15);
+    --user-2: #F59E0B;
+    --user-2-light: rgba(245,158,11,0.15);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--beige); color: var(--dark); }
+
+  /* Nav */
+  .nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 48px;
+    background: rgba(250,250,248,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--card-border);
+  }
+  .nav-logo { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 17px; letter-spacing: -0.3px; }
+  .nav-logo .logo-mark {
+    width: 28px; height: 28px; background: var(--dark); border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 14px; font-weight: 700;
+  }
+  .nav-links { display: flex; gap: 8px; align-items: center; }
+  .nav-link {
+    padding: 7px 16px; border-radius: 100px; font-size: 14px; font-weight: 500;
+    color: var(--grey-mid); text-decoration: none; transition: all 0.2s;
+  }
+  .nav-link:hover { color: var(--dark); }
+  .nav-link.active { background: var(--dark); color: #fff; }
+  .nav-right { display: flex; gap: 10px; align-items: center; }
+  .btn-add {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--dark); color: #fff; padding: 8px 18px;
+    border-radius: 100px; font-size: 13px; font-weight: 500; border: none; cursor: pointer;
+  }
+  .avatar-nav {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--user-1); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600;
+  }
+
+  /* Page */
+  .page { max-width: 1100px; margin: 0 auto; padding: 90px 32px 80px; }
+
+  /* Account header */
+  .account-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .account-info { display: flex; align-items: center; gap: 12px; }
+  .account-avatar {
+    width: 40px; height: 40px; border-radius: 10px; background: var(--grey-light);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 600; color: var(--grey-mid);
+  }
+  .account-name { font-size: 18px; font-weight: 600; }
+  .account-type { font-size: 13px; color: var(--grey-mid); }
+
+  /* Period selector */
+  .period-selector {
+    display: flex; gap: 4px; justify-content: center; margin-bottom: 32px;
+  }
+  .period-btn {
+    padding: 7px 18px; border-radius: 100px; border: none;
+    font-family: inherit; font-size: 13px; font-weight: 500;
+    background: transparent; color: var(--grey-mid); cursor: pointer; transition: all 0.2s;
+  }
+  .period-btn.active { background: var(--dark); color: #fff; }
+
+  /* Grid */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .span-2 { grid-column: 1 / -1; }
+
+  /* Card */
+  .card {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: var(--radius); padding: 24px;
+    box-shadow: var(--card-shadow);
+  }
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--grey-mid); }
+
+  /* ========================================
+     HERO BALANCE + CONTRIBUTION BANNER
+     ======================================== */
+  .hero-balance { text-align: center; padding: 32px 24px 24px; }
+  .hero-balance .label {
+    font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--grey-mid); margin-bottom: 8px;
+  }
+  .hero-balance .amount { font-size: 48px; font-weight: 700; letter-spacing: -2px; }
+  .hero-balance .cents { font-size: 24px; font-weight: 400; color: var(--grey-mid); }
+
+  .contrib-banner {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-top: 16px;
+    padding: 8px 20px;
+    background: var(--user-1-light);
+    border-radius: 100px;
+    display: inline-flex;
+    font-size: 13px; font-weight: 500; color: var(--dark);
+  }
+  .contrib-banner-wrapper { text-align: center; margin-top: 16px; }
+  .contrib-banner .banner-avatar {
+    width: 20px; height: 20px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 8px; font-weight: 700; color: #fff;
+    background: var(--user-1);
+  }
+  .contrib-banner .highlight { font-weight: 700; color: var(--user-1); }
+
+  /* ========================================
+     SUMMARY WITH CONTRIBUTION BARS
+     ======================================== */
+  .summary-pair { display: flex; gap: 16px; }
+  .summary-item {
+    flex: 1; padding: 18px 20px; border-radius: var(--radius-sm);
+  }
+  .summary-item.income { background: var(--green-bg); }
+  .summary-item.expense { background: var(--red-bg); }
+  .summary-item .dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px;
+  }
+  .summary-item.income .dot { background: var(--green); }
+  .summary-item.expense .dot { background: var(--red); }
+  .summary-item .type-label {
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .summary-item.income .type-label { color: var(--green); }
+  .summary-item.expense .type-label { color: var(--red); }
+  .summary-item .amount { font-size: 22px; font-weight: 700; margin-top: 6px; }
+  .summary-item .delta { font-size: 12px; color: var(--grey-mid); margin-top: 4px; }
+
+  /* Mini contribution bar inside summary */
+  .mini-contrib {
+    margin-top: 12px; padding-top: 12px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+  }
+  .mini-contrib-bar {
+    height: 8px; border-radius: 4px; display: flex; overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .mini-contrib-bar .seg { height: 100%; }
+  .mini-contrib-bar .seg.u1 { background: var(--user-1); }
+  .mini-contrib-bar .seg.u2 { background: var(--user-2); }
+  .mini-contrib-legend {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--grey-mid);
+  }
+  .mini-contrib-legend .user-label {
+    display: flex; align-items: center; gap: 4px;
+  }
+  .mini-contrib-legend .mini-avatar {
+    width: 16px; height: 16px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 7px; font-weight: 700; color: #fff; flex-shrink: 0;
+  }
+  .mini-contrib-legend .mini-avatar.u1 { background: var(--user-1); }
+  .mini-contrib-legend .mini-avatar.u2 { background: var(--user-2); }
+
+  /* ========================================
+     EVOLUTION CHART
+     ======================================== */
+  .chart-card { position: relative; }
+  .chart-area {
+    height: 200px; border-radius: var(--radius-sm);
+    background: linear-gradient(180deg, rgba(91,141,255,0.03) 0%, transparent 100%);
+    display: flex; align-items: flex-end; justify-content: space-around;
+    padding: 20px 30px;
+    position: relative;
+  }
+  .chart-filter {
+    display: flex; gap: 4px;
+  }
+  .chart-filter-btn {
+    padding: 4px 12px; border-radius: 100px; border: 1px solid var(--card-border);
+    font-family: inherit; font-size: 11px; font-weight: 500; background: transparent;
+    color: var(--grey-mid); cursor: pointer; transition: all 0.15s;
+  }
+  .chart-filter-btn.active { background: var(--dark); color: #fff; border-color: var(--dark); }
+  .chart-filter-btn:hover:not(.active) { border-color: var(--grey-mid); }
+
+  /* Chart legend for user colors */
+  .chart-user-legend {
+    display: flex; gap: 12px; margin-left: auto;
+  }
+  .chart-user-legend-item {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 11px; color: var(--grey-mid);
+  }
+  .chart-user-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .chart-user-dot.u1 { background: var(--user-1); }
+  .chart-user-dot.u2 { background: var(--user-2); }
+
+  .chart-bar-group {
+    display: flex; gap: 3px; align-items: flex-end;
+    position: relative;
+  }
+  .chart-bar { width: 20px; border-radius: 4px 4px 0 0; }
+  .chart-bar.income { background: var(--green); opacity: 0.7; }
+  .chart-bar.expense { background: var(--red); opacity: 0.7; }
+
+  /* Segmented chart bars */
+  .chart-bar-stacked {
+    width: 22px; display: flex; flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .chart-seg { border-radius: 0; }
+  .chart-seg:last-child { border-radius: 4px 4px 0 0; }
+  .chart-seg.u1 { background: var(--user-1); }
+  .chart-seg.u2 { background: var(--user-2); opacity: 0.7; }
+
+  .chart-month-label {
+    position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; color: var(--grey-mid); white-space: nowrap;
+  }
+
+  /* Views for different filter states */
+  .chart-view { display: none; width: 100%; height: 100%;
+    align-items: flex-end; justify-content: space-around; padding: 0; }
+  .chart-view.active { display: flex; }
+
+  /* ========================================
+     CONTRIBUTION CATEGORY COMPONENT
+     ======================================== */
+  .contrib-section {}
+  .contrib-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .contrib-header-left { display: flex; align-items: center; gap: 10px; }
+  .contrib-avatars { display: flex; align-items: center; }
+  .contrib-avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 600; color: #fff;
+    border: 2px solid var(--card-bg);
+  }
+  .contrib-avatar:not(:first-child) { margin-left: -8px; }
+  .contrib-avatar.u1 { background: var(--user-1); }
+  .contrib-avatar.u2 { background: var(--user-2); }
+
+  .contrib-legend { display: flex; gap: 14px; }
+  .contrib-legend-item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12px; color: var(--grey-mid);
+  }
+  .contrib-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .contrib-legend-dot.u1 { background: var(--user-1); }
+  .contrib-legend-dot.u2 { background: var(--user-2); }
+
+  .contrib-category {
+    padding: 16px 0;
+    border-bottom: 1px solid var(--card-border);
+  }
+  .contrib-category:last-child { border-bottom: none; padding-bottom: 0; }
+  .contrib-category:first-of-type { padding-top: 0; }
+
+  .contrib-cat-row1 {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 10px;
+  }
+  .contrib-cat-icon {
+    width: 36px; height: 36px; border-radius: 10px; background: var(--grey-light);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+  }
+  .contrib-cat-info { flex: 1; }
+  .contrib-cat-name { font-size: 14px; font-weight: 600; }
+  .contrib-cat-count { font-size: 12px; color: var(--grey-mid); }
+  .contrib-cat-total { font-size: 15px; font-weight: 700; text-align: right; }
+  .contrib-cat-total.expense { color: var(--red); }
+  .contrib-cat-total.income { color: var(--green); }
+
+  .contrib-cat-row2 {
+    display: flex; align-items: center; gap: 10px;
+    padding-left: 48px;
+  }
+  .contrib-bar-label {
+    font-size: 11px; font-weight: 600; color: var(--grey-mid);
+    min-width: 56px; text-align: right; white-space: nowrap;
+  }
+  .contrib-bar-label.right { text-align: left; }
+  .contrib-bar-wrapper {
+    flex: 1; height: 10px; border-radius: 5px;
+    display: flex; overflow: hidden; background: var(--grey-light);
+  }
+  .contrib-bar-seg { height: 100%; transition: width 0.3s ease; }
+  .contrib-bar-seg.u1 { background: var(--user-1); }
+  .contrib-bar-seg.u2 { background: var(--user-2); }
+
+  /* Row labels */
+  .row-label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--blue); opacity: 0.5;
+    margin-bottom: 6px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <div class="nav-logo">
+    <div class="logo-mark">F.</div>
+    Finnon
+  </div>
+  <div class="nav-links">
+    <a href="#" class="nav-link">Inicio</a>
+    <a href="#" class="nav-link">Movimientos</a>
+    <a href="#" class="nav-link">Objetivo</a>
+    <a href="#" class="nav-link active">Tu Cuenta</a>
+  </div>
+  <div class="nav-right">
+    <button class="btn-add">+ Añadir</button>
+    <div class="avatar-nav">AG</div>
+  </div>
+</nav>
+
+<div class="page">
+  <!-- Account header -->
+  <div class="account-header">
+    <div class="account-info">
+      <div class="account-avatar">H</div>
+      <div>
+        <div class="account-name">Hogar García</div>
+        <div class="account-type">Cuenta · EUR</div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div class="contrib-legend">
+        <div class="contrib-legend-item"><div class="contrib-legend-dot u1"></div> Ana</div>
+        <div class="contrib-legend-item"><div class="contrib-legend-dot u2"></div> Carlos</div>
+      </div>
+      <div class="contrib-avatars">
+        <div class="contrib-avatar u1">AG</div>
+        <div class="contrib-avatar u2">CG</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 1: Period -->
+  <div class="row-label">Fila 1 — Selector de período</div>
+  <div class="period-selector">
+    <button class="period-btn">Semana</button>
+    <button class="period-btn active">Mes</button>
+    <button class="period-btn">Trimestre</button>
+    <button class="period-btn">Año</button>
+  </div>
+
+  <div class="grid">
+
+    <!-- Row 2: Hero balance + contribution banner -->
+    <div class="span-2">
+      <div class="row-label">Fila 2 — Balance total + contribución destacada</div>
+      <div class="card hero-balance">
+        <div class="label">Balance total</div>
+        <div class="amount">€6.935<span class="cents">,09</span></div>
+        <div class="contrib-banner-wrapper">
+          <div class="contrib-banner">
+            <span class="banner-avatar">AG</span>
+            <span><span class="highlight">Ana</span> contribuyó en <span class="highlight">€511,97</span> más que Carlos este mes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3 Col 1: Income/Expense with contribution bars -->
+    <div>
+      <div class="row-label">Fila 3 · Col 1 — Resumen + contribución</div>
+      <div class="card">
+        <div class="summary-pair">
+          <!-- Income -->
+          <div class="summary-item income">
+            <div class="type-label"><span class="dot"></span>Ingresos</div>
+            <div class="amount">€4.050</div>
+            <div class="delta">-2,1% vs mes anterior</div>
+            <div class="mini-contrib">
+              <div class="mini-contrib-bar">
+                <div class="seg u1" style="width: 61%"></div>
+                <div class="seg u2" style="width: 39%"></div>
+              </div>
+              <div class="mini-contrib-legend">
+                <div class="user-label"><span class="mini-avatar u1">AG</span> €2.450</div>
+                <div class="user-label"><span class="mini-avatar u2">CG</span> €1.600</div>
+              </div>
+            </div>
+          </div>
+          <!-- Expense -->
+          <div class="summary-item expense">
+            <div class="type-label"><span class="dot"></span>Gastos</div>
+            <div class="amount">€1.613</div>
+            <div class="delta">-14,3% vs mes anterior</div>
+            <div class="mini-contrib">
+              <div class="mini-contrib-bar">
+                <div class="seg u1" style="width: 82%"></div>
+                <div class="seg u2" style="width: 18%"></div>
+              </div>
+              <div class="mini-contrib-legend">
+                <div class="user-label"><span class="mini-dot u1"></span> Ana €1.319</div>
+                <div class="user-label"><span class="mini-dot u2"></span> Carlos €295</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3 Col 2: Evolution chart with user segmentation filters -->
+    <div>
+      <div class="row-label">Fila 3 · Col 2 — Evolución (filtros con segmentación)</div>
+      <div class="card chart-card">
+        <div class="card-header">
+          <div class="card-title">Evolución mensual</div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="chart-user-legend" id="user-legend" style="display: none;">
+              <div class="chart-user-legend-item"><span class="chart-user-dot u1"></span> Ana</div>
+              <div class="chart-user-legend-item"><span class="chart-user-dot u2"></span> Carlos</div>
+            </div>
+            <div class="chart-filter">
+              <button class="chart-filter-btn active" onclick="setChartView('ambos')">Ambos</button>
+              <button class="chart-filter-btn" onclick="setChartView('ingresos')">Ingresos</button>
+              <button class="chart-filter-btn" onclick="setChartView('gastos')">Gastos</button>
+              <button class="chart-filter-btn" onclick="setChartView('neto')">Neto</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-area">
+          <!-- AMBOS: income + expense bars (no segmentation) -->
+          <div class="chart-view active" id="view-ambos">
+            <div class="chart-bar-group">
+              <div class="chart-bar income" style="height: 130px"></div>
+              <div class="chart-bar expense" style="height: 70px"></div>
+              <div class="chart-month-label">Dic</div>
+            </div>
+            <div class="chart-bar-group">
+              <div class="chart-bar income" style="height: 110px"></div>
+              <div class="chart-bar expense" style="height: 85px"></div>
+              <div class="chart-month-label">Ene</div>
+            </div>
+            <div class="chart-bar-group">
+              <div class="chart-bar income" style="height: 120px"></div>
+              <div class="chart-bar expense" style="height: 50px"></div>
+              <div class="chart-month-label">Feb</div>
+            </div>
+          </div>
+
+          <!-- INGRESOS: segmented by user -->
+          <div class="chart-view" id="view-ingresos">
+            <div class="chart-bar-group">
+              <div class="chart-bar-stacked" style="height: 130px">
+                <div class="chart-seg u1" style="height: 60%"></div>
+                <div class="chart-seg u2" style="height: 40%"></div>
+              </div>
+              <div class="chart-month-label">Dic</div>
+            </div>
+            <div class="chart-bar-group">
+              <div class="chart-bar-stacked" style="height: 110px">
+                <div class="chart-seg u1" style="height: 55%"></div>
+                <div class="chart-seg u2" style="height: 45%"></div>
+              </div>
+              <div class="chart-month-label">Ene</div>
+            </div>
+            <div class="chart-bar-group">
+              <div class="chart-bar-stacked" style="height: 120px">
+                <div class="chart-seg u1" style="height: 61%"></div>
+                <div class="chart-seg u2" style="height: 39%"></div>
+              </div>
+              <div class="chart-month-label">Feb</div>
+            </div>
+          </div>
+
+          <!-- GASTOS: segmented by user -->
+          <div class="chart-view" id="view-gastos">
+            <div class="chart-bar-group">
+              <div class="chart-bar-stacked" style="height: 70px">
+                <div class="chart-seg u1" style="height: 75%"></div>
+                <div class="chart-seg u2" style="height: 25%"></div>
+              </div>
+              <div class="chart-month-label">Dic</div>
+            </div>
+            <div class="chart-bar-group">
+              <div class="chart-bar-stacked" style="height: 85px">
+                <div class="chart-seg u1" style="height: 70%"></div>
+                <div class="chart-seg u2" style="height: 30%"></div>
+              </div>
+              <div class="chart-month-label">Ene</div>
+            </div>
+            <div class="chart-bar-group">
+              <div class="chart-bar-stacked" style="height: 50px">
+                <div class="chart-seg u1" style="height: 82%"></div>
+                <div class="chart-seg u2" style="height: 18%"></div>
+              </div>
+              <div class="chart-month-label">Feb</div>
+            </div>
+          </div>
+
+          <!-- NETO: single bars, no segmentation -->
+          <div class="chart-view" id="view-neto">
+            <div class="chart-bar-group">
+              <div class="chart-bar income" style="height: 60px"></div>
+              <div class="chart-month-label">Dic</div>
+            </div>
+            <div class="chart-bar-group">
+              <div class="chart-bar income" style="height: 25px"></div>
+              <div class="chart-month-label">Ene</div>
+            </div>
+            <div class="chart-bar-group">
+              <div class="chart-bar income" style="height: 70px"></div>
+              <div class="chart-month-label">Feb</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 4 Col 1: Expenses by contribution -->
+    <div>
+      <div class="row-label">Fila 4 · Col 1 — Gastos por contribución</div>
+      <div class="card">
+        <div class="contrib-section">
+          <div class="contrib-header">
+            <div class="contrib-header-left">
+              <div class="card-title">Gastos por contribución</div>
+            </div>
+          </div>
+
+          <div class="contrib-category">
+            <div class="contrib-cat-row1">
+              <div class="contrib-cat-icon">🏠</div>
+              <div class="contrib-cat-info">
+                <div class="contrib-cat-name">Hogar</div>
+                <div class="contrib-cat-count">1 movimiento</div>
+              </div>
+              <div class="contrib-cat-total expense">€850,00</div>
+            </div>
+            <div class="contrib-cat-row2">
+              <div class="contrib-bar-label">€850 · 100%</div>
+              <div class="contrib-bar-wrapper">
+                <div class="contrib-bar-seg u1" style="width: 100%"></div>
+              </div>
+              <div class="contrib-bar-label right">—</div>
+            </div>
+          </div>
+
+          <div class="contrib-category">
+            <div class="contrib-cat-row1">
+              <div class="contrib-cat-icon">🛒</div>
+              <div class="contrib-cat-info">
+                <div class="contrib-cat-name">Alimentación</div>
+                <div class="contrib-cat-count">4 movimientos</div>
+              </div>
+              <div class="contrib-cat-total expense">€316,00</div>
+            </div>
+            <div class="contrib-cat-row2">
+              <div class="contrib-bar-label">€163 · 52%</div>
+              <div class="contrib-bar-wrapper">
+                <div class="contrib-bar-seg u1" style="width: 52%"></div>
+                <div class="contrib-bar-seg u2" style="width: 48%"></div>
+              </div>
+              <div class="contrib-bar-label right">48% · €153</div>
+            </div>
+          </div>
+
+          <div class="contrib-category">
+            <div class="contrib-cat-row1">
+              <div class="contrib-cat-icon">⚡</div>
+              <div class="contrib-cat-info">
+                <div class="contrib-cat-name">Suministros</div>
+                <div class="contrib-cat-count">2 movimientos</div>
+              </div>
+              <div class="contrib-cat-total expense">€100,00</div>
+            </div>
+            <div class="contrib-cat-row2">
+              <div class="contrib-bar-label">€100 · 100%</div>
+              <div class="contrib-bar-wrapper">
+                <div class="contrib-bar-seg u1" style="width: 100%"></div>
+              </div>
+              <div class="contrib-bar-label right">—</div>
+            </div>
+          </div>
+
+          <div class="contrib-category">
+            <div class="contrib-cat-row1">
+              <div class="contrib-cat-icon">🚗</div>
+              <div class="contrib-cat-info">
+                <div class="contrib-cat-name">Transporte</div>
+                <div class="contrib-cat-count">2 movimientos</div>
+              </div>
+              <div class="contrib-cat-total expense">€98,00</div>
+            </div>
+            <div class="contrib-cat-row2">
+              <div class="contrib-bar-label">€48 · 49%</div>
+              <div class="contrib-bar-wrapper">
+                <div class="contrib-bar-seg u1" style="width: 49%"></div>
+                <div class="contrib-bar-seg u2" style="width: 51%"></div>
+              </div>
+              <div class="contrib-bar-label right">51% · €50</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 4 Col 2: Income by contribution -->
+    <div>
+      <div class="row-label">Fila 4 · Col 2 — Ingresos por contribución</div>
+      <div class="card">
+        <div class="contrib-section">
+          <div class="contrib-header">
+            <div class="contrib-header-left">
+              <div class="card-title">Ingresos por contribución</div>
+            </div>
+          </div>
+
+          <div class="contrib-category">
+            <div class="contrib-cat-row1">
+              <div class="contrib-cat-icon">💼</div>
+              <div class="contrib-cat-info">
+                <div class="contrib-cat-name">Nómina</div>
+                <div class="contrib-cat-count">2 movimientos</div>
+              </div>
+              <div class="contrib-cat-total income">€3.600,00</div>
+            </div>
+            <div class="contrib-cat-row2">
+              <div class="contrib-bar-label">€2.100 · 58%</div>
+              <div class="contrib-bar-wrapper">
+                <div class="contrib-bar-seg u1" style="width: 58%"></div>
+                <div class="contrib-bar-seg u2" style="width: 42%"></div>
+              </div>
+              <div class="contrib-bar-label right">42% · €1.500</div>
+            </div>
+          </div>
+
+          <div class="contrib-category">
+            <div class="contrib-cat-row1">
+              <div class="contrib-cat-icon">🏦</div>
+              <div class="contrib-cat-info">
+                <div class="contrib-cat-name">Cuenta remunerada</div>
+                <div class="contrib-cat-count">1 movimiento</div>
+              </div>
+              <div class="contrib-cat-total income">€350,00</div>
+            </div>
+            <div class="contrib-cat-row2">
+              <div class="contrib-bar-label">€350 · 100%</div>
+              <div class="contrib-bar-wrapper">
+                <div class="contrib-bar-seg u1" style="width: 100%"></div>
+              </div>
+              <div class="contrib-bar-label right">—</div>
+            </div>
+          </div>
+
+          <div class="contrib-category">
+            <div class="contrib-cat-row1">
+              <div class="contrib-cat-icon">📈</div>
+              <div class="contrib-cat-info">
+                <div class="contrib-cat-name">Depósitos</div>
+                <div class="contrib-cat-count">1 movimiento</div>
+              </div>
+              <div class="contrib-cat-total income">€100,00</div>
+            </div>
+            <div class="contrib-cat-row2">
+              <div class="contrib-bar-label">€100 · 100%</div>
+              <div class="contrib-bar-wrapper">
+                <div class="contrib-bar-seg u1" style="width: 100%"></div>
+              </div>
+              <div class="contrib-bar-label right">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function setChartView(view) {
+  // Update filter buttons
+  document.querySelectorAll('.chart-filter-btn').forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.textContent.toLowerCase() === view ||
+        (view === 'ambos' && btn.textContent === 'Ambos') ||
+        (view === 'ingresos' && btn.textContent === 'Ingresos') ||
+        (view === 'gastos' && btn.textContent === 'Gastos') ||
+        (view === 'neto' && btn.textContent === 'Neto')) {
+      btn.classList.add('active');
+    }
+  });
+
+  // Show/hide chart views
+  document.querySelectorAll('.chart-view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+
+  // Show user legend only for segmented views
+  const legend = document.getElementById('user-legend');
+  if (view === 'ingresos' || view === 'gastos') {
+    legend.style.display = 'flex';
+  } else {
+    legend.style.display = 'none';
+  }
+}
+</script>
+</body>
+</html>

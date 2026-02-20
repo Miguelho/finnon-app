@@ -47,6 +47,12 @@ type AddActionProps = {
     expense: MerchantSuggestion[];
     income: MerchantSuggestion[];
   };
+  participants?: Array<{
+    userId: string;
+    name: string;
+    role: "viewer" | "contributor" | "admin";
+  }>;
+  currentUserId?: string | null;
   onCategoryCreated?: (category: Category) => void;
   renderTrigger?: (open: () => void) => React.ReactNode;
 };
@@ -59,6 +65,8 @@ export function AddAction({
   categories = [],
   topCategories = { expense: [], income: [] },
   merchantSuggestions = { expense: [], income: [] },
+  participants = [],
+  currentUserId = null,
   onCategoryCreated,
   renderTrigger,
 }: AddActionProps) {
@@ -292,6 +300,8 @@ export function AddAction({
                   categories={availableCategories}
                   topCategories={topCategories}
                   merchantSuggestions={merchantSuggestions}
+                  participants={participants}
+                  currentUserId={currentUserId}
                   onSuccess={handleTransactionSuccess}
                   onCancel={handleTransactionCancel}
                 />
@@ -365,6 +375,8 @@ export function AddAction({
                   categories={availableCategories}
                   topCategories={topCategories}
                   merchantSuggestions={merchantSuggestions}
+                  participants={participants}
+                  currentUserId={currentUserId}
                   allowObligation={false}
                   submitMode="recurring"
                   successMessageKey="transactions.repeat.createSuccess"

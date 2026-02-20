@@ -23,11 +23,15 @@ import { getFormMode, setFormMode } from "@/lib/form-mode-storage";
 import { createTransaction, createObligation } from "@/app/transactions/actions";
 import {
   type TransactionDraft,
+  type ContributionSplitType,
   type FormMode,
   type StepStatus,
   type TopCategory,
   type MerchantSuggestion,
   type RecurringFrequency,
+  buildEqualSplit,
+  parseMoneyToMinor,
+  CURRENCY_MINOR_UNITS,
   createInitialDraft,
   validateStep1,
   validateStep2,
@@ -64,6 +68,12 @@ interface Category {
   type: "income" | "expense";
 }
 
+type FormParticipant = {
+  userId: string;
+  name: string;
+  role: "viewer" | "contributor" | "admin";
+};
+
 type SubmitMode = "transaction" | "recurring";
 type FormStepKey = "details" | "recurring" | "category" | "notes";
 
@@ -88,6 +98,8 @@ interface AddTransactionFormProps {
     expense: MerchantSuggestion[];
     income: MerchantSuggestion[];
   };
+  participants?: FormParticipant[];
+  currentUserId?: string | null;
   defaultDate?: string;
   mode?: "create" | "edit";
   initialDraft?: TransactionDraft;
@@ -111,6 +123,8 @@ export function AddTransactionForm({
   categories,
   topCategories,
   merchantSuggestions,
+  participants = [],
+  currentUserId = null,
   defaultDate,
   mode = "create",
   initialDraft,
@@ -133,6 +147,20 @@ export function AddTransactionForm({
     ? ["details", "recurring", "category", "notes"]
     : ["details", "category", "notes"];
   const totalSteps = stepOrder.length;
+  const activeSplitParticipants = React.useMemo(
+    () =>
+      participants.filter(
+        (participant) =>
+          participant.role === "admin" || participant.role === "contributor"
+      ),
+    [participants]
+  );
+  const activeSplitMemberIds = React.useMemo(
+    () => activeSplitParticipants.map((participant) => participant.userId),
+    [activeSplitParticipants]
+  );
+  const isSharedSplitAccount = activeSplitParticipants.length >= 2;
+  const hasParticipantsContext = participants.length > 0;
 
   // Form state
   const [draft, setDraft] = React.useState<TransactionDraft>(() =>
@@ -178,6 +206,56 @@ export function AddTransactionForm({
       scheduledDateOverridden: false,
     }));
   }, [allowObligation, draft.isObligation]);
+
+  React.useEffect(() => {
+    setDraft((prev) => {
+      const next = { ...prev };
+      let changed = false;
+
+      const defaultPaidBy =
+        prev.paidByUserId ??
+        currentUserId ??
+        activeSplitParticipants[0]?.userId ??
+        null;
+
+      if (defaultPaidBy && defaultPaidBy !== prev.paidByUserId) {
+        next.paidByUserId = defaultPaidBy;
+        changed = true;
+      }
+
+      if (hasParticipantsContext && !isSharedSplitAccount) {
+        if (prev.splitType !== "personal") {
+          next.splitType = "personal";
+          changed = true;
+        }
+        if (prev.splitDetails !== null) {
+          next.splitDetails = null;
+          changed = true;
+        }
+      } else if (
+        prev.splitType === "custom" &&
+        (!prev.splitDetails || prev.splitDetails.length === 0)
+      ) {
+        const amountMinorResult = parseMoneyToMinor(
+          prev.amount,
+          prev.currency,
+          CURRENCY_MINOR_UNITS
+        );
+        const amountMinor =
+          typeof amountMinorResult === "bigint" ? Number(amountMinorResult) : 0;
+        next.splitDetails = buildEqualSplit(amountMinor, activeSplitMemberIds);
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [
+    activeSplitMemberIds,
+    activeSplitParticipants,
+    currentUserId,
+    hasParticipantsContext,
+    isSharedSplitAccount,
+  ]);
 
   // Form mode (panels vs list)
   const [formMode, setFormModeState] = React.useState<FormMode>("panels");
@@ -288,6 +366,69 @@ export function AddTransactionForm({
       return;
     }
 
+    const normalizedDraft: TransactionDraft = { ...draft };
+    normalizedDraft.paidByUserId =
+      draft.paidByUserId ??
+      currentUserId ??
+      activeSplitParticipants[0]?.userId ??
+      null;
+
+    if (!normalizedDraft.paidByUserId && activeSplitParticipants.length > 0) {
+      setErrors((prev) => ({
+        ...prev,
+        paidByUserId: "addTransaction.errors.paidByRequired",
+      }));
+      setCurrentStep(1);
+      return;
+    }
+
+    if (hasParticipantsContext && !isSharedSplitAccount) {
+      normalizedDraft.splitType = "personal";
+      normalizedDraft.splitDetails = null;
+    } else if (normalizedDraft.splitType === "custom") {
+      const amountMinorResult = parseMoneyToMinor(
+        normalizedDraft.amount,
+        normalizedDraft.currency,
+        CURRENCY_MINOR_UNITS
+      );
+      if (typeof amountMinorResult === "bigint") {
+        const amountMinor = Number(amountMinorResult);
+        const currentDetails =
+          normalizedDraft.splitDetails && normalizedDraft.splitDetails.length > 0
+            ? normalizedDraft.splitDetails
+            : buildEqualSplit(amountMinor, activeSplitMemberIds);
+
+        const detailsByUser = new Map(
+          currentDetails.map((detail) => [
+            detail.userId,
+            Math.max(0, Math.trunc(detail.shareMinor)),
+          ])
+        );
+
+        const normalizedDetails = activeSplitMemberIds.map((userId) => ({
+          userId,
+          shareMinor: detailsByUser.get(userId) ?? 0,
+        }));
+        const totalDetails = normalizedDetails.reduce(
+          (acc, detail) => acc + detail.shareMinor,
+          0
+        );
+
+        if (totalDetails !== amountMinor) {
+          setErrors((prev) => ({
+            ...prev,
+            splitDetails: "addTransaction.errors.splitTotalMismatch",
+          }));
+          setCurrentStep(1);
+          return;
+        }
+
+        normalizedDraft.splitDetails = normalizedDetails;
+      }
+    } else if (normalizedDraft.splitType !== "custom") {
+      normalizedDraft.splitDetails = null;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -304,7 +445,7 @@ export function AddTransactionForm({
           : undefined;
 
       if (onSubmitDraft) {
-        await onSubmitDraft(draft, recurringData);
+        await onSubmitDraft(normalizedDraft, recurringData);
         toast.success(
           successMessageKey
             ? translateDynamic(successMessageKey)
@@ -325,12 +466,12 @@ export function AddTransactionForm({
 
       // If it's an obligation, create it via createObligation
       if (draft.isObligation) {
-        const dueDate = resolveObligationDueDate(draft);
+        const dueDate = resolveObligationDueDate(normalizedDraft);
         const result = await createObligation({
           account_id: accountId,
-          name: draft.name,
-          amount: draft.amount,
-          currency: draft.currency,
+          name: normalizedDraft.name,
+          amount: normalizedDraft.amount,
+          currency: normalizedDraft.currency,
           due_date: dueDate,
           status: "pending",
           paid_at: null,
@@ -347,15 +488,26 @@ export function AddTransactionForm({
       }
 
       // Otherwise, create a regular transaction
+      const splitDetailsPayload =
+        normalizedDraft.splitType === "custom"
+          ? (normalizedDraft.splitDetails ?? []).map((split) => ({
+              user_id: split.userId,
+              share_minor: Math.max(0, Math.trunc(split.shareMinor)),
+            }))
+          : null;
+
       const result = await createTransaction({
         account_id: accountId,
-        type: draft.type,
-        amount: draft.amount,
-        currency: draft.currency,
-        category_id: draft.categoryId,
-        date: draft.date,
-        merchant: draft.merchant || null,
-        notes: draft.notes || null,
+        type: normalizedDraft.type,
+        amount: normalizedDraft.amount,
+        currency: normalizedDraft.currency,
+        category_id: normalizedDraft.categoryId,
+        date: normalizedDraft.date,
+        merchant: normalizedDraft.merchant || null,
+        notes: normalizedDraft.notes || null,
+        paid_by: normalizedDraft.paidByUserId,
+        split_type: normalizedDraft.splitType as ContributionSplitType,
+        split_details: splitDetailsPayload,
       });
 
       if (!result.success) {
@@ -480,6 +632,9 @@ export function AddTransactionForm({
           locale={locale}
           onFieldChange={handleFieldChange}
           allowObligation={allowObligation}
+          splitParticipants={activeSplitParticipants}
+          currentUserId={currentUserId}
+          showSplitControls={!isRecurringMode}
         />
       );
     }

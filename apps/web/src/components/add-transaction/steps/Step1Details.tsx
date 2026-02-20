@@ -20,8 +20,15 @@ import type {
   TransactionDraft,
   TransactionType,
   ObligationType,
+  ContributionSplitType,
 } from "@poleursus/shared";
-import { formatDateForDisplay } from "@poleursus/shared";
+import {
+  formatDateForDisplay,
+  parseMoneyToMinor,
+  formatMinorToMoney,
+  buildEqualSplit,
+  CURRENCY_MINOR_UNITS,
+} from "@poleursus/shared";
 import { cn } from "@/lib/utils";
 
 interface Step1DetailsProps {
@@ -33,6 +40,13 @@ interface Step1DetailsProps {
     value: TransactionDraft[K]
   ) => void;
   allowObligation?: boolean;
+  splitParticipants?: {
+    userId: string;
+    name: string;
+    role: "viewer" | "contributor" | "admin";
+  }[];
+  currentUserId?: string | null;
+  showSplitControls?: boolean;
 }
 
 const parseIsoDate = (value: string) => {
@@ -60,6 +74,9 @@ export function Step1Details({
   locale,
   onFieldChange,
   allowObligation = true,
+  splitParticipants = [],
+  currentUserId = null,
+  showSplitControls = true,
 }: Step1DetailsProps) {
   const t = useTranslations("addTransaction");
   const tCommon = useTranslations("common");
@@ -71,6 +88,9 @@ export function Step1Details({
     React.useState(false);
   const [dismissedFutureSuggestion, setDismissedFutureSuggestion] =
     React.useState(false);
+  const [customSplitInputs, setCustomSplitInputs] = React.useState<
+    Record<string, string>
+  >({});
   const openedFromToggleRef = React.useRef(false);
 
   const sanitizeNumericInput = (value: string) =>
@@ -207,6 +227,149 @@ export function Step1Details({
           locale
         )}`
       : t("obligationChipPending");
+
+  const visibleSplitParticipants = React.useMemo(
+    () => (showSplitControls ? splitParticipants : []),
+    [showSplitControls, splitParticipants]
+  );
+  const splitParticipantIds = React.useMemo(
+    () => visibleSplitParticipants.map((member) => member.userId),
+    [visibleSplitParticipants]
+  );
+  const canConfigureSplit = splitParticipantIds.length >= 2;
+
+  const resolveAmountMinor = React.useCallback(() => {
+    const parsed = parseMoneyToMinor(
+      draft.amount,
+      draft.currency,
+      CURRENCY_MINOR_UNITS
+    );
+    if (typeof parsed !== "bigint") return null;
+    return Math.max(0, Number(parsed));
+  }, [draft.amount, draft.currency]);
+
+  React.useEffect(() => {
+    if (!canConfigureSplit) return;
+    if (draft.paidByUserId) return;
+    const fallbackPaidBy = currentUserId ?? splitParticipantIds[0] ?? null;
+    if (fallbackPaidBy) {
+      onFieldChange("paidByUserId", fallbackPaidBy);
+    }
+  }, [
+    canConfigureSplit,
+    currentUserId,
+    draft.paidByUserId,
+    onFieldChange,
+    splitParticipantIds,
+  ]);
+
+  React.useEffect(() => {
+    if (!canConfigureSplit) return;
+    if (draft.splitType !== "custom") return;
+    if (draft.splitDetails && draft.splitDetails.length > 0) return;
+    const amountMinor = resolveAmountMinor();
+    if (amountMinor === null) return;
+    onFieldChange("splitDetails", buildEqualSplit(amountMinor, splitParticipantIds));
+  }, [
+    canConfigureSplit,
+    draft.splitDetails,
+    draft.splitType,
+    onFieldChange,
+    resolveAmountMinor,
+    splitParticipantIds,
+  ]);
+
+  React.useEffect(() => {
+    if (!canConfigureSplit || draft.splitType !== "custom") {
+      setCustomSplitInputs((prev) => (Object.keys(prev).length > 0 ? {} : prev));
+      return;
+    }
+    const details = draft.splitDetails ?? [];
+    const nextInputs: Record<string, string> = {};
+    splitParticipantIds.forEach((userId) => {
+      const detail = details.find((item) => item.userId === userId);
+      const shareMinor = detail?.shareMinor ?? 0;
+      nextInputs[userId] = formatMinorToMoney(
+        BigInt(Math.max(0, shareMinor)),
+        draft.currency,
+        CURRENCY_MINOR_UNITS
+      ).replace(".", ",");
+    });
+    setCustomSplitInputs((prev) => {
+      const prevKeys = Object.keys(prev);
+      const nextKeys = Object.keys(nextInputs);
+      if (
+        prevKeys.length === nextKeys.length &&
+        nextKeys.every((key) => prev[key] === nextInputs[key])
+      ) {
+        return prev;
+      }
+      return nextInputs;
+    });
+  }, [
+    canConfigureSplit,
+    draft.currency,
+    draft.splitDetails,
+    draft.splitType,
+    splitParticipantIds,
+  ]);
+
+  const handlePaidByChange = (userId: string) => {
+    onFieldChange("paidByUserId", userId);
+  };
+
+  const handleSplitTypeChange = (value: ContributionSplitType) => {
+    onFieldChange("splitType", value);
+    if (value !== "custom") {
+      onFieldChange("splitDetails", null);
+      return;
+    }
+    const amountMinor = resolveAmountMinor() ?? 0;
+    onFieldChange("splitDetails", buildEqualSplit(amountMinor, splitParticipantIds));
+  };
+
+  const applyCustomSplitValue = (userId: string, rawValue: string) => {
+    const amountMinor = resolveAmountMinor();
+    if (amountMinor === null) return;
+
+    const sanitized = rawValue.replace(/[^0-9.,]/g, "");
+    setCustomSplitInputs((prev) => ({ ...prev, [userId]: sanitized }));
+
+    const parsedTarget = parseMoneyToMinor(
+      sanitized || "0",
+      draft.currency,
+      CURRENCY_MINOR_UNITS
+    );
+
+    const targetValue = Math.max(
+      0,
+      Math.min(
+        amountMinor,
+        typeof parsedTarget === "bigint" ? Number(parsedTarget) : 0
+      )
+    );
+
+    const otherUserIds = splitParticipantIds.filter((id) => id !== userId);
+    const remaining = Math.max(0, amountMinor - targetValue);
+    const baseShare =
+      otherUserIds.length > 0 ? Math.floor(remaining / otherUserIds.length) : 0;
+    const remainder =
+      otherUserIds.length > 0 ? remaining % otherUserIds.length : 0;
+
+    const nextDetails = splitParticipantIds.map((id) => {
+      if (id === userId) {
+        return { userId: id, shareMinor: targetValue };
+      }
+      const otherIndex = otherUserIds.indexOf(id);
+      return {
+        userId: id,
+        shareMinor:
+          baseShare + (otherIndex >= 0 && otherIndex < remainder ? 1 : 0),
+      };
+    });
+
+    onFieldChange("splitDetails", nextDetails);
+  };
 
   return (
     <div className="space-y-6">
@@ -348,6 +511,105 @@ export function Step1Details({
           </p>
         )}
       </div>
+
+      {canConfigureSplit && (
+        <>
+          <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+            <Label className="text-sm font-semibold text-foreground">
+              {t("paidByLabel")}
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {visibleSplitParticipants.map((member) => {
+                const isSelected = draft.paidByUserId === member.userId;
+                return (
+                  <button
+                    key={member.userId}
+                    type="button"
+                    onClick={() => handlePaidByChange(member.userId)}
+                    className={cn(
+                      "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                      isSelected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-foreground hover:bg-muted/50"
+                    )}
+                  >
+                    {member.name}
+                  </button>
+                );
+              })}
+            </div>
+            {errors.paidByUserId ? (
+              <p className="text-sm text-destructive">{t("errors.paidByRequired")}</p>
+            ) : null}
+          </div>
+
+          <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+            <Label className="text-sm font-semibold text-foreground">
+              {t("splitLabel")}
+            </Label>
+            <div className="grid grid-cols-3 gap-2 rounded-full border border-border bg-muted/40 p-1">
+              {(
+                [
+                  { key: "equal", label: "splitEqualOption" },
+                  { key: "personal", label: "splitPersonalOption" },
+                  { key: "custom", label: "splitCustomOption" },
+                ] as const
+              ).map((option) => {
+                const isActive = draft.splitType === option.key;
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => handleSplitTypeChange(option.key)}
+                    className={cn(
+                      "rounded-full px-2 py-2 text-xs font-semibold transition-colors sm:text-sm",
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {t(option.label)}
+                  </button>
+                );
+              })}
+            </div>
+
+            {draft.splitType === "custom" && (
+              <div className="space-y-3 rounded-lg border border-border bg-background p-3">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {t("splitCustomHelper")}
+                </p>
+                <div className="space-y-2">
+                  {visibleSplitParticipants.map((member) => (
+                    <div
+                      key={member.userId}
+                      className="flex items-center justify-between gap-3"
+                    >
+                      <span className="text-sm text-foreground">{member.name}</span>
+                      <Input
+                        value={customSplitInputs[member.userId] ?? ""}
+                        onChange={(event) =>
+                          applyCustomSplitValue(member.userId, event.target.value)
+                        }
+                        placeholder={locale === "es" ? "0,00" : "0.00"}
+                        inputMode="decimal"
+                        className="h-9 w-28 text-right text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {errors.splitDetails ? (
+              <p className="text-sm text-destructive">
+                {t("errors.splitTotalMismatch")}
+              </p>
+            ) : null}
+          </div>
+        </>
+      )}
 
       {/* Date field */}
       <div className="rounded-xl border border-border bg-muted/30 p-4">

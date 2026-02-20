@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -16,11 +16,13 @@ import {
   themeTokens,
   ConfirmationModal,
   type TransactionDraft,
+  type ContributionSplitType,
   type FormMode,
   type StepStatus,
   type TopCategory,
   type MerchantSuggestion,
   type RecurringFrequency,
+  buildEqualSplit,
   createInitialDraft,
   validateStep1,
   validateStep2,
@@ -73,6 +75,12 @@ interface Category {
   type: "income" | "expense";
 }
 
+type FormParticipant = {
+  userId: string;
+  name: string;
+  role: "viewer" | "contributor" | "admin";
+};
+
 type SubmitMode = "transaction" | "recurring";
 
 type FormStepKey = "details" | "recurring" | "category" | "notes";
@@ -97,6 +105,7 @@ interface AddTransactionFormProps {
     expense: MerchantSuggestion[];
     income: MerchantSuggestion[];
   };
+  participants?: FormParticipant[];
   defaultDate?: string;
   mode?: "create" | "edit";
   initialDraft?: TransactionDraft;
@@ -119,6 +128,7 @@ export function AddTransactionForm({
   categories,
   topCategories,
   merchantSuggestions,
+  participants = [],
   defaultDate,
   mode = "create",
   initialDraft,
@@ -140,6 +150,19 @@ export function AddTransactionForm({
     ? ["details", "recurring", "category", "notes"]
     : ["details", "category", "notes"];
   const totalSteps = stepOrder.length;
+  const activeSplitParticipants = useMemo(
+    () =>
+      participants.filter(
+        (participant) =>
+          participant.role === "admin" || participant.role === "contributor"
+      ),
+    [participants]
+  );
+  const activeSplitMemberIds = useMemo(
+    () => activeSplitParticipants.map((participant) => participant.userId),
+    [activeSplitParticipants]
+  );
+  const isSharedSplitAccount = activeSplitParticipants.length >= 2;
 
   // Form state
   const [draft, setDraft] = useState<TransactionDraft>(() =>
@@ -186,6 +209,50 @@ export function AddTransactionForm({
       scheduledDateOverridden: false,
     }));
   }, [allowObligation, draft.isObligation]);
+
+  useEffect(() => {
+    setDraft((prev) => {
+      const next = { ...prev };
+      let changed = false;
+
+      const defaultPaidBy =
+        prev.paidByUserId ??
+        user?.id ??
+        activeSplitParticipants[0]?.userId ??
+        null;
+
+      if (defaultPaidBy && defaultPaidBy !== prev.paidByUserId) {
+        next.paidByUserId = defaultPaidBy;
+        changed = true;
+      }
+
+      if (!isSharedSplitAccount) {
+        if (prev.splitType !== "personal") {
+          next.splitType = "personal";
+          changed = true;
+        }
+        if (prev.splitDetails !== null) {
+          next.splitDetails = null;
+          changed = true;
+        }
+      } else if (
+        prev.splitType === "custom" &&
+        (!prev.splitDetails || prev.splitDetails.length === 0)
+      ) {
+        const amountMinorResult = parseMoneyToMinor(
+          prev.amount,
+          prev.currency,
+          CURRENCY_MINOR_UNITS
+        );
+        const amountMinor =
+          typeof amountMinorResult === "bigint" ? Number(amountMinorResult) : 0;
+        next.splitDetails = buildEqualSplit(amountMinor, activeSplitMemberIds);
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [activeSplitMemberIds, activeSplitParticipants, isSharedSplitAccount, user?.id]);
 
   // Form mode (panels vs list)
   const [formMode, setFormModeState] = useState<FormMode>("panels");
@@ -326,6 +393,69 @@ export function AddTransactionForm({
       return;
     }
 
+    const normalizedDraft: TransactionDraft = { ...draft };
+    normalizedDraft.paidByUserId =
+      draft.paidByUserId ??
+      user.id ??
+      activeSplitParticipants[0]?.userId ??
+      null;
+
+    if (!normalizedDraft.paidByUserId) {
+      setErrors((prev) => ({
+        ...prev,
+        paidByUserId: "addTransaction.errors.paidByRequired",
+      }));
+      setCurrentStep(1);
+      return;
+    }
+
+    if (!isSharedSplitAccount) {
+      normalizedDraft.splitType = "personal";
+      normalizedDraft.splitDetails = null;
+    } else if (normalizedDraft.splitType === "custom") {
+      const amountMinorResult = parseMoneyToMinor(
+        normalizedDraft.amount,
+        normalizedDraft.currency,
+        CURRENCY_MINOR_UNITS
+      );
+      if (typeof amountMinorResult === "bigint") {
+        const amountMinor = Number(amountMinorResult);
+        const currentDetails =
+          normalizedDraft.splitDetails && normalizedDraft.splitDetails.length > 0
+            ? normalizedDraft.splitDetails
+            : buildEqualSplit(amountMinor, activeSplitMemberIds);
+
+        const detailsByUser = new Map(
+          currentDetails.map((detail) => [
+            detail.userId,
+            Math.max(0, Math.trunc(detail.shareMinor)),
+          ])
+        );
+
+        const normalizedDetails = activeSplitMemberIds.map((userId) => ({
+          userId,
+          shareMinor: detailsByUser.get(userId) ?? 0,
+        }));
+        const totalDetails = normalizedDetails.reduce(
+          (acc, detail) => acc + detail.shareMinor,
+          0
+        );
+
+        if (totalDetails !== amountMinor) {
+          setErrors((prev) => ({
+            ...prev,
+            splitDetails: "addTransaction.errors.splitTotalMismatch",
+          }));
+          setCurrentStep(1);
+          return;
+        }
+
+        normalizedDraft.splitDetails = normalizedDetails;
+      }
+    } else {
+      normalizedDraft.splitDetails = null;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -342,7 +472,7 @@ export function AddTransactionForm({
           : undefined;
 
       if (onSubmitDraft) {
-        await onSubmitDraft(draft, recurringData);
+        await onSubmitDraft(normalizedDraft, recurringData);
         setIsSuccessOpen(true);
         return;
       }
@@ -356,8 +486,8 @@ export function AddTransactionForm({
 
       // Parse amount to minor units
       const amountMinorResult = parseMoneyToMinor(
-        draft.amount,
-        draft.currency,
+        normalizedDraft.amount,
+        normalizedDraft.currency,
         CURRENCY_MINOR_UNITS
       );
 
@@ -373,15 +503,15 @@ export function AddTransactionForm({
       const amountMinor = Number(amountMinorResult);
 
       // If it's an obligation, create it instead of a transaction
-      if (draft.isObligation) {
-        const dueDate = resolveObligationDueDate(draft);
+      if (normalizedDraft.isObligation) {
+        const dueDate = resolveObligationDueDate(normalizedDraft);
         const { error: obligationError } = await supabase
           .from("obligations")
           .insert({
             account_id: accountId,
-            name: draft.name,
+            name: normalizedDraft.name,
             amount_minor: amountMinor,
-            currency: draft.currency,
+            currency: normalizedDraft.currency,
             due_date: dueDate,
             status: "pending",
             paid_at: null,
@@ -396,20 +526,35 @@ export function AddTransactionForm({
         return;
       }
 
+      const splitType: ContributionSplitType = isSharedSplitAccount
+        ? normalizedDraft.splitType
+        : "personal";
+
+      const splitDetails =
+        splitType === "custom"
+          ? (normalizedDraft.splitDetails ?? []).map((detail) => ({
+              user_id: detail.userId,
+              share_minor: Math.max(0, Math.trunc(detail.shareMinor)),
+            }))
+          : null;
+
       // Insert regular transaction
       const { error } = await supabase
         .from("transactions")
         .insert({
           account_id: accountId,
-          type: draft.type,
+          type: normalizedDraft.type,
           amount_minor: amountMinor,
           amount_base_minor: amountMinor, // Same if base currency
-          currency: draft.currency,
-          category_id: draft.categoryId,
-          date: draft.date,
-          merchant: draft.merchant || null,
-          notes: draft.notes || null,
+          currency: normalizedDraft.currency,
+          category_id: normalizedDraft.categoryId,
+          date: normalizedDraft.date,
+          merchant: normalizedDraft.merchant || null,
+          notes: normalizedDraft.notes || null,
           created_by: user.id,
+          paid_by: normalizedDraft.paidByUserId,
+          split_type: splitType,
+          split_details: splitDetails,
         })
         .select()
         .single();
@@ -577,6 +722,9 @@ export function AddTransactionForm({
                   errors={errors}
                   onFieldChange={handleFieldChange}
                   allowObligation={allowObligation}
+                  splitParticipants={activeSplitParticipants}
+                  currentUserId={user?.id ?? null}
+                  showSplitControls={!isRecurringMode}
                 />
               </KeyboardAwareScrollView>
             </View>
@@ -704,6 +852,9 @@ export function AddTransactionForm({
             errors={errors}
             onFieldChange={handleFieldChange}
             allowObligation={allowObligation}
+            splitParticipants={activeSplitParticipants}
+            currentUserId={user?.id ?? null}
+            showSplitControls={!isRecurringMode}
           />
         </View>
 

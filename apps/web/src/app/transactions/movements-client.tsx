@@ -67,6 +67,9 @@ type Transaction = {
   merchant: string | null;
   notes: string | null;
   created_by: string;
+  paid_by?: string | null;
+  split_type?: "equal" | "personal" | "custom" | null;
+  split_details?: Array<{ user_id: string; share_minor: number }> | null;
   created_at: string;
   category?: Category | null;
   recurring_item_id?: string | null;
@@ -83,6 +86,12 @@ type Profile = {
   avatar_color: UserAvatarColorId | null;
 };
 
+type FormParticipant = {
+  userId: string;
+  name: string;
+  role: "viewer" | "contributor" | "admin";
+};
+
 type MovementsClientProps = {
   accountId: string;
   baseCurrency: string;
@@ -90,6 +99,7 @@ type MovementsClientProps = {
   initialRecurringItems: RecurringItem[];
   initialPeriod: Period;
   initialCategoryFilter: string | null;
+  initialTypeFilter: string | null;
   categories: Category[];
   initialTopCategories: {
     expense: TopCategory[];
@@ -100,6 +110,8 @@ type MovementsClientProps = {
     income: MerchantSuggestion[];
   };
   profiles: Profile[];
+  participants: FormParticipant[];
+  currentUserId: string;
   role: "viewer" | "contributor" | "admin";
 };
 
@@ -918,10 +930,13 @@ export function MovementsClient({
   initialRecurringItems,
   initialPeriod,
   initialCategoryFilter,
+  initialTypeFilter,
   categories,
   initialTopCategories,
   initialMerchantSuggestions,
   profiles,
+  participants,
+  currentUserId,
   role,
 }: MovementsClientProps) {
   const router = useRouter();
@@ -936,18 +951,24 @@ export function MovementsClient({
     () => buildProfilesById(profiles)
   );
   const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilters, setTypeFilters] = useState<Array<"income" | "expense">>([]);
+  const [typeFilters, setTypeFilters] = useState<Array<"income" | "expense">>(() =>
+    parseFilterParam(initialTypeFilter).filter(
+      (item): item is "income" | "expense" => item === "income" || item === "expense"
+    )
+  );
   const [categoryFilters, setCategoryFilters] = useState<string[]>(() =>
     parseFilterParam(initialCategoryFilter)
   );
   const [merchantFilters, setMerchantFilters] = useState<string[]>([]);
   const [isRecurrentCollapsed, setIsRecurrentCollapsed] = useState(
-    !initialCategoryFilter
+    !initialCategoryFilter && !initialTypeFilter
   );
   const [isPendingCollapsed, setIsPendingCollapsed] = useState(
-    !initialCategoryFilter
+    !initialCategoryFilter && !initialTypeFilter
   );
-  const [isDoneCollapsed, setIsDoneCollapsed] = useState(!initialCategoryFilter);
+  const [isDoneCollapsed, setIsDoneCollapsed] = useState(
+    !initialCategoryFilter && !initialTypeFilter
+  );
   const [isRegistering, setIsRegistering] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -975,17 +996,24 @@ export function MovementsClient({
   }, [initialCategoryFilter]);
 
   useEffect(() => {
+    const nextTypes = parseFilterParam(initialTypeFilter).filter(
+      (item): item is "income" | "expense" => item === "income" || item === "expense"
+    );
+    setTypeFilters(nextTypes);
+  }, [initialTypeFilter]);
+
+  useEffect(() => {
     const nextProfilesById = buildProfilesById(profiles);
     setProfilesById(nextProfilesById);
     profilesByIdRef.current = nextProfilesById;
   }, [profiles]);
 
   useEffect(() => {
-    if (!initialCategoryFilter) return;
+    if (!initialCategoryFilter && !initialTypeFilter) return;
     setIsRecurrentCollapsed(false);
     setIsPendingCollapsed(false);
     setIsDoneCollapsed(false);
-  }, [initialCategoryFilter]);
+  }, [initialCategoryFilter, initialTypeFilter]);
 
   const getPeriodCacheKey = useCallback(
     (period: Period) => {
@@ -1342,6 +1370,15 @@ export function MovementsClient({
         obligationType: null,
         scheduledDate: null,
         scheduledDateOverridden: false,
+        paidByUserId: transaction.paid_by ?? transaction.created_by,
+        splitType: transaction.split_type ?? "equal",
+        splitDetails:
+          transaction.split_type === "custom" && Array.isArray(transaction.split_details)
+            ? transaction.split_details.map((split) => ({
+                userId: split.user_id,
+                shareMinor: split.share_minor,
+              }))
+            : null,
       });
       setIsEditOpen(true);
     },
@@ -1370,6 +1407,15 @@ export function MovementsClient({
         fx_rate: selectedTransaction.fx_rate
           ? String(selectedTransaction.fx_rate)
           : "1",
+        paid_by: draft.paidByUserId,
+        split_type: draft.splitType,
+        split_details:
+          draft.splitType === "custom"
+            ? (draft.splitDetails ?? []).map((split) => ({
+                user_id: split.userId,
+                share_minor: Math.max(0, Math.trunc(split.shareMinor)),
+              }))
+            : null,
       });
 
       if (!result.success || !result.data) {
@@ -1688,6 +1734,8 @@ export function MovementsClient({
                     categories={categories}
                     topCategories={initialTopCategories}
                     merchantSuggestions={initialMerchantSuggestions}
+                    participants={participants}
+                    currentUserId={currentUserId}
                     onSubmitDraft={handleEditSubmit}
                     onSuccess={handleCloseEdit}
                     onCancel={handleCloseEdit}

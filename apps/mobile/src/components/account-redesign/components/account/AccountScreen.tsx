@@ -4,12 +4,10 @@ import { BalanceHero } from '../../components/account/BalanceHero';
 import { PeriodSelector } from '../../components/account/PeriodSelector';
 import { FlowCards } from '../../components/account/FlowCards';
 import { MonthlyChart } from '../../components/account/MonthlyChart';
-import { CategoryList } from '../../components/account/CategoryList';
-import { RecentTransactions } from '../../components/account/RecentTransactions';
+import { ContributionBalanceSection } from '../../components/account/ContributionBalanceSection';
 import type {
   Period,
   AccountScreenData,
-  CategorySummary,
 } from '../../types/account';
 
 interface AccountScreenProps {
@@ -20,9 +18,7 @@ interface AccountScreenProps {
   currencyDecimals?: number;
   onSettingsPress?: () => void;
   onSearchPress?: () => void;
-  onCategoryPress?: (category: CategorySummary) => void;
-  onViewAllCategoriesPress?: () => void;
-  onViewAllTransactionsPress?: () => void;
+  onContributionCategoryPress?: (categoryId: string, type: "income" | "expense") => void;
   onIncomePress?: () => void;
   onExpensePress?: () => void;
 }
@@ -35,9 +31,7 @@ export function AccountScreen({
   currencyDecimals = 2,
   onSettingsPress,
   onSearchPress,
-  onCategoryPress,
-  onViewAllCategoriesPress,
-  onViewAllTransactionsPress,
+  onContributionCategoryPress,
   onIncomePress,
   onExpensePress,
 }: AccountScreenProps) {
@@ -45,6 +39,7 @@ export function AccountScreen({
     <View style={styles.container}>
       <AccountHeader
         account={data.account}
+        contributors={data.contributors}
         onSettingsPress={onSettingsPress}
         onSearchPress={onSearchPress}
       />
@@ -53,35 +48,34 @@ export function AccountScreen({
         balance={data.account.balance}
         currency={currencySymbol}
         decimals={currencyDecimals}
+        contributors={data.contributors}
+        contributionBalance={data.contributionBalance}
+        period={period}
       />
 
       <PeriodSelector selected={period} onSelect={onPeriodChange} />
 
       <FlowCards
         flow={data.flow}
+        contributors={data.contributors}
         currency={currencySymbol}
         decimals={currencyDecimals}
         onIncomePress={onIncomePress}
         onExpensePress={onExpensePress}
       />
 
-      <MonthlyChart data={data.monthlyHistory} />
-
-      <CategoryList
-        categories={data.categories}
-        currencySymbol={currencySymbol}
-        currencyDecimals={currencyDecimals}
-        limit={4}
-        onCategoryPress={onCategoryPress}
-        onViewAllPress={onViewAllCategoriesPress}
+      <MonthlyChart
+        data={data.monthlyHistory}
+        period={period}
+        contributors={data.contributors}
       />
 
-      <RecentTransactions
-        transactions={data.recentTransactions}
+      <ContributionBalanceSection
+        data={data.contributionBalance}
+        contributors={data.contributors}
         currencySymbol={currencySymbol}
         currencyDecimals={currencyDecimals}
-        limit={4}
-        onViewAllPress={onViewAllTransactionsPress}
+        onCategoryPress={onContributionCategoryPress}
       />
     </View>
   );

@@ -534,6 +534,9 @@ async function seedTransactions(
     merchant: tx.merchant,
     notes: SEED_MARKER,
     created_by: userId,
+    paid_by: userId,
+    split_type: "personal",
+    split_details: null,
   }));
 
   const { error } = await admin.from("transactions").insert(rows);

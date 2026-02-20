@@ -48,6 +48,14 @@ export function AddActionTrigger({
     expense: MerchantSuggestion[];
     income: MerchantSuggestion[];
   }>({ expense: [], income: [] });
+  const [participants, setParticipants] = useState<
+    Array<{
+      userId: string;
+      name: string;
+      role: "viewer" | "contributor" | "admin";
+    }>
+  >([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const currentAccountIdRef = useRef(accountId);
@@ -62,6 +70,8 @@ export function AddActionTrigger({
     setMerchantSuggestions(
       payload.merchantSuggestions ?? { expense: [], income: [] }
     );
+    setParticipants(payload.participants ?? []);
+    setCurrentUserId(payload.currentUserId ?? null);
     setHasLoaded(true);
   }, []);
 
@@ -104,6 +114,8 @@ export function AddActionTrigger({
     setCategories([]);
     setTopCategories({ expense: [], income: [] });
     setMerchantSuggestions({ expense: [], income: [] });
+    setParticipants([]);
+    setCurrentUserId(null);
     setHasLoaded(false);
 
     if (!accountId) return;
@@ -143,6 +155,8 @@ export function AddActionTrigger({
         categories,
         topCategories,
         merchantSuggestions,
+        participants,
+        currentUserId,
       };
 
       primeAddActionData(accountId, {
@@ -150,7 +164,14 @@ export function AddActionTrigger({
         categories: upsertCategory(payload.categories, created),
       });
     },
-    [accountId, categories, merchantSuggestions, topCategories]
+    [
+      accountId,
+      categories,
+      currentUserId,
+      merchantSuggestions,
+      participants,
+      topCategories,
+    ]
   );
 
   const handleOpen = async (open: () => void) => {
@@ -201,6 +222,8 @@ export function AddActionTrigger({
       categories={categories}
       topCategories={topCategories}
       merchantSuggestions={merchantSuggestions}
+      participants={participants}
+      currentUserId={currentUserId}
       onCategoryCreated={handleCategoryCreated}
       renderTrigger={(open) => (
         <button

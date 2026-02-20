@@ -38,11 +38,13 @@ export default function MovementsScreen() {
   const params = useLocalSearchParams<{
     period?: string | string[];
     category?: string | string[];
+    type?: string | string[];
   }>();
   const periodParam = Array.isArray(params.period) ? params.period[0] : params.period;
   const categoryParam = Array.isArray(params.category)
     ? params.category[0]
     : params.category;
+  const typeParam = Array.isArray(params.type) ? params.type[0] : params.type;
   const {
     loading,
     error,
@@ -66,6 +68,7 @@ export default function MovementsScreen() {
     isRecurrentSectionCollapsed,
     setPeriod,
     toggleTypeFilter,
+    setTypeFilter,
     setCategoryFilter,
     setMerchantFilter,
     setSearchQuery,
@@ -129,6 +132,29 @@ export default function MovementsScreen() {
   }, [
     categoryParam,
     setCategoryFilter,
+    setRecurrentSectionCollapsed,
+    setIsPendingCollapsed,
+    setIsDoneCollapsed,
+  ]);
+
+  useEffect(() => {
+    if (!typeParam) return;
+    const types = typeParam
+      .split(",")
+      .map((value) => value.trim())
+      .filter(
+        (value): value is "income" | "expense" =>
+          value === "income" || value === "expense"
+      );
+    if (types.length > 0) {
+      setTypeFilter(types);
+    }
+    setRecurrentSectionCollapsed(false);
+    setIsPendingCollapsed(false);
+    setIsDoneCollapsed(false);
+  }, [
+    typeParam,
+    setTypeFilter,
     setRecurrentSectionCollapsed,
     setIsPendingCollapsed,
     setIsDoneCollapsed,

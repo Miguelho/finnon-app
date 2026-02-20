@@ -17,6 +17,12 @@ export type AddActionDataPayload = {
     expense: MerchantSuggestion[];
     income: MerchantSuggestion[];
   };
+  participants: Array<{
+    userId: string;
+    name: string;
+    role: "viewer" | "contributor" | "admin";
+  }>;
+  currentUserId: string | null;
 };
 
 type AddActionDataCacheEntry = {
@@ -38,6 +44,8 @@ function createEmptyPayload(): AddActionDataPayload {
     categories: [],
     topCategories: { expense: [], income: [] },
     merchantSuggestions: { expense: [], income: [] },
+    participants: [],
+    currentUserId: null,
   };
 }
 
@@ -61,6 +69,9 @@ function normalizePayload(value: unknown): AddActionDataPayload {
         ? raw.merchantSuggestions.income
         : [],
     },
+    participants: Array.isArray(raw.participants) ? raw.participants : [],
+    currentUserId:
+      typeof raw.currentUserId === "string" ? raw.currentUserId : null,
   };
 }
 

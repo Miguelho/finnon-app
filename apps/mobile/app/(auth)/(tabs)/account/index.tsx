@@ -12,20 +12,29 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
 import {
   CURRENCIES,
+  calculateContributionBalance,
   formatDateISO,
+  getAvatarInitials,
   getMinorUnits,
   getPeriodRange,
+  getUserAvatarColor,
+  resolveAvatarColor,
+  simplifyContributionDebts,
+  themeTokens,
+  USER_AVATAR_COLORS,
   type AccountSummaryData,
+  type AvatarColorToken,
+  type ContributionSplitDetail,
+  type ContributionSplitType,
   type DateRange,
+  type UserAvatarColorId,
 } from "@poleursus/shared";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { useUserTheme } from "../../../../src/contexts/UserThemeContext";
 import { useNetworkNotice } from "../../../../src/contexts/NetworkNoticeContext";
 import { useCopy, t } from "../../../../src/lib/i18n";
 import { supabase } from "../../../../src/lib/supabase";
-import {
-  AccountScreen,
-} from "../../../../src/components/account-redesign/components/account";
+import { AccountScreen } from "../../../../src/components/account-redesign/components/account";
 import type {
   AccountScreenData,
   CategorySummary,
@@ -61,38 +70,174 @@ const endOfDay = (date: Date) =>
 const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1);
 const endOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
-
 const parseISODate = (value: string) => {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, (month ?? 1) - 1, day ?? 1);
+  const [yearPart, monthPart, dayPart] = value.split("-");
+  const year = Number(yearPart);
+  const month = Number(monthPart);
+  const day = Number(dayPart);
+  return new Date(
+    Number.isFinite(year) ? year : 1970,
+    (Number.isFinite(month) ? month : 1) - 1,
+    Number.isFinite(day) ? day : 1
+  );
 };
 
 const isWithinRange = (date: Date, range: { start: Date; end: Date }) =>
   date >= range.start && date <= range.end;
+
+type TransactionCategoryRow = {
+  id: string;
+  name: string;
+  icon_id: string | null;
+  type?: "income" | "expense" | null;
+};
 
 type TransactionRow = {
   id: string;
   type: "income" | "expense";
   amount_minor: number;
   amount_base_minor?: number | null;
+  created_by?: string | null;
+  paid_by?: string | null;
+  split_type?: ContributionSplitType | null;
+  split_details?:
+    | Array<{ user_id?: string; userId?: string; share_minor?: number; shareMinor?: number }>
+    | null;
   date: string;
   merchant: string | null;
-  category: {
-    id: string;
-    name: string;
-    icon_id: string | null;
-    type?: "income" | "expense" | null;
-  } | null;
+  category: TransactionCategoryRow | TransactionCategoryRow[] | null;
 };
 
-const getAmountMinor = (row: TransactionRow) => {
+type NormalizedTransactionRow = Omit<TransactionRow, "category"> & {
+  category: TransactionCategoryRow | null;
+};
+
+type ProfileColorRow = {
+  user_id: string;
+  avatar_color?: UserAvatarColorId | null;
+  avatar_fallback_bg_token?: AvatarColorToken | null;
+};
+
+const normalizeTransactionCategory = (
+  category: TransactionRow["category"]
+): TransactionCategoryRow | null => {
+  if (Array.isArray(category)) {
+    return category[0] ?? null;
+  }
+  return category ?? null;
+};
+
+const getAmountMinor = (row: { amount_minor: number; amount_base_minor?: number | null }) => {
   const raw = row.amount_base_minor ?? row.amount_minor ?? 0;
   return Number(raw);
 };
 
+const normalizeHex = (value: string) => {
+  const normalized = value.trim();
+  const shortMatch = normalized.match(/^#([0-9a-fA-F]{3})$/);
+  if (shortMatch) {
+    const short = shortMatch[1] ?? "000";
+    const r = short[0] ?? "0";
+    const g = short[1] ?? "0";
+    const b = short[2] ?? "0";
+    return `#${r}${r}${g}${g}${b}${b}`.toUpperCase();
+  }
+  const fullMatch = normalized.match(/^#([0-9a-fA-F]{6})$/);
+  if (fullMatch) return `#${fullMatch[1]}`.toUpperCase();
+  return "#2563EB";
+};
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const adjustLightness = (hex: string, amount: number) => {
+  const normalized = normalizeHex(hex);
+  const red = parseInt(normalized.slice(1, 3), 16);
+  const green = parseInt(normalized.slice(3, 5), 16);
+  const blue = parseInt(normalized.slice(5, 7), 16);
+  const adjust = (channel: number) => clamp(Math.round(channel + amount * 255), 0, 255);
+  const toHex = (channel: number) => channel.toString(16).padStart(2, "0").toUpperCase();
+  return `#${toHex(adjust(red))}${toHex(adjust(green))}${toHex(adjust(blue))}`;
+};
+
+const resolveUserColors = (memberIds: string[], baseColorByUser: Map<string, string>) => {
+  const usedByBase = new Map<string, number>();
+  const resolved = new Map<string, string>();
+
+  memberIds.forEach((userId) => {
+    const base = normalizeHex(baseColorByUser.get(userId) ?? "#2563EB");
+    const index = usedByBase.get(base) ?? 0;
+    usedByBase.set(base, index + 1);
+
+    if (index === 0) {
+      resolved.set(userId, base);
+      return;
+    }
+
+    const step = Math.ceil(index / 2);
+    const shift = 0.16 * step;
+    const variant = index % 2 === 1 ? adjustLightness(base, shift) : adjustLightness(base, -shift);
+    resolved.set(userId, variant);
+  });
+
+  return resolved;
+};
+
+const getParticipantDisplayName = (participant: AccountSummaryData["participants"][number]) =>
+  participant.display_name?.trim() || participant.email?.trim() || participant.user_id.slice(0, 6);
+
+const getShortName = (name: string) => {
+  const firstToken = name.trim().split(/\s+/)[0] ?? "";
+  return firstToken.length > 0 ? firstToken : name;
+};
+
+const getCustomSplitInBaseMinor = (
+  row: NormalizedTransactionRow
+): ContributionSplitDetail[] | null => {
+  if (!Array.isArray(row.split_details) || row.split_details.length === 0) {
+    return null;
+  }
+
+  const amountMinor = Number(row.amount_minor ?? 0);
+  const amountBaseMinor = getAmountMinor(row);
+  if (amountBaseMinor <= 0) return null;
+
+  const rawDetails = row.split_details
+    .map((split) => {
+      const userId = (split.user_id ?? split.userId ?? "").trim();
+      const shareMinorRaw = split.share_minor ?? split.shareMinor ?? 0;
+      return {
+        userId,
+        shareMinor: Math.max(0, Math.trunc(Number(shareMinorRaw))),
+      };
+    })
+    .filter((split) => split.userId.length > 0);
+
+  if (rawDetails.length === 0) return null;
+  if (amountMinor <= 0 || amountMinor === amountBaseMinor) {
+    return rawDetails;
+  }
+
+  const ratio = amountBaseMinor / amountMinor;
+  const converted = rawDetails.map((split) => ({
+    userId: split.userId,
+    shareMinor: Math.max(0, Math.trunc(split.shareMinor * ratio)),
+  }));
+  const totalConverted = converted.reduce((acc, split) => acc + split.shareMinor, 0);
+  const diff = amountBaseMinor - totalConverted;
+  const firstSplit = converted[0];
+  if (firstSplit && diff !== 0) {
+    converted[0] = {
+      ...firstSplit,
+      shareMinor: Math.max(0, firstSplit.shareMinor + diff),
+    };
+  }
+  return converted;
+};
+
 const getMonthLabel = (date: Date, locale: string) => {
-  const labels = MONTH_LABELS[locale] ?? MONTH_LABELS.es;
-  return labels[date.getMonth()] ?? labels[0];
+  const labels = (MONTH_LABELS[locale] ?? MONTH_LABELS.es ?? []) as string[];
+  const firstLabel = labels[0] ?? "";
+  return labels[date.getMonth()] ?? firstLabel;
 };
 
 const getCategoryColorKey = (name: string, iconId?: string | null) => {
@@ -125,7 +270,6 @@ const getDaySpan = (range: DateRange) => {
   const end = startOfDay(range.end);
   return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 };
-
 
 const getPreviousPeriodRange = (period: Period, currentRange: DateRange): DateRange => {
   const span = getDaySpan(currentRange);
@@ -165,24 +309,20 @@ const getPreviousPeriodRange = (period: Period, currentRange: DateRange): DateRa
   }
 };
 
-const buildBuckets = (
-  period: Period,
-  range: DateRange,
-  locale: string,
-  now: Date
-): Bucket[] => {
+const buildBuckets = (period: Period, range: DateRange, locale: string, now: Date): Bucket[] => {
   const buckets: Bucket[] = [];
   const current = now;
 
   if (period === "week") {
-    const labels = DAY_LABELS[locale] ?? DAY_LABELS.es;
+    const labels = (DAY_LABELS[locale] ?? DAY_LABELS.es ?? []) as string[];
+    const firstLabel = labels[0] ?? "";
     const span = getDaySpan(range);
     for (let i = 0; i < span; i += 1) {
       const day = addDays(range.start, i);
       const start = startOfDay(day);
       const end = endOfDay(day);
       buckets.push({
-        label: labels[day.getDay()] ?? labels[0],
+        label: labels[day.getDay()] ?? firstLabel,
         start,
         end,
         isCurrent: isWithinRange(current, { start, end }),
@@ -227,7 +367,7 @@ const buildBuckets = (
   return buckets;
 };
 
-const sumTotals = (rows: TransactionRow[]) => {
+const sumTotals = (rows: NormalizedTransactionRow[]) => {
   let income = 0;
   let expense = 0;
   rows.forEach((tx) => {
@@ -240,11 +380,12 @@ const sumTotals = (rows: TransactionRow[]) => {
 
 function buildAccountScreenData(params: {
   summary: AccountSummaryData;
-  transactions: TransactionRow[];
+  transactions: NormalizedTransactionRow[];
   period: Period;
   locale: string;
   accountLabel: string;
   uncategorizedLabel: string;
+  profileColorsByUserId: Map<string, ProfileColorRow>;
 }): { data: AccountScreenData; currencyDecimals: number } {
   const {
     summary,
@@ -253,10 +394,55 @@ function buildAccountScreenData(params: {
     locale,
     accountLabel,
     uncategorizedLabel,
+    profileColorsByUserId,
   } = params;
+
   const currencyCode = summary.account.base_currency;
   const minorUnits = getMinorUnits(currencyCode);
   const divisor = Math.pow(10, minorUnits);
+
+  const activeParticipants = summary.participants.filter(
+    (participant) => participant.role === "admin" || participant.role === "contributor"
+  );
+  const activeMemberIds = activeParticipants.map((participant) => participant.user_id);
+  const participantByUserId = new Map(
+    summary.participants.map((participant) => [participant.user_id, participant])
+  );
+
+  const baseColorByUserId = new Map<string, string>();
+  activeParticipants.forEach((participant) => {
+    const profileColor = profileColorsByUserId.get(participant.user_id);
+    if (profileColor?.avatar_color) {
+      const colorId = getUserAvatarColor(profileColor.avatar_color);
+      baseColorByUserId.set(participant.user_id, USER_AVATAR_COLORS[colorId].fg);
+      return;
+    }
+
+    const fallbackToken =
+      profileColor?.avatar_fallback_bg_token ??
+      (participant.avatar_fallback_bg_token as AvatarColorToken | null) ??
+      "action.secondary";
+
+    baseColorByUserId.set(
+      participant.user_id,
+      resolveAvatarColor(themeTokens.light, fallbackToken as AvatarColorToken)
+    );
+  });
+
+  const resolvedColorByUserId = resolveUserColors(activeMemberIds, baseColorByUserId);
+
+  const contributors = activeParticipants.map((participant) => {
+    const name = getParticipantDisplayName(participant);
+    return {
+      userId: participant.user_id,
+      name,
+      shortName: getShortName(name),
+      initials: getAvatarInitials(participant.email, participant.display_name),
+      color: resolvedColorByUserId.get(participant.user_id) ?? "#2563EB",
+    };
+  });
+
+  const contributorByUserId = new Map(contributors.map((contributor) => [contributor.userId, contributor]));
 
   const now = new Date();
   const currentRange = getPeriodRange(period, now);
@@ -281,63 +467,147 @@ function buildAccountScreenData(params: {
       ? ((currentTotals.expense - previousTotals.expense) / previousTotals.expense) * 100
       : null;
 
+  const flowIncomeByUserMinor = new Map<string, number>();
+  const flowExpenseByUserMinor = new Map<string, number>();
+  activeMemberIds.forEach((userId) => {
+    flowIncomeByUserMinor.set(userId, 0);
+    flowExpenseByUserMinor.set(userId, 0);
+  });
+
+  currentTransactions.forEach((tx) => {
+    const payerId = tx.paid_by ?? tx.created_by ?? "";
+    const amountMinor = getAmountMinor(tx);
+    if (tx.type === "income") {
+      if (flowIncomeByUserMinor.has(payerId)) {
+        flowIncomeByUserMinor.set(payerId, (flowIncomeByUserMinor.get(payerId) ?? 0) + amountMinor);
+      }
+      return;
+    }
+
+    if (flowExpenseByUserMinor.has(payerId)) {
+      flowExpenseByUserMinor.set(payerId, (flowExpenseByUserMinor.get(payerId) ?? 0) + amountMinor);
+    }
+  });
+
   const buckets = buildBuckets(period, currentRange, locale, now);
   const monthlyHistory: MonthlyDataPoint[] = buckets.map((bucket) => {
-    const bucketTotals = sumTotals(
-      currentTransactions.filter((tx) =>
-        isWithinRange(parseISODate(tx.date), { start: bucket.start, end: bucket.end })
-      )
+    const bucketTransactions = currentTransactions.filter((tx) =>
+      isWithinRange(parseISODate(tx.date), { start: bucket.start, end: bucket.end })
     );
+    const bucketTotals = sumTotals(bucketTransactions);
+
+    const incomeByUserMinor = new Map<string, number>();
+    const expenseByUserMinor = new Map<string, number>();
+    activeMemberIds.forEach((userId) => {
+      incomeByUserMinor.set(userId, 0);
+      expenseByUserMinor.set(userId, 0);
+    });
+
+    bucketTransactions.forEach((tx) => {
+      const payerId = tx.paid_by ?? tx.created_by ?? "";
+      const amountMinor = getAmountMinor(tx);
+      if (tx.type === "income") {
+        if (incomeByUserMinor.has(payerId)) {
+          incomeByUserMinor.set(payerId, (incomeByUserMinor.get(payerId) ?? 0) + amountMinor);
+        }
+        return;
+      }
+      if (expenseByUserMinor.has(payerId)) {
+        expenseByUserMinor.set(payerId, (expenseByUserMinor.get(payerId) ?? 0) + amountMinor);
+      }
+    });
+
     return {
       label: bucket.label,
       income: bucketTotals.income / divisor,
       expense: bucketTotals.expense / divisor,
       isCurrent: bucket.isCurrent,
+      incomeByUser: activeMemberIds.map((userId) => ({
+        userId,
+        amount: (incomeByUserMinor.get(userId) ?? 0) / divisor,
+      })),
+      expenseByUser: activeMemberIds.map((userId) => ({
+        userId,
+        amount: (expenseByUserMinor.get(userId) ?? 0) / divisor,
+      })),
     };
   });
 
-  const categoryMap = new Map<string, {
-    id: string;
-    name: string;
-    iconId?: string | null;
-    amount: number;
-    transactionCount: number;
-    type: "income" | "expense";
-  }>();
+  const buildContributionCategories = (type: "income" | "expense") => {
+    const categoryMap = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        iconId: string | null;
+        totalMinor: number;
+        transactionCount: number;
+        byUserMinor: Map<string, number>;
+      }
+    >();
 
-  currentTransactions.forEach((tx) => {
-    if (tx.type !== "expense") return;
-    const amountMinor = getAmountMinor(tx);
-    const category = tx.category;
-    const categoryId = category?.id ?? "uncategorized";
-    const categoryName = category?.name ?? uncategorizedLabel;
-    const existing = categoryMap.get(categoryId);
-    if (existing) {
-      existing.amount += amountMinor;
-      existing.transactionCount += 1;
-    } else {
+    currentTransactions.forEach((tx) => {
+      if (tx.type !== type) return;
+      const amountMinor = getAmountMinor(tx);
+      if (amountMinor <= 0) return;
+      const payerId = tx.paid_by ?? tx.created_by ?? "";
+      if (activeMemberIds.length > 0 && !activeMemberIds.includes(payerId)) return;
+
+      const categoryId = tx.category?.id ?? "uncategorized";
+      const categoryName = tx.category?.name ?? uncategorizedLabel;
+      const existing = categoryMap.get(categoryId);
+
+      if (existing) {
+        existing.totalMinor += amountMinor;
+        existing.transactionCount += 1;
+        existing.byUserMinor.set(payerId, (existing.byUserMinor.get(payerId) ?? 0) + amountMinor);
+        return;
+      }
+
+      const byUserMinor = new Map<string, number>();
+      byUserMinor.set(payerId, amountMinor);
       categoryMap.set(categoryId, {
         id: categoryId,
         name: categoryName,
-        iconId: category?.icon_id ?? null,
-        amount: amountMinor,
+        iconId: tx.category?.icon_id ?? null,
+        totalMinor: amountMinor,
         transactionCount: 1,
-        type: "expense",
+        byUserMinor,
       });
-    }
-  });
+    });
 
-  const categories: CategorySummary[] = Array.from(categoryMap.values())
-    .sort((a, b) => b.amount - a.amount)
-    .map((cat) => ({
-      id: cat.id,
-      name: cat.name,
-      iconId: cat.iconId,
-      colorKey: getCategoryColorKey(cat.name, cat.iconId),
-      amount: cat.amount / divisor,
-      transactionCount: cat.transactionCount,
-      type: cat.type,
-    }));
+    return Array.from(categoryMap.values())
+      .sort((a, b) => b.totalMinor - a.totalMinor)
+      .map((category) => ({
+        id: category.id,
+        name: category.name,
+        iconId: category.iconId,
+        totalAmount: category.totalMinor / divisor,
+        transactionCount: category.transactionCount,
+        shares: contributors.map((contributor) => {
+          const shareMinor = category.byUserMinor.get(contributor.userId) ?? 0;
+          return {
+            userId: contributor.userId,
+            name: contributor.name,
+            amount: shareMinor / divisor,
+            percentage: category.totalMinor > 0 ? (shareMinor / category.totalMinor) * 100 : 0,
+          };
+        }),
+      }));
+  };
+
+  const expenseContributionCategories = buildContributionCategories("expense");
+  const incomeContributionCategories = buildContributionCategories("income");
+
+  const categories: CategorySummary[] = expenseContributionCategories.map((category) => ({
+    id: category.id,
+    name: category.name,
+    iconId: category.iconId,
+    colorKey: getCategoryColorKey(category.name, category.iconId),
+    amount: category.totalAmount,
+    transactionCount: category.transactionCount,
+    type: "expense",
+  }));
 
   const recent: Transaction[] = [...currentTransactions]
     .sort((a, b) => parseISODate(b.date).getTime() - parseISODate(a.date).getTime())
@@ -356,6 +626,53 @@ function buildAccountScreenData(params: {
       };
     });
 
+  let contributionBalance: AccountScreenData["contributionBalance"] = {
+    members: [],
+    debts: [],
+    expenseCategories: expenseContributionCategories,
+    incomeCategories: incomeContributionCategories,
+  };
+
+  if (activeParticipants.length >= 2) {
+    const expenseTransactions = currentTransactions.filter((tx) => tx.type === "expense");
+    const contributionTransactions = expenseTransactions.map((tx) => ({
+      id: tx.id,
+      amountBaseMinor: getAmountMinor(tx),
+      paidByUserId: tx.paid_by ?? tx.created_by ?? "",
+      splitType: (tx.split_type ?? "equal") as ContributionSplitType,
+      splitDetails: tx.split_type === "custom" ? getCustomSplitInBaseMinor(tx) : undefined,
+    }));
+
+    const memberBalances = calculateContributionBalance(contributionTransactions, activeMemberIds);
+    const memberDebts = simplifyContributionDebts(memberBalances, divisor);
+
+    contributionBalance = {
+      members: memberBalances.map((member) => {
+        const contributor = contributorByUserId.get(member.userId);
+        const participant = participantByUserId.get(member.userId);
+        return {
+          userId: member.userId,
+          name: contributor?.name ?? member.userId.slice(0, 6),
+          initials:
+            contributor?.initials ?? getAvatarInitials(participant?.email ?? null, participant?.display_name),
+          color: contributor?.color ?? "#2563EB",
+          totalPaid: member.totalPaidMinor / divisor,
+          totalResponsible: member.totalResponsibleMinor / divisor,
+          net: member.netMinor / divisor,
+        };
+      }),
+      debts: memberDebts.map((debt) => ({
+        fromUserId: debt.fromUserId,
+        fromName: contributorByUserId.get(debt.fromUserId)?.name ?? debt.fromUserId.slice(0, 6),
+        toUserId: debt.toUserId,
+        toName: contributorByUserId.get(debt.toUserId)?.name ?? debt.toUserId.slice(0, 6),
+        amount: debt.amountMinor / divisor,
+      })),
+      expenseCategories: expenseContributionCategories,
+      incomeCategories: incomeContributionCategories,
+    };
+  }
+
   const accountIcon = summary.account.name.slice(0, 1).toUpperCase();
 
   return {
@@ -373,10 +690,22 @@ function buildAccountScreenData(params: {
         totalExpense: currentTotals.expense / divisor,
         incomeDelta,
         expenseDelta,
+        byUser: {
+          income: activeMemberIds.map((userId) => ({
+            userId,
+            amount: (flowIncomeByUserMinor.get(userId) ?? 0) / divisor,
+          })),
+          expense: activeMemberIds.map((userId) => ({
+            userId,
+            amount: (flowExpenseByUserMinor.get(userId) ?? 0) / divisor,
+          })),
+        },
       },
       categories,
       recentTransactions: recent,
       monthlyHistory,
+      contributors,
+      contributionBalance,
     },
     currencyDecimals: minorUnits,
   };
@@ -393,13 +722,19 @@ export default function AccountTabScreen() {
 
   const [period, setPeriod] = useState<Period>("month");
   const [summaryData, setSummaryData] = useState<AccountSummaryData | null>(null);
-  const [transactions, setTransactions] = useState<TransactionRow[]>([]);
+  const [transactions, setTransactions] = useState<NormalizedTransactionRow[]>([]);
+  const [profileColorRows, setProfileColorRows] = useState<ProfileColorRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const computed = useMemo(() => {
     if (!summaryData) return null;
+
+    const profileColorsByUserId = new Map(
+      profileColorRows.map((profile) => [profile.user_id, profile])
+    );
+
     return buildAccountScreenData({
       summary: summaryData,
       transactions,
@@ -407,8 +742,9 @@ export default function AccountTabScreen() {
       locale,
       accountLabel: t(dictionary, "account.labelAccount"),
       uncategorizedLabel: t(dictionary, "transactions.uncategorized"),
+      profileColorsByUserId,
     });
-  }, [summaryData, transactions, period, locale, dictionary]);
+  }, [summaryData, transactions, period, locale, dictionary, profileColorRows]);
 
   const screenData = computed?.data ?? null;
   const currencyDecimals = computed?.currencyDecimals ?? 2;
@@ -430,6 +766,24 @@ export default function AccountTabScreen() {
       if (rpcError) throw rpcError;
       if (!rpcData) throw new Error(t(dictionary, "account.loadError"));
 
+      const participantIds = (rpcData as AccountSummaryData).participants.map(
+        (participant) => participant.user_id
+      );
+
+      let profileRows: ProfileColorRow[] = [];
+      if (participantIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("user_id, avatar_color, avatar_fallback_bg_token")
+          .in("user_id", participantIds);
+
+        if (profilesError) {
+          console.error("[AccountTabScreen] Profiles query error:", profilesError);
+        } else {
+          profileRows = (profilesData ?? []) as ProfileColorRow[];
+        }
+      }
+
       const now = new Date();
       const queryStart = new Date(now.getFullYear() - 1, 0, 1);
       const startDate = formatDateISO(queryStart);
@@ -438,7 +792,7 @@ export default function AccountTabScreen() {
       const { data: rows, error: rowsError } = await supabase
         .from("transactions")
         .select(
-          "id, type, amount_minor, amount_base_minor, date, merchant, category:categories(id, name, icon_id, type)"
+          "id, type, amount_minor, amount_base_minor, created_by, paid_by, split_type, split_details, date, merchant, category:categories(id, name, icon_id, type)"
         )
         .eq("account_id", selectedAccountId)
         .gte("date", startDate)
@@ -446,8 +800,14 @@ export default function AccountTabScreen() {
 
       if (rowsError) throw rowsError;
 
+      const normalizedRows = ((rows ?? []) as TransactionRow[]).map((row) => ({
+        ...row,
+        category: normalizeTransactionCategory(row.category),
+      }));
+
       setSummaryData(rpcData as AccountSummaryData);
-      setTransactions((rows ?? []) as TransactionRow[]);
+      setProfileColorRows(profileRows);
+      setTransactions(normalizedRows);
       setError(null);
     } catch (err: any) {
       console.error("[AccountTabScreen] Error:", err);
@@ -539,18 +899,15 @@ export default function AccountTabScreen() {
           onSearchPress={() =>
             router.push(`/(auth)/(tabs)/transactions?period=${period}`)
           }
-          onCategoryPress={(category) => {
-            if (category.id === "uncategorized") return;
+          onContributionCategoryPress={(categoryId, type) => {
+            const categoryParam =
+              categoryId !== "uncategorized"
+                ? `&category=${encodeURIComponent(categoryId)}`
+                : "";
             router.push(
-              `/(auth)/(tabs)/transactions?period=${period}&category=${category.id}`
+              `/(auth)/(tabs)/transactions?period=${period}&type=${type}${categoryParam}`
             );
           }}
-          onViewAllCategoriesPress={() =>
-            router.push(`/(auth)/(tabs)/transactions?period=${period}`)
-          }
-          onViewAllTransactionsPress={() =>
-            router.push(`/(auth)/(tabs)/transactions?period=${period}`)
-          }
         />
       </ScrollView>
     </View>

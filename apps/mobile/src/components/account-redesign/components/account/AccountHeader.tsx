@@ -1,21 +1,24 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Search, Settings } from "lucide-react-native";
 import { typography, spacing, radii } from '../../theme/tokens';
-import type { Account } from '../../types/account';
+import type { Account, AccountContributor } from '../../types/account';
 import { useUserTheme } from '../../../../contexts/UserThemeContext';
 
 interface AccountHeaderProps {
   account: Account;
+  contributors: AccountContributor[];
   onSettingsPress?: () => void;
   onSearchPress?: () => void;
 }
 
 export function AccountHeader({
   account,
+  contributors,
   onSettingsPress,
   onSearchPress,
 }: AccountHeaderProps) {
   const { tokens: userTokens } = useUserTheme();
+  const showContributors = contributors.length >= 2;
 
   return (
     <View style={styles.container}>
@@ -42,6 +45,26 @@ export function AccountHeader({
       </View>
 
       <View style={styles.actions}>
+        {showContributors ? (
+          <View style={styles.memberAvatars}>
+            {contributors.slice(0, 4).map((contributor, index) => (
+              <View
+                key={`${contributor.userId}-avatar`}
+                style={[
+                  styles.memberAvatar,
+                  {
+                    backgroundColor: contributor.color,
+                    borderColor: userTokens.background,
+                  },
+                  index > 0 && styles.memberAvatarOverlap,
+                ]}
+              >
+                <Text style={styles.memberAvatarText}>{contributor.initials}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         <Pressable
           style={({ pressed }) => [
             styles.iconBtn,
@@ -115,7 +138,28 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.md,
+  },
+  memberAvatars: {
+    flexDirection: 'row',
+    marginRight: spacing.sm,
+  },
+  memberAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  memberAvatarOverlap: {
+    marginLeft: -8,
+  },
+  memberAvatarText: {
+    fontFamily: typography.family.sansBold,
+    fontSize: 8,
+    color: "#FFFFFF",
   },
   iconBtn: {
     width: 36,

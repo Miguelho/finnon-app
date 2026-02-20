@@ -1,32 +1,25 @@
 .root {
-  --bg: var(--account-bg, #FAFAF8);
-  --surface: var(--account-surface, #FFFFFF);
-  --surface-alt: var(--account-surface-alt, #F5F4F0);
-  --border: var(--account-border, #E8E6E1);
-  --border-light: var(--account-border-light, #F0EEE9);
-  --text-primary: var(--account-text-primary, #1A1A18);
-  --text-secondary: var(--account-text-secondary, #6B6B65);
-  --text-tertiary: var(--account-text-tertiary, #9C9C95);
-  --income: var(--account-income, #1B7A4A);
-  --income-bg: var(--account-income-bg, #E8F5EE);
-  --income-light: var(--account-income-light, #D0EBDD);
-  --expense: var(--account-expense, #C4441A);
-  --expense-bg: var(--account-expense-bg, #FDF0EB);
-  --expense-light: var(--account-expense-light, #F9DDD2);
-  --accent: var(--account-accent, #2563EB);
-  --accent-bg: var(--account-accent-bg, #EFF4FF);
-  --category-casa: var(--account-category-casa, #FEF3C7);
-  --category-familia: var(--account-category-familia, #FCE7F3);
-  --category-ocio: var(--account-category-ocio, #E0E7FF);
-  --category-restaurantes: var(--account-category-restaurantes, #FFEDD5);
-  --category-interests: var(--account-category-interests, #D1FAE5);
-  --category-lottery: var(--account-category-lottery, #EDE9FE);
-  --category-default: var(--account-category-default, #F3F4F6);
+  --bg: var(--account-bg, #fafaf8);
+  --surface: var(--account-surface, #ffffff);
+  --surface-alt: var(--account-surface-alt, #f5f4f0);
+  --border: var(--account-border, #e8e6e1);
+  --border-light: var(--account-border-light, #f0eee9);
+  --text-primary: var(--account-text-primary, #1a1a18);
+  --text-secondary: var(--account-text-secondary, #6b6b65);
+  --text-tertiary: var(--account-text-tertiary, #9c9c95);
+  --income: var(--account-income, #1b7a4a);
+  --income-bg: var(--account-income-bg, #e8f5ee);
+  --income-light: var(--account-income-light, #d0ebdd);
+  --expense: var(--account-expense, #c4441a);
+  --expense-bg: var(--account-expense-bg, #fdf0eb);
+  --expense-light: var(--account-expense-light, #f9ddd2);
+  --accent: var(--account-accent, #2563eb);
+  --category-interests: var(--account-category-interests, #d1fae5);
+  --category-default: var(--account-category-default, #f3f4f6);
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md: 0 2px 8px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
 
   font-family: var(--font-dm-sans, "DM Sans", sans-serif);
   color: var(--text-primary);
@@ -42,8 +35,9 @@
 .header {
   padding: 12px 20px 16px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 16px;
 }
 
 .headerLeft {
@@ -75,6 +69,61 @@
   font-weight: 500;
 }
 
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.memberMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.memberLegend {
+  display: none;
+  align-items: center;
+  gap: 10px;
+}
+
+.memberLegendItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.memberLegendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.memberAvatars {
+  display: flex;
+  align-items: center;
+}
+
+.memberAvatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--surface);
+}
+
+.memberAvatar:not(:first-child) {
+  margin-left: -8px;
+}
+
 .headerActions {
   display: flex;
   gap: 8px;
@@ -99,76 +148,109 @@
   border-color: var(--text-secondary);
 }
 
+.periodSelector {
+  margin-top: 4px;
+  margin-bottom: 22px;
+}
+
 .balanceHero {
-  padding: 8px 20px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   text-align: center;
+  margin: 0 20px 18px;
+  padding: 24px 20px 22px;
 }
 
 .balanceLabel {
   font-size: 12px;
   color: var(--text-tertiary);
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+}
+
+.balanceLabelRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.balanceTooltipButton {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: help;
 }
 
 .balanceAmount {
   font-family: var(--font-jetbrains-mono, "JetBrains Mono", monospace);
-  font-size: 36px;
-  font-weight: 500;
-  letter-spacing: -1.5px;
+  font-size: 44px;
+  font-weight: 600;
+  letter-spacing: -1.6px;
   line-height: 1;
 }
 
 .balanceCents {
-  font-size: 20px;
+  font-size: 22px;
   color: var(--text-tertiary);
   font-weight: 400;
 }
 
-.periodSelector {
+.contributionBannerWrapper {
+  margin-top: 16px;
   display: flex;
-  gap: 4px;
-  padding: 0 20px;
-  margin-bottom: 20px;
   justify-content: center;
 }
 
-.periodChip {
-  padding: 6px 14px;
+.contributionBanner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  padding: 8px 14px;
+  max-width: 100%;
 }
 
-.periodChip:hover {
-  color: var(--text-primary);
-}
-
-.periodChipActive {
-  background: var(--text-primary);
+.contributionBannerAvatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.contributionBannerText {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .flowRow {
   display: flex;
   gap: 10px;
   padding: 0 20px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .flowCard {
   flex: 1;
   padding: 14px;
   border-radius: var(--radius-md);
-  position: relative;
-  overflow: hidden;
   border: 1px solid transparent;
 }
 
@@ -211,7 +293,7 @@
 
 .flowLabel {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -226,8 +308,8 @@
 
 .flowAmount {
   font-family: var(--font-jetbrains-mono, "JetBrains Mono", monospace);
-  font-size: 18px;
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: 600;
   letter-spacing: -0.5px;
 }
 
@@ -241,9 +323,54 @@
 
 .flowDelta {
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 600;
   margin-top: 4px;
-  opacity: 0.7;
+  opacity: 0.8;
+}
+
+.miniContrib {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.miniContribBar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.miniContribSeg {
+  height: 100%;
+}
+
+.miniContribLegend {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.miniContribUser {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.miniContribAvatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 7px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chartSection {
@@ -256,19 +383,45 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 16px;
-  position: relative;
 }
 
 .chartHeader {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 10px;
   margin-bottom: 14px;
 }
 
 .chartTitle {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
+}
+
+.chartHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chartUserLegend {
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.chartUserLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.chartUserDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
 }
 
 .chartToggle {
@@ -280,7 +433,7 @@
 }
 
 .chartToggleBtn {
-  padding: 4px 10px;
+  padding: 4px 8px;
   border-radius: 6px;
   font-size: 10px;
   font-weight: 600;
@@ -298,11 +451,11 @@
 }
 
 .chartArea {
-  height: 100px;
+  height: 168px;
   position: relative;
   display: flex;
   align-items: flex-end;
-  gap: 6px;
+  gap: 8px;
   padding-bottom: 20px;
 }
 
@@ -311,22 +464,20 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
 }
 
 .chartBars {
   display: flex;
-  gap: 2px;
+  gap: 3px;
   align-items: flex-end;
-  width: 100%;
   justify-content: center;
+  width: 100%;
 }
 
 .chartBar {
-  width: 8px;
-  border-radius: 3px 3px 1px 1px;
+  width: 10px;
+  border-radius: 4px 4px 1px 1px;
   min-height: 3px;
-  transition: all 0.3s ease;
   opacity: 0.7;
 }
 
@@ -342,6 +493,19 @@
   opacity: 1;
 }
 
+.chartStackedBar {
+  width: 12px;
+  min-height: 3px;
+  display: flex;
+  flex-direction: column-reverse;
+  border-radius: 4px 4px 1px 1px;
+  overflow: hidden;
+}
+
+.chartSegment {
+  width: 100%;
+}
+
 .chartBarLabel {
   font-size: 9px;
   color: var(--text-tertiary);
@@ -355,7 +519,7 @@
 }
 
 .chartEmptyState {
-  height: 100px;
+  height: 120px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -375,59 +539,54 @@
   max-width: 240px;
 }
 
-.sectionHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.contributionCardSection {
   padding: 0 20px;
-  margin-bottom: 10px;
-  margin-top: 4px;
+  margin-bottom: 20px;
 }
 
-.sectionTitle {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
+.contributionCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
 }
 
-.sectionAction {
+.contributionCardTitle {
   font-size: 12px;
-  color: var(--accent);
-  font-weight: 600;
-  border: none;
-  background: none;
-  cursor: pointer;
-  text-decoration: none;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
 }
 
-.categoryList {
-  padding: 0 20px;
-  margin-bottom: 24px;
-}
-
-.categoryItem {
+.contributionCategoryList {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border-light);
-  cursor: pointer;
-  transition: all 0.15s ease;
+  flex-direction: column;
+}
+
+.contributionCategoryItem {
+  display: block;
   text-decoration: none;
   color: inherit;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-light);
 }
 
-.categoryItem:last-child {
+.contributionCategoryItem:last-child {
   border-bottom: none;
+  padding-bottom: 0;
 }
 
-.categoryItem:hover .categoryName {
-  color: var(--accent);
+.contributionCategoryRow1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.categoryIcon {
-  width: 36px;
-  height: 36px;
+.contributionCategoryIcon {
+  width: 34px;
+  height: 34px;
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -435,182 +594,150 @@
   flex-shrink: 0;
 }
 
-.categoryInfo {
+.contributionCategoryInfo {
   flex: 1;
   min-width: 0;
 }
 
-.categoryName {
+.contributionCategoryName {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
-.categoryCount {
+.contributionCategoryCount {
   font-size: 11px;
   color: var(--text-tertiary);
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
-.categoryRight {
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.categoryAmount {
+.contributionCategoryTotal {
   font-family: var(--font-jetbrains-mono, "JetBrains Mono", monospace);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 700;
+}
+
+.contributionTotalExpense {
   color: var(--expense);
 }
 
-.categoryBarTrack {
-  width: 64px;
-  height: 3px;
-  background: var(--border-light);
-  border-radius: 2px;
-  margin-top: 6px;
-  margin-left: auto;
-  overflow: hidden;
-}
-
-.categoryBarFill {
-  height: 100%;
-  border-radius: 2px;
-  background: var(--expense);
-  opacity: 0.5;
-}
-
-.categoryChevron {
-  color: var(--text-tertiary);
-  font-size: 12px;
-  margin-left: 4px;
-  opacity: 0.4;
-}
-
-.transactionList {
-  padding: 0 20px;
-  margin-bottom: 32px;
-}
-
-.transactionItem {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 11px 0;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.transactionItem:last-child {
-  border-bottom: none;
-}
-
-.txIcon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--surface);
-  border: 1px solid var(--border-light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.txIconIncome {
-  background: var(--income-bg);
-  border-color: var(--income-light);
-}
-
-.txIconExpense {
-  background: var(--expense-bg);
-  border-color: var(--expense-light);
-}
-
-.txInfo {
-  flex: 1;
-}
-
-.txName {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.txMeta {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  margin-top: 1px;
-}
-
-.txAmount {
-  font-family: var(--font-jetbrains-mono, "JetBrains Mono", monospace);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.txAmountNegative {
-  color: var(--expense);
-}
-
-.txAmountPositive {
+.contributionTotalIncome {
   color: var(--income);
+}
+
+.contributionCategoryRow2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-left: 44px;
+}
+
+.contributionBarLabel {
+  min-width: 58px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  text-align: right;
+}
+
+.contributionBarLabelRight {
+  text-align: left;
+}
+
+.contributionBarTrack {
+  flex: 1;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  display: flex;
+  background: var(--border-light);
+}
+
+.contributionBarSegment {
+  height: 100%;
 }
 
 @media (max-width: 640px) {
   .screen {
     max-width: 100%;
   }
+
+  .contributionBanner {
+    border-radius: 14px;
+  }
+
+  .chartToggle {
+    overflow-x: auto;
+    max-width: 100%;
+  }
 }
 
 @media (min-width: 768px) {
   .screen {
-    max-width: 1080px;
+    max-width: 1100px;
     display: grid;
-    grid-template-columns: 3fr 2fr;
-    column-gap: 32px;
-    row-gap: 24px;
-    align-items: start;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 20px;
+    row-gap: 20px;
     grid-template-areas:
       "header header"
+      "balance balance"
       "period period"
-      "balance categories"
-      "flow categories"
-      "chart transactions";
+      "flow chart"
+      "expenses income";
+    align-items: start;
   }
 
   .header {
     grid-area: header;
+    padding-bottom: 0;
   }
 
   .periodSelector {
     grid-area: period;
+    margin-bottom: 0;
   }
 
   .balanceHero {
     grid-area: balance;
+    margin-bottom: 0;
   }
 
   .flowRow {
     grid-area: flow;
+    padding: 0;
     margin-bottom: 0;
   }
 
   .chartSection {
     grid-area: chart;
+    padding: 0;
     margin-bottom: 0;
   }
 
-  .categoriesSection {
-    grid-area: categories;
-  }
-
-  .transactionsSection {
-    grid-area: transactions;
-  }
-
-  .categoryList,
-  .transactionList {
+  .contributionExpenseSection {
+    grid-area: expenses;
+    padding: 0;
     margin-bottom: 0;
+  }
+
+  .contributionIncomeSection {
+    grid-area: income;
+    padding: 0;
+    margin-bottom: 0;
+  }
+
+  .memberMeta {
+    gap: 10px;
+  }
+
+  .memberLegend {
+    display: flex;
+  }
+
+  .chartUserLegend {
+    display: flex;
   }
 }

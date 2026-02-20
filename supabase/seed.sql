@@ -209,7 +209,7 @@ VALUES
 -- =========================================================
 
 -- Account A transactions (created by different users)
-INSERT INTO transactions (id, account_id, type, amount_minor, currency, amount_base_minor, category_id, date, merchant, notes, created_by, created_at)
+INSERT INTO transactions (id, account_id, type, amount_minor, currency, amount_base_minor, category_id, date, merchant, notes, created_by, paid_by, created_at)
 VALUES
   (
     'b1111111-1111-1111-1111-111111111111',
@@ -223,6 +223,7 @@ VALUES
     'Supermarket XYZ',
     'Weekly groceries',
     '11111111-1111-1111-1111-111111111111', -- Alice
+    '11111111-1111-1111-1111-111111111111', -- paid_by (Alice)
     now()
   ),
   (
@@ -237,6 +238,7 @@ VALUES
     'Company ABC',
     'January salary',
     '11111111-1111-1111-1111-111111111111', -- Alice
+    '11111111-1111-1111-1111-111111111111', -- paid_by (Alice)
     now()
   ),
   (
@@ -251,11 +253,12 @@ VALUES
     'Gas Station',
     'Fuel',
     '22222222-2222-2222-2222-222222222222', -- Bob
+    '22222222-2222-2222-2222-222222222222', -- paid_by (Bob)
     now()
   );
 
 -- Account B transactions
-INSERT INTO transactions (id, account_id, type, amount_minor, currency, amount_base_minor, category_id, date, merchant, notes, created_by, created_at)
+INSERT INTO transactions (id, account_id, type, amount_minor, currency, amount_base_minor, category_id, date, merchant, notes, created_by, paid_by, created_at)
 VALUES
   (
     'b4444444-4444-4444-4444-444444444444',
@@ -269,6 +272,7 @@ VALUES
     'Client XYZ',
     'Freelance project',
     '33333333-3333-3333-3333-333333333333', -- Charlie
+    '33333333-3333-3333-3333-333333333333', -- paid_by (Charlie)
     now()
   ),
   (
@@ -283,6 +287,7 @@ VALUES
     'Landlord',
     'January rent',
     '33333333-3333-3333-3333-333333333333', -- Charlie
+    '33333333-3333-3333-3333-333333333333', -- paid_by (Charlie)
     now()
   );
 

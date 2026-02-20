@@ -68,6 +68,9 @@ export async function upsertObligationTransaction(
     merchant: obligation.name,
     notes: null,
     created_by: obligation.created_by,
+    paid_by: obligation.created_by,
+    split_type: "personal",
+    split_details: null,
     obligation_id: obligation.id,
   };
 

@@ -35,6 +35,7 @@ type MovementsStore = {
 
   setPeriod: (period: Period) => void;
   toggleTypeFilter: (type: "income" | "expense") => void;
+  setTypeFilter: (types: Array<"income" | "expense">) => void;
   setCategoryFilter: (categoryIds: string[]) => void;
   setMerchantFilter: (merchantNames: string[]) => void;
   setSearchQuery: (query: string) => void;
@@ -218,6 +219,9 @@ export const useMovementsStore = create<MovementsStore>((set, get) => {
         : [...current, type];
       set({ filters: { ...get().filters, types: next } });
     },
+    setTypeFilter: (types) => {
+      set({ filters: { ...get().filters, types } });
+    },
     setCategoryFilter: (categoryIds) => {
       set({ filters: { ...get().filters, categoryIds } });
     },
@@ -292,6 +296,9 @@ export const useMovementsStore = create<MovementsStore>((set, get) => {
         merchant: target.title,
         notes: target.subcategory,
         created_by: user.id,
+        paid_by: user.id,
+        split_type: "personal" as const,
+        split_details: null,
         recurring_item_id: target.templateId,
         recurring_occurrence_date: target.expectedDate,
       };

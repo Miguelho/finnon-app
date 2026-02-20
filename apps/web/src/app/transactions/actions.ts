@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import {
   type TransactionType,
+  type TransactionSplitType,
   type RecurringFrequency,
   parseMoneyToMinor,
   computeAmountBaseMinor,
@@ -17,6 +18,8 @@ type ActionResult<T = any> = {
   data?: T;
   error?: { key: string; params?: Record<string, string | number> };
 };
+
+type SplitDetailInput = { user_id: string; share_minor: number };
 
 const resolveFxRate = ({
   currency,
@@ -52,6 +55,43 @@ const resolveFxRate = ({
   return { fxRate: raw.replace(",", "."), fxDate: date };
 };
 
+const resolveDefaultSplitType = async (
+  supabase: any,
+  accountId: string
+): Promise<TransactionSplitType> => {
+  const { data, error } = await supabase
+    .from("account_members")
+    .select("user_id")
+    .eq("account_id", accountId)
+    .in("role", ["contributor", "admin"]);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data?.length ?? 0) >= 2 ? "equal" : "personal";
+};
+
+const normalizeSplitDetails = (
+  splitType: TransactionSplitType,
+  splitDetails?: SplitDetailInput[] | null
+) => {
+  if (splitType !== "custom") {
+    return null;
+  }
+  if (!splitDetails || splitDetails.length === 0) {
+    return null;
+  }
+  return splitDetails
+    .filter((item) => item && item.user_id)
+    .map((item) => ({
+      user_id: item.user_id,
+      share_minor: Number.isFinite(item.share_minor)
+        ? Math.max(0, Math.trunc(item.share_minor))
+        : 0,
+    }));
+};
+
 export async function createTransaction(input: {
   account_id: string;
   type: TransactionType;
@@ -62,6 +102,9 @@ export async function createTransaction(input: {
   merchant: string | null;
   notes: string | null;
   fx_rate?: string | null; // Optional for v1 multi-currency
+  paid_by?: string | null;
+  split_type?: TransactionSplitType;
+  split_details?: SplitDetailInput[] | null;
 }): Promise<ActionResult> {
   try {
     const supabase = await createClient();
@@ -87,6 +130,22 @@ export async function createTransaction(input: {
       return { success: false, error: { key: "errors.notMember" } };
     }
 
+    const splitType =
+      input.split_type ?? (await resolveDefaultSplitType(supabase, input.account_id));
+    const splitDetails = normalizeSplitDetails(splitType, input.split_details);
+    const paidBy = input.paid_by ?? user.id;
+
+    const { data: paidByMembership } = await supabase
+      .from("account_members")
+      .select("user_id")
+      .eq("account_id", input.account_id)
+      .eq("user_id", paidBy)
+      .maybeSingle();
+
+    if (!paidByMembership) {
+      return { success: false, error: { key: "errors.invalidRequest" } };
+    }
+
     // Get account to know base_currency
     const { data: account } = await supabase
       .from("accounts")
@@ -106,6 +165,16 @@ export async function createTransaction(input: {
     );
     if (typeof amountMinor === "object" && "error" in amountMinor) {
       return { success: false, error: amountMinor.error };
+    }
+
+    if (splitType === "custom") {
+      const splitTotal = (splitDetails ?? []).reduce(
+        (acc, item) => acc + BigInt(item.share_minor),
+        0n
+      );
+      if (splitTotal !== amountMinor) {
+        return { success: false, error: { key: "errors.invalidRequest" } };
+      }
     }
 
     // Calculate amount_base_minor
@@ -157,6 +226,9 @@ export async function createTransaction(input: {
           merchant: input.merchant,
           notes: input.notes,
           created_by: user.id,
+          paid_by: paidBy,
+          split_type: splitType,
+          split_details: splitDetails,
         },
       ])
       .select()
@@ -455,6 +527,9 @@ export async function confirmRecurringTransaction(input: {
       merchant: recurringItem.merchant,
       notes: recurringItem.notes,
       created_by: user.id,
+      paid_by: user.id,
+      split_type: await resolveDefaultSplitType(supabase, recurringItem.account_id),
+      split_details: null,
       recurring_item_id: recurringItem.id,
       recurring_occurrence_date: input.occurrence_date,
     };
@@ -507,6 +582,9 @@ export async function updateTransaction(
     merchant: string | null;
     notes: string | null;
     fx_rate?: string | null;
+    paid_by?: string | null;
+    split_type?: TransactionSplitType;
+    split_details?: SplitDetailInput[] | null;
   }
 ): Promise<ActionResult> {
   try {
@@ -544,6 +622,25 @@ export async function updateTransaction(
       return { success: false, error: { key: "errors.notMember" } };
     }
 
+    const splitType = input.split_type;
+    const splitDetails = splitType
+      ? normalizeSplitDetails(splitType, input.split_details)
+      : undefined;
+    const paidBy = input.paid_by ?? undefined;
+
+    if (paidBy) {
+      const { data: paidByMembership } = await supabase
+        .from("account_members")
+        .select("user_id")
+        .eq("account_id", transaction.account_id)
+        .eq("user_id", paidBy)
+        .maybeSingle();
+
+      if (!paidByMembership) {
+        return { success: false, error: { key: "errors.invalidRequest" } };
+      }
+    }
+
     // Get account to know base_currency
     const { data: account } = await supabase
       .from("accounts")
@@ -563,6 +660,16 @@ export async function updateTransaction(
     );
     if (typeof amountMinor === "object" && "error" in amountMinor) {
       return { success: false, error: amountMinor.error };
+    }
+
+    if (splitType === "custom") {
+      const splitTotal = (splitDetails ?? []).reduce(
+        (acc, item) => acc + BigInt(item.share_minor),
+        0n
+      );
+      if (splitTotal !== amountMinor) {
+        return { success: false, error: { key: "errors.invalidRequest" } };
+      }
     }
 
     // Calculate amount_base_minor
@@ -597,20 +704,28 @@ export async function updateTransaction(
     }
 
     // Update transaction
+    const updatePayload: Record<string, unknown> = {
+      type: input.type,
+      amount_minor: amountMinor.toString(),
+      currency: input.currency,
+      amount_base_minor: amountBaseMinor.toString(),
+      fx_rate: fxRate,
+      fx_date: fxDate,
+      category_id: input.category_id,
+      date: input.date,
+      merchant: input.merchant,
+      notes: input.notes,
+    };
+
+    if (paidBy) updatePayload.paid_by = paidBy;
+    if (splitType) {
+      updatePayload.split_type = splitType;
+      updatePayload.split_details = splitDetails ?? null;
+    }
+
     const { data, error } = await supabase
       .from("transactions")
-      .update({
-        type: input.type,
-        amount_minor: amountMinor.toString(),
-        currency: input.currency,
-        amount_base_minor: amountBaseMinor.toString(),
-        fx_rate: fxRate,
-        fx_date: fxDate,
-        category_id: input.category_id,
-        date: input.date,
-        merchant: input.merchant,
-        notes: input.notes,
-      })
+      .update(updatePayload)
       .eq("id", transactionId)
       .select()
       .single();

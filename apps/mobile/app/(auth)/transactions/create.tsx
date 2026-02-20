@@ -8,6 +8,7 @@ import { useAuth } from "../../../src/contexts/AuthContext";
 import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { AddTransactionForm } from "../../../src/components/add-transaction";
 import {
+  type AccountSummaryData,
   type TransactionType,
   type TopCategory,
   type MerchantSuggestion,
@@ -24,6 +25,12 @@ type Category = {
   name: string;
   icon_id: string;
   type: "income" | "expense";
+};
+
+type FormParticipant = {
+  userId: string;
+  name: string;
+  role: "viewer" | "contributor" | "admin";
 };
 
 type RecurringPayload = {
@@ -65,6 +72,7 @@ function CreateMovementTransactionScreen(): React.JSX.Element {
     expense: MerchantSuggestion[];
     income: MerchantSuggestion[];
   }>({ expense: [], income: [] });
+  const [participants, setParticipants] = useState<FormParticipant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const resolvedType = Array.isArray(params.type) ? params.type[0] : params.type;
@@ -85,6 +93,7 @@ function CreateMovementTransactionScreen(): React.JSX.Element {
           topIncomeResult,
           merchantExpenseResult,
           merchantIncomeResult,
+          accountSummaryResult,
         ] = await Promise.all([
           supabase
             .from("accounts")
@@ -116,6 +125,9 @@ function CreateMovementTransactionScreen(): React.JSX.Element {
             p_tx_type: "income",
             p_limit: 20,
           }),
+          supabase.rpc("get_account_summary", {
+            p_account_id: selectedAccountId,
+          }),
         ]);
 
         if (accountResult.error) throw accountResult.error;
@@ -124,6 +136,7 @@ function CreateMovementTransactionScreen(): React.JSX.Element {
         if (topIncomeResult.error) throw topIncomeResult.error;
         if (merchantExpenseResult.error) throw merchantExpenseResult.error;
         if (merchantIncomeResult.error) throw merchantIncomeResult.error;
+        if (accountSummaryResult.error) throw accountSummaryResult.error;
 
         if (cancelled) return;
 
@@ -137,6 +150,16 @@ function CreateMovementTransactionScreen(): React.JSX.Element {
           expense: (merchantExpenseResult.data ?? []) as MerchantSuggestion[],
           income: (merchantIncomeResult.data ?? []) as MerchantSuggestion[],
         });
+        const summary = accountSummaryResult.data as AccountSummaryData | null;
+        const nextParticipants = (summary?.participants ?? []).map((member) => ({
+          userId: member.user_id,
+          role: member.role,
+          name:
+            member.display_name?.trim() ||
+            member.email?.trim() ||
+            member.user_id.slice(0, 6),
+        }));
+        setParticipants(nextParticipants);
       } catch (error) {
         console.error("[CreateMovementTransaction] Error loading data:", error);
         if (!cancelled) {
@@ -195,6 +218,7 @@ function CreateMovementTransactionScreen(): React.JSX.Element {
           categories={categories}
           topCategories={topCategories}
           merchantSuggestions={merchantSuggestions}
+          participants={participants}
           onSuccess={() => router.back()}
           onCancel={() => router.back()}
         />

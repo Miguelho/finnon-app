@@ -3,11 +3,14 @@ import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
+  buildEqualSplit,
   CURRENCY_MINOR_UNITS,
   computeAmountBaseMinor,
   formatMinorToMoney,
   parseFxRate,
   parseMoneyToMinor,
+  type AccountSummaryData,
+  type ContributionSplitType,
   type MerchantSuggestion,
   type TopCategory,
   type TransactionDraft,
@@ -39,8 +42,17 @@ interface Transaction {
   merchant: string | null;
   notes: string | null;
   created_by: string;
+  paid_by: string;
+  split_type: ContributionSplitType;
+  split_details: Array<{ user_id: string; share_minor: number }> | null;
   created_at: string;
 }
+
+type FormParticipant = {
+  userId: string;
+  name: string;
+  role: "viewer" | "contributor" | "admin";
+};
 
 export default function EditTransactionScreen(): React.JSX.Element {
   const router = useRouter();
@@ -68,10 +80,18 @@ export default function EditTransactionScreen(): React.JSX.Element {
   }>({ expense: [], income: [] });
   const [baseCurrency, setBaseCurrency] = useState("EUR");
   const [addedByName, setAddedByName] = useState<string | null>(null);
+  const [participants, setParticipants] = useState<FormParticipant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const buildDraft = useCallback((row: Transaction): TransactionDraft => {
     const amountMinor = BigInt(row.amount_minor);
+    const splitDetails =
+      row.split_type === "custom" && Array.isArray(row.split_details)
+        ? row.split_details.map((split) => ({
+            userId: split.user_id,
+            shareMinor: Math.max(0, Math.trunc(split.share_minor)),
+          }))
+        : null;
     return {
       type: row.type,
       name: "",
@@ -86,6 +106,9 @@ export default function EditTransactionScreen(): React.JSX.Element {
       obligationType: null,
       scheduledDate: null,
       scheduledDateOverridden: false,
+      paidByUserId: row.paid_by ?? row.created_by,
+      splitType: row.split_type ?? "equal",
+      splitDetails,
     };
   }, []);
 
@@ -113,6 +136,7 @@ export default function EditTransactionScreen(): React.JSX.Element {
           topIncomeResult,
           merchantExpenseResult,
           merchantIncomeResult,
+          accountSummaryResult,
         ] = await Promise.all([
           supabase
             .from("transactions")
@@ -149,11 +173,15 @@ export default function EditTransactionScreen(): React.JSX.Element {
             p_tx_type: "income",
             p_limit: 20,
           }),
+          supabase.rpc("get_account_summary", {
+            p_account_id: selectedAccountId,
+          }),
         ]);
 
         if (transactionResult.error) throw transactionResult.error;
         if (categoriesResult.error) throw categoriesResult.error;
         if (accountResult.error) throw accountResult.error;
+        if (accountSummaryResult.error) throw accountSummaryResult.error;
 
         const tx = transactionResult.data as Transaction | null;
         if (!tx) {
@@ -184,6 +212,16 @@ export default function EditTransactionScreen(): React.JSX.Element {
           expense: (merchantExpenseResult.data ?? []) as MerchantSuggestion[],
           income: (merchantIncomeResult.data ?? []) as MerchantSuggestion[],
         });
+        const summary = accountSummaryResult.data as AccountSummaryData | null;
+        const nextParticipants = (summary?.participants ?? []).map((member) => ({
+          userId: member.user_id,
+          role: member.role,
+          name:
+            member.display_name?.trim() ||
+            member.email?.trim() ||
+            member.user_id.slice(0, 6),
+        }));
+        setParticipants(nextParticipants);
       } catch (error: any) {
         console.error("Error loading transaction:", error);
         Alert.alert(
@@ -252,6 +290,44 @@ export default function EditTransactionScreen(): React.JSX.Element {
         amountBaseMinor = computed;
       }
 
+      const activeParticipants = participants.filter(
+        (member) => member.role === "admin" || member.role === "contributor"
+      );
+      const activeMemberIds = activeParticipants.map((member) => member.userId);
+      const splitType: ContributionSplitType =
+        activeMemberIds.length < 2 ? "personal" : draft.splitType;
+      const paidBy = draft.paidByUserId ?? transaction.paid_by ?? transaction.created_by;
+
+      if (!paidBy) {
+        throw new Error(t(dictionary, "addTransaction.errors.paidByRequired"));
+      }
+
+      const splitDetailsPayload =
+        splitType === "custom"
+          ? (draft.splitDetails ?? []).map((split) => ({
+              user_id: split.userId,
+              share_minor: Math.max(0, Math.trunc(split.shareMinor)),
+            }))
+          : null;
+
+      if (splitType === "custom") {
+        const fallbackSplit = buildEqualSplit(Number(amountMinorResult), activeMemberIds);
+        const normalizedSplit =
+          splitDetailsPayload && splitDetailsPayload.length > 0
+            ? splitDetailsPayload
+            : fallbackSplit.map((split) => ({
+                user_id: split.userId,
+                share_minor: split.shareMinor,
+              }));
+        const splitTotal = normalizedSplit.reduce(
+          (acc, split) => acc + BigInt(split.share_minor),
+          0n
+        );
+        if (splitTotal !== amountMinorResult) {
+          throw new Error(t(dictionary, "addTransaction.errors.splitTotalMismatch"));
+        }
+      }
+
       const { error } = await supabase
         .from("transactions")
         .update({
@@ -265,13 +341,58 @@ export default function EditTransactionScreen(): React.JSX.Element {
           date: draft.date,
           merchant: draft.merchant.trim() || null,
           notes: draft.notes.trim() || null,
+          paid_by: paidBy,
+          split_type: splitType,
+          split_details: splitType === "custom" ? splitDetailsPayload : null,
         })
         .eq("id", transaction.id);
 
       if (error) throw error;
     },
-    [baseCurrency, dictionary, transaction]
+    [baseCurrency, dictionary, participants, transaction]
   );
+
+  const participantNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    participants.forEach((participant) => {
+      map.set(participant.userId, participant.name);
+    });
+    return map;
+  }, [participants]);
+
+  const splitRows = useMemo(() => {
+    if (!transaction) return [];
+    const activeMembers = participants.filter(
+      (member) => member.role === "admin" || member.role === "contributor"
+    );
+    const activeMemberIds = activeMembers.map((member) => member.userId);
+    const amountMinor = Number(transaction.amount_minor);
+
+    if (activeMemberIds.length < 2) return [];
+
+    if (transaction.split_type === "personal") {
+      return activeMemberIds.map((userId) => ({
+        userId,
+        shareMinor: userId === transaction.paid_by ? amountMinor : 0,
+      }));
+    }
+
+    if (
+      transaction.split_type === "custom" &&
+      Array.isArray(transaction.split_details) &&
+      transaction.split_details.length > 0
+    ) {
+      const byUser = new Map(
+        transaction.split_details.map((split) => [split.user_id, split.share_minor])
+      );
+      return activeMemberIds.map((userId) => ({
+        userId,
+        shareMinor: Math.max(0, Math.trunc(byUser.get(userId) ?? 0)),
+      }));
+    }
+
+    return buildEqualSplit(amountMinor, activeMemberIds);
+  }, [participants, transaction]);
 
   if (isLoading || !initialDraft || !transactionId || !transaction) {
     return (
@@ -290,6 +411,44 @@ export default function EditTransactionScreen(): React.JSX.Element {
           </Text>
         </View>
       ) : null}
+      <View
+        style={[
+          styles.splitSummaryCard,
+          {
+            borderColor: userTokens.border,
+            backgroundColor: userTokens.surfaceAlt,
+          },
+        ]}
+      >
+        <Text style={[styles.splitSummaryLabel, { color: userTokens.textSecondary }]}>
+          {t(dictionary, "transactions.paidByLabel")}
+        </Text>
+        <Text style={[styles.splitSummaryValue, { color: userTokens.textPrimary }]}>
+          {participantNameById.get(transaction.paid_by) ?? transaction.paid_by.slice(0, 6)}
+        </Text>
+        {splitRows.length > 0 ? (
+          <>
+            <Text style={[styles.splitSummaryLabel, { color: userTokens.textSecondary }]}>
+              {t(dictionary, "transactions.splitLabel")}
+            </Text>
+            {splitRows.map((split) => (
+              <View key={split.userId} style={styles.splitSummaryRow}>
+                <Text style={[styles.splitMemberName, { color: userTokens.textSecondary }]}>
+                  {participantNameById.get(split.userId) ?? split.userId.slice(0, 6)}
+                </Text>
+                <Text style={[styles.splitMemberAmount, { color: userTokens.textPrimary }]}>
+                  {formatMinorToMoney(
+                    BigInt(Math.max(0, split.shareMinor)),
+                    transaction.currency,
+                    CURRENCY_MINOR_UNITS
+                  )}{" "}
+                  {transaction.currency}
+                </Text>
+              </View>
+            ))}
+          </>
+        ) : null}
+      </View>
       <AddTransactionForm
         key={transactionId}
         mode="edit"
@@ -300,6 +459,7 @@ export default function EditTransactionScreen(): React.JSX.Element {
         categories={categories}
         topCategories={topCategories}
         merchantSuggestions={merchantSuggestions}
+        participants={participants}
         onSubmitDraft={handleSubmitDraft}
         onSuccess={() => router.back()}
         onCancel={() => router.back()}
@@ -320,6 +480,36 @@ const styles = StyleSheet.create({
   addedByText: {
     fontSize: 13,
     fontWeight: "500",
+  },
+  splitSummaryCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 6,
+  },
+  splitSummaryLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "uppercase",
+  },
+  splitSummaryValue: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  splitSummaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  splitMemberName: {
+    fontSize: 13,
+  },
+  splitMemberAmount: {
+    fontSize: 13,
+    fontWeight: "600",
   },
   loadingContainer: {
     flex: 1,

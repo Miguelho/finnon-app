@@ -4,6 +4,10 @@
  */
 
 import type { TransactionType } from "../schemas/transaction";
+import type {
+  ContributionSplitDetail,
+  ContributionSplitType,
+} from "../contributions/balance";
 
 /**
  * Form mode for the Add Transaction form
@@ -65,6 +69,12 @@ export type TransactionDraft = {
   scheduledDate: string | null;
   /** Step 1 - Whether scheduled date was explicitly edited */
   scheduledDateOverridden: boolean;
+  /** Step 1 - Member that paid this transaction */
+  paidByUserId: string | null;
+  /** Step 1 - How the transaction is split between members */
+  splitType: ContributionSplitType;
+  /** Step 1 - Explicit split amounts used when splitType="custom" */
+  splitDetails: ContributionSplitDetail[] | null;
 };
 
 /**
@@ -118,6 +128,9 @@ export function createInitialDraft(
     obligationType: null,
     scheduledDate: null,
     scheduledDateOverridden: false,
+    paidByUserId: null,
+    splitType: "equal",
+    splitDetails: null,
   };
 }
 

@@ -1,6 +1,12 @@
 import { z } from "zod";
 
 export const transactionTypeSchema = z.enum(["income", "expense"]);
+export const transactionSplitTypeSchema = z.enum(["equal", "personal", "custom"]);
+
+export const transactionSplitDetailSchema = z.object({
+  user_id: z.string().uuid(),
+  share_minor: z.number().int().nonnegative(),
+});
 
 export const transactionSchema = z.object({
   id: z.string().uuid(),
@@ -17,6 +23,9 @@ export const transactionSchema = z.object({
   merchant: z.string().max(255).nullable(),
   notes: z.string().nullable(),
   created_by: z.string().uuid(),
+  paid_by: z.string().uuid(),
+  split_type: transactionSplitTypeSchema,
+  split_details: z.array(transactionSplitDetailSchema).nullable().optional(),
   created_at: z.date(),
 });
 
@@ -26,5 +35,6 @@ export const createTransactionSchema = transactionSchema.omit({
 });
 
 export type TransactionType = z.infer<typeof transactionTypeSchema>;
+export type TransactionSplitType = z.infer<typeof transactionSplitTypeSchema>;
 export type Transaction = z.infer<typeof transactionSchema>;
 export type CreateTransaction = z.infer<typeof createTransactionSchema>;

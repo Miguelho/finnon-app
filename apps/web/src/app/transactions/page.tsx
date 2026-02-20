@@ -12,6 +12,12 @@ import {
   type Period,
 } from "@poleursus/shared";
 
+type FormParticipant = {
+  userId: string;
+  name: string;
+  role: "viewer" | "contributor" | "admin";
+};
+
 export default async function TransactionsPage({
   searchParams,
 }: {
@@ -68,6 +74,13 @@ export default async function TransactionsPage({
       : Array.isArray(categoryParamRaw)
         ? categoryParamRaw[0]
         : undefined;
+  const typeParamRaw = resolvedSearchParams.type;
+  const typeParam =
+    typeof typeParamRaw === "string"
+      ? typeParamRaw
+      : Array.isArray(typeParamRaw)
+        ? typeParamRaw[0]
+        : undefined;
   const now = new Date();
   const range = getPeriodRange(periodParam, now);
   const rangeEnd = getPeriodEnd(periodParam, now);
@@ -90,15 +103,39 @@ export default async function TransactionsPage({
   const createdByIds = Array.from(
     new Set([user.id, ...(transactions ?? []).map((item) => item.created_by)])
   );
+
+  const { data: accountMembers } = await supabase
+    .from("account_members")
+    .select("user_id, role")
+    .eq("account_id", activeAccount.id);
+
+  const memberUserIds = (accountMembers ?? []).map((member) => member.user_id);
   const { data: profiles } =
-    createdByIds.length > 0
+    [...createdByIds, ...memberUserIds].length > 0
       ? await supabase
           .from("profiles")
           .select(
             "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
           )
-          .in("user_id", createdByIds)
+          .in("user_id", Array.from(new Set([...createdByIds, ...memberUserIds])))
       : { data: [] };
+
+  const profileByUserId = new Map(
+    (profiles ?? []).map((profile) => [profile.user_id, profile])
+  );
+  const formParticipants: FormParticipant[] = (accountMembers ?? []).map((member) => {
+    const profile = profileByUserId.get(member.user_id);
+    const name =
+      profile?.display_name?.trim() ||
+      profile?.email?.trim() ||
+      member.user_id.slice(0, 6);
+
+    return {
+      userId: member.user_id,
+      role: member.role as FormParticipant["role"],
+      name,
+    };
+  });
 
   const { data: recurringItems } = await supabase
     .from("recurring_items")
@@ -165,10 +202,13 @@ export default async function TransactionsPage({
         initialRecurringItems={recurringItems || []}
         initialPeriod={periodParam}
         initialCategoryFilter={categoryParam ?? null}
+        initialTypeFilter={typeParam ?? null}
         categories={categories || []}
         initialTopCategories={initialTopCategories}
         initialMerchantSuggestions={initialMerchantSuggestions}
         profiles={profiles || []}
+        participants={formParticipants}
+        currentUserId={user.id}
         role={activeRole}
       />
       {/* Bottom padding for mobile nav */}
