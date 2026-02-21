@@ -6,7 +6,7 @@
 <title>Finnon</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
 <style>
   :root {
     --beige: #FAFAF8;
@@ -80,6 +80,7 @@
   .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
   .btn-secondary { display: flex; align-items: center; gap: 8px; background: transparent; color: var(--dark); padding: 14px 28px; border-radius: 100px; font-size: 15px; font-weight: 500; text-decoration: none; border: 1.5px solid rgba(0,0,0,0.15); transition: border-color 0.2s, background 0.2s; }
   .btn-secondary:hover { border-color: var(--dark); background: rgba(0,0,0,0.03); }
+  .btn-disabled { opacity: 0.45; pointer-events: none; cursor: default; }
   .btn-android-icon { width: 18px; height: 18px; flex-shrink: 0; }
 
   /* HERO SCREENS */
@@ -193,7 +194,8 @@
   .cta-section h2 em { font-style: italic; color: var(--blue); }
   .cta-section p { font-size: 17px; color: rgba(255,255,255,0.6); margin-bottom: 40px; }
   .cta-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-  .cta-button { display: inline-flex; align-items: center; justify-content: center; background: #fff; color: var(--dark); text-decoration: none; padding: 14px 30px; border-radius: 100px; font-size: 15px; font-weight: 600; box-shadow: 0 14px 30px rgba(0,0,0,0.16); }
+  .cta-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #fff; color: var(--dark); text-decoration: none; padding: 14px 30px; border-radius: 100px; font-size: 15px; font-weight: 600; box-shadow: 0 14px 30px rgba(0,0,0,0.16); }
+  .cta-button svg, .cta-button i { width: 20px; height: 20px; flex-shrink: 0; }
   .cta-button:hover { opacity: 0.9; }
   .cta-button.secondary {
     background: transparent;
@@ -250,11 +252,6 @@
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero-badge">
-    <span class="dot"></span>
-    <span data-lang="en">Available on web and mobile</span>
-    <span data-lang="es">Disponible en web y móvil</span>
-  </div>
   <h1>
     <span data-lang="en">All your accounts, all your cash.<br>One complete view for you <em>or for both of you.</em></span>
     <span data-lang="es">Todas tus cuentas, todo tu efectivo.<br>Una vista completa para ti <em>o para los dos.</em></span>
@@ -269,16 +266,16 @@
       <span data-lang="en">Use web app</span>
       <span data-lang="es">Usar versión web</span>
     </a>
-    <a href="https://play.google.com/store/apps/details?id=com.poleursus.finnonapp" class="btn-secondary" target="_blank" rel="noopener noreferrer">
+    <span class="btn-secondary btn-disabled">
       <svg class="btn-android-icon" viewBox="0 0 24 24" aria-hidden="true">
         <path fill="#34A853" d="M3.6 2.2c-.3.3-.5.7-.5 1.2v17.2c0 .5.2.9.5 1.2l9.6-9.8L3.6 2.2z"/>
         <path fill="#FBBC04" d="M16.4 14.7l-3.2-3.2-9.6 9.8c.4.4 1 .5 1.6.1l11.2-6.7z"/>
         <path fill="#EA4335" d="M16.5 9.4L5.2 2.6c-.6-.4-1.2-.2-1.6.1l9.6 9.8 3.3-3.1z"/>
         <path fill="#4285F4" d="M20.4 11.2l-3.9-2.3-3.4 3.2 3.3 3.3 4-2.4c.9-.5.9-1.4 0-1.8z"/>
       </svg>
-      <span data-lang="en">Get Android app</span>
-      <span data-lang="es">Descargar app Android</span>
-    </a>
+      <span data-lang="en">Android — Coming soon</span>
+      <span data-lang="es">Android — Próximamente</span>
+    </span>
   </div>
 </section>
 
@@ -403,57 +400,6 @@
         </div>
       </div>
     </div>
-    <div class="screens-scroll">
-      
-      <div class="scroll-item">
-        <div class="screen-pair">
-          <img class="en" src="/landing-images/showcase-01_en.jpg" alt="">
-          <img class="es" src="/landing-images/showcase-01_es.jpg" alt="">
-        </div>
-      </div>
-      <div class="scroll-item">
-        <div class="screen-pair">
-          <img class="en" src="/landing-images/showcase-02_en.jpg" alt="">
-          <img class="es" src="/landing-images/showcase-02_es.jpg" alt="">
-        </div>
-      </div>
-      <div class="scroll-item">
-        <div class="screen-pair">
-          <img class="en" src="/landing-images/showcase-03_en.jpg" alt="">
-          <img class="es" src="/landing-images/showcase-03_es.jpg" alt="">
-        </div>
-      </div>
-      <div class="scroll-item">
-        <div class="screen-pair">
-          <img class="en" src="/landing-images/showcase-04_en.jpg" alt="">
-          <img class="es" src="/landing-images/showcase-04_es.jpg" alt="">
-        </div>
-      </div>
-      <div class="scroll-item">
-        <div class="screen-pair">
-          <img class="en" src="/landing-images/showcase-05_en.jpg" alt="">
-          <img class="es" src="/landing-images/showcase-05_es.jpg" alt="">
-        </div>
-      </div>
-      <div class="scroll-item">
-        <div class="screen-pair">
-          <img class="en" src="/landing-images/showcase-06_en.jpg" alt="">
-          <img class="es" src="/landing-images/showcase-06_es.jpg" alt="">
-        </div>
-      </div>
-      <div class="scroll-item">
-        <div class="screen-pair">
-          <img class="en" src="/landing-images/showcase-07_en.jpg" alt="">
-          <img class="es" src="/landing-images/showcase-07_es.jpg" alt="">
-        </div>
-      </div>
-      <div class="scroll-item">
-        <div class="screen-pair">
-          <img class="en" src="/landing-images/showcase-08_en.jpg" alt="">
-          <img class="es" src="/landing-images/showcase-08_es.jpg" alt="">
-        </div>
-      </div>
-    </div>
   </div>
 </section>
 
@@ -513,16 +459,16 @@
         <span data-lang="en">Use web app</span>
         <span data-lang="es">Usar versión web</span>
       </a>
-      <a href="https://play.google.com/store/apps/details?id=com.poleursus.finnonapp" class="cta-button secondary" target="_blank" rel="noopener noreferrer">
+      <span class="cta-button secondary btn-disabled">
         <svg class="btn-android-icon" viewBox="0 0 24 24" aria-hidden="true">
           <path fill="#34A853" d="M3.6 2.2c-.3.3-.5.7-.5 1.2v17.2c0 .5.2.9.5 1.2l9.6-9.8L3.6 2.2z"/>
           <path fill="#FBBC04" d="M16.4 14.7l-3.2-3.2-9.6 9.8c.4.4 1 .5 1.6.1l11.2-6.7z"/>
           <path fill="#EA4335" d="M16.5 9.4L5.2 2.6c-.6-.4-1.2-.2-1.6.1l9.6 9.8 3.3-3.1z"/>
           <path fill="#4285F4" d="M20.4 11.2l-3.9-2.3-3.4 3.2 3.3 3.3 4-2.4c.9-.5.9-1.4 0-1.8z"/>
         </svg>
-        <span data-lang="en">Get Android app</span>
-        <span data-lang="es">Descargar app Android</span>
-      </a>
+        <span data-lang="en">Android — Coming soon</span>
+        <span data-lang="es">Android — Próximamente</span>
+      </span>
     </div>
   </div>
 </section>
