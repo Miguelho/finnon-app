@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --beige: #FAFAF8;
+    --dark: #0E0F12;
+    --blue: #5B8DFF;
+    --blue-deep: #2563EB;
+    --green: #1B7A4A;
+    --red: #C4441A;
+    --grey-light: #E8E8E4;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--beige); color: var(--dark); overflow-x: hidden; }
+
+  /* LANG TOGGLE */
+  .lang-toggle {
+    display: flex; gap: 4px; align-items: center;
+  }
+  .lang-btn {
+    background: none; border: 1px solid rgba(0,0,0,0.15);
+    padding: 5px 10px; border-radius: 20px;
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.2s; color: var(--dark);
+  }
+  .lang-btn.active { background: var(--dark); color: #fff; border-color: var(--dark); }
+
+  /* i18n */
+  [data-lang] { display: none; }
+  body.lang-en [data-lang="en"] { display: contents; }
+  body.lang-es [data-lang="es"] { display: contents; }
+  /* for block elements */
+  .block-en, .block-es { display: none; }
+  body.lang-en .block-en { display: block; }
+  body.lang-es .block-es { display: block; }
+  /* for flex elements */
+  .flex-en, .flex-es { display: none; }
+  body.lang-en .flex-en { display: flex; }
+  body.lang-es .flex-es { display: flex; }
+
+  /* screenshot pairs */
+  .screen-pair { position: relative; }
+  .screen-pair img { display: none; width: 100%; }
+  body.lang-en .screen-pair img.en { display: block; }
+  body.lang-es .screen-pair img.es { display: block; }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 48px;
+    background: rgba(250,250,248,0.88);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+  }
+  .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 18px; letter-spacing: -0.3px; text-decoration: none; color: var(--dark); }
+  .nav-logo img { width: 32px; height: 32px; }
+  .nav-right { display: flex; align-items: center; gap: 16px; }
+
+  /* HERO */
+  .hero { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 120px 24px 80px; text-align: center; position: relative; overflow: hidden; }
+  .hero::before { content: ''; position: absolute; top: -200px; left: 50%; transform: translateX(-50%); width: 800px; height: 800px; background: radial-gradient(ellipse, rgba(91,141,255,0.12) 0%, transparent 70%); pointer-events: none; }
+  .hero-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(91,141,255,0.1); border: 1px solid rgba(91,141,255,0.25); color: var(--blue-deep); padding: 6px 14px; border-radius: 100px; font-size: 13px; font-weight: 500; margin-bottom: 32px; animation: fadeUp 0.6s ease both; }
+  .hero-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .hero h1 { font-family: 'DM Serif Display', serif; font-size: clamp(42px, 7vw, 80px); line-height: 1.05; letter-spacing: -1px; max-width: 780px; animation: fadeUp 0.6s 0.1s ease both; }
+  .hero h1 em { font-style: italic; color: var(--blue); }
+  .hero-sub { margin-top: 24px; font-size: clamp(16px, 2vw, 19px); color: #555; max-width: 640px; line-height: 1.6; font-weight: 400; animation: fadeUp 0.6s 0.2s ease both; }
+  .hero-actions { display: flex; gap: 12px; margin-top: 40px; flex-wrap: wrap; justify-content: center; animation: fadeUp 0.6s 0.3s ease both; }
+  .btn-primary { display: flex; align-items: center; gap: 8px; background: var(--dark); color: #fff; padding: 14px 28px; border-radius: 100px; font-size: 15px; font-weight: 500; text-decoration: none; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+  .btn-secondary { display: flex; align-items: center; gap: 8px; background: transparent; color: var(--dark); padding: 14px 28px; border-radius: 100px; font-size: 15px; font-weight: 500; text-decoration: none; border: 1.5px solid rgba(0,0,0,0.15); transition: border-color 0.2s, background 0.2s; }
+  .btn-secondary:hover { border-color: var(--dark); background: rgba(0,0,0,0.03); }
+  .btn-android-icon { width: 18px; height: 18px; flex-shrink: 0; }
+
+  /* HERO SCREENS */
+  .hero-screens { margin-top: 72px; display: flex; gap: 24px; align-items: flex-end; justify-content: center; animation: fadeUp 0.8s 0.4s ease both; }
+  .screen-wrap { border-radius: 0; overflow: visible; box-shadow: none; border: 0; transition: transform 0.3s; }
+  .screen-wrap:hover { transform: translateY(-6px); }
+  .screen-wrap img { display: none; width: 240px; border-radius: 26px; box-shadow: 0 24px 70px rgba(0,0,0,0.16); }
+  .screen-wrap.main img { width: 310px; }
+  body.lang-en .screen-wrap img.en { display: block; }
+  body.lang-es .screen-wrap img.es { display: block; }
+  .screen-wrap.side { opacity: 0.8; transform: scale(0.94) translateY(20px); }
+  .screen-wrap.side:hover { transform: scale(0.94) translateY(14px); opacity: 0.95; }
+
+  /* SECTIONS */
+  section { padding: 100px 24px; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  .section-sub { margin-top: 12px; font-size: 18px; line-height: 1.65; color: #5c5c5a; max-width: 760px; }
+
+  /* PROBLEM */
+  .problem { background: var(--dark); color: #fff; }
+  .problem .container { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
+  .problem-text h2 { font-family: 'DM Serif Display', serif; font-size: clamp(32px, 4vw, 48px); line-height: 1.15; margin-bottom: 20px; }
+  .problem .section-sub { color: rgba(255,255,255,0.65); }
+  .problem-highlight { margin-top: 22px; padding: 18px 20px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.18); background: linear-gradient(145deg, rgba(255,255,255,0.1), rgba(255,255,255,0.04)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06); max-width: 520px; }
+  .problem-highlight h3 { font-size: 20px; line-height: 1.25; margin-bottom: 8px; }
+  .problem-highlight p { font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.75); }
+  .problem-pillars { margin-top: 28px; display: grid; gap: 14px; }
+  .problem-pillar { padding: 18px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); }
+  .problem-pillar h3 { font-size: 17px; line-height: 1.35; margin-bottom: 7px; }
+  .problem-pillar p { font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.74); }
+  .problem-screen { display: flex; justify-content: center; }
+  .problem-screen .screen-wrap img { width: 320px; }
+
+  /* FEATURES */
+  .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px; background: var(--grey-light); border: 1px solid var(--grey-light); border-radius: 20px; overflow: hidden; margin-top: 40px; }
+  .feature-card { padding: 28px 24px; background: #fff; transition: background 0.2s; }
+  .feature-card:hover { background: #f9f9f7; }
+  .feature-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; color: var(--blue-deep); }
+  .feature-icon svg { width: 22px; height: 22px; stroke-width: 1.5; }
+  .feature-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; letter-spacing: -0.2px; }
+  .feature-card p { font-size: 14px; color: #666; line-height: 1.6; }
+  .proof-grid { display: grid; grid-template-columns: 1.7fr 1fr; gap: 20px; align-items: end; margin-top: 34px; }
+  .proof-grid-mobile-duo { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .proof-item { overflow: hidden; }
+  .proof-item.web .screen-pair img { width: 100%; height: min(460px, 58vw); object-fit: cover; object-position: top; border-radius: 22px; box-shadow: 0 18px 52px rgba(0,0,0,0.12); }
+  .proof-item.mobile .screen-pair img { width: min(300px, 100%); margin-left: auto; border-radius: 22px; box-shadow: 0 18px 52px rgba(0,0,0,0.15); }
+  .proof-grid-mobile-duo .proof-item.mobile .screen-pair img { width: min(320px, 100%); margin: 0 auto; }
+
+  /* SHOWCASE — scrollable carousel of all 8 screens */
+  .showcase { background: #f3f3f0; }
+  .showcase-title { text-align: center; font-family: 'DM Serif Display', serif; font-size: clamp(30px, 4vw, 44px); margin-bottom: 10px; line-height: 1.15; }
+  .showcase .section-sub { margin-left: auto; margin-right: auto; text-align: center; }
+  .showcase .screens-scroll { display: none; }
+  .screens-scroll { display: flex; gap: 24px; overflow-x: auto; padding: 10px 2px 18px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; margin-top: 34px; }
+  .screens-scroll::-webkit-scrollbar { height: 4px; }
+  .screens-scroll::-webkit-scrollbar-track { background: transparent; }
+  .screens-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 2px; }
+  .scroll-item { flex-shrink: 0; width: min(360px, 72vw); scroll-snap-align: start; border-radius: 0; overflow: visible; box-shadow: none; border: 0; transition: transform 0.3s; }
+  .scroll-item .screen-pair img { border-radius: 24px; box-shadow: 0 22px 62px rgba(0,0,0,0.16); }
+  .scroll-item:hover { transform: translateY(-4px); }
+  .zoomable-image { cursor: zoom-in; }
+
+  /* IMAGE LIGHTBOX */
+  #image-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(14, 15, 18, 0.82);
+    backdrop-filter: blur(4px);
+  }
+  #image-lightbox[hidden] { display: none; }
+  #image-lightbox .lightbox-image {
+    width: auto;
+    height: auto;
+    max-width: min(1100px, 92vw);
+    max-height: 88vh;
+    border-radius: 16px;
+    box-shadow: 0 28px 90px rgba(0,0,0,0.45);
+  }
+  #image-lightbox .lightbox-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 999px;
+    background: rgba(0,0,0,0.35);
+    color: #fff;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  /* STEPS BREADCRUMB */
+  .steps-breadcrumb { margin-top: 60px; }
+  .steps-track { display: flex; align-items: flex-start; position: relative; }
+  .steps-track::before { content: ''; position: absolute; top: 20px; left: 20px; right: 20px; height: 2px; background: var(--grey-light); z-index: 0; }
+  .step { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; z-index: 1; padding: 0 16px; }
+  .step-node { width: 40px; height: 40px; border-radius: 50%; background: var(--dark); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; margin-bottom: 20px; flex-shrink: 0; border: 3px solid var(--beige); box-shadow: 0 0 0 2px var(--dark); }
+  .step h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+  .step p { font-size: 14px; color: #666; line-height: 1.6; }
+
+  /* CTA */
+  .cta-section { background: var(--dark); text-align: center; color: #fff; }
+  .cta-section h2 { font-family: 'DM Serif Display', serif; font-size: clamp(36px, 5vw, 60px); line-height: 1.1; margin-bottom: 16px; }
+  .cta-section h2 em { font-style: italic; color: var(--blue); }
+  .cta-section p { font-size: 17px; color: rgba(255,255,255,0.6); margin-bottom: 40px; }
+  .cta-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .cta-button { display: inline-flex; align-items: center; justify-content: center; background: #fff; color: var(--dark); text-decoration: none; padding: 14px 30px; border-radius: 100px; font-size: 15px; font-weight: 600; box-shadow: 0 14px 30px rgba(0,0,0,0.16); }
+  .cta-button:hover { opacity: 0.9; }
+  .cta-button.secondary {
+    background: transparent;
+    color: #fff;
+    border: 1.5px solid rgba(255,255,255,0.32);
+    box-shadow: none;
+  }
+  .cta-button.secondary:hover { background: rgba(255,255,255,0.08); opacity: 1; }
+
+  /* FOOTER */
+  footer { padding: 40px 48px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--grey-light); font-size: 14px; color: #999; }
+  footer a { color: #999; text-decoration: none; }
+  footer a:hover { color: var(--dark); }
+  .promo-badge { display: flex; justify-content: center; padding: 0 24px 48px; }
+  .promo-badge img { display: block; width: 180px; height: 72px; }
+
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+
+  @media (max-width: 900px) {
+    .features-grid { grid-template-columns: repeat(2, 1fr); }
+    .proof-grid { grid-template-columns: 1fr; gap: 14px; }
+    .proof-grid-mobile-duo { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .proof-item.mobile .screen-pair img { margin-left: 0; width: min(300px, 100%); }
+    .proof-grid-mobile-duo .proof-item.mobile .screen-pair img { width: 100%; }
+  }
+  @media (max-width: 768px) {
+    nav { padding: 16px 20px; }
+    .problem .container { grid-template-columns: 1fr; gap: 48px; }
+    .features-grid { grid-template-columns: repeat(2, 1fr); }
+    .proof-item.web .screen-pair img { height: auto; }
+    .steps-track::before { display: none; }
+    .steps-track { flex-direction: column; gap: 32px; }
+    .step { align-items: flex-start; text-align: left; flex-direction: row; gap: 16px; }
+    .step-node { margin-bottom: 0; flex-shrink: 0; }
+    .hero-screens .screen-wrap.side { display: none; }
+    footer { flex-direction: column; gap: 12px; text-align: center; }
+  }
+</style>
+</head>
+<body class="lang-en">
+
+<nav>
+  <a href="#" class="nav-logo">
+    <img src="/landing-images/nav-logo.jpg" alt="Finnon">
+    Finnon
+  </a>
+  <div class="nav-right">
+    <div class="lang-toggle">
+      <button class="lang-btn active" onclick="setLang('en')">EN</button>
+      <button class="lang-btn" onclick="setLang('es')">ES</button>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">
+    <span class="dot"></span>
+    <span data-lang="en">Available on web and mobile</span>
+    <span data-lang="es">Disponible en web y móvil</span>
+  </div>
+  <h1>
+    <span data-lang="en">All your accounts, all your cash.<br>One complete view for you <em>or for both of you.</em></span>
+    <span data-lang="es">Todas tus cuentas, todo tu efectivo.<br>Una vista completa para ti <em>o para los dos.</em></span>
+  </h1>
+  <p class="hero-sub">
+    <span data-lang="en">An app to see all your money for real. Simple for you and for both of you too.</span>
+    <span data-lang="es">Una app para ver todo tu dinero de verdad. Sencilla para ti y también para los dos.</span>
+  </p>
+  <div class="hero-actions">
+    <a href="/login" class="btn-primary">
+      <i data-lucide="monitor"></i>
+      <span data-lang="en">Use web app</span>
+      <span data-lang="es">Usar versión web</span>
+    </a>
+    <a href="https://play.google.com/store/apps/details?id=com.poleursus.finnonapp" class="btn-secondary" target="_blank" rel="noopener noreferrer">
+      <svg class="btn-android-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#34A853" d="M3.6 2.2c-.3.3-.5.7-.5 1.2v17.2c0 .5.2.9.5 1.2l9.6-9.8L3.6 2.2z"/>
+        <path fill="#FBBC04" d="M16.4 14.7l-3.2-3.2-9.6 9.8c.4.4 1 .5 1.6.1l11.2-6.7z"/>
+        <path fill="#EA4335" d="M16.5 9.4L5.2 2.6c-.6-.4-1.2-.2-1.6.1l9.6 9.8 3.3-3.1z"/>
+        <path fill="#4285F4" d="M20.4 11.2l-3.9-2.3-3.4 3.2 3.3 3.3 4-2.4c.9-.5.9-1.4 0-1.8z"/>
+      </svg>
+      <span data-lang="en">Get Android app</span>
+      <span data-lang="es">Descargar app Android</span>
+    </a>
+  </div>
+</section>
+
+<!-- PROBLEM -->
+<section class="problem">
+  <div class="container">
+    <div class="problem-text">
+      <h2>
+        <span data-lang="en">All your money<br>at a glance</span>
+        <span data-lang="es">Todo tu dinero<br>en un vistazo</span>
+      </h2>
+      <p class="section-sub">
+        <span data-lang="en">A complete, practical view in minutes. No stress, no friction.</span>
+        <span data-lang="es">Una vista completa y práctica en minutos. Sin líos, sin fricción.</span>
+      </p>
+      <div class="problem-highlight">
+        <h3>
+          <span data-lang="en">Your week, now</span>
+          <span data-lang="es">Tu semana, ahora</span>
+        </h3>
+        <p>
+          <span data-lang="en">See your upcoming and past movements at a glance.</span>
+          <span data-lang="es">Conoce tus movimientos próximos y pasados a golpe de vista</span>
+        </p>
+      </div>
+      <div class="problem-pillars">
+        <article class="problem-pillar">
+          <h3><span data-lang="en">Multiple accounts, one view</span><span data-lang="es">Múltiples cuentas, una vista</span></h3>
+          <p><span data-lang="en">Bring all your accounts together in one place. Your complete money, at a glance.</span><span data-lang="es">Reúne todas tus cuentas en un solo lugar. Tu dinero completo, de un vistazo.</span></p>
+        </article>
+        <article class="problem-pillar">
+          <h3><span data-lang="en">Cash counts too</span><span data-lang="es">El efectivo también cuenta</span></h3>
+          <p><span data-lang="en">Track what you pay in cash and keep the full picture of your day-to-day.</span><span data-lang="es">Registra lo que pagas en efectivo y mantén la foto completa de tu día a día.</span></p>
+        </article>
+      </div>
+    </div>
+    <div class="problem-screen">
+      <div class="screen-wrap">
+        <div class="screen-pair">
+          <img class="en" src="/landing-images/problem-01_en.png" alt="All your money at a glance">
+          <img class="es" src="/landing-images/problem-01.png" alt="Todo tu dinero en un vistazo">
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section>
+  <div class="container">
+    <h2 style="font-family:'DM Serif Display',serif; font-size:clamp(30px,4vw,44px); max-width:760px; line-height:1.15;">
+      <span data-lang="en">If you share your life,<br>share the view</span>
+      <span data-lang="es">Y si compartes tu vida,<br>comparte la vista</span>
+    </h2>
+    <p class="section-sub">
+      <span data-lang="en">Invite your partner and see together what you spend, who contributes what, and where your shared money goes.</span>
+      <span data-lang="es">Invita a tu pareja y ved juntos en qué gastáis, quién aporta qué y dónde va el dinero de los dos.</span>
+    </p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon"><i data-lucide="trending-up"></i></div>
+        <h3><span data-lang="en">Who pays what</span><span data-lang="es">Quién paga qué</span></h3>
+        <p><span data-lang="en">See each person's contributions by category. No guessing, no arguments.</span><span data-lang="es">Visualiza las contribuciones de cada uno por categoría. Sin suposiciones, sin discusiones.</span></p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i data-lucide="users"></i></div>
+        <h3><span data-lang="en">The same picture, both of you</span><span data-lang="es">La misma foto, los dos</span></h3>
+        <p><span data-lang="en">Your partner sees exactly what you see. No more unanswered "can we afford it?".</span><span data-lang="es">Tu pareja ve exactamente lo mismo que tú. No más "¿podemos permitírnoslo?" sin respuesta.</span></p>
+      </div>
+    </div>
+    <div id="collab-proof" class="proof-grid proof-grid-mobile-duo">
+      <div class="proof-item mobile">
+        <div class="screen-pair">
+          <img class="en" src="/landing-images/collab-left-02_en.png" alt="Shared account members on mobile">
+          <img class="es" src="/landing-images/collab-left-02.png" alt="Miembros de cuenta compartida en móvil">
+        </div>
+      </div>
+      <div class="proof-item mobile">
+        <div class="screen-pair">
+          <img class="en" src="/landing-images/collab-right-02_en.png" alt="Shared account overview on mobile">
+          <img class="es" src="/landing-images/collab-right-02.png" alt="Resumen de cuenta compartida en móvil">
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SHOWCASE — all 8 screens scrollable -->
+<section class="showcase">
+  <div class="container">
+    <h2 class="showcase-title">
+      <span data-lang="en">Made to fit you</span>
+      <span data-lang="es">Hecha a tu medida</span>
+    </h2>
+    <p class="section-sub">
+      <span data-lang="en">Everyone manages their money differently. Finnon adapts to your way.</span>
+      <span data-lang="es">Cada persona lleva sus cuentas a su manera. Finnon se adapta a la tuya.</span>
+    </p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon"><i data-lucide="tag"></i></div>
+        <h3><span data-lang="en">Your categories, your language</span><span data-lang="es">Tus categorías, tu lenguaje</span></h3>
+        <p><span data-lang="en">Use the built-in categories or create your own. If "treats" is your category, go for it.</span><span data-lang="es">Usa las categorías que vienen de serie o crea las tuyas. Si para ti "caprichos" es una categoría, adelante.</span></p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i data-lucide="target"></i></div>
+        <h3><span data-lang="en">Goals, not budgets</span><span data-lang="es">Objetivos, no presupuestos</span></h3>
+        <p><span data-lang="en">We don't tell you where to spend less. We help you see how far you are from what excites you.</span><span data-lang="es">No te decimos en qué gastar menos. Te ayudamos a ver cuánto falta para eso que os hace ilusión.</span></p>
+      </div>
+    </div>
+    <div id="personal-proof" class="proof-grid proof-grid-mobile-duo">
+      <div class="proof-item mobile">
+        <div class="screen-pair">
+          <img class="en" src="/landing-images/personal-left-08_en.png" alt="Categories on mobile">
+          <img class="es" src="/landing-images/personal-left-08.png" alt="Categorias en movil">
+        </div>
+      </div>
+      <div class="proof-item mobile">
+        <div class="screen-pair">
+          <img class="en" src="/landing-images/personal-right-05_en.png" alt="Savings goal on mobile">
+          <img class="es" src="/landing-images/personal-right-05.png" alt="Objetivo de ahorro en movil">
+        </div>
+      </div>
+    </div>
+    <div class="screens-scroll">
+      
+      <div class="scroll-item">
+        <div class="screen-pair">
+          <img class="en" src="/landing-images/showcase-01_en.jpg" alt="">
+          <img class="es" src="/landing-images/showcase-01_es.jpg" alt="">
+        </div>
+      </div>
+      <div class="scroll-item">
+        <div class="screen-pair">
+          <img class="en" src="/landing-images/showcase-02_en.jpg" alt="">
+          <img class="es" src="/landing-images/showcase-02_es.jpg" alt="">
+        </div>
+      </div>
+      <div class="scroll-item">
+        <div class="screen-pair">
+          <img class="en" src="/landing-images/showcase-03_en.jpg" alt="">
+          <img class="es" src="/landing-images/showcase-03_es.jpg" alt="">
+        </div>
+      </div>
+      <div class="scroll-item">
+        <div class="screen-pair">
+          <img class="en" src="/landing-images/showcase-04_en.jpg" alt="">
+          <img class="es" src="/landing-images/showcase-04_es.jpg" alt="">
+        </div>
+      </div>
+      <div class="scroll-item">
+        <div class="screen-pair">
+          <img class="en" src="/landing-images/showcase-05_en.jpg" alt="">
+          <img class="es" src="/landing-images/showcase-05_es.jpg" alt="">
+        </div>
+      </div>
+      <div class="scroll-item">
+        <div class="screen-pair">
+          <img class="en" src="/landing-images/showcase-06_en.jpg" alt="">
+          <img class="es" src="/landing-images/showcase-06_es.jpg" alt="">
+        </div>
+      </div>
+      <div class="scroll-item">
+        <div class="screen-pair">
+          <img class="en" src="/landing-images/showcase-07_en.jpg" alt="">
+          <img class="es" src="/landing-images/showcase-07_es.jpg" alt="">
+        </div>
+      </div>
+      <div class="scroll-item">
+        <div class="screen-pair">
+          <img class="en" src="/landing-images/showcase-08_en.jpg" alt="">
+          <img class="es" src="/landing-images/showcase-08_es.jpg" alt="">
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ONBOARDING STEPS -->
+<section>
+  <div class="container">
+    <h2 style="font-family:'DM Serif Display',serif; font-size:clamp(30px,4vw,44px); text-align:center; margin-bottom:8px;">
+      <span data-lang="en">Up and running in minutes</span>
+      <span data-lang="es">Funcionando en minutos</span>
+    </h2>
+    <p style="text-align:center; color:#666; font-size:17px;">
+      <span data-lang="en">Create your account, invite your partner, and start with full visibility.</span>
+      <span data-lang="es">Crea tu cuenta, invita a tu pareja y empieza con visibilidad total.</span>
+    </p>
+    <div class="steps-breadcrumb">
+      <div class="steps-track">
+        <div class="step">
+          <div class="step-node">1</div>
+          <div>
+            <h3><span data-lang="en">Create your account</span><span data-lang="es">Crea tu cuenta</span></h3>
+            <p><span data-lang="en">Sign up in seconds and set your base account.</span><span data-lang="es">Regístrate en segundos y crea tu cuenta base.</span></p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-node">2</div>
+          <div>
+            <h3><span data-lang="en">Invite your partner</span><span data-lang="es">Invita a tu pareja</span></h3>
+            <p><span data-lang="en">Share access so both of you can see the same picture.</span><span data-lang="es">Comparte acceso para que los dos veáis la misma foto.</span></p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-node">3</div>
+          <div>
+            <h3><span data-lang="en">Start logging</span><span data-lang="es">Empieza a registrar</span></h3>
+            <p><span data-lang="en">Add cash and account transactions and you're set.</span><span data-lang="es">Añade movimientos de efectivo y cuentas, y listo.</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="container">
+    <h2>
+      <span data-lang="en">Start seeing your money for real</span>
+      <span data-lang="es">Empieza a ver tu dinero de verdad</span>
+    </h2>
+    <p>
+      <span data-lang="en">Available on web and mobile. Up and running in minutes.</span>
+      <span data-lang="es">Disponible en web y móvil. Funcionando en minutos.</span>
+    </p>
+    <div class="cta-actions">
+      <a href="/login" class="cta-button">
+        <i data-lucide="monitor"></i>
+        <span data-lang="en">Use web app</span>
+        <span data-lang="es">Usar versión web</span>
+      </a>
+      <a href="https://play.google.com/store/apps/details?id=com.poleursus.finnonapp" class="cta-button secondary" target="_blank" rel="noopener noreferrer">
+        <svg class="btn-android-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="#34A853" d="M3.6 2.2c-.3.3-.5.7-.5 1.2v17.2c0 .5.2.9.5 1.2l9.6-9.8L3.6 2.2z"/>
+          <path fill="#FBBC04" d="M16.4 14.7l-3.2-3.2-9.6 9.8c.4.4 1 .5 1.6.1l11.2-6.7z"/>
+          <path fill="#EA4335" d="M16.5 9.4L5.2 2.6c-.6-.4-1.2-.2-1.6.1l9.6 9.8 3.3-3.1z"/>
+          <path fill="#4285F4" d="M20.4 11.2l-3.9-2.3-3.4 3.2 3.3 3.3 4-2.4c.9-.5.9-1.4 0-1.8z"/>
+        </svg>
+        <span data-lang="en">Get Android app</span>
+        <span data-lang="es">Descargar app Android</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span>© 2026 Finnon by Poleursus</span>
+  <div style="display:flex;gap:24px;">
+    <a href="/privacy"><span data-lang="en">Privacy</span><span data-lang="es">Privacidad</span></a>
+    <a href="/terms"><span data-lang="en">Terms</span><span data-lang="es">Términos</span></a>
+    <a href="mailto:hello@finnon.app">hello@finnon.app</a>
+  </div>
+</footer>
+
+<div class="promo-badge">
+  <a href="https://foundrlist.com/product/finnon" target="_blank" rel="noopener noreferrer">
+    <img src="https://foundrlist.com/api/badge/finnon" alt="Live on FoundrList" width="180" height="72" />
+  </a>
+</div>
+
+<div id="image-lightbox" hidden aria-hidden="true" role="dialog" aria-modal="true">
+  <button type="button" class="lightbox-close" aria-label="Close image">×</button>
+  <img class="lightbox-image" src="" alt="">
+</div>
+
+<script>
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+
+  function setLang(lang) {
+    const safeLang = lang === 'es' ? 'es' : 'en';
+    document.body.className = 'lang-' + safeLang;
+    document.querySelectorAll('.lang-btn').forEach(b => {
+      b.classList.toggle('active', b.textContent === safeLang.toUpperCase());
+    });
+    localStorage.setItem('finnon-lang', safeLang);
+    document.cookie = `NEXT_LOCALE=${safeLang}; path=/; max-age=31536000; SameSite=Lax`;
+  }
+
+  const lightbox = document.getElementById('image-lightbox');
+  const lightboxImage = lightbox ? lightbox.querySelector('.lightbox-image') : null;
+  const lightboxClose = lightbox ? lightbox.querySelector('.lightbox-close') : null;
+  let previousBodyOverflow = '';
+
+  function openLightbox(src, alt) {
+    if (!lightbox || !lightboxImage || !src) return;
+    lightboxImage.src = src;
+    lightboxImage.alt = alt || 'Screenshot';
+    lightbox.hidden = false;
+    lightbox.setAttribute('aria-hidden', 'false');
+    previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    if (!lightbox || !lightboxImage) return;
+    lightbox.hidden = true;
+    lightbox.setAttribute('aria-hidden', 'true');
+    lightboxImage.src = '';
+    document.body.style.overflow = previousBodyOverflow;
+  }
+
+  function renderMobileProof(targetId, mobileIndex) {
+    const target = document.getElementById(targetId);
+    const mobileSlot = target ? target.querySelector('[data-mobile-slot]') : null;
+    const sources = Array.from(document.querySelectorAll('.screens-scroll .screen-pair'));
+    if (!mobileSlot || sources.length === 0 || mobileSlot.children.length) return;
+
+    const mobileSource = sources[mobileIndex] || sources[0];
+    if (!mobileSource) return;
+    mobileSlot.appendChild(mobileSource.cloneNode(true));
+  }
+
+  function populateMobileProofSections() {
+    renderMobileProof('personal-proof', 7);
+  }
+
+  function enableImageZoom() {
+    document.querySelectorAll('.screen-wrap img, .scroll-item img, .proof-grid img').forEach((image) => {
+      image.classList.add('zoomable-image');
+      if (image.dataset.zoomBound === '1') return;
+      image.dataset.zoomBound = '1';
+      image.addEventListener('click', () => {
+        openLightbox(image.currentSrc || image.src, image.alt);
+      });
+    });
+  }
+
+  if (lightbox) {
+    lightbox.addEventListener('click', (event) => {
+      if (event.target === lightbox) closeLightbox();
+    });
+  }
+
+  if (lightboxClose) {
+    lightboxClose.addEventListener('click', closeLightbox);
+  }
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && lightbox && !lightbox.hidden) {
+      closeLightbox();
+    }
+  });
+
+  populateMobileProofSections();
+  enableImageZoom();
+
+  // Auto-detect browser language
+  (function() {
+    const saved = localStorage.getItem('finnon-lang');
+    if (saved) { setLang(saved); return; }
+    const lang = navigator.language || navigator.userLanguage || 'en';
+    setLang(lang.startsWith('es') ? 'es' : 'en');
+  })();
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+</body>
+</html>

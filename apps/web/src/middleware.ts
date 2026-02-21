@@ -33,7 +33,7 @@ export async function middleware(request: NextRequest) {
   const publicRoutes = [
     "/",
     "/landing",
-    "/landing-v3.html",
+    "/landing.html",
     "/login",
     "/login-otp",
     "/auth/callback",
@@ -95,7 +95,7 @@ export async function middleware(request: NextRequest) {
         return applyLocaleCookie(NextResponse.redirect(new URL("/home", request.url)));
       }
       return applyLocaleCookie(
-        NextResponse.rewrite(new URL("/landing-v3.html", request.url))
+        NextResponse.rewrite(new URL("/landing.html", request.url))
       );
     }
     // Si está en login y ya tiene usuario, redirigir a home

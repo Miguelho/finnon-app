@@ -108,7 +108,10 @@ export function FlowCards({
                   >
                     <Text style={styles.miniAvatarText}>{contributor?.initials ?? '?'}</Text>
                   </View>
-                  <Text style={[styles.miniLegendAmount, { color: userTokens.textSecondary }]}>
+                  <Text
+                    style={[styles.miniLegendAmount, { color: userTokens.textSecondary }]}
+                    numberOfLines={1}
+                  >
                     {amount}
                   </Text>
                 </View>
@@ -141,13 +144,15 @@ export function FlowCards({
           {currency}
           {income.whole}
         </Text>
-        {incomeDelta ? (
-          <Text style={[styles.delta, styles.incomeText]}>
-            {t(dictionary, "account.redesign.vsPreviousMonth", {
-              value: incomeDelta,
-            })}
-          </Text>
-        ) : null}
+        <View style={styles.deltaSlot}>
+          {incomeDelta ? (
+            <Text style={[styles.delta, styles.incomeText]} numberOfLines={1}>
+              {t(dictionary, "account.redesign.vsPreviousMonth", {
+                value: incomeDelta,
+              })}
+            </Text>
+          ) : null}
+        </View>
         {renderContribution('income')}
       </Pressable>
 
@@ -171,13 +176,15 @@ export function FlowCards({
           {currency}
           {expense.whole}
         </Text>
-        {expenseDelta ? (
-          <Text style={[styles.delta, styles.expenseText]}>
-            {t(dictionary, "account.redesign.vsPreviousMonth", {
-              value: expenseDelta,
-            })}
-          </Text>
-        ) : null}
+        <View style={styles.deltaSlot}>
+          {expenseDelta ? (
+            <Text style={[styles.delta, styles.expenseText]} numberOfLines={1}>
+              {t(dictionary, "account.redesign.vsPreviousMonth", {
+                value: expenseDelta,
+              })}
+            </Text>
+          ) : null}
+        </View>
         {renderContribution('expense')}
       </Pressable>
     </View>
@@ -240,8 +247,12 @@ const styles = StyleSheet.create({
   delta: {
     fontFamily: typography.family.sansMedium,
     fontSize: typography.size.xs,
-    marginTop: spacing.xs,
+    lineHeight: 14,
     opacity: 0.7,
+  },
+  deltaSlot: {
+    marginTop: spacing.xs,
+    minHeight: 14,
   },
   miniContribution: {
     marginTop: spacing.md,
@@ -261,13 +272,15 @@ const styles = StyleSheet.create({
   miniLegend: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     gap: spacing.sm,
   },
   miniLegendItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    minWidth: 0,
+    flexShrink: 1,
   },
   miniAvatar: {
     width: 16,
@@ -285,5 +298,6 @@ const styles = StyleSheet.create({
   miniLegendAmount: {
     fontFamily: typography.family.sansMedium,
     fontSize: typography.size.xs,
+    flexShrink: 1,
   },
 });
