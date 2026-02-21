@@ -778,7 +778,7 @@ export default async function AccountPage(): Promise<JSX.Element> {
     <div className={cn("min-h-screen bg-background", dmSans.variable, jetbrains.variable)}>
       <TopNav />
       <PageContainer className="space-y-6">
-        <AccountRedesignClient dataByPeriod={dataByPeriod} />
+        <AccountRedesignClient dataByPeriod={dataByPeriod} currentUserId={user.id} />
       </PageContainer>
       {/* Bottom padding for mobile nav */}
       <div className="h-16 sm:hidden" />

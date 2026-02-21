@@ -1,14 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import {
-  Animated,
-  Easing,
-  LayoutChangeEvent,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { useCopy, t } from "../../../../lib/i18n";
 import { useUserTheme } from "../../../../contexts/UserThemeContext";
 import type {
@@ -21,7 +17,6 @@ import { colors, spacing, typography, radii } from "../../theme/tokens";
 import { CategoryIcon } from "../../../CategoryIcon";
 
 const DEFAULT_VISIBLE_CATEGORIES = 2;
-const EXTRA_ANIMATION_DURATION_MS = 250;
 
 interface ContributionBalanceSectionProps {
   data: ContributionBalanceData | null;
@@ -39,18 +34,8 @@ export function ContributionBalanceSection({
   onCategoryPress,
 }: ContributionBalanceSectionProps) {
   const { dictionary } = useCopy();
-  const { tokens: userTokens, primaryActionColor } = useUserTheme();
+  const { tokens: userTokens } = useUserTheme();
   const translate = t as any;
-  const [expandedByType, setExpandedByType] = useState<{ expense: boolean; income: boolean }>({
-    expense: false,
-    income: false,
-  });
-  const [extraHeights, setExtraHeights] = useState<{ expense: number; income: number }>({
-    expense: 0,
-    income: 0,
-  });
-  const expenseExtraAnimation = useRef(new Animated.Value(0)).current;
-  const incomeExtraAnimation = useRef(new Animated.Value(0)).current;
 
   const contributorByUserId = useMemo(
     () => new Map(contributors.map((contributor) => [contributor.userId, contributor])),
@@ -61,32 +46,6 @@ export function ContributionBalanceSection({
   const isCollaborative = contributors.length >= 2 && (data?.members.length ?? 0) >= 2;
 
   if (!data) return null;
-
-  const animateExtraCategories = (type: "expense" | "income", expand: boolean) => {
-    const animation = type === "expense" ? expenseExtraAnimation : incomeExtraAnimation;
-    Animated.timing(animation, {
-      toValue: expand ? 1 : 0,
-      duration: EXTRA_ANIMATION_DURATION_MS,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  };
-
-  const toggleExpanded = (type: "expense" | "income") => {
-    const nextExpanded = !expandedByType[type];
-    setExpandedByType((current) => ({ ...current, [type]: nextExpanded }));
-    animateExtraCategories(type, nextExpanded);
-  };
-
-  const handleExtraMeasure = (type: "expense" | "income", event: LayoutChangeEvent) => {
-    const nextHeight = event.nativeEvent.layout.height;
-    setExtraHeights((current) => {
-      if (Math.abs(current[type] - nextHeight) <= 1) {
-        return current;
-      }
-      return { ...current, [type]: nextHeight };
-    });
-  };
 
   const renderSection = (
     type: "expense" | "income",
@@ -103,23 +62,6 @@ export function ContributionBalanceSection({
       ? translate(dictionary, "account.redesign.categorySpendingTitle")
       : translate(dictionary, "account.redesign.incomeByCategoryTitle");
     const leadingCategories = sortedCategories.slice(0, DEFAULT_VISIBLE_CATEGORIES);
-    const extraCategories = sortedCategories.slice(DEFAULT_VISIBLE_CATEGORIES);
-    const hasMoreCategories = extraCategories.length > 0;
-    const isExpanded = expandedByType[type];
-    const remainingCategoriesCount = extraCategories.length;
-    const extraAnimation = type === "expense" ? expenseExtraAnimation : incomeExtraAnimation;
-    const animatedHeight = extraAnimation.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, Math.max(extraHeights[type], 1)],
-    });
-    const animatedOpacity = extraAnimation.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, 1],
-    });
-    const animatedTranslateY = extraAnimation.interpolate({
-      inputRange: [0, 1],
-      outputRange: [8, 0],
-    });
 
     const renderCategoryRow = (
       category: ContributionCategorySummary,
@@ -269,70 +211,10 @@ export function ContributionBalanceSection({
         <View style={styles.categoryList}>
           {leadingCategories.map((category, index) =>
             renderCategoryRow(category, {
-              showBorder:
-                index < leadingCategories.length - 1 ||
-                (isExpanded && extraCategories.length > 0),
+              showBorder: index < leadingCategories.length - 1,
               interactive: true,
             })
           )}
-
-          {hasMoreCategories ? (
-            <View style={styles.extraCategoriesWrapper}>
-              <View style={styles.extraMeasureLayer} pointerEvents="none">
-                <View onLayout={(event) => handleExtraMeasure(type, event)}>
-                  {extraCategories.map((category, index) =>
-                    renderCategoryRow(category, {
-                      showBorder: index < extraCategories.length - 1,
-                      interactive: false,
-                      keyPrefix: "measure",
-                    })
-                  )}
-                </View>
-              </View>
-
-              <Animated.View
-                style={[
-                  styles.extraCategoriesAnimated,
-                  {
-                    height: animatedHeight,
-                    opacity: animatedOpacity,
-                    transform: [{ translateY: animatedTranslateY }],
-                  },
-                ]}
-                pointerEvents={isExpanded ? "auto" : "none"}
-              >
-                {extraCategories.map((category, index) =>
-                  renderCategoryRow(category, {
-                    showBorder: index < extraCategories.length - 1,
-                    interactive: true,
-                  })
-                )}
-              </Animated.View>
-            </View>
-          ) : null}
-
-          {hasMoreCategories ? (
-            <Pressable
-              onPress={() => toggleExpanded(type)}
-              style={({ pressed }) => [
-                styles.viewMoreButton,
-                pressed && styles.viewMoreButtonPressed,
-              ]}
-            >
-              <Text style={[styles.viewMoreText, { color: primaryActionColor }]}>
-                {isExpanded
-                  ? translate(dictionary, "account.view_less")
-                  : translate(dictionary, "account.view_more_categories", {
-                      n: remainingCategoriesCount,
-                    })}
-              </Text>
-              {isExpanded ? (
-                <ChevronUp size={16} color={primaryActionColor} />
-              ) : (
-                <ChevronDown size={16} color={primaryActionColor} />
-              )}
-            </Pressable>
-          ) : null}
         </View>
       </View>
     );
@@ -369,19 +251,6 @@ const styles = StyleSheet.create({
   },
   categoryList: {
     gap: spacing.sm,
-  },
-  extraCategoriesWrapper: {
-    position: "relative",
-  },
-  extraMeasureLayer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    opacity: 0,
-    pointerEvents: "none",
-  },
-  extraCategoriesAnimated: {
-    overflow: "hidden",
   },
   categoryItem: {
     paddingVertical: spacing.sm,
@@ -451,21 +320,5 @@ const styles = StyleSheet.create({
   },
   barSegment: {
     height: "100%",
-  },
-  viewMoreButton: {
-    marginTop: spacing.xs,
-    paddingVertical: spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    alignSelf: "flex-start",
-  },
-  viewMoreButtonPressed: {
-    opacity: 0.74,
-  },
-  viewMoreText: {
-    fontSize: typography.size.sm,
-    fontFamily: typography.family.sansSemiBold,
   },
 });

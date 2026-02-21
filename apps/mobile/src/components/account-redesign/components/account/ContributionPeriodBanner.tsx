@@ -11,6 +11,7 @@ import {
 import { typography, spacing, radii } from "../../theme/tokens";
 import { formatCurrency } from "../../utils/currency";
 import { useUserTheme } from "../../../../contexts/UserThemeContext";
+import { useAuth } from "../../../../contexts/AuthContext";
 import { useCopy, t } from "../../../../lib/i18n";
 import { X } from "lucide-react-native";
 import type {
@@ -56,6 +57,7 @@ export function ContributionPeriodBanner({
 }: ContributionPeriodBannerProps) {
   const { dictionary } = useCopy();
   const { tokens: userTokens } = useUserTheme();
+  const { user } = useAuth();
   const [detailOpen, setDetailOpen] = useState(false);
   const detailScrollOffsetY = useRef(0);
   const translate = t as any;
@@ -94,6 +96,7 @@ export function ContributionPeriodBanner({
     const threshold = 100 / Math.pow(10, decimals);
 
     const contributor = contributors.find((item) => item.userId === leader.userId);
+    const isLeaderCurrentUser = leader.userId === user?.id;
 
     if (diff < threshold) {
       return {
@@ -106,16 +109,22 @@ export function ContributionPeriodBanner({
     }
 
     return {
-      message: translate(dictionary, "account.redesign.contributionBanner", {
-        name: leader.name,
-        amount: formatCurrency(diff, { currency, decimals }).full,
-        otherName: trailing.name,
-        period: periodLabel,
-      }),
+      message: translate(
+        dictionary,
+        isLeaderCurrentUser
+          ? "account.redesign.contributionBannerSelf"
+          : "account.redesign.contributionBanner",
+        {
+          name: leader.name,
+          amount: formatCurrency(diff, { currency, decimals }).full,
+          otherName: trailing.name,
+          period: periodLabel,
+        }
+      ),
       initials: contributor?.initials ?? leader.initials,
       color: contributor?.color ?? leader.color,
     };
-  }, [contributionBalance, contributors, currency, decimals, dictionary, period]);
+  }, [contributionBalance, contributors, currency, decimals, dictionary, period, user?.id]);
 
   if (!contributionBanner) return null;
 

@@ -1124,6 +1124,8 @@ export const es = {
       balanceDetailPeriodContext: "Este {period}",
       contributionBanner:
         "{name} contribuyó en {amount} más que {otherName} este {period}",
+      contributionBannerSelf:
+        "Contribuiste {amount} más que {otherName} este {period}",
       contributionBannerEqual:
         "Las contribuciones están equilibradas este {period}",
       contribution: {

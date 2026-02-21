@@ -20,9 +20,10 @@ const DEFAULT_VISIBLE_CONTRIBUTION_CATEGORIES = 2;
 
 type AccountRedesignClientProps = {
   dataByPeriod: Record<AccountRedesignPeriod, AccountRedesignData>;
+  currentUserId?: string | null;
 };
 
-export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientProps) {
+export function AccountRedesignClient({ dataByPeriod, currentUserId = null }: AccountRedesignClientProps) {
   const t = useTranslations();
   const { resolvedMode } = useWebUserTheme();
   const [selectedPeriod, setSelectedPeriod] = useState<Period>("month");
@@ -132,6 +133,7 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
     const trailing = sorted[sorted.length - 1];
     const diff = leader.totalPaid - trailing.totalPaid;
     const thresholdMajor = 100 / Math.pow(10, currencyDecimals);
+    const isLeaderCurrentUser = leader.userId === currentUserId;
     if (diff < thresholdMajor) {
       return {
         text: t("account.redesign.contributionBannerEqual", { period: periodLabel }),
@@ -141,19 +143,24 @@ export function AccountRedesignClient({ dataByPeriod }: AccountRedesignClientPro
     }
 
     return {
-      text: t("account.redesign.contributionBanner", {
-        name: leader.name,
-        amount: formatCurrency(diff, {
-          currency: currencySymbol,
-          decimals: currencyDecimals,
-        }).full,
-        otherName: trailing.name,
-        period: periodLabel,
-      }),
+      text: t(
+        isLeaderCurrentUser
+          ? "account.redesign.contributionBannerSelf"
+          : "account.redesign.contributionBanner",
+        {
+          name: leader.name,
+          amount: formatCurrency(diff, {
+            currency: currencySymbol,
+            decimals: currencyDecimals,
+          }).full,
+          otherName: trailing.name,
+          period: periodLabel,
+        }
+      ),
       color: leader.color,
       initials: leader.initials,
     };
-  }, [contributionData, currencyDecimals, currencySymbol, isCollaborative, periodLabel, t]);
+  }, [contributionData, currencyDecimals, currencySymbol, currentUserId, isCollaborative, periodLabel, t]);
 
   const contributionDetail = useMemo(() => {
     if (!isCollaborative || !contributionData) return null;
