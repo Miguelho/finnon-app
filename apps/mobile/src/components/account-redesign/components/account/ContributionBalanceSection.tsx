@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { useCopy, t } from "../../../../lib/i18n";
 import { useUserTheme } from "../../../../contexts/UserThemeContext";
 import type {
@@ -34,8 +35,12 @@ export function ContributionBalanceSection({
   onCategoryPress,
 }: ContributionBalanceSectionProps) {
   const { dictionary } = useCopy();
-  const { tokens: userTokens } = useUserTheme();
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const translate = t as any;
+  const [expandedByType, setExpandedByType] = useState<{ expense: boolean; income: boolean }>({
+    expense: false,
+    income: false,
+  });
 
   const contributorByUserId = useMemo(
     () => new Map(contributors.map((contributor) => [contributor.userId, contributor])),
@@ -62,6 +67,9 @@ export function ContributionBalanceSection({
       ? translate(dictionary, "account.redesign.categorySpendingTitle")
       : translate(dictionary, "account.redesign.incomeByCategoryTitle");
     const leadingCategories = sortedCategories.slice(0, DEFAULT_VISIBLE_CATEGORIES);
+    const extraCategories = sortedCategories.slice(DEFAULT_VISIBLE_CATEGORIES);
+    const hasMoreCategories = extraCategories.length > 0;
+    const isExpanded = expandedByType[type];
 
     const renderCategoryRow = (
       category: ContributionCategorySummary,
@@ -211,10 +219,49 @@ export function ContributionBalanceSection({
         <View style={styles.categoryList}>
           {leadingCategories.map((category, index) =>
             renderCategoryRow(category, {
-              showBorder: index < leadingCategories.length - 1,
+              showBorder:
+                index < leadingCategories.length - 1 ||
+                (isExpanded && extraCategories.length > 0),
               interactive: true,
             })
           )}
+
+          {isExpanded
+            ? extraCategories.map((category, index) =>
+                renderCategoryRow(category, {
+                  showBorder: index < extraCategories.length - 1,
+                  interactive: true,
+                })
+              )
+            : null}
+
+          {hasMoreCategories ? (
+            <Pressable
+              onPress={() =>
+                setExpandedByType((current) => ({
+                  ...current,
+                  [type]: !current[type],
+                }))
+              }
+              style={({ pressed }) => [
+                styles.viewMoreButton,
+                pressed && styles.viewMoreButtonPressed,
+              ]}
+            >
+              <Text style={[styles.viewMoreText, { color: primaryActionColor }]}>
+                {isExpanded
+                  ? translate(dictionary, "account.view_less")
+                  : translate(dictionary, "account.view_more_categories", {
+                      n: extraCategories.length,
+                    })}
+              </Text>
+              {isExpanded ? (
+                <ChevronUp size={16} color={primaryActionColor} />
+              ) : (
+                <ChevronDown size={16} color={primaryActionColor} />
+              )}
+            </Pressable>
+          ) : null}
         </View>
       </View>
     );
@@ -320,5 +367,21 @@ const styles = StyleSheet.create({
   },
   barSegment: {
     height: "100%",
+  },
+  viewMoreButton: {
+    marginTop: spacing.xs,
+    paddingVertical: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    alignSelf: "flex-start",
+  },
+  viewMoreButtonPressed: {
+    opacity: 0.74,
+  },
+  viewMoreText: {
+    fontSize: typography.size.sm,
+    fontFamily: typography.family.sansSemiBold,
   },
 });
