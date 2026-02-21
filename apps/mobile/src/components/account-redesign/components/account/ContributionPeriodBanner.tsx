@@ -175,7 +175,7 @@ export function ContributionPeriodBanner({
 
         <View style={styles.bars}>
           <View style={styles.barRow}>
-            <Text style={[styles.barLabel, { color: userTokens.textSecondary }]}>
+            <Text style={[styles.barLabel, { color: userTokens.textSecondary }]} numberOfLines={1}>
               {translate(dictionary, "account.redesign.balanceDetailPaid")}
             </Text>
             <View style={[styles.barTrack, { backgroundColor: userTokens.border }]}>
@@ -185,7 +185,7 @@ export function ContributionPeriodBanner({
           </View>
 
           <View style={styles.barRow}>
-            <Text style={[styles.barLabel, { color: userTokens.textSecondary }]}>
+            <Text style={[styles.barLabel, { color: userTokens.textSecondary }]} numberOfLines={1}>
               {translate(dictionary, "account.redesign.balanceDetailResponsibility")}
             </Text>
             <View style={[styles.barTrack, { backgroundColor: userTokens.border }]}>
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: "rgba(0,0,0,0.3)",
+    backgroundColor: "transparent",
   },
   modalSheet: {
     position: "absolute",
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   barLabel: {
-    width: 56,
+    width: 84,
     textAlign: "right",
     fontFamily: typography.family.sansMedium,
     fontSize: 10,
