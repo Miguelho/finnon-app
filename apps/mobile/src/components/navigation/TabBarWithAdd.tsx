@@ -1,6 +1,14 @@
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { House, ClipboardList, Flag, Bookmark, Plus, type LucideIcon } from "lucide-react-native";
+import {
+  House,
+  ClipboardList,
+  Flag,
+  Bookmark,
+  FolderKanban,
+  Plus,
+  type LucideIcon,
+} from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { themeTokens, type AddActionKey } from "@poleursus/shared";
@@ -13,6 +21,7 @@ const tokens = themeTokens.light;
 const tabLabelKeys = {
   home: "navigation.home",
   transactions: "transactions.pageTitle",
+  projects: "navigation.projects",
   goal: "goal.pageTitle",
   account: "navigation.account",
 } as const;
@@ -20,6 +29,7 @@ const tabLabelKeys = {
 const tabIconMap: Record<keyof typeof tabLabelKeys, LucideIcon> = {
   home: House,
   transactions: ClipboardList,
+  projects: FolderKanban,
   goal: Flag,
   account: Bookmark,
 };

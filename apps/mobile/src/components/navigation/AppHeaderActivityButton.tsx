@@ -9,7 +9,13 @@ import {
 } from "react-native";
 import { Mail } from "lucide-react-native";
 import { useRouter } from "expo-router";
-import { themeTokens } from "@poleursus/shared";
+import {
+  addMonths,
+  formatMonthLabel,
+  getMonthRangeFromKey,
+  themeTokens,
+  toMonthKey,
+} from "@poleursus/shared";
 import { useAuth } from "../../contexts/AuthContext";
 import { useUserTheme } from "../../contexts/UserThemeContext";
 import { useCopy, t } from "../../lib/i18n";
@@ -21,6 +27,11 @@ type ActivityNotification = {
   userName: string;
   count: number;
   timeAgo: string;
+};
+
+type PendingMonthClose = {
+  monthKey: string;
+  monthLabel: string;
 };
 
 const tokens = themeTokens.light;
@@ -57,26 +68,86 @@ function formatTimeAgo(
   return (t(dictionary, key) as string).replace("{count}", String(diffDays));
 }
 
+const toMinor = (value: bigint | number | string | null | undefined): bigint => {
+  if (value === null || value === undefined) return 0n;
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return 0n;
+    return BigInt(Math.round(value));
+  }
+  try {
+    return BigInt(value);
+  } catch {
+    return 0n;
+  }
+};
+
 export function AppHeaderActivityButton() {
   const { user, selectedAccountId } = useAuth();
   const { tokens: userTokens } = useUserTheme();
-  const { dictionary } = useCopy();
+  const { dictionary, locale } = useCopy();
   const router = useRouter();
   const [notifications, setNotifications] = useState<ActivityNotification[]>(
     []
   );
+  const [pendingMonthClose, setPendingMonthClose] =
+    useState<PendingMonthClose | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const loadActivity = useCallback(async () => {
     if (!user || !selectedAccountId) {
       setNotifications([]);
+      setPendingMonthClose(null);
       return;
     }
 
     setLoading(true);
 
     try {
+      const currentMonthKey = toMonthKey(new Date());
+      const pendingMonthKey = addMonths(currentMonthKey, -1);
+      const pendingRange = getMonthRangeFromKey(pendingMonthKey);
+
+      const { data: projectRows } = await supabase
+        .from("projects")
+        .select("id, monthly_commitment_base_minor")
+        .eq("account_id", selectedAccountId)
+        .eq("status", "active")
+        .not("monthly_commitment_base_minor", "is", null);
+
+      const commitmentProjectIds = (projectRows ?? [])
+        .filter((project) => toMinor(project.monthly_commitment_base_minor) > 0n)
+        .map((project) => project.id);
+
+      if (commitmentProjectIds.length > 0) {
+        const { data: confirmedRows } = await supabase
+          .from("project_contributions")
+          .select("project_id")
+          .eq("account_id", selectedAccountId)
+          .eq("period", pendingRange.start)
+          .eq("confirmed", true)
+          .in("project_id", commitmentProjectIds);
+
+        const confirmedProjectIds = new Set(
+          (confirmedRows ?? []).map((row) => row.project_id)
+        );
+        const hasPendingMonthlyClose = commitmentProjectIds.some(
+          (projectId) => !confirmedProjectIds.has(projectId)
+        );
+
+        if (hasPendingMonthlyClose) {
+          setPendingMonthClose({
+            monthKey: pendingMonthKey,
+            monthLabel: formatMonthLabel(pendingMonthKey, locale),
+          });
+        } else {
+          setPendingMonthClose(null);
+        }
+      } else {
+        setPendingMonthClose(null);
+      }
+
       const since = new Date();
       since.setDate(since.getDate() - 7);
 
@@ -150,7 +221,7 @@ export function AppHeaderActivityButton() {
     } finally {
       setLoading(false);
     }
-  }, [user, selectedAccountId, dictionary]);
+  }, [user, selectedAccountId, dictionary, locale]);
 
   const openModal = useCallback(() => {
     setModalVisible(true);
@@ -163,6 +234,7 @@ export function AppHeaderActivityButton() {
   const emptyText = t(dictionary, "accountActivity.emptyTitle") as string;
   const addedText = t(dictionary, "accountActivity.added") as string;
   const viewText = t(dictionary, "accountActivity.viewCta") as string;
+  const monthCloseTitle = t(dictionary, "projects.monthClose.pendingTitle") as string;
 
   return (
     <>
@@ -221,61 +293,112 @@ export function AppHeaderActivityButton() {
                 <View style={styles.emptyContainer}>
                   <ActivityIndicator size="small" color={userTokens.textSecondary} />
                 </View>
-              ) : notifications.length > 0 ? (
-                notifications.map((notif) => (
-                  <View
-                    key={notif.id}
-                    style={[
-                      styles.notifRow,
-                      { borderBottomColor: userTokens.border },
-                    ]}
-                  >
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>
-                        {notif.userInitial}
-                      </Text>
-                    </View>
-                    <View style={styles.notifContent}>
-                      <Text
-                        style={[
-                          styles.notifText,
-                          { color: userTokens.textPrimary },
-                        ]}
-                        numberOfLines={2}
-                      >
-                        {notif.userName} {addedText}{" "}
-                        <Text style={styles.notifBold}>
-                          {(
-                            t(
-                              dictionary,
-                              "accountActivity.movements"
-                            ) as string
-                          ).replace("{count}", String(notif.count))}
-                        </Text>
-                      </Text>
-                      <Text
-                        style={[
-                          styles.notifTime,
-                          { color: userTokens.textTertiary },
-                        ]}
-                      >
-                        {notif.timeAgo}
-                      </Text>
-                    </View>
-                    <Pressable
-                      onPress={() => {
-                        setModalVisible(false);
-                        router.push("/(auth)/(tabs)/transactions");
-                      }}
-                      hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
-                      style={styles.viewButton}
+              ) : pendingMonthClose || notifications.length > 0 ? (
+                <>
+                  {pendingMonthClose ? (
+                    <View
+                      style={[
+                        styles.notifRow,
+                        { borderBottomColor: userTokens.border },
+                      ]}
                     >
-                      <Text style={styles.viewButtonText}>
-                        {viewText} →
-                      </Text>
-                    </Pressable>
-                  </View>
-                ))
+                      <View style={styles.monthCloseAvatar}>
+                        <Text style={styles.monthCloseAvatarText}>{"\u{1F4C5}"}</Text>
+                      </View>
+                      <View style={styles.notifContent}>
+                        <Text
+                          style={[
+                            styles.notifText,
+                            { color: userTokens.textPrimary },
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {monthCloseTitle}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.notifTime,
+                            { color: userTokens.textTertiary },
+                          ]}
+                        >
+                          {(t(dictionary, "projects.monthClose.pendingDescription") as string).replace(
+                            "{month}",
+                            pendingMonthClose.monthLabel
+                          )}
+                        </Text>
+                      </View>
+                      <Pressable
+                        onPress={() => {
+                          setModalVisible(false);
+                          router.push(
+                            `/(auth)/(tabs)/projects/month-close?month=${pendingMonthClose.monthKey}`
+                          );
+                        }}
+                        hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
+                        style={styles.viewButton}
+                      >
+                        <Text style={styles.viewButtonText}>
+                          {viewText} →
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+
+                  {notifications.map((notif) => (
+                    <View
+                      key={notif.id}
+                      style={[
+                        styles.notifRow,
+                        { borderBottomColor: userTokens.border },
+                      ]}
+                    >
+                      <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>
+                          {notif.userInitial}
+                        </Text>
+                      </View>
+                      <View style={styles.notifContent}>
+                        <Text
+                          style={[
+                            styles.notifText,
+                            { color: userTokens.textPrimary },
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {notif.userName} {addedText}{" "}
+                          <Text style={styles.notifBold}>
+                            {(
+                              t(
+                                dictionary,
+                                "accountActivity.movements"
+                              ) as string
+                            ).replace("{count}", String(notif.count))}
+                          </Text>
+                        </Text>
+                        <Text
+                          style={[
+                            styles.notifTime,
+                            { color: userTokens.textTertiary },
+                          ]}
+                        >
+                          {notif.timeAgo}
+                        </Text>
+                      </View>
+                      <Pressable
+                        onPress={() => {
+                          setModalVisible(false);
+                          router.push("/(auth)/(tabs)/transactions");
+                        }}
+                        hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
+                        style={styles.viewButton}
+                      >
+                        <Text style={styles.viewButtonText}>
+                          {viewText} →
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ))}
+                </>
               ) : (
                 <View style={styles.emptyContainer}>
                   <Text
@@ -349,6 +472,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: tokens.typography.weight.bold,
     color: "#9333EA",
+  },
+  monthCloseAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#FEF3C7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  monthCloseAvatarText: {
+    fontSize: 15,
   },
   notifContent: {
     flex: 1,

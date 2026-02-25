@@ -5,6 +5,7 @@ import { TabBarWithAdd } from "../../../src/components/navigation/TabBarWithAdd"
 const tabItems = [
   { key: "home", labelKey: "navigation.home" },
   { key: "transactions", labelKey: "transactions.pageTitle" },
+  { key: "projects", labelKey: "navigation.projects" },
   { key: "goal", labelKey: "goal.pageTitle" },
   { key: "account", labelKey: "navigation.account" },
 ] as const;

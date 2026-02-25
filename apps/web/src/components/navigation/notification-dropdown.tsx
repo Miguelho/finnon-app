@@ -3,15 +3,32 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, Loader2 } from "lucide-react";
+import {
+  addMonths,
+  formatMonthLabel,
+  getMonthRangeFromKey,
+  toMonthKey,
+} from "@poleursus/shared";
 import { createClient } from "@/lib/supabase/client";
 
-export type NotificationItem = {
+type MonthCloseNotificationItem = {
   id: string;
+  kind: "month-close";
+  monthKey: string;
+  title: string;
+  subtitle: string;
+};
+
+type ActivityNotificationItem = {
+  id: string;
+  kind: "activity";
   userInitial: string;
   userName: string;
   count: number;
   timeAgo: string;
 };
+
+export type NotificationItem = MonthCloseNotificationItem | ActivityNotificationItem;
 
 type NotificationDropdownProps = {
   userId: string;
@@ -43,6 +60,20 @@ function formatTimeAgo(date: Date, locale: string): string {
     : `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
 }
 
+const toMinor = (value: bigint | number | string | null | undefined): bigint => {
+  if (value === null || value === undefined) return 0n;
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return 0n;
+    return BigInt(Math.round(value));
+  }
+  try {
+    return BigInt(value);
+  } catch {
+    return 0n;
+  }
+};
+
 export function NotificationDropdown({
   userId,
   accountId,
@@ -71,6 +102,56 @@ export function NotificationDropdown({
     setLoading(true);
     try {
       const supabase = createClient();
+      const isEs = locale.startsWith("es");
+
+      const currentMonthKey = toMonthKey(new Date());
+      const pendingMonthKey = addMonths(currentMonthKey, -1);
+      const pendingRange = getMonthRangeFromKey(pendingMonthKey);
+
+      const { data: projectRows } = await supabase
+        .from("projects")
+        .select("id, monthly_commitment_base_minor")
+        .eq("account_id", accountId)
+        .eq("status", "active")
+        .not("monthly_commitment_base_minor", "is", null);
+
+      const commitmentProjectIds = (projectRows ?? [])
+        .filter((project) => toMinor(project.monthly_commitment_base_minor) > 0n)
+        .map((project) => project.id);
+
+      let monthCloseNotification: MonthCloseNotificationItem | null = null;
+      if (commitmentProjectIds.length > 0) {
+        const { data: confirmedRows } = await supabase
+          .from("project_contributions")
+          .select("project_id")
+          .eq("account_id", accountId)
+          .eq("period", pendingRange.start)
+          .eq("confirmed", true)
+          .in("project_id", commitmentProjectIds);
+
+        const confirmedProjectIds = new Set(
+          (confirmedRows ?? []).map((row) => row.project_id)
+        );
+        const hasPendingMonthlyClose = commitmentProjectIds.some(
+          (projectId) => !confirmedProjectIds.has(projectId)
+        );
+
+        if (hasPendingMonthlyClose) {
+          const monthLabel = formatMonthLabel(pendingMonthKey, locale);
+          monthCloseNotification = {
+            id: `month-close-${pendingMonthKey}`,
+            kind: "month-close",
+            monthKey: pendingMonthKey,
+            title: isEs
+              ? `Cierre mensual pendiente (${monthLabel})`
+              : `Pending month close (${monthLabel})`,
+            subtitle: isEs
+              ? "Confirma el reparto del ahorro de ese mes."
+              : "Confirm that month's savings allocation.",
+          };
+        }
+      }
+
       const since = new Date();
       since.setDate(since.getDate() - 7);
 
@@ -83,13 +164,8 @@ export function NotificationDropdown({
         .order("created_at", { ascending: false })
         .limit(50);
 
-      if (!rows || rows.length === 0) {
-        setNotifications([]);
-        return;
-      }
-
       const byUser = new Map<string, { count: number; latest: Date }>();
-      for (const row of rows) {
+      for (const row of rows ?? []) {
         if (!row.created_by) continue;
         const createdAt = new Date(row.created_at);
         const existing = byUser.get(row.created_by);
@@ -102,21 +178,19 @@ export function NotificationDropdown({
       }
 
       const userIds = Array.from(byUser.keys());
-      if (userIds.length === 0) {
-        setNotifications([]);
-        return;
-      }
-
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, display_name, email")
-        .in("user_id", userIds);
+      const { data: profiles } =
+        userIds.length > 0
+          ? await supabase
+              .from("profiles")
+              .select("user_id, display_name, email")
+              .in("user_id", userIds)
+          : { data: [] };
 
       const profileMap = new Map(
         (profiles ?? []).map((p) => [p.user_id, p])
       );
 
-      const items: NotificationItem[] = userIds
+      const activityItems: ActivityNotificationItem[] = userIds
         .map((uid) => {
           const activity = byUser.get(uid);
           if (!activity) return null;
@@ -128,6 +202,7 @@ export function NotificationDropdown({
           const userInitial = (userName.trim().charAt(0) || "?").toUpperCase();
           return {
             id: uid,
+            kind: "activity" as const,
             userInitial,
             userName,
             count: activity.count,
@@ -140,9 +215,13 @@ export function NotificationDropdown({
           (a, b) => ((b as any)._sortValue ?? 0) - ((a as any)._sortValue ?? 0)
         )
         .slice(0, 5)
-        .map(({ _sortValue, ...rest }: any) => rest as NotificationItem);
+        .map(({ _sortValue, ...rest }: any) => rest as ActivityNotificationItem);
 
-      setNotifications(items);
+      const nextNotifications: NotificationItem[] = monthCloseNotification
+        ? [monthCloseNotification, ...activityItems]
+        : activityItems;
+
+      setNotifications(nextNotifications);
     } finally {
       setLoading(false);
     }
@@ -195,28 +274,56 @@ export function NotificationDropdown({
               key={notif.id}
               className="flex items-center gap-3 border-t border-border/50 px-4 py-3.5 transition-colors first:border-t-0 hover:bg-accent"
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[13px] font-bold text-primary">
-                {notif.userInitial}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium text-popover-foreground">
-                  {notif.userName} {addedWord}{" "}
-                  <strong>
-                    {notif.count} {movementsWord}
-                  </strong>
-                </p>
-                <p className="text-[11px] text-muted-foreground">{notif.timeAgo}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  router.push(viewHref);
-                  setOpen(false);
-                }}
-                className="shrink-0 rounded-md px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
-              >
-                {isEs ? "Ver" : "View"} →
-              </button>
+              {notif.kind === "month-close" ? (
+                <>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-[14px] font-bold text-amber-700 dark:text-amber-400">
+                    {"\u{1F4C5}"}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-medium text-popover-foreground">
+                      {notif.title}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {notif.subtitle}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      router.push(`/projects/month-close?month=${notif.monthKey}`);
+                      setOpen(false);
+                    }}
+                    className="shrink-0 rounded-md px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+                  >
+                    {isEs ? "Abrir" : "Open"} →
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[13px] font-bold text-primary">
+                    {notif.userInitial}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-medium text-popover-foreground">
+                      {notif.userName} {addedWord}{" "}
+                      <strong>
+                        {notif.count} {movementsWord}
+                      </strong>
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">{notif.timeAgo}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      router.push(viewHref);
+                      setOpen(false);
+                    }}
+                    className="shrink-0 rounded-md px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+                  >
+                    {isEs ? "Ver" : "View"} →
+                  </button>
+                </>
+              )}
             </div>
           ))
         ) : (

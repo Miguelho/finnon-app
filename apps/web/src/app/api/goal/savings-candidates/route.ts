@@ -26,6 +26,9 @@ const getDateKeyInTimeZone = (timeZone: string, date = new Date()) => {
 const isMonthKey = (value: string | null) =>
   typeof value === "string" && /^\d{4}-\d{2}$/.test(value);
 
+const isMinorAmount = (value: string | null) =>
+  typeof value === "string" && /^[0-9]+$/.test(value);
+
 const getMonthRange = (monthKey: string) => {
   const [yearStr, monthStr] = monthKey.split("-");
   const year = Number(yearStr);
@@ -42,6 +45,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const accountId = searchParams.get("accountId");
     const monthParam = searchParams.get("month");
+    const targetMinorParam = searchParams.get("targetMinor");
 
     if (!accountId) {
       return NextResponse.json(
@@ -127,8 +131,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const targetMinor =
-      goalRow?.target_amount_base_minor ?? "0";
+    const targetMinor = isMinorAmount(targetMinorParam)
+      ? targetMinorParam!
+      : goalRow?.target_amount_base_minor ?? "0";
 
     // V2: Usar RPC actualizado con fecha estimada y delayDays
     const { data: candidates, error: rpcError } = await supabase.rpc(

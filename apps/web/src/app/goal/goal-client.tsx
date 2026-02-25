@@ -25,6 +25,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import {
   computeGoalInsights,
+  computeGoalComposition,
   computeGoalProgress,
   computeGoalSummaryView,
   computeGoalSummaryViewV2,
@@ -68,6 +69,20 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
 
 const formatAbs = (value: bigint) => (value < 0n ? -value : value);
+
+const toMinor = (value: bigint | number | string | null | undefined): bigint => {
+  if (value === null || value === undefined) return 0n;
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number") return BigInt(Math.round(value));
+  if (typeof value === "string") {
+    try {
+      return BigInt(value);
+    } catch {
+      return 0n;
+    }
+  }
+  return 0n;
+};
 
 const formatSignedMoney = (
   value: bigint,
@@ -257,6 +272,7 @@ type GoalClientProps = {
   role: UserRole;
   currentUserId: string;
   initialGoal: FinancialGoal | null;
+  projectCommitmentMinor: string;
   initialTransactions: GoalTransaction[];
   initialPreviousExpenseTotalMinor: string | null;
 };
@@ -269,6 +285,7 @@ export function GoalClient({
   role,
   currentUserId,
   initialGoal,
+  projectCommitmentMinor,
   initialTransactions,
   initialPreviousExpenseTotalMinor,
 }: GoalClientProps) {
@@ -316,6 +333,52 @@ export function GoalClient({
     [initialTransactions]
   );
 
+  const projectCommitmentTotalMinor = useMemo(() => {
+    try {
+      return BigInt(projectCommitmentMinor);
+    } catch {
+      return 0n;
+    }
+  }, [projectCommitmentMinor]);
+
+  const goalComposition = useMemo(
+    () =>
+      computeGoalComposition({
+        totalGoalMinor: goal?.target_amount_base_minor ?? 0,
+        projectsCommitmentMinor: projectCommitmentTotalMinor,
+      }),
+    [goal, projectCommitmentTotalMinor]
+  );
+
+  const effectiveGoal = useMemo<FinancialGoal | null>(() => {
+    if (goalComposition.totalMinor <= 0n) {
+      return null;
+    }
+
+    if (goal) {
+      const rawTargetMinor = toMinor(goal.target_amount_base_minor);
+      if (rawTargetMinor >= goalComposition.totalMinor) {
+        return goal;
+      }
+
+      return {
+        ...goal,
+        target_amount_base_minor: goalComposition.totalMinor.toString(),
+      };
+    }
+
+    return {
+      id: "project-commitments-goal",
+      account_id: accountId,
+      month: monthKey,
+      type: "save",
+      target_amount_base_minor: goalComposition.totalMinor.toString(),
+      created_by: currentUserId,
+    };
+  }, [accountId, currentUserId, goal, goalComposition.totalMinor, monthKey]);
+
+  const hasGoalContext = effectiveGoal !== null;
+
   const fetchGoalSummary = useCallback(async () => {
     try {
       const params = new URLSearchParams({
@@ -323,6 +386,9 @@ export function GoalClient({
         month: monthKey,
         origin: "goal",
       });
+      if (goalComposition.totalMinor > 0n) {
+        params.set("targetMinor", goalComposition.totalMinor.toString());
+      }
       const response = await fetch(
         `/api/goal/savings-candidates?${params.toString()}`
       );
@@ -343,7 +409,7 @@ export function GoalClient({
     } catch (error) {
       console.error("[Goal] Summary error", error);
     }
-  }, [accountId, monthKey, tGlobal]);
+  }, [accountId, goalComposition.totalMinor, monthKey, tGlobal]);
 
   const fetchGoalHistory = useCallback(async () => {
     try {
@@ -403,14 +469,14 @@ export function GoalClient({
           ? new Date(`${goalSummary.today}T00:00:00`)
           : undefined;
         return computeGoalProgress({
-          goal,
+          goal: effectiveGoal,
           totals: summaryTotals,
           now: summaryNow,
         });
       }
-      return computeGoalProgress({ goal, totals });
+      return computeGoalProgress({ goal: effectiveGoal, totals });
     },
-    [goal, goalSummary, totals]
+    [effectiveGoal, goalSummary, totals]
   );
 
   const summaryView = useMemo(
@@ -843,11 +909,8 @@ export function GoalClient({
 
   const handleOpenEditor = () => {
     setFormError(null);
-    if (goal) {
-      const value = formatMinorToMoney(
-        displayProgress?.targetMinor ?? 0n,
-        baseCurrency
-      );
+    if (hasGoalContext) {
+      const value = formatMinorToMoney(goalComposition.totalMinor, baseCurrency);
       setAmountInput(value);
     } else {
       setAmountInput("");
@@ -866,6 +929,19 @@ export function GoalClient({
 
     if (parsed <= 0n) {
       setFormError(tGlobal("money.invalidAmount"));
+      return;
+    }
+
+    if (parsed < goalComposition.fromProjectsMinor) {
+      setFormError(
+        tGoal("minimumFromProjects", {
+          amount: formatMoneyWithSymbol(
+            goalComposition.fromProjectsMinor,
+            baseCurrency,
+            currencySymbol
+          ),
+        })
+      );
       return;
     }
 
@@ -953,8 +1029,37 @@ export function GoalClient({
         </h1>
       </div>
 
+      {goalComposition.fromProjectsMinor > 0n ? (
+        <Card>
+          <CardContent className="space-y-2 p-4">
+            <p className="text-sm font-medium" style={{ color: userTokens.textPrimary }}>
+              {tGoal("compositionTitle")}
+            </p>
+            <p className="text-sm" style={{ color: userTokens.textSecondary }}>
+              {tGoal("compositionBreakdown", {
+                projects: formatMoneyWithSymbol(
+                  goalComposition.fromProjectsMinor,
+                  baseCurrency,
+                  currencySymbol
+                ),
+                manual: formatMoneyWithSymbol(
+                  goalComposition.manualMinor,
+                  baseCurrency,
+                  currencySymbol
+                ),
+                total: formatMoneyWithSymbol(
+                  goalComposition.totalMinor,
+                  baseCurrency,
+                  currencySymbol
+                ),
+              })}
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {/* CURRENT MONTH VIEW */}
-      {goal && isViewingCurrentMonth ? (
+      {hasGoalContext && isViewingCurrentMonth ? (
         <>
         <Card>
           <CardHeader className="space-y-4">

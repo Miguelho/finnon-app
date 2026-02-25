@@ -99,13 +99,18 @@ export async function TopNav({ containerClassName }: TopNavProps) {
   const navItems: Array<{
     href: string;
     label: string;
-    iconKey: "home" | "transactions" | "goal" | "account";
+    iconKey: "home" | "transactions" | "projects" | "goal" | "account";
   }> = [
     { href: "/home", label: t(dictionary, "navigation.home"), iconKey: "home" },
     {
       href: "/transactions",
       label: t(dictionary, "transactions.pageTitle"),
       iconKey: "transactions",
+    },
+    {
+      href: "/projects",
+      label: t(dictionary, "navigation.projects"),
+      iconKey: "projects",
     },
     { href: "/goal", label: t(dictionary, "goal.pageTitle"), iconKey: "goal" },
     {

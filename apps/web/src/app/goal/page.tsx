@@ -65,6 +65,26 @@ export default async function GoalPage() {
     .eq("type", "save")
     .maybeSingle();
 
+  const { data: projectCommitments } = await supabase
+    .from("projects")
+    .select("monthly_commitment_base_minor")
+    .eq("account_id", activeAccount.id)
+    .eq("status", "active")
+    .not("monthly_commitment_base_minor", "is", null);
+
+  const projectCommitmentMinor = (projectCommitments ?? []).reduce(
+    (total, item) => {
+      const raw = item.monthly_commitment_base_minor;
+      if (raw === null || raw === undefined) return total;
+      try {
+        return total + BigInt(raw);
+      } catch {
+        return total;
+      }
+    },
+    0n
+  );
+
   const { data: transactions } = await supabase
     .from("transactions")
     .select("type, amount_minor, amount_base_minor, category:categories(id, name, icon_id)")
@@ -107,6 +127,7 @@ export default async function GoalPage() {
         role={activeRole}
         currentUserId={user.id}
         initialGoal={goal}
+        projectCommitmentMinor={projectCommitmentMinor.toString()}
         initialTransactions={transactions ?? []}
         initialPreviousExpenseTotalMinor={previousExpenseTotalMinor.toString()}
       />

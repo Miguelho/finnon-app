@@ -27,6 +27,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+package-lock.json
 
 # Local env files
 .env
@@ -50,5 +51,3 @@ apps/mobile/scripts/play-store-files/output
 apps/mobile/scripts/play-store-files/screenshots
 
 **.pyc
-
-**.png
