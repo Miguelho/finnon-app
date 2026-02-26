@@ -135,10 +135,10 @@ export function getThemePrehydrateScript(): string {
     const accountColors =
       resolvedMode === "dark"
         ? {
-            income: "#4CAF91",
+            income: "#22A06B",
             incomeBg: "#183026",
             incomeLight: "#24513F",
-            expense: "#E57373",
+            expense: "#DE350B",
             expenseBg: "#382022",
             expenseLight: "#5A2E32",
             categoryCasa: "#3A3420",
@@ -151,12 +151,12 @@ export function getThemePrehydrateScript(): string {
             categoryIcon: "#FFFFFF",
           }
         : {
-            income: "#1B7A4A",
-            incomeBg: "#E8F5EE",
-            incomeLight: "#D0EBDD",
-            expense: "#C4441A",
-            expenseBg: "#FDF0EB",
-            expenseLight: "#F9DDD2",
+            income: "#22A06B",
+            incomeBg: "#E6F9F0",
+            incomeLight: "#C8E6CD",
+            expense: "#DE350B",
+            expenseBg: "#FFF0E6",
+            expenseLight: "#F8D7CF",
             categoryCasa: "#FEF3C7",
             categoryFamilia: "#FCE7F3",
             categoryOcio: "#E0E7FF",

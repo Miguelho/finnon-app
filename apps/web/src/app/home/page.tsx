@@ -66,6 +66,23 @@ export default async function DashboardPage() {
     redirect("/select-account");
   }
 
+  const { count: projectParticipantsCount, error: projectParticipantsError } = await supabase
+    .from("account_members")
+    .select("user_id", { count: "exact", head: true })
+    .eq("account_id", mainAccount.id);
+
+  if (projectParticipantsError) {
+    console.warn(
+      "[Home][web] Could not load project participant count:",
+      projectParticipantsError
+    );
+  }
+
+  const projectParticipantCount =
+    typeof projectParticipantsCount === "number" && projectParticipantsCount >= 1
+      ? projectParticipantsCount
+      : 1;
+
   const today = new Date();
   const expandedRange = getExpandedMonthRange(today);
   const startDate = expandedRange.start.toISOString().slice(0, 10);
@@ -208,27 +225,6 @@ export default async function DashboardPage() {
     ? (() => {
         const targetMinor = progress.targetMinor;
         const currentMinor = progress.savedMinor;
-        const progressPercent =
-          targetMinor > 0n
-            ? Math.min(
-                100,
-                Math.max(
-                  0,
-                  (Number(currentMinor) / Number(targetMinor)) * 100
-                )
-              )
-            : 0;
-        const expectedPercent =
-          targetMinor > 0n
-            ? Math.min(
-                100,
-                Math.max(
-                  0,
-                  (Number(progress.expectedSavedMinor) / Number(targetMinor)) *
-                    100
-                )
-              )
-            : 0;
 
         let status: "on-track" | "at-risk" | "off-track" = "at-risk";
         if (currentMinor >= targetMinor) {
@@ -239,17 +235,6 @@ export default async function DashboardPage() {
           status = "on-track";
         }
 
-        const statusLabel =
-          status === "on-track"
-            ? tx("mobile.home.objectiveStatusOnTrack")
-            : status === "off-track"
-            ? tx("mobile.home.objectiveStatusOffTrack")
-            : tx("mobile.home.objectiveStatusAtRisk");
-
-        const targetFormatted = formatCurrencyParts(
-          targetMinor,
-          currencySymbol
-        ).full;
         const forecastFormatted = formatCurrencyParts(
           progress.forecastEndMinor,
           currencySymbol
@@ -275,15 +260,8 @@ export default async function DashboardPage() {
 
         return {
           status,
-          statusLabel,
-          description: tx("mobile.home.objectiveDescription", {
-            amount: targetFormatted,
-            month: monthLabel,
-          }),
           currentMinor: currentMinor.toString(),
           targetMinor: targetMinor.toString(),
-          progressPercent,
-          expectedPercent,
           messageHtml: message,
           streak: (goalHistory ?? []).map((entry: { completed: boolean | null }) => ({
             hit: entry.completed === true,
@@ -303,6 +281,7 @@ export default async function DashboardPage() {
           currentMonth: monthLabelCapitalized,
           currencySymbol,
           baseCurrency: mainAccount.base_currency,
+          projectParticipantCount,
         }}
         monthlyTransactions={normalizedMonthlyTransactions}
         upcomingTransactions={normalizedUpcomingTransactions}

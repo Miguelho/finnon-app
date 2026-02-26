@@ -1500,6 +1500,7 @@ export const es = {
       objectiveStatusOffTrack: "Fuera de objetivo",
       objectiveStatusAtRisk: "En riesgo",
       objectiveDescription: "Ahorrar {amount} en {month}",
+      objectiveHeadlineLabel: "Ahorro {amount}",
       objectiveForecastMessage:
         "Al ritmo actual, terminarás {month} con {amount}.",
       objectiveRemainingMessage:
@@ -1517,15 +1518,17 @@ export const es = {
       projectViewDetail: "Ver detalle →",
       projectNoPlan: "Sin plan mensual",
       projectMotivationMessage:
-        "Este mes acercas {project} un {percent}% más. Sigue así para cumplir el objetivo.",
-      projectEmptyTitle: "¿Tenéis un sueño?",
+        "{participants, plural, =1 {Este mes acercas {project} un {percent}% más. Sigue así para cumplir el objetivo.} other {Este mes acercáis {project} un {percent}% más. Seguid así para cumplir el objetivo.}}",
+      projectEmptyTitle: "{participants, plural, =1 {¿Tienes un sueño?} other {¿Tenéis un sueño?}}",
       projectEmptyDescription:
-        "Cread vuestro primer proyecto y empezad a acercarlo.",
+        "{participants, plural, =1 {Crea tu primer proyecto y empieza a acercarlo.} other {Cread vuestro primer proyecto y empezad a acercarlo.}}",
       projectCreateCta: "Crear proyecto",
       projectCompletedTitle: "¡{name} conseguido!",
-      projectCompletedDescription: "Habéis ahorrado {amount}.",
+      projectCompletedDescription:
+        "{participants, plural, =1 {Has ahorrado {amount}.} other {Habéis ahorrado {amount}.}}",
       projectCompletedCta: "Ver proyecto →",
-      projectAllDoneTitle: "¡Habéis cumplido todos vuestros proyectos!",
+      projectAllDoneTitle:
+        "{participants, plural, =1 {¡Has cumplido todos tus proyectos!} other {¡Habéis cumplido todos vuestros proyectos!}}",
       projectAllDoneDescription: "¿Cuál es el siguiente sueño?",
       projectAllDoneCta: "Nuevo proyecto",
       timelineLast: "Último",

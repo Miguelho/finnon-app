@@ -46,12 +46,8 @@ type ObligationRow = {
 
 type ObjectiveData = {
   status: "on-track" | "at-risk" | "off-track";
-  statusLabel: string;
-  description: string;
   currentMinor: string;
   targetMinor: string;
-  progressPercent: number;
-  expectedPercent: number;
   messageHtml: string;
   streak: Array<{ hit: boolean }>;
 };
@@ -62,6 +58,7 @@ type HomePageClientProps = {
     currentMonth: string;
     currencySymbol: string;
     baseCurrency: string;
+    projectParticipantCount: number;
   };
   monthlyTransactions: TransactionRow[];
   upcomingTransactions: TransactionRow[];
@@ -121,9 +118,9 @@ export function HomePageClient({
     });
 
     let monthlyImpactPercent = 0;
-    if (objective && progress.targetMinor > 0n) {
+    if (progress.targetMinor > 0n && progress.commitmentMinor > 0n) {
       const ratio =
-        Number(toMinor(objective.currentMinor)) / Number(progress.targetMinor);
+        Number(progress.commitmentMinor) / Number(progress.targetMinor);
       if (Number.isFinite(ratio) && ratio > 0) {
         monthlyImpactPercent = Math.max(0, Math.round(ratio * 100));
       }
@@ -379,7 +376,7 @@ export function HomePageClient({
         monoClassName={monoClassName}
       />
 
-      <div className="grid grid-cols-1 items-start gap-6 min-[900px]:grid-cols-[1fr_340px]">
+      <div className="grid grid-cols-1 items-start gap-6">
         <Calendar
           view={calendarView}
           onViewChange={setCalendarView}
@@ -400,6 +397,7 @@ export function HomePageClient({
           widgetState={projectWidgetState}
           activeProject={activeProject}
           objective={objective}
+          participantCount={account.projectParticipantCount}
           onViewProject={(projectId) => router.push(`/projects/${projectId}`)}
           onCreateProject={() => router.push("/projects")}
           onCreateGoal={() => router.push("/goal")}

@@ -7,12 +7,12 @@
   --text-primary: var(--account-text-primary, #1a1a18);
   --text-secondary: var(--account-text-secondary, #6b6b65);
   --text-tertiary: var(--account-text-tertiary, #9c9c95);
-  --income: var(--account-income, #1b7a4a);
-  --income-bg: var(--account-income-bg, #e8f5ee);
-  --income-light: var(--account-income-light, #d0ebdd);
-  --expense: var(--account-expense, #c4441a);
-  --expense-bg: var(--account-expense-bg, #fdf0eb);
-  --expense-light: var(--account-expense-light, #f9ddd2);
+  --income: var(--account-income, #22a06b);
+  --income-bg: var(--account-income-bg, #e6f9f0);
+  --income-light: var(--account-income-light, #c8e6cd);
+  --expense: var(--account-expense, #de350b);
+  --expense-bg: var(--account-expense-bg, #fff0e6);
+  --expense-light: var(--account-expense-light, #f8d7cf);
   --accent: var(--account-accent, #2563eb);
   --category-interests: var(--account-category-interests, #d1fae5);
   --category-default: var(--account-category-default, #f3f4f6);

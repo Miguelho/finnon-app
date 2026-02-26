@@ -16,6 +16,50 @@ test("t handles plural forms", () => {
   assert.equal(other, "2 participantes");
 });
 
+test("project motivation message switches singular/plural by participants", () => {
+  const singular = t(dict, "mobile.home.projectMotivationMessage", {
+    participants: 1,
+    project: "Viaje",
+    percent: 18,
+  });
+  const plural = t(dict, "mobile.home.projectMotivationMessage", {
+    participants: 2,
+    project: "Viaje",
+    percent: 18,
+  });
+
+  assert.equal(
+    singular,
+    "Este mes acercas Viaje un 18% más. Sigue así para cumplir el objetivo."
+  );
+  assert.equal(
+    plural,
+    "Este mes acercáis Viaje un 18% más. Seguid así para cumplir el objetivo."
+  );
+});
+
+test("project completed description switches singular/plural by participants", () => {
+  const singular = t(dict, "mobile.home.projectCompletedDescription", {
+    participants: 1,
+    amount: "€500",
+  });
+  const plural = t(dict, "mobile.home.projectCompletedDescription", {
+    participants: 2,
+    amount: "€500",
+  });
+
+  assert.equal(singular, "Has ahorrado €500.");
+  assert.equal(plural, "Habéis ahorrado €500.");
+});
+
+test("project all done title switches singular/plural by participants", () => {
+  const singular = t(dict, "mobile.home.projectAllDoneTitle", { participants: 1 });
+  const plural = t(dict, "mobile.home.projectAllDoneTitle", { participants: 2 });
+
+  assert.equal(singular, "¡Has cumplido todos tus proyectos!");
+  assert.equal(plural, "¡Habéis cumplido todos vuestros proyectos!");
+});
+
 test("getDictionary falls back to es", () => {
   const fallback = getDictionary("fr");
   assert.equal(fallback.common.tagline, "Tus finanzas personales, organizadas");

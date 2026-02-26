@@ -32,8 +32,8 @@ export function AddTransactionEntry({ onSelect }: AddTransactionEntryProps) {
             "transition-colors"
           )}
         >
-          <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-            <TrendUp className="w-6 h-6 text-green-600" weight="bold" />
+          <div className="w-12 h-12 rounded-full bg-[var(--account-income-bg)] flex items-center justify-center">
+            <TrendUp className="w-6 h-6 text-[var(--account-income)]" weight="bold" />
           </div>
           <span className="text-base font-medium">{t("typeIncome")}</span>
         </button>
@@ -49,8 +49,8 @@ export function AddTransactionEntry({ onSelect }: AddTransactionEntryProps) {
             "transition-colors"
           )}
         >
-          <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-            <TrendDown className="w-6 h-6 text-red-600" weight="bold" />
+          <div className="w-12 h-12 rounded-full bg-[var(--account-expense-bg)] flex items-center justify-center">
+            <TrendDown className="w-6 h-6 text-[var(--account-expense)]" weight="bold" />
           </div>
           <span className="text-base font-medium">{t("typeExpense")}</span>
         </button>

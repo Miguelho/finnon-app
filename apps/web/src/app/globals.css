@@ -57,8 +57,8 @@
     --input: 220 8.8% 86.7%;
     --ring: 221.7 100% 67.8%;
     --radius: 0.5rem;
-    --state-positive: 161.8 46.2% 33.5%;
-    --state-negative: 0 50.2% 46.5%;
+    --state-positive: 155 64.9% 38%;
+    --state-negative: 12 90.6% 45.7%;
 
     --account-bg: #FAFAF8;
     --account-surface: #FFFFFF;
@@ -68,12 +68,12 @@
     --account-text-primary: #1A1A18;
     --account-text-secondary: #6B6B65;
     --account-text-tertiary: #9C9C95;
-    --account-income: #1B7A4A;
-    --account-income-bg: #E8F5EE;
-    --account-income-light: #D0EBDD;
-    --account-expense: #C4441A;
-    --account-expense-bg: #FDF0EB;
-    --account-expense-light: #F9DDD2;
+    --account-income: #22A06B;
+    --account-income-bg: #E6F9F0;
+    --account-income-light: #C8E6CD;
+    --account-expense: #DE350B;
+    --account-expense-bg: #FFF0E6;
+    --account-expense-light: #F8D7CF;
     --account-accent: #2563EB;
     --account-accent-bg: #EFF4FF;
     --account-category-casa: #FEF3C7;
@@ -106,12 +106,12 @@
     --border: 222 10.6% 18.4%;
     --input: 222 10.6% 18.4%;
     --ring: 217.5 5.3% 70.6%;
-    --state-positive: 161.8 39.4% 49.2%;
-    --state-negative: 0 68.7% 67.5%;
-    --account-income: #4CAF91;
+    --state-positive: 155 64.9% 38%;
+    --state-negative: 12 90.6% 45.7%;
+    --account-income: #22A06B;
     --account-income-bg: #183026;
     --account-income-light: #24513F;
-    --account-expense: #E57373;
+    --account-expense: #DE350B;
     --account-expense-bg: #382022;
     --account-expense-light: #5A2E32;
     --account-category-casa: #3A3420;

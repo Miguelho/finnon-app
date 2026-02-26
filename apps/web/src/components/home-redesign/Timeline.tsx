@@ -104,7 +104,7 @@ function TimelineItem({
       </span>
       <span
         className={`text-[15px] font-semibold ${
-          isIncome ? "text-green-600" : "text-red-600"
+          isIncome ? "text-[var(--account-income)]" : "text-[var(--account-expense)]"
         } ${monoClassName ?? ""}`}
       >
         {isIncome ? "+" : "-"}

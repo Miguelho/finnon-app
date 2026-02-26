@@ -6,12 +6,8 @@ type ObjectiveStatus = "on-track" | "at-risk" | "off-track";
 
 type ObjectiveData = {
   status: ObjectiveStatus;
-  statusLabel: string;
-  description: string;
   currentMinor: bigint | string | number;
   targetMinor: bigint | string | number;
-  progressPercent: number;
-  expectedPercent: number;
   messageHtml: string;
 };
 
@@ -25,6 +21,7 @@ type ProjectObjectiveWidgetProps = {
   widgetState: HomeProjectWidgetState;
   activeProject: ActiveProjectData | null;
   objective: ObjectiveData | null;
+  participantCount?: number;
   onViewProject: (projectId: string) => void;
   onCreateProject: () => void;
   onCreateGoal: () => void;
@@ -34,15 +31,17 @@ type ProjectObjectiveWidgetProps = {
 };
 
 const statusBar: Record<ObjectiveStatus, string> = {
-  "on-track": "bg-emerald-400",
+  "on-track": "bg-[var(--account-income)]",
   "at-risk": "bg-amber-400",
-  "off-track": "bg-red-400",
+  "off-track": "bg-[var(--account-expense)]",
 };
 
 const statusBadge: Record<ObjectiveStatus, string> = {
-  "on-track": "border-emerald-500/30 bg-emerald-500/15 text-emerald-600",
+  "on-track":
+    "border-[var(--account-income-light)] bg-[var(--account-income-bg)] text-[var(--account-income)]",
   "at-risk": "border-amber-500/30 bg-amber-500/15 text-amber-600",
-  "off-track": "border-red-500/30 bg-red-500/15 text-red-600",
+  "off-track":
+    "border-[var(--account-expense-light)] bg-[var(--account-expense-bg)] text-[var(--account-expense)]",
 };
 
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
@@ -57,6 +56,7 @@ export function ProjectObjectiveWidget({
   widgetState,
   activeProject,
   objective,
+  participantCount,
   onViewProject,
   onCreateProject,
   onCreateGoal,
@@ -65,16 +65,17 @@ export function ProjectObjectiveWidget({
   monoClassName,
 }: ProjectObjectiveWidgetProps) {
   const t = useTranslations();
+  const safeParticipantCount = Math.max(1, participantCount ?? 1);
 
   if (widgetState.state === "empty") {
     return (
       <div className="rounded-xl border border-border bg-card px-6 py-8 text-center">
         <p className="text-4xl">✨</p>
         <h3 className="mt-3 text-lg font-semibold text-foreground">
-          {t("mobile.home.projectEmptyTitle")}
+          {t("mobile.home.projectEmptyTitle", { participants: safeParticipantCount })}
         </h3>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          {t("mobile.home.projectEmptyDescription")}
+          {t("mobile.home.projectEmptyDescription", { participants: safeParticipantCount })}
         </p>
         <button
           type="button"
@@ -96,19 +97,22 @@ export function ProjectObjectiveWidget({
     ).full;
 
     return (
-      <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-6 py-7 text-center">
+      <div className="rounded-xl border border-[var(--account-income-light)] bg-[var(--account-income-bg)] px-6 py-7 text-center">
         <p className="text-4xl">{completedProject.emoji || "🎯"}</p>
-        <h3 className="mt-2 text-xl font-semibold text-emerald-400">
+        <h3 className="mt-2 text-xl font-semibold text-[var(--account-income)]">
           {t("mobile.home.projectCompletedTitle", { name: completedProject.name })}
         </h3>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          {t("mobile.home.projectCompletedDescription", { amount: completedAmount })}
+          {t("mobile.home.projectCompletedDescription", {
+            amount: completedAmount,
+            participants: safeParticipantCount,
+          })}
         </p>
         <p className="mt-3 text-3xl">🎉</p>
         <button
           type="button"
           onClick={() => onViewProject(completedProject.id)}
-          className="mt-4 rounded-lg border border-emerald-400/30 px-4 py-2 text-sm font-semibold text-emerald-300"
+          className="mt-4 rounded-lg border border-[var(--account-income-light)] px-4 py-2 text-sm font-semibold text-[var(--account-income)]"
         >
           {t("mobile.home.projectCompletedCta")}
         </button>
@@ -121,7 +125,7 @@ export function ProjectObjectiveWidget({
       <div className="rounded-xl border border-border bg-card px-6 py-8 text-center">
         <p className="text-4xl">🌟</p>
         <h3 className="mt-3 text-lg font-semibold text-foreground">
-          {t("mobile.home.projectAllDoneTitle")}
+          {t("mobile.home.projectAllDoneTitle", { participants: safeParticipantCount })}
         </h3>
         <p className="mt-1.5 text-sm text-muted-foreground">
           {t("mobile.home.projectAllDoneDescription")}
@@ -153,8 +157,15 @@ export function ProjectObjectiveWidget({
     Math.round(activeProject.progress.progressRatio * 100)
   );
 
-  const expectedPercent = clampPercent(objective?.expectedPercent ?? 0);
-  const objectivePercent = clampPercent(objective?.progressPercent ?? 0);
+  const savedNum = objective ? Number(toMinor(objective.currentMinor)) : 0;
+  const targetNum = objective ? Number(toMinor(objective.targetMinor)) : 0;
+  const barScale = Math.max(savedNum, targetNum, 1);
+  const fillPercent = clampPercent(Math.round((Math.max(0, savedNum) / barScale) * 100));
+  const markerPercent = clampPercent(Math.round((targetNum / barScale) * 100));
+
+  const statusIconChar =
+    objective?.status === "on-track" ? "✓" : objective?.status === "off-track" ? "✕" : "!";
+
   const objectiveCurrent = objective
     ? formatCurrencyParts(toMinor(objective.currentMinor), currencySymbol, locale).full
     : null;
@@ -194,11 +205,11 @@ export function ProjectObjectiveWidget({
         </div>
 
         <div className="mt-2.5 flex items-center justify-between text-xs">
-          <span className="font-semibold text-emerald-400">{projectProgressPercent}%</span>
+          <span className="font-semibold text-[var(--account-income)]">{projectProgressPercent}%</span>
           <span className="text-muted-foreground">
             {activeProject.progress.estimatedCompletionDate
               ? `📅 ${formatMonthYear(activeProject.progress.estimatedCompletionDate, locale)}`
-              : t("mobile.home.projectNoPlan")}
+              : t("mobile.home.projectNoPlan", { participants: safeParticipantCount })}
           </span>
         </div>
       </div>
@@ -212,35 +223,56 @@ export function ProjectObjectiveWidget({
               <div
                 className={`flex h-6 w-6 items-center justify-center rounded-[6px] border text-xs font-semibold ${statusBadge[objective.status]}`}
               >
-                ✓
+                {statusIconChar}
               </div>
-              <p className="text-sm text-foreground">
-                <span className="font-semibold">{objective.statusLabel}</span>
-                <span className="text-muted-foreground"> · {objective.description}</span>
+              <p className="text-sm font-semibold text-foreground">
+                {t("mobile.home.objectiveHeadlineLabel", {
+                  amount: objectiveTarget,
+                })}
               </p>
             </div>
 
             <div className="relative h-1.5 rounded-full bg-secondary">
               <div
                 className={`h-full rounded-full ${statusBar[objective.status]}`}
-                style={{ width: `${objectivePercent}%` }}
+                style={{ width: `${fillPercent}%` }}
               />
               <div
-                className="absolute -top-1 h-3 w-0.5 rounded bg-muted-foreground"
-                style={{ left: `${expectedPercent}%` }}
+                className="absolute -top-1 h-3 w-0.5 rounded bg-foreground"
+                style={{ left: `${markerPercent}%` }}
               />
             </div>
 
-            <div className="mt-1.5 flex items-center justify-between text-xs">
-              <span className="text-foreground">
-                <strong className={monoClassName ?? ""}>{objectiveCurrent}</strong>{" "}
-                <span className="text-muted-foreground">
-                  {t("mobile.home.objectiveSavedSuffix")}
-                </span>
-              </span>
-              <span className={`text-muted-foreground ${monoClassName ?? ""}`}>
-                {t("mobile.home.objectiveOfPrefix")} {objectiveTarget}
-              </span>
+            <div className="mt-1.5 flex text-xs">
+              {savedNum > targetNum ? (
+                <>
+                  <span className={`text-muted-foreground text-right ${monoClassName ?? ""}`} style={{ flex: markerPercent }}>
+                    {objectiveTarget}
+                  </span>
+                  <strong className={`text-foreground text-right ${monoClassName ?? ""}`} style={{ flex: 100 - markerPercent }}>
+                    {objectiveCurrent}
+                  </strong>
+                </>
+              ) : savedNum < targetNum ? (
+                <>
+                  <strong className={`text-foreground ${monoClassName ?? ""}`}>
+                    {objectiveCurrent}
+                  </strong>
+                  <span className={`flex-1 text-right text-muted-foreground ${monoClassName ?? ""}`}>
+                    {objectiveTarget}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="flex-1" />
+                  <strong
+                    className={monoClassName ?? ""}
+                    style={{ color: "var(--account-income)" }}
+                  >
+                    {objectiveCurrent} ✓
+                  </strong>
+                </>
+              )}
             </div>
 
             <div className="mt-3 rounded-lg bg-secondary/60 px-3 py-2.5">
@@ -248,6 +280,7 @@ export function ProjectObjectiveWidget({
                 {t("mobile.home.projectMotivationMessage", {
                   project: activeProject.project.name,
                   percent: activeProject.monthlyImpactPercent,
+                  participants: safeParticipantCount,
                 })}
               </p>
             </div>

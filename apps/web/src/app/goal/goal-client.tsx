@@ -304,8 +304,10 @@ export function GoalClient({
   const [amountInput, setAmountInput] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [goalSummary, setGoalSummary] = useState<SavingsSummary | null>(null);
   const [savingsCandidates, setSavingsCandidates] = useState<SavingsCandidateTx[]>([]);
+  const initialLoadRunIdRef = useRef(0);
 
   // Month navigation and history
   const [selectedMonth, setSelectedMonth] = useState(monthKey);
@@ -448,15 +450,23 @@ export function GoalClient({
   }, [accountId, supabase]);
 
   useEffect(() => {
-    fetchGoalSummary();
-  }, [fetchGoalSummary]);
+    const runId = ++initialLoadRunIdRef.current;
+    const loadInitialData = async () => {
+      try {
+        const requests: Promise<unknown>[] = [fetchGoalSummary()];
+        if (goal) {
+          requests.push(fetchGoalHistory(), fetchGamification());
+        }
+        await Promise.all(requests);
+      } finally {
+        if (initialLoadRunIdRef.current === runId) {
+          setIsInitialLoading(false);
+        }
+      }
+    };
 
-  useEffect(() => {
-    if (goal) {
-      fetchGoalHistory();
-      fetchGamification();
-    }
-  }, [goal, fetchGoalHistory, fetchGamification]);
+    void loadInitialData();
+  }, [fetchGamification, fetchGoalHistory, fetchGoalSummary, goal]);
 
   const progress = useMemo(
     () => {
@@ -957,7 +967,11 @@ export function GoalClient({
         createdBy: currentUserId,
       });
       setGoal(nextGoal);
-      fetchGoalSummary();
+      await Promise.all([
+        fetchGoalSummary(),
+        fetchGoalHistory(),
+        fetchGamification(),
+      ]);
       setIsEditorOpen(false);
     } catch (error) {
       console.error("[Goal] Save error", error);
@@ -968,6 +982,20 @@ export function GoalClient({
   };
 
   const hasTransactions = initialTransactions.length > 0;
+
+  if (isInitialLoading) {
+    return (
+      <div className="mx-auto flex min-h-[60vh] max-w-6xl items-center justify-center p-4">
+        <div
+          className="h-10 w-10 animate-spin rounded-full border-2"
+          style={{
+            borderColor: userTokens.border,
+            borderTopColor: userTokens.textPrimary,
+          }}
+        />
+      </div>
+    );
+  }
 
   const monthNavigator = goal ? (
     <div

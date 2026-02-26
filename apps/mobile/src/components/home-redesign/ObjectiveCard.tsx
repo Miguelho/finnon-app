@@ -11,12 +11,8 @@ type ObjectiveStatus = "on-track" | "at-risk" | "off-track";
 
 type ObjectiveData = {
   status: ObjectiveStatus;
-  statusLabel: string;
-  description: string;
   currentMinor: string;
   targetMinor: string;
-  progressPercent: number;
-  expectedPercent: number;
   messageHtml: string;
   streak: Array<{ hit: boolean }>;
 };
@@ -72,6 +68,13 @@ export function ObjectiveCard({
     currencySymbol
   );
 
+  const savedNum = Number(toMinor(objective.currentMinor));
+  const targetNum = Number(toMinor(objective.targetMinor));
+  const barScale = Math.max(savedNum, targetNum, 1);
+  const clampPercent = (v: number) => Math.min(100, Math.max(0, v));
+  const fillPercent = clampPercent(Math.round((Math.max(0, savedNum) / barScale) * 100));
+  const markerPercent = clampPercent(Math.round((targetNum / barScale) * 100));
+
   return (
     <View
       style={[
@@ -97,14 +100,11 @@ export function ObjectiveCard({
             {config.icon}
           </Text>
         </View>
-        <View>
-          <Text style={[styles.statusLabel, { color: userTokens.textPrimary }]}>
-            {objective.statusLabel}
-          </Text>
-          <Text style={[styles.statusDescription, { color: userTokens.textSecondary }]}>
-            {objective.description}
-          </Text>
-        </View>
+        <Text style={[styles.statusLabel, { color: userTokens.textPrimary }]}>
+          {t(dictionary, "mobile.home.objectiveHeadlineLabel", {
+            amount: target.full,
+          })}
+        </Text>
       </View>
 
       <View style={styles.progressSection}>
@@ -112,27 +112,44 @@ export function ObjectiveCard({
           <View
             style={[
               styles.progressFill,
-              { width: `${objective.progressPercent}%`, backgroundColor: config.progressColor },
+              { width: `${fillPercent}%`, backgroundColor: config.progressColor },
             ]}
           />
           <View
             style={[
               styles.progressMarker,
-              { backgroundColor: userTokens.textSecondary },
-              { left: `${objective.expectedPercent}%` },
+              { backgroundColor: userTokens.textPrimary },
+              { left: `${markerPercent}%` },
             ]}
           />
         </View>
         <View style={styles.progressMeta}>
-          <Text style={[styles.progressText, { color: userTokens.textSecondary }]}>
-            <Text style={[styles.progressStrong, { color: userTokens.textPrimary }]}>
-              {current.full}
-            </Text>{" "}
-            {t(dictionary, "mobile.home.objectiveSavedSuffix")}
-          </Text>
-          <Text style={[styles.progressText, { color: userTokens.textSecondary }]}>
-            {t(dictionary, "mobile.home.objectiveOfPrefix")} {target.full}
-          </Text>
+          {savedNum > targetNum ? (
+            <>
+              <Text style={[styles.progressText, { color: userTokens.textSecondary, flex: markerPercent, textAlign: "right" }]}>
+                {target.full}
+              </Text>
+              <Text style={[styles.progressStrong, { color: userTokens.textPrimary, flex: 100 - markerPercent, textAlign: "right" }]}>
+                {current.full}
+              </Text>
+            </>
+          ) : savedNum < targetNum ? (
+            <>
+              <Text style={[styles.progressStrong, { color: userTokens.textPrimary }]}>
+                {current.full}
+              </Text>
+              <Text style={[styles.progressText, { color: userTokens.textSecondary, textAlign: "right" }]}>
+                {target.full}
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={[styles.progressText, { color: userTokens.textSecondary }]} />
+              <Text style={[styles.progressStrong, { color: colors.state.positive }]}>
+                {current.full} ✓
+              </Text>
+            </>
+          )}
         </View>
       </View>
 

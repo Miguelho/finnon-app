@@ -11,13 +11,10 @@ type ObjectiveStatus = "on-track" | "at-risk" | "off-track";
 
 type ObjectiveData = {
   status: ObjectiveStatus;
-  statusLabel: string;
-  description: string;
   currentMinor: bigint | string | number;
   targetMinor: bigint | string | number;
-  progressPercent: number;
-  expectedPercent: number;
   messageHtml: string;
+  streak?: Array<{ hit: boolean }>;
 };
 
 type ActiveProjectData = {
@@ -30,6 +27,7 @@ type ProjectObjectiveWidgetProps = {
   widgetState: HomeProjectWidgetState;
   activeProject: ActiveProjectData | null;
   objective: ObjectiveData | null;
+  participantCount?: number;
   onViewProject: (projectId: string) => void;
   onCreateProject: () => void;
   onCreateGoal: () => void;
@@ -58,6 +56,7 @@ export function ProjectObjectiveWidget({
   widgetState,
   activeProject,
   objective,
+  participantCount,
   onViewProject,
   onCreateProject,
   onCreateGoal,
@@ -67,6 +66,7 @@ export function ProjectObjectiveWidget({
   const { dictionary } = useCopy();
   const { tokens: userTokens, primaryActionColor, resolvedMode } = useUserTheme();
   const modeColors = themeTokens[resolvedMode].colors;
+  const safeParticipantCount = Math.max(1, participantCount ?? 1);
 
   if (widgetState.state === "empty") {
     return (
@@ -79,10 +79,14 @@ export function ProjectObjectiveWidget({
       >
         <Text style={styles.heroEmoji}>✨</Text>
         <Text style={[styles.heroTitle, { color: userTokens.textPrimary }]}>
-          {t(dictionary, "mobile.home.projectEmptyTitle")}
+          {t(dictionary, "mobile.home.projectEmptyTitle", {
+            participants: safeParticipantCount,
+          })}
         </Text>
         <Text style={[styles.heroDescription, { color: userTokens.textSecondary }]}>
-          {t(dictionary, "mobile.home.projectEmptyDescription")}
+          {t(dictionary, "mobile.home.projectEmptyDescription", {
+            participants: safeParticipantCount,
+          })}
         </Text>
         <TouchableOpacity
           style={[styles.primaryButton, { backgroundColor: primaryActionColor }]}
@@ -118,11 +122,13 @@ export function ProjectObjectiveWidget({
         <Text style={[styles.heroTitle, { color: modeColors.state.positive }]}>
           {t(dictionary, "mobile.home.projectCompletedTitle", {
             name: completedProject.name,
+            participants: safeParticipantCount,
           })}
         </Text>
         <Text style={[styles.heroDescription, { color: userTokens.textSecondary }]}>
           {t(dictionary, "mobile.home.projectCompletedDescription", {
             amount: completedAmount,
+            participants: safeParticipantCount,
           })}
         </Text>
         <Text style={styles.heroEmoji}>🎉</Text>
@@ -130,13 +136,15 @@ export function ProjectObjectiveWidget({
           style={[
             styles.secondaryButton,
             { borderColor: withAlpha(modeColors.state.positive, 0.35) },
-          ]}
-          onPress={() => onViewProject(completedProject.id)}
-        >
-          <Text style={[styles.secondaryButtonText, { color: modeColors.state.positive }]}>
-            {t(dictionary, "mobile.home.projectCompletedCta")}
-          </Text>
-        </TouchableOpacity>
+        ]}
+        onPress={() => onViewProject(completedProject.id)}
+      >
+        <Text style={[styles.secondaryButtonText, { color: modeColors.state.positive }]}>
+          {t(dictionary, "mobile.home.projectCompletedCta", {
+            participants: safeParticipantCount,
+          })}
+        </Text>
+      </TouchableOpacity>
       </View>
     );
   }
@@ -152,17 +160,23 @@ export function ProjectObjectiveWidget({
       >
         <Text style={styles.heroEmoji}>🌟</Text>
         <Text style={[styles.heroTitle, { color: userTokens.textPrimary }]}>
-          {t(dictionary, "mobile.home.projectAllDoneTitle")}
+          {t(dictionary, "mobile.home.projectAllDoneTitle", {
+            participants: safeParticipantCount,
+          })}
         </Text>
         <Text style={[styles.heroDescription, { color: userTokens.textSecondary }]}>
-          {t(dictionary, "mobile.home.projectAllDoneDescription")}
+          {t(dictionary, "mobile.home.projectAllDoneDescription", {
+            participants: safeParticipantCount,
+          })}
         </Text>
         <TouchableOpacity
           style={[styles.primaryButton, { backgroundColor: primaryActionColor }]}
           onPress={onCreateProject}
         >
           <Text style={styles.primaryButtonText}>
-            {t(dictionary, "mobile.home.projectAllDoneCta")}
+            {t(dictionary, "mobile.home.projectAllDoneCta", {
+              participants: safeParticipantCount,
+            })}
           </Text>
         </TouchableOpacity>
       </View>
@@ -183,8 +197,16 @@ export function ProjectObjectiveWidget({
   const objectiveFillColor = objectiveConfig
     ? modeColors.state[objectiveConfig.fillKey]
     : modeColors.state.positive;
-  const objectivePercent = clampPercent(objective?.progressPercent ?? 0);
-  const expectedPercent = clampPercent(objective?.expectedPercent ?? 0);
+
+  const savedNum = objective ? Number(toMinor(objective.currentMinor)) : 0;
+  const targetNum = objective ? Number(toMinor(objective.targetMinor)) : 0;
+  const barScale = Math.max(savedNum, targetNum, 1);
+  const fillPercent = clampPercent(Math.round((Math.max(0, savedNum) / barScale) * 100));
+  const markerPercent = clampPercent(Math.round((targetNum / barScale) * 100));
+
+  const statusIconChar =
+    objective?.status === "on-track" ? "✓" : objective?.status === "off-track" ? "✕" : "!";
+
   const objectiveCurrent = objective
     ? formatCurrencyParts(toMinor(objective.currentMinor), currencySymbol).full
     : "";
@@ -217,7 +239,9 @@ export function ProjectObjectiveWidget({
         </View>
         <TouchableOpacity onPress={() => onViewProject(activeProject.project.id)}>
           <Text style={[styles.link, { color: primaryActionColor }]}>
-            {t(dictionary, "mobile.home.projectViewDetail")}
+            {t(dictionary, "mobile.home.projectViewDetail", {
+              participants: safeParticipantCount,
+            })}
           </Text>
         </TouchableOpacity>
       </View>
@@ -238,7 +262,9 @@ export function ProjectObjectiveWidget({
         <Text style={[styles.projectEta, { color: userTokens.textSecondary }]}>
           {activeProject.progress.estimatedCompletionDate
             ? `📅 ${formatMonthYear(activeProject.progress.estimatedCompletionDate, locale)}`
-            : t(dictionary, "mobile.home.projectNoPlan")}
+            : t(dictionary, "mobile.home.projectNoPlan", {
+                participants: safeParticipantCount,
+              })}
         </Text>
       </View>
 
@@ -254,11 +280,14 @@ export function ProjectObjectiveWidget({
                 { borderColor: withAlpha(objectiveFillColor, 0.35) },
               ]}
             >
-              <Text style={[styles.statusIconText, { color: objectiveFillColor }]}>✓</Text>
+              <Text style={[styles.statusIconText, { color: objectiveFillColor }]}>
+                {statusIconChar}
+              </Text>
             </View>
-            <Text style={[styles.objectiveHeadline, { color: userTokens.textPrimary }]}>
-              <Text style={styles.objectiveHeadlineStrong}>{objective.statusLabel}</Text>
-              <Text style={{ color: userTokens.textSecondary }}> · {objective.description}</Text>
+            <Text style={[styles.objectiveHeadline, { color: userTokens.textPrimary, fontWeight: tokens.typography.weight.semibold, fontFamily: "DMSans-SemiBold" }]}>
+              {t(dictionary, "mobile.home.objectiveHeadlineLabel", {
+                amount: objectiveTarget,
+              })}
             </Text>
           </View>
 
@@ -266,27 +295,44 @@ export function ProjectObjectiveWidget({
             <View
               style={[
                 styles.progressFill,
-                { width: `${objectivePercent}%`, backgroundColor: objectiveFillColor },
+                { width: `${fillPercent}%`, backgroundColor: objectiveFillColor },
               ]}
             />
             <View
               style={[
                 styles.expectedMarker,
-                { left: `${expectedPercent}%`, backgroundColor: userTokens.textSecondary },
+                { left: `${markerPercent}%`, backgroundColor: userTokens.textPrimary },
               ]}
             />
           </View>
 
           <View style={styles.objectiveMeta}>
-            <Text style={[styles.objectiveMetaText, { color: userTokens.textSecondary }]}>
-              <Text style={[styles.objectiveMetaStrong, { color: userTokens.textPrimary }]}>
-                {objectiveCurrent}
-              </Text>{" "}
-              {t(dictionary, "mobile.home.objectiveSavedSuffix")}
-            </Text>
-            <Text style={[styles.objectiveMetaText, { color: userTokens.textSecondary }]}>
-              {t(dictionary, "mobile.home.objectiveOfPrefix")} {objectiveTarget}
-            </Text>
+            {savedNum > targetNum ? (
+              <>
+                <Text style={[styles.objectiveMetaText, { color: userTokens.textSecondary, flex: markerPercent, textAlign: "right" }]}>
+                  {objectiveTarget}
+                </Text>
+                <Text style={[styles.objectiveMetaStrong, { color: userTokens.textPrimary, flex: 100 - markerPercent, textAlign: "right" }]}>
+                  {objectiveCurrent}
+                </Text>
+              </>
+            ) : savedNum < targetNum ? (
+              <>
+                <Text style={[styles.objectiveMetaStrong, { color: userTokens.textPrimary }]}>
+                  {objectiveCurrent}
+                </Text>
+                <Text style={[styles.objectiveMetaText, { color: userTokens.textSecondary, textAlign: "right" }]}>
+                  {objectiveTarget}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.objectiveMetaText, { color: userTokens.textSecondary }]} />
+                <Text style={[styles.objectiveMetaStrong, { color: modeColors.state.positive }]}>
+                  {objectiveCurrent} ✓
+                </Text>
+              </>
+            )}
           </View>
 
           <View style={[styles.messageBox, { backgroundColor: userTokens.surfaceAlt }]}>
@@ -294,6 +340,7 @@ export function ProjectObjectiveWidget({
               {t(dictionary, "mobile.home.projectMotivationMessage", {
                 project: activeProject.project.name,
                 percent: activeProject.monthlyImpactPercent,
+                participants: safeParticipantCount,
               })}
             </Text>
           </View>

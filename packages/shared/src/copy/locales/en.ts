@@ -1499,6 +1499,7 @@ export const en = {
       objectiveStatusOffTrack: "Off target",
       objectiveStatusAtRisk: "At risk",
       objectiveDescription: "Save {amount} in {month}",
+      objectiveHeadlineLabel: "Savings {amount}",
       objectiveForecastMessage:
         "At the current pace, you'll finish {month} with {amount}.",
       objectiveRemainingMessage:

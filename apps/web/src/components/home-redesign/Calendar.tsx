@@ -203,7 +203,7 @@ export function Calendar({
                     {day.dots && day.dots.length > 0 ? (
                       <span
                         className={`h-[5px] w-[5px] rounded-full ${
-                          isSelected ? "bg-primary" : "bg-red-500"
+                          isSelected ? "bg-primary" : "bg-[var(--account-expense)]"
                         }`}
                       />
                     ) : null}
@@ -217,7 +217,7 @@ export function Calendar({
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               {t("mobile.home.calendarIncome")}{" "}
               <span
-                className={`font-semibold text-green-600 ${monoClassName ?? ""}`}
+                className={`font-semibold text-[var(--account-income)] ${monoClassName ?? ""}`}
               >
                 +{weekData.netIncome}
               </span>
@@ -225,7 +225,7 @@ export function Calendar({
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               {t("mobile.home.calendarExpenses")}{" "}
               <span
-                className={`font-semibold text-red-600 ${monoClassName ?? ""}`}
+                className={`font-semibold text-[var(--account-expense)] ${monoClassName ?? ""}`}
               >
                 -{weekData.netExpense}
               </span>
@@ -284,7 +284,7 @@ export function Calendar({
                   {day.dots && day.dots.length > 0 ? (
                     <span
                       className={`h-1 w-1 rounded-full ${
-                        isSelected ? "bg-primary" : "bg-red-500"
+                        isSelected ? "bg-primary" : "bg-[var(--account-expense)]"
                       }`}
                     />
                   ) : null}
@@ -376,8 +376,8 @@ function MovementRow({ movement, currencySymbol, locale, monoClassName }: Moveme
         <div
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border text-base font-semibold ${
             isIncome
-              ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600"
-              : "border-rose-500/30 bg-rose-500/15 text-rose-600"
+              ? "border-[var(--account-income-light)] bg-[var(--account-income-bg)] text-[var(--account-income)]"
+              : "border-[var(--account-expense-light)] bg-[var(--account-expense-bg)] text-[var(--account-expense)]"
           }`}
         >
           {isIncome ? "↑" : "↓"}
@@ -396,7 +396,7 @@ function MovementRow({ movement, currencySymbol, locale, monoClassName }: Moveme
       </div>
       <span
         className={`shrink-0 text-sm font-semibold ${
-          isIncome ? "text-green-600" : "text-red-600"
+          isIncome ? "text-[var(--account-income)]" : "text-[var(--account-expense)]"
         } ${monoClassName ?? ""}`}
       >
         {isIncome ? "+" : "-"}
@@ -456,7 +456,7 @@ function NextProgrammed({
 
         <span
           className={`shrink-0 text-sm font-semibold ${
-            isIncome ? "text-green-600" : "text-muted-foreground"
+            isIncome ? "text-[var(--account-income)]" : "text-[var(--account-expense)]"
           } ${monoClassName ?? ""}`}
         >
           {isIncome ? "+" : "-"}

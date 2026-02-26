@@ -135,6 +135,7 @@ export default function HomeScreen() {
   const [obligations, setObligations] = useState<Obligation[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectContributions, setProjectContributions] = useState<ProjectContribution[]>([]);
+  const [projectParticipantCount, setProjectParticipantCount] = useState(1);
   const [goalHistory, setGoalHistory] = useState<Array<{ completed: boolean | null }>>([]);
   const [goalTargetMinor, setGoalTargetMinor] = useState<string | null>(null);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
@@ -162,6 +163,42 @@ export default function HomeScreen() {
   }, [mainAccount, user]);
 
   const canEdit = activeRole !== "viewer";
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProjectParticipantCount() {
+      if (!isFocused || !mainAccount?.id) {
+        if (!cancelled) setProjectParticipantCount(1);
+        return;
+      }
+
+      try {
+        const { count, error: membersError } = await supabase
+          .from("account_members")
+          .select("user_id", { count: "exact", head: true })
+          .eq("account_id", mainAccount.id);
+
+        if (membersError) throw membersError;
+
+        const safeCount = typeof count === "number" && count >= 1 ? count : 1;
+        if (!cancelled) {
+          setProjectParticipantCount(safeCount);
+        }
+      } catch (membersError) {
+        console.warn("[Home] Could not load participant count for project widget:", membersError);
+        if (!cancelled) {
+          setProjectParticipantCount(1);
+        }
+      }
+    }
+
+    void loadProjectParticipantCount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isFocused, mainAccount?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -462,27 +499,6 @@ export default function HomeScreen() {
     ? (() => {
         const targetMinor = progress.targetMinor;
         const currentMinor = progress.savedMinor;
-        const progressPercent =
-          targetMinor > 0n
-            ? Math.min(
-                100,
-                Math.max(
-                  0,
-                  (Number(currentMinor) / Number(targetMinor)) * 100
-                )
-              )
-            : 0;
-        const expectedPercent =
-          targetMinor > 0n
-            ? Math.min(
-                100,
-                Math.max(
-                  0,
-                  (Number(progress.expectedSavedMinor) / Number(targetMinor)) *
-                    100
-                )
-              )
-            : 0;
 
         let status: "on-track" | "at-risk" | "off-track" = "at-risk";
         if (currentMinor >= targetMinor) {
@@ -493,14 +509,6 @@ export default function HomeScreen() {
           status = "on-track";
         }
 
-        const statusLabel =
-          status === "on-track"
-            ? t(dictionary, "mobile.home.objectiveStatusOnTrack")
-            : status === "off-track"
-            ? t(dictionary, "mobile.home.objectiveStatusOffTrack")
-            : t(dictionary, "mobile.home.objectiveStatusAtRisk");
-
-        const targetFormatted = formatCurrencyParts(targetMinor, currencySymbol).full;
         const forecastFormatted = formatCurrencyParts(
           progress.forecastEndMinor,
           currencySymbol
@@ -526,15 +534,8 @@ export default function HomeScreen() {
 
         return {
           status,
-          statusLabel,
-          description: t(dictionary, "mobile.home.objectiveDescription", {
-            amount: targetFormatted,
-            month: monthLabel,
-          }),
           currentMinor: currentMinor.toString(),
           targetMinor: targetMinor.toString(),
-          progressPercent,
-          expectedPercent,
           messageHtml: message,
           streak: (goalHistory ?? []).map((entry) => ({
             hit: entry.completed === true,
@@ -565,9 +566,9 @@ export default function HomeScreen() {
     });
 
     let monthlyImpactPercent = 0;
-    if (objective && projectProgress.targetMinor > 0n) {
+    if (projectProgress.targetMinor > 0n && projectProgress.commitmentMinor > 0n) {
       const ratio =
-        Number(toMinor(objective.currentMinor)) / Number(projectProgress.targetMinor);
+        Number(projectProgress.commitmentMinor) / Number(projectProgress.targetMinor);
       if (Number.isFinite(ratio) && ratio > 0) {
         monthlyImpactPercent = Math.max(0, Math.round(ratio * 100));
       }
@@ -872,6 +873,7 @@ export default function HomeScreen() {
           widgetState={projectWidgetState}
           activeProject={activeProject}
           objective={objective}
+          participantCount={projectParticipantCount}
           onViewProject={(projectId) => router.push(`/(auth)/(tabs)/projects/${projectId}`)}
           onCreateProject={() => {
             if (!canEdit) {

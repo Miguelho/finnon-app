@@ -29,6 +29,7 @@ import { GoalSimulator } from "../../../../src/components/goal/GoalSimulator";
 import { GoalGamificationSection } from "../../../../src/components/goal/GoalGamification";
 import { GoalHistoryHero } from "../../../../src/components/goal/GoalHistoryHero";
 import {
+  computeGoalComposition,
   computeGoalProgress,
   computeGoalSummaryView,
   computeGoalSummaryViewV2,
@@ -374,6 +375,7 @@ export default function GoalScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [goalSummary, setGoalSummary] = useState<SavingsSummary | null>(null);
   const [savingsCandidates, setSavingsCandidates] = useState<SavingsCandidateTx[]>([]);
+  const [projectCommitmentTotalMinor, setProjectCommitmentTotalMinor] = useState<bigint>(0n);
 
   // Month navigation and history
   const monthKey = useMemo(() => toMonthKey(new Date()), []);
@@ -383,8 +385,47 @@ export default function GoalScreen() {
   const monthLabel = useMemo(() => formatMonthLabel(monthKey, locale), [monthKey, locale]);
   const canEdit = userRole !== "viewer";
   const hasInitialLoadRef = useRef(false);
+  const goalComposition = useMemo(
+    () =>
+      computeGoalComposition({
+        totalGoalMinor: goal?.target_amount_base_minor ?? 0,
+        projectsCommitmentMinor: projectCommitmentTotalMinor,
+      }),
+    [goal, projectCommitmentTotalMinor]
+  );
+  const effectiveGoal = useMemo<FinancialGoal | null>(() => {
+    if (goalComposition.totalMinor <= 0n) {
+      return null;
+    }
 
-  const fetchGoalSummary = useCallback(async () => {
+    if (goal) {
+      try {
+        const rawTargetMinor = BigInt(goal.target_amount_base_minor);
+        if (rawTargetMinor >= goalComposition.totalMinor) {
+          return goal;
+        }
+      } catch {
+        // Fall through to normalized synthetic target below.
+      }
+
+      return {
+        ...goal,
+        target_amount_base_minor: goalComposition.totalMinor.toString(),
+      };
+    }
+
+    return {
+      id: "project-commitments-goal",
+      account_id: selectedAccountId ?? "",
+      month: monthKey,
+      type: "save",
+      target_amount_base_minor: goalComposition.totalMinor.toString(),
+      created_by: user?.id ?? "system",
+    };
+  }, [goal, goalComposition.totalMinor, monthKey, selectedAccountId, user?.id]);
+  const hasGoalContext = effectiveGoal !== null;
+
+  const fetchGoalSummary = useCallback(async (targetMinorOverride?: bigint) => {
     if (!selectedAccountId) return;
     try {
       const accessToken = await getSessionAccessToken();
@@ -397,8 +438,15 @@ export default function GoalScreen() {
         month: monthKey,
         origin: "goal",
       });
+      const targetMinor = targetMinorOverride ?? goalComposition.totalMinor;
+      const querySuffix =
+        targetMinor > 0n
+          ? `${params.toString()}&targetMinor=${encodeURIComponent(
+              targetMinor.toString()
+            )}`
+          : params.toString();
       const response = await fetch(
-        `${apiUrl}/api/goal/savings-candidates?${params.toString()}`,
+        `${apiUrl}/api/goal/savings-candidates?${querySuffix}`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -422,7 +470,7 @@ export default function GoalScreen() {
     } catch (err) {
       console.error("[GoalScreen] Summary error:", err);
     }
-  }, [dictionary, monthKey, selectedAccountId]);
+  }, [dictionary, goalComposition.totalMinor, monthKey, selectedAccountId]);
 
   const fetchGoalHistory = useCallback(async () => {
     if (!selectedAccountId) return;
@@ -473,10 +521,10 @@ export default function GoalScreen() {
       const summaryNow = goalSummary.today
         ? new Date(`${goalSummary.today}T00:00:00`)
         : undefined;
-      return computeGoalProgress({ goal, totals: summaryTotals, now: summaryNow });
+      return computeGoalProgress({ goal: effectiveGoal, totals: summaryTotals, now: summaryNow });
     }
-    return computeGoalProgress({ goal, totals });
-  }, [goal, goalSummary, totals]);
+    return computeGoalProgress({ goal: effectiveGoal, totals });
+  }, [effectiveGoal, goalSummary, totals]);
   const summaryView = useMemo(
     () => computeGoalSummaryView(goalSummary),
     [goalSummary]
@@ -565,8 +613,8 @@ export default function GoalScreen() {
     return goalHistory[goalHistory.length - 1]?.month;
   }, [goalHistory]);
 
-  const canGoBack = goal ? !minMonth || selectedMonth > minMonth : false;
-  const canGoForward = goal ? !isCurrentMonth(selectedMonth) : false;
+  const canGoBack = hasGoalContext ? !minMonth || selectedMonth > minMonth : false;
+  const canGoForward = hasGoalContext ? !isCurrentMonth(selectedMonth) : false;
 
   const handlePreviousMonth = () => {
     if (canGoBack) {
@@ -684,7 +732,7 @@ export default function GoalScreen() {
     return "warning";
   }, [displayProgress?.status, goalSummary, heroDisplay]);
 
-  const monthNavigator = goal ? (
+  const monthNavigator = hasGoalContext ? (
     <View style={styles.monthNavRow}>
       <TouchableOpacity
         onPress={handlePreviousMonth}
@@ -826,7 +874,7 @@ export default function GoalScreen() {
 
       const { start } = getMonthRangeFromKey(monthKey);
       const todayKey = new Date().toISOString().slice(0, 10);
-      const [goalData, transactionsResult] = await Promise.all([
+      const [goalData, transactionsResult, projectsResult] = await Promise.all([
         getMonthlyGoal(supabase, selectedAccountId, monthKey),
         supabase
           .from("transactions")
@@ -834,16 +882,39 @@ export default function GoalScreen() {
           .eq("account_id", selectedAccountId)
           .gte("date", start)
           .lte("date", todayKey),
+        supabase
+          .from("projects")
+          .select("monthly_commitment_base_minor")
+          .eq("account_id", selectedAccountId)
+          .eq("status", "active"),
       ]);
       const { data: transactionsData, error: transactionsError } = transactionsResult;
       if (transactionsError) throw transactionsError;
+      const { data: projectsData, error: projectsError } = projectsResult;
+      if (projectsError) throw projectsError;
+
+      const commitmentsTotal = (
+        (projectsData as Array<{ monthly_commitment_base_minor: unknown }> | null) ?? []
+      ).reduce((sum, row) => {
+        const rawValue = row?.monthly_commitment_base_minor;
+        try {
+          return sum + BigInt(rawValue as bigint | number | string);
+        } catch {
+          return sum;
+        }
+      }, 0n);
+      const normalizedGoalComposition = computeGoalComposition({
+        totalGoalMinor: goalData?.target_amount_base_minor ?? 0,
+        projectsCommitmentMinor: commitmentsTotal,
+      });
 
       setGoal(goalData);
       setTransactions((transactionsData as GoalTransaction[]) ?? []);
+      setProjectCommitmentTotalMinor(commitmentsTotal);
       hasInitialLoadRef.current = true;
 
       // Non-critical data is fetched in background to reduce TTI.
-      void fetchGoalSummary();
+      void fetchGoalSummary(normalizedGoalComposition.totalMinor);
       if (goalData) {
         void fetchGoalHistory();
         void fetchGamification();
@@ -873,8 +944,8 @@ export default function GoalScreen() {
 
   const handleOpenEditor = () => {
     setFormError(null);
-    if (goal) {
-      const value = formatMinorToMoney(displayProgress?.targetMinor ?? 0n, baseCurrency);
+    if (hasGoalContext) {
+      const value = formatMinorToMoney(goalComposition.totalMinor, baseCurrency);
       setAmountInput(value);
     } else {
       setAmountInput("");
@@ -897,6 +968,19 @@ export default function GoalScreen() {
       return;
     }
 
+    if (parsed < goalComposition.fromProjectsMinor) {
+      setFormError(
+        t(dictionary, "goal.minimumFromProjects", {
+          amount: formatMoneyWithSymbol(
+            goalComposition.fromProjectsMinor,
+            baseCurrency,
+            currencySymbol
+          ),
+        })
+      );
+      return;
+    }
+
     setIsSaving(true);
     setFormError(null);
 
@@ -909,7 +993,7 @@ export default function GoalScreen() {
         createdBy: user.id,
       });
       setGoal(nextGoal);
-      fetchGoalSummary();
+      fetchGoalSummary(parsed);
       setIsSheetOpen(false);
     } catch (err: any) {
       console.error("[GoalScreen] Save error:", err);
@@ -981,8 +1065,37 @@ export default function GoalScreen() {
             { paddingTop: tokens.spacing.lg, paddingBottom: 120 + insets.bottom },
           ]}
         >
+          {goalComposition.fromProjectsMinor > 0n ? (
+            <Card>
+              <View style={styles.compositionCardBody}>
+                <Text style={[styles.compositionTitle, { color: userThemeTokens.textPrimary }]}>
+                  {t(dictionary, "goal.compositionTitle")}
+                </Text>
+                <Text style={[styles.compositionText, { color: userThemeTokens.textSecondary }]}>
+                  {t(dictionary, "goal.compositionBreakdown", {
+                    projects: formatMoneyWithSymbol(
+                      goalComposition.fromProjectsMinor,
+                      baseCurrency,
+                      currencySymbol
+                    ),
+                    manual: formatMoneyWithSymbol(
+                      goalComposition.manualMinor,
+                      baseCurrency,
+                      currencySymbol
+                    ),
+                    total: formatMoneyWithSymbol(
+                      goalComposition.totalMinor,
+                      baseCurrency,
+                      currencySymbol
+                    ),
+                  })}
+                </Text>
+              </View>
+            </Card>
+          ) : null}
+
           {/* CURRENT MONTH VIEW */}
-          {goal && isViewingCurrentMonth ? (
+          {hasGoalContext && isViewingCurrentMonth ? (
             <>
             <Card>
             {/* V3: Simplified hero */}
@@ -1161,7 +1274,7 @@ export default function GoalScreen() {
             />
           )}
         </>
-        ) : goal && currentHistoryView ? (
+        ) : hasGoalContext && currentHistoryView ? (
           /* PAST MONTH VIEW */
           <>
             <GoalHistoryHero
@@ -1172,7 +1285,7 @@ export default function GoalScreen() {
               monthNavigator={monthNavigator}
             />
           </>
-        ) : goal && !isViewingCurrentMonth ? (
+        ) : hasGoalContext && !isViewingCurrentMonth ? (
           /* PAST MONTH - NO DATA */
           <>
             <Card style={styles.emptyCard}>
@@ -1288,6 +1401,18 @@ const styles = StyleSheet.create({
   },
   cardSection: {
     gap: tokens.spacing.sm,
+  },
+  compositionCardBody: {
+    gap: tokens.spacing.xs,
+  },
+  compositionTitle: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+    color: colors.text.primary,
+  },
+  compositionText: {
+    fontSize: tokens.typography.size.sm,
+    color: colors.text.secondary,
   },
   // V3: Simplified hero styles
   heroEditRow: {

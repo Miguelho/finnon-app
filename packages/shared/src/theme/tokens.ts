@@ -48,8 +48,8 @@ export const themeTokens = {
         disabled: "#C7D2FE",
       },
       state: {
-        positive: "#2E7D65",
-        negative: "#B23B3B",
+        positive: "#22A06B",
+        negative: "#DE350B",
         warning: "#E8B45C",
         neutral: "#DADCE0",
       },
@@ -107,8 +107,8 @@ export const themeTokens = {
         disabled: "#3A3D44",
       },
       state: {
-        positive: "#4CAF91",
-        negative: "#E57373",
+        positive: "#22A06B",
+        negative: "#DE350B",
         warning: "#D9A957",
         neutral: "#2A2D34",
       },

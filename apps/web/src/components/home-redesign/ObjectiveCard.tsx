@@ -5,12 +5,8 @@ type ObjectiveStatus = "on-track" | "at-risk" | "off-track";
 
 type ObjectiveData = {
   status: ObjectiveStatus;
-  statusLabel: string;
-  description: string;
   currentMinor: bigint | string | number;
   targetMinor: bigint | string | number;
-  progressPercent: number;
-  expectedPercent: number;
   messageHtml: string;
   streak: Array<{ hit: boolean }>;
 };
@@ -39,8 +35,8 @@ export function ObjectiveCard({
   > = {
     "on-track": {
       icon: "✓",
-      bgClass: "bg-green-500/15",
-      progressClass: "bg-green-600",
+      bgClass: "bg-[var(--account-income-bg)] text-[var(--account-income)]",
+      progressClass: "bg-[var(--account-income)]",
     },
     "at-risk": {
       icon: "⚠",
@@ -49,8 +45,8 @@ export function ObjectiveCard({
     },
     "off-track": {
       icon: "✕",
-      bgClass: "bg-red-500/15",
-      progressClass: "bg-red-600",
+      bgClass: "bg-[var(--account-expense-bg)] text-[var(--account-expense)]",
+      progressClass: "bg-[var(--account-expense)]",
     },
   };
 
@@ -65,6 +61,13 @@ export function ObjectiveCard({
     currencySymbol,
     locale
   );
+
+  const savedNum = Number(toMinor(objective.currentMinor));
+  const targetNum = Number(toMinor(objective.targetMinor));
+  const barScale = Math.max(savedNum, targetNum, 1);
+  const clampPercent = (v: number) => Math.min(100, Math.max(0, v));
+  const fillPercent = clampPercent(Math.round((Math.max(0, savedNum) / barScale) * 100));
+  const markerPercent = clampPercent(Math.round((targetNum / barScale) * 100));
 
   return (
     <div className="rounded-xl border border-border bg-card p-5">
@@ -89,12 +92,11 @@ export function ObjectiveCard({
         >
           {config.icon}
         </div>
-        <div>
-          <p className="text-sm font-semibold text-foreground">
-            {objective.statusLabel}
-          </p>
-          <p className="text-xs text-muted-foreground">{objective.description}</p>
-        </div>
+        <p className="text-sm font-semibold text-foreground">
+          {t("mobile.home.objectiveHeadlineLabel", {
+            amount: target.full,
+          })}
+        </p>
       </div>
 
       <div className="mb-3">
@@ -103,25 +105,43 @@ export function ObjectiveCard({
             className={`h-full rounded-full transition-all duration-500 ${
               config.progressClass
             }`}
-            style={{ width: `${objective.progressPercent}%` }}
+            style={{ width: `${fillPercent}%` }}
           />
           <div
-            className="absolute -top-0.5 h-2.5 w-0.5 rounded-sm bg-muted-foreground"
-            style={{ left: `${objective.expectedPercent}%` }}
+            className="absolute -top-0.5 h-2.5 w-0.5 rounded-sm bg-foreground"
+            style={{ left: `${markerPercent}%` }}
           />
         </div>
-        <div className="mt-1.5 flex justify-between">
-          <span className="text-xs text-muted-foreground">
-            <strong
-              className={`font-semibold text-foreground ${monoClassName ?? ""}`}
-            >
-              {current.full}
-            </strong>{" "}
-            {t("mobile.home.objectiveSavedSuffix")}
-          </span>
-          <span className={`text-xs text-muted-foreground ${monoClassName ?? ""}`}>
-            {t("mobile.home.objectiveOfPrefix")} {target.full}
-          </span>
+        <div className="mt-1.5 flex text-xs">
+          {savedNum > targetNum ? (
+            <>
+              <span className={`text-right text-muted-foreground ${monoClassName ?? ""}`} style={{ flex: markerPercent }}>
+                {target.full}
+              </span>
+              <strong className={`text-right text-foreground ${monoClassName ?? ""}`} style={{ flex: 100 - markerPercent }}>
+                {current.full}
+              </strong>
+            </>
+          ) : savedNum < targetNum ? (
+            <>
+              <strong className={`text-foreground ${monoClassName ?? ""}`}>
+                {current.full}
+              </strong>
+              <span className={`flex-1 text-right text-muted-foreground ${monoClassName ?? ""}`}>
+                {target.full}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="flex-1" />
+              <strong
+                className={monoClassName ?? ""}
+                style={{ color: "var(--account-income)" }}
+              >
+                {current.full} ✓
+              </strong>
+            </>
+          )}
         </div>
       </div>
 
@@ -138,7 +158,7 @@ export function ObjectiveCard({
             <span
               key={i}
               className={`h-2 w-2 rounded-full ${
-                month.hit ? "bg-green-600" : "bg-border"
+                month.hit ? "bg-[var(--account-income)]" : "bg-border"
               }`}
             />
           ))}
