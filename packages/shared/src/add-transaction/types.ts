@@ -55,6 +55,8 @@ export type TransactionDraft = {
   currency: string;
   /** Step 2 - Selected category ID */
   categoryId: string | null;
+  /** Step 2 - Category suggested by quick-add (preselection hint) */
+  suggestedCategoryId: string | null;
   /** Step 2 - Merchant name (free text) */
   merchant: string;
   /** Step 3 - Notes/description */
@@ -121,6 +123,7 @@ export function createInitialDraft(
     amount: "",
     currency,
     categoryId: null,
+    suggestedCategoryId: null,
     merchant: "",
     notes: "",
     photos: [],

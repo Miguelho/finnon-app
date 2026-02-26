@@ -40,7 +40,7 @@ import { Button } from "../Button";
 import { DatePickerField } from "../DatePickerField";
 import { TransactionStepperBreadcrumb } from "./TransactionStepperBreadcrumb";
 import { FormModeToggle } from "./FormModeToggle";
-import { Step1Details, Step2Category, Step3Notes } from "./steps";
+import { Step0QuickAdd, Step1Details, Step2Category, Step3Notes } from "./steps";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -85,7 +85,7 @@ type FormParticipant = {
 
 type SubmitMode = "transaction" | "recurring";
 
-type FormStepKey = "details" | "recurring" | "category" | "notes";
+type FormStepKey = "quickAdd" | "details" | "recurring" | "category" | "notes";
 
 type RecurringSubmitData = {
   frequency: RecurringFrequency;
@@ -153,9 +153,12 @@ export function AddTransactionForm({
     useUserTheme();
   const translateDynamic = (key: string) => t(dictionary, key as never);
   const isRecurringMode = submitMode === "recurring";
+  const useQuickAddStep = mode === "create" && !isRecurringMode;
   const stepOrder: FormStepKey[] = isRecurringMode
     ? ["details", "recurring", "category", "notes"]
-    : ["details", "category", "notes"];
+    : useQuickAddStep
+      ? ["quickAdd", "details", "category", "notes"]
+      : ["details", "category", "notes"];
   const totalSteps = stepOrder.length;
   const activeSplitParticipants = useMemo(
     () =>
@@ -321,6 +324,10 @@ export function AddTransactionForm({
 
     if (stepKey === "details") {
       return validateStep1(draft);
+    }
+
+    if (stepKey === "quickAdd") {
+      return { valid: true, errors: {} };
     }
 
     if (stepKey === "recurring") {
@@ -675,6 +682,7 @@ export function AddTransactionForm({
   );
 
   const getStepLabel = (stepKey: FormStepKey) => {
+    if (stepKey === "quickAdd") return translateDynamic("addTransaction.stepQuickAdd");
     if (stepKey === "details") return translateDynamic("addTransaction.stepDetails");
     if (stepKey === "recurring") return translateDynamic("transactions.repeat.label");
     if (stepKey === "category") return translateDynamic("addTransaction.stepCategory");
@@ -718,6 +726,26 @@ export function AddTransactionForm({
               },
             ]}
           >
+            {useQuickAddStep && (
+              <View style={styles.carouselStep}>
+                <KeyboardAwareScrollView
+                  style={styles.stepScrollView}
+                  contentContainerStyle={styles.stepContent}
+                  enableOnAndroid
+                  extraScrollHeight={80}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <Step0QuickAdd
+                    accountId={accountId}
+                    categories={categories}
+                    draft={draft}
+                    onFieldChange={handleFieldChange}
+                    onContinueManual={handleNext}
+                  />
+                </KeyboardAwareScrollView>
+              </View>
+            )}
+
             <View style={styles.carouselStep}>
               <KeyboardAwareScrollView
                 style={styles.stepScrollView}
@@ -855,6 +883,17 @@ export function AddTransactionForm({
         extraScrollHeight={80}
         keyboardShouldPersistTaps="handled"
       >
+        {useQuickAddStep && (
+          <View style={styles.listSection}>
+            <Step0QuickAdd
+              accountId={accountId}
+              categories={categories}
+              draft={draft}
+              onFieldChange={handleFieldChange}
+            />
+          </View>
+        )}
+
         <View style={styles.listSection}>
           <Step1Details
             draft={draft}

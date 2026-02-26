@@ -106,6 +106,7 @@ export default function EditTransactionScreen(): React.JSX.Element {
       amount: formatMinorToMoney(amountMinor, row.currency, CURRENCY_MINOR_UNITS),
       currency: row.currency,
       categoryId: row.category_id,
+      suggestedCategoryId: null,
       merchant: row.merchant ?? "",
       notes: row.notes ?? "",
       photos: [],

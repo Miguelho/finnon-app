@@ -105,6 +105,12 @@ export function Step1Details({
 
   const handleTypeChange = (type: TransactionType) => {
     onFieldChange("type", type);
+    if (draft.suggestedCategoryId) {
+      if (draft.categoryId === draft.suggestedCategoryId) {
+        onFieldChange("categoryId", null);
+      }
+      onFieldChange("suggestedCategoryId", null);
+    }
     // If switching to income while obligation is on, turn it off
     if (type === "income" && draft.isObligation) {
       clearObligation();

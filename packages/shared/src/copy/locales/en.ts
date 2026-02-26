@@ -1543,6 +1543,7 @@ export const en = {
     typeExpense: "Expense",
 
     // Stepper
+    stepQuickAdd: "Quick add",
     stepDetails: "Details",
     stepCategory: "Category",
     stepNotes: "Notes",
@@ -1573,6 +1574,10 @@ export const en = {
     splitPersonalOption: "Only mine",
     splitCustomOption: "Custom",
     splitCustomHelper: "Adjust each member amount so it matches the total",
+    quickAddLabel: "Quick add",
+    quickAddEmpty:
+      "As you log more transactions, we will suggest your most frequent ones so you can add them with one tap.",
+    quickAddContinueManual: "Continue with manual entry",
 
     // Step 2 - Category & Merchant
     categoryLabel: "Category",

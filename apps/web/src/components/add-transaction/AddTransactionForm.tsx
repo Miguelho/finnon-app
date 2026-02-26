@@ -16,6 +16,7 @@ import {
 import { TransactionStepperBreadcrumb } from "./TransactionStepperBreadcrumb";
 import { TransactionStepCarousel } from "./TransactionStepCarousel";
 import { FormModeToggle } from "./FormModeToggle";
+import { Step0QuickAdd } from "./steps/Step0QuickAdd";
 import { Step1Details } from "./steps/Step1Details";
 import { Step2Category } from "./steps/Step2Category";
 import { Step3Notes } from "./steps/Step3Notes";
@@ -75,7 +76,7 @@ type FormParticipant = {
 };
 
 type SubmitMode = "transaction" | "recurring";
-type FormStepKey = "details" | "recurring" | "category" | "notes";
+type FormStepKey = "quickAdd" | "details" | "recurring" | "category" | "notes";
 
 type RecurringSubmitData = {
   frequency: RecurringFrequency;
@@ -143,9 +144,12 @@ export function AddTransactionForm({
     tGlobal(key as never, params as never);
 
   const isRecurringMode = submitMode === "recurring";
+  const useQuickAddStep = mode === "create" && !isRecurringMode;
   const stepOrder: FormStepKey[] = isRecurringMode
     ? ["details", "recurring", "category", "notes"]
-    : ["details", "category", "notes"];
+    : useQuickAddStep
+      ? ["quickAdd", "details", "category", "notes"]
+      : ["details", "category", "notes"];
   const totalSteps = stepOrder.length;
   const activeSplitParticipants = React.useMemo(
     () =>
@@ -300,6 +304,10 @@ export function AddTransactionForm({
 
     if (stepKey === "details") {
       return validateStep1(draft);
+    }
+
+    if (stepKey === "quickAdd") {
+      return { valid: true, errors: {} };
     }
 
     if (stepKey === "recurring") {
@@ -601,6 +609,7 @@ export function AddTransactionForm({
   );
 
   const getStepLabel = (stepKey: FormStepKey) => {
+    if (stepKey === "quickAdd") return t("stepQuickAdd");
     if (stepKey === "details") return t("stepDetails");
     if (stepKey === "recurring") return tTransactions("repeat.label");
     if (stepKey === "category") return t("stepCategory");
@@ -623,6 +632,19 @@ export function AddTransactionForm({
   // Render step content
   const renderStepContent = (step: number) => {
     const stepKey = getStepKey(step);
+
+    if (stepKey === "quickAdd") {
+      return (
+        <Step0QuickAdd
+          accountId={accountId}
+          locale={locale}
+          categories={categories}
+          draft={draft}
+          onFieldChange={handleFieldChange}
+          onContinueManual={formMode === "panels" ? handleNext : undefined}
+        />
+      );
+    }
 
     if (stepKey === "details") {
       return (

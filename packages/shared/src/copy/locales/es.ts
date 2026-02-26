@@ -1546,6 +1546,7 @@ export const es = {
     typeExpense: "Gasto",
 
     // Stepper
+    stepQuickAdd: "Rápido",
     stepDetails: "Detalles",
     stepCategory: "Categoría",
     stepNotes: "Notas",
@@ -1576,6 +1577,10 @@ export const es = {
     splitPersonalOption: "Solo mío",
     splitCustomOption: "Personalizado",
     splitCustomHelper: "Ajusta importes por persona para que sumen el total",
+    quickAddLabel: "Añadido rápido",
+    quickAddEmpty:
+      "A medida que registres movimientos, te sugeriremos los más frecuentes para que los añadas con un toque.",
+    quickAddContinueManual: "Continuar con registro manual",
 
     // Paso 2 - Categoría y Comercio
     categoryLabel: "Categoría",

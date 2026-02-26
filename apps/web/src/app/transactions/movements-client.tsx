@@ -1365,6 +1365,7 @@ export function MovementsClient({
         ),
         currency: transaction.currency,
         categoryId: transaction.category_id ?? null,
+        suggestedCategoryId: null,
         merchant: transaction.merchant ?? "",
         notes: transaction.notes ?? "",
         photos: [],

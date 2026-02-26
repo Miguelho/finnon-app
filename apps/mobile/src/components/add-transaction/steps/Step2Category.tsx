@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
 import {
   themeTokens,
@@ -54,11 +54,23 @@ export function Step2Category({
 
   const handleCategorySelect = (categoryId: string) => {
     onFieldChange("categoryId", categoryId);
+    if (draft.suggestedCategoryId) {
+      onFieldChange("suggestedCategoryId", null);
+    }
   };
 
   const selectedCategory = filteredCategories.find(
     (cat) => cat.id === draft.categoryId
   );
+
+  useEffect(() => {
+    if (draft.categoryId || !draft.suggestedCategoryId) return;
+    const exists = filteredCategories.some(
+      (category) => category.id === draft.suggestedCategoryId
+    );
+    if (!exists) return;
+    onFieldChange("categoryId", draft.suggestedCategoryId);
+  }, [draft.categoryId, draft.suggestedCategoryId, filteredCategories, onFieldChange]);
 
   return (
     <View style={styles.container}>
