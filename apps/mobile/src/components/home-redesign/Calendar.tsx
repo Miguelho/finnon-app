@@ -78,6 +78,15 @@ export type DayDetailData = {
   movements: DayMovement[];
 };
 
+export type NextProgrammedItem = {
+  id: string;
+  name: string;
+  amountMinor: bigint;
+  type: "income" | "expense";
+  dateLabel: string;
+  category?: string | null;
+};
+
 type CalendarProps = {
   view: "week" | "month";
   onViewChange: (view: "week" | "month") => void;
@@ -88,6 +97,8 @@ type CalendarProps = {
   onPrevPeriod?: () => void;
   onNextPeriod?: () => void;
   currencySymbol: string;
+  nextProgrammed?: NextProgrammedItem | null;
+  onViewAllProgrammed?: () => void;
 };
 
 export function Calendar({
@@ -100,6 +111,8 @@ export function Calendar({
   onPrevPeriod,
   onNextPeriod,
   currencySymbol,
+  nextProgrammed,
+  onViewAllProgrammed,
 }: CalendarProps) {
   const { dictionary, locale } = useCopy();
   const {
@@ -236,15 +249,19 @@ export function Calendar({
                     {day.dayNumber}
                   </Text>
                   <View style={styles.dotRow}>
-                    {day.dots?.map((dot, index) => (
+                    {day.dots && day.dots.length > 0 ? (
                       <View
-                        key={`${day.date}-${index}`}
                         style={[
                           styles.dot,
-                          dot.type === "income" ? styles.dotIncome : styles.dotExpense,
+                          {
+                            backgroundColor: isSelected
+                              ? primaryActionColor
+                              : modeColors.state.negative,
+                            marginRight: 0,
+                          },
                         ]}
                       />
-                    ))}
+                    ) : null}
                   </View>
                 </TouchableOpacity>
               );
@@ -319,15 +336,19 @@ export function Calendar({
                   {day.dayNumber}
                 </Text>
                 <View style={styles.dotRowSmall}>
-                  {day.dots?.map((dot, dotIndex) => (
+                  {day.dots && day.dots.length > 0 ? (
                     <View
-                      key={`${day.date}-dot-${dotIndex}`}
                       style={[
                         styles.dotSmall,
-                        dot.type === "income" ? styles.dotIncome : styles.dotExpense,
+                        {
+                          backgroundColor: isSelected
+                            ? primaryActionColor
+                            : modeColors.state.negative,
+                          marginRight: 0,
+                        },
                       ]}
                     />
-                  ))}
+                  ) : null}
                 </View>
               </TouchableOpacity>
             );
@@ -352,6 +373,18 @@ export function Calendar({
           expenseIconBorder={expenseIconBorder}
         />
       )}
+
+      {nextProgrammed ? (
+        <NextProgrammed
+          item={nextProgrammed}
+          onViewAll={onViewAllProgrammed}
+          currencySymbol={currencySymbol}
+          userBorder={userTokens.border}
+          userTextPrimary={userTokens.textPrimary}
+          userTextSecondary={userTokens.textSecondary}
+          primaryActionColor={primaryActionColor}
+        />
+      ) : null}
     </View>
   );
 }
@@ -494,6 +527,72 @@ function MovementRow({
         {isIncome ? "+" : "-"}
         {integer},{decimals}
       </Text>
+    </View>
+  );
+}
+
+type NextProgrammedProps = {
+  item: NextProgrammedItem;
+  onViewAll?: () => void;
+  currencySymbol: string;
+  userBorder: string;
+  userTextPrimary: string;
+  userTextSecondary: string;
+  primaryActionColor: string;
+};
+
+function NextProgrammed({
+  item,
+  onViewAll,
+  currencySymbol,
+  userBorder,
+  userTextPrimary,
+  userTextSecondary,
+  primaryActionColor,
+}: NextProgrammedProps) {
+  const { dictionary } = useCopy();
+  const isIncome = item.type === "income";
+  const { integer, decimals } = formatCurrencyParts(item.amountMinor, currencySymbol);
+
+  return (
+    <View style={[styles.nextProgrammed, { borderTopColor: userBorder }]}>
+      <View style={styles.nextProgrammedHeader}>
+        <Text style={[styles.nextProgrammedLabel, { color: userTextSecondary }]}>
+          {t(dictionary, "mobile.home.calendarNextProgrammed")}
+        </Text>
+        <TouchableOpacity onPress={onViewAll}>
+          <Text style={[styles.nextProgrammedLink, { color: primaryActionColor }]}>
+            {t(dictionary, "mobile.home.programmedViewAll")}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.nextProgrammedRow}>
+        <View style={styles.nextProgrammedInfo}>
+          <View style={styles.nextProgrammedIcon}>
+            <Text style={styles.nextProgrammedIconText}>⏱</Text>
+          </View>
+          <View>
+            <Text style={[styles.nextProgrammedTitle, { color: userTextPrimary }]}>
+              {item.name}
+            </Text>
+            <Text style={[styles.nextProgrammedDate, { color: userTextSecondary }]}>
+              {item.dateLabel}
+              {item.category ? ` · ${item.category}` : ""}
+            </Text>
+          </View>
+        </View>
+
+        <Text
+          style={[
+            styles.nextProgrammedAmount,
+            { color: isIncome ? colors.state.positive : userTextSecondary },
+          ]}
+        >
+          {isIncome ? "+" : "-"}
+          {integer},{decimals}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -737,5 +836,66 @@ const styles = StyleSheet.create({
     fontWeight: tokens.typography.weight.medium,
     fontFamily: "JetBrainsMono-Medium",
     marginLeft: tokens.spacing.sm,
+  },
+  nextProgrammed: {
+    borderTopWidth: 1,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.md,
+  },
+  nextProgrammedHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: tokens.spacing.sm,
+  },
+  nextProgrammedLabel: {
+    fontSize: tokens.typography.size.xs,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    fontFamily: "DMSans-Medium",
+  },
+  nextProgrammedLink: {
+    fontSize: tokens.typography.size.xs,
+    fontWeight: tokens.typography.weight.semibold,
+    fontFamily: "DMSans-SemiBold",
+  },
+  nextProgrammedRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+  },
+  nextProgrammedInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  nextProgrammedIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: tokens.spacing.sm,
+    backgroundColor: "rgba(255, 183, 77, 0.12)",
+  },
+  nextProgrammedIconText: {
+    fontSize: 16,
+    color: "#FFB74D",
+    fontFamily: "DMSans-SemiBold",
+  },
+  nextProgrammedTitle: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.medium,
+    fontFamily: "DMSans-Medium",
+  },
+  nextProgrammedDate: {
+    fontSize: tokens.typography.size.xs,
+    fontFamily: "DMSans-Regular",
+  },
+  nextProgrammedAmount: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.medium,
+    fontFamily: "JetBrainsMono-Medium",
   },
 });

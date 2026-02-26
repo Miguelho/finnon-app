@@ -25,16 +25,18 @@ export function BalanceHeader({
 
   return (
     <div className="mb-8 text-center">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
         {t("mobile.home.balanceLabel")}
       </p>
       <p
-        className={`text-[42px] font-medium leading-tight text-foreground sm:text-[42px] ${
+        className={`text-[44px] font-semibold leading-none tracking-[-0.04em] text-foreground sm:text-[44px] ${
           monoClassName ?? ""
         }`}
       >
         {integer}
-        <span className="text-2xl text-muted-foreground">,{decimals}</span>
+        <span className="text-[22px] font-normal text-muted-foreground">
+          ,{decimals}
+        </span>
       </p>
       <p className="mt-1 text-sm text-muted-foreground">{monthLabel}</p>
     </div>

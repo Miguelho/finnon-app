@@ -29,8 +29,6 @@ import { GoalSimulator } from "../../../../src/components/goal/GoalSimulator";
 import { GoalGamificationSection } from "../../../../src/components/goal/GoalGamification";
 import { GoalHistoryHero } from "../../../../src/components/goal/GoalHistoryHero";
 import {
-  addMonths,
-  computeGoalInsights,
   computeGoalProgress,
   computeGoalSummaryView,
   computeGoalSummaryViewV2,
@@ -74,7 +72,6 @@ import { useCopy, t } from "../../../../src/lib/i18n";
 const tokens = themeTokens.light;
 const colors = tokens.colors;
 const typography = createTypographyStyles(tokens);
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
 
@@ -367,7 +364,6 @@ export default function GoalScreen() {
 
   const [goal, setGoal] = useState<FinancialGoal | null>(null);
   const [transactions, setTransactions] = useState<GoalTransaction[]>([]);
-  const [previousExpenseTotalMinor, setPreviousExpenseTotalMinor] = useState<bigint | null>(null);
   const [baseCurrency, setBaseCurrency] = useState("EUR");
   const [userRole, setUserRole] = useState<UserRole>("viewer");
   const [loading, setLoading] = useState(true);
@@ -384,9 +380,9 @@ export default function GoalScreen() {
   const [selectedMonth, setSelectedMonth] = useState(monthKey);
   const [goalHistory, setGoalHistory] = useState<GoalHistoryEntry[]>([]);
   const [gamification, setGamification] = useState<GoalGamificationData | null>(null);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const monthLabel = useMemo(() => formatMonthLabel(monthKey, locale), [monthKey, locale]);
   const canEdit = userRole !== "viewer";
+  const hasInitialLoadRef = useRef(false);
 
   const fetchGoalSummary = useCallback(async () => {
     if (!selectedAccountId) return;
@@ -431,7 +427,6 @@ export default function GoalScreen() {
   const fetchGoalHistory = useCallback(async () => {
     if (!selectedAccountId) return;
     try {
-      setIsLoadingHistory(true);
       const { data, error } = await supabase.rpc('get_goal_history', {
         p_account_id: selectedAccountId,
         p_limit: 12,
@@ -444,8 +439,6 @@ export default function GoalScreen() {
       }
     } catch (err) {
       console.error('[GoalScreen] History fetch error:', err);
-    } finally {
-      setIsLoadingHistory(false);
     }
   }, [selectedAccountId]);
 
@@ -534,27 +527,6 @@ export default function GoalScreen() {
     }
     return null;
   }, [progress, summaryView, summaryViewV2]);
-  const insightCopy = useMemo(
-    () => ({
-      forecast: (amount: string) => t(dictionary, "goal.insights.forecast", { amount }),
-      expenseUp: (amount: string) => t(dictionary, "goal.insights.expenseUp", { amount }),
-      expenseDown: (amount: string) => t(dictionary, "goal.insights.expenseDown", { amount }),
-      expenseEven: t(dictionary, "goal.insights.expenseEven"),
-      topCategories: (categories: string) =>
-        t(dictionary, "goal.insights.topCategories", { categories }),
-    }),
-    [dictionary]
-  );
-  const insightFormatters = useMemo(
-    () => ({
-      formatSignedMoney: (value: bigint) =>
-        formatSignedMoney(value, baseCurrency, currencySymbol),
-      formatMoney: (value: bigint) =>
-        formatMoneyWithSymbol(value, baseCurrency, currencySymbol),
-    }),
-    [baseCurrency, currencySymbol]
-  );
-
   const simulatorCopy = useMemo(
     () => ({
       title: t(dictionary, "goal.simulator.title"),
@@ -656,33 +628,6 @@ export default function GoalScreen() {
     exceededBy: t(dictionary, 'goal.history.exceededBy', { amount: '' }),
   }), [dictionary]);
 
-  const insights = useMemo(() => {
-    const allInsights = computeGoalInsights({
-      progress,
-      totals,
-      transactions,
-      previousExpenseTotalMinor,
-      uncategorizedLabel: t(dictionary, "transactions.uncategorized"),
-      copy: insightCopy,
-      formatters: insightFormatters,
-    });
-    // V2: Filtrar insight de "forecast" cuando hay V2, ya que el Hero ya muestra
-    // la fecha estimada de forma más precisa
-    if (summaryViewV2) {
-      return allInsights.filter((insight) => insight.id !== "forecast");
-    }
-    return allInsights;
-  }, [
-    dictionary,
-    previousExpenseTotalMinor,
-    progress,
-    totals,
-    transactions,
-    insightCopy,
-    insightFormatters,
-    summaryViewV2,
-  ]);
-
   const formattedTarget = displayProgress
     ? formatMoneyWithSymbol(displayProgress.targetMinor, baseCurrency, currencySymbol)
     : formatMoneyWithSymbol(0n, baseCurrency, currencySymbol);
@@ -690,79 +635,6 @@ export default function GoalScreen() {
   const formattedSaved = displayProgress
     ? formatSignedMoney(displayProgress.savedMinor, baseCurrency, currencySymbol)
     : formatMoneyWithSymbol(0n, baseCurrency, currencySymbol);
-
-  const formattedRemaining = displayProgress
-    ? formatMoneyWithSymbol(displayProgress.remainingMinor, baseCurrency, currencySymbol)
-    : formatMoneyWithSymbol(0n, baseCurrency, currencySymbol);
-
-  const formattedRate = displayProgress
-    ? formatMoneyWithSymbol(displayProgress.ratePerDayMinor, baseCurrency, currencySymbol)
-    : formatMoneyWithSymbol(0n, baseCurrency, currencySymbol);
-
-  const daysLeft = useMemo(() => {
-    if (goalSummary?.today && goalSummary.monthEnd) {
-      const today = new Date(`${goalSummary.today}T00:00:00`);
-      const monthEnd = new Date(`${goalSummary.monthEnd}T00:00:00`);
-      const diffDays = Math.round((monthEnd.getTime() - today.getTime()) / MS_PER_DAY);
-      return Math.max(diffDays, 0);
-    }
-    return progress?.daysLeft ?? null;
-  }, [goalSummary, progress]);
-
-  const rateHelperText = displayProgress
-    ? t(dictionary, "goal.rateHelper", { amount: formattedRate })
-    : null;
-
-  const rateTooltipText =
-    displayProgress && daysLeft !== null
-      ? t(dictionary, "goal.rateTooltip", {
-          gap: formattedRemaining,
-          days: daysLeft,
-          perDay: formattedRate,
-        })
-      : null;
-
-  const progressTooltipText = useMemo(() => {
-    if (!goalSummary) return null;
-
-    const incomeRealMinor = goalSummary.incomeRealMinor ?? goalSummary.incomeMinor;
-    const incomePendingMinor = goalSummary.incomePendingMinor ?? 0n;
-    const expenseRealMinor = goalSummary.expenseRealMinor ?? goalSummary.expenseMinor;
-    const expensePendingMinor = goalSummary.expensePendingMinor ?? 0n;
-    const savedTotalMinor =
-      (goalSummary.savedTotalMinor ?? goalSummary.savedMinor) ?? 0n;
-
-    return [
-      t(dictionary, "goal.progressTooltip.incomeReal", {
-        amount: formatMoneyWithSymbol(incomeRealMinor, baseCurrency, currencySymbol),
-      }),
-      t(dictionary, "goal.progressTooltip.incomePending", {
-        amount: formatMoneyWithSymbol(
-          incomePendingMinor,
-          baseCurrency,
-          currencySymbol
-        ),
-      }),
-      t(dictionary, "goal.progressTooltip.expenseReal", {
-        amount: formatMoneyWithSymbol(
-          expenseRealMinor,
-          baseCurrency,
-          currencySymbol
-        ),
-      }),
-      t(dictionary, "goal.progressTooltip.expensePending", {
-        amount: formatMoneyWithSymbol(
-          expensePendingMinor,
-          baseCurrency,
-          currencySymbol
-        ),
-      }),
-      t(dictionary, "goal.progressTooltip.savedTotal", {
-        amount: formatSignedMoney(savedTotalMinor, baseCurrency, currencySymbol),
-      }),
-      t(dictionary, "goal.progressTooltip.formula"),
-    ].join("\n");
-  }, [baseCurrency, currencySymbol, dictionary, goalSummary]);
 
   const progressColor = getStatusColor(displayProgress?.status ?? "neutral");
   const progressWidth = displayProgress ? `${Math.round(displayProgress.progressRatio * 100)}%` : "0%";
@@ -811,69 +683,6 @@ export default function GoalScreen() {
     if (displayProgress?.status === "negative") return "negative";
     return "warning";
   }, [displayProgress?.status, goalSummary, heroDisplay]);
-
-  // V2: Hero dinámico basado en fecha estimada
-  const heroV2Text = useMemo(() => {
-    if (!summaryViewV2) return null;
-    const { completionStatus, estimatedCompletionDate } = summaryViewV2;
-    switch (completionStatus) {
-      case "completed_today":
-        return t(dictionary, "goal.hero.completed");
-      case "completion_date": {
-        const day = getDayFromDate(estimatedCompletionDate);
-        return day !== null
-          ? t(dictionary, "goal.hero.willComplete", { day })
-          : t(dictionary, "goal.hero.notAchievable");
-      }
-      case "not_achievable":
-      default:
-        return t(dictionary, "goal.hero.notAchievable");
-    }
-  }, [dictionary, summaryViewV2]);
-
-  const heroV2Color = useMemo(() => {
-    if (!summaryViewV2) return userThemeTokens.textPrimary;
-    const { completionStatus } = summaryViewV2;
-    switch (completionStatus) {
-      case "completed_today":
-        return colors.state.positive;
-      case "completion_date":
-        return userThemeTokens.textPrimary;
-      case "not_achievable":
-        return colors.state.negative;
-      default:
-        return userThemeTokens.textPrimary;
-    }
-  }, [summaryViewV2, userThemeTokens.textPrimary]);
-
-  const monthStatusText = useMemo(() => {
-    if (!summaryViewV2?.monthStatus) return null;
-    const { monthStatus } = summaryViewV2;
-    switch (monthStatus) {
-      case "adelantado":
-        return t(dictionary, "goal.monthStatus.adelantado");
-      case "en_riesgo":
-        return t(dictionary, "goal.monthStatus.enRiesgo");
-      case "retrasado":
-        return t(dictionary, "goal.monthStatus.retrasado");
-      default:
-        return null;
-    }
-  }, [dictionary, summaryViewV2]);
-
-  const monthStatusColor = useMemo(() => {
-    if (!summaryViewV2?.monthStatus) return userThemeTokens.textSecondary;
-    const { monthStatus } = summaryViewV2;
-    switch (monthStatus) {
-      case "adelantado":
-        return colors.state.positive;
-      case "retrasado":
-        return colors.state.negative;
-      case "en_riesgo":
-      default:
-        return userThemeTokens.textSecondary;
-    }
-  }, [summaryViewV2, userThemeTokens.textSecondary]);
 
   const monthNavigator = goal ? (
     <View style={styles.monthNavRow}>
@@ -988,10 +797,13 @@ export default function GoalScreen() {
     };
   }, [baseCurrency, currencySymbol, dictionary, goalSummary, summaryViewV2]);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (options?: { blocking?: boolean }) => {
     if (!selectedAccountId || !user) return;
+    const blocking = options?.blocking ?? !hasInitialLoadRef.current;
 
-    setLoading(true);
+    if (blocking) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -1014,62 +826,49 @@ export default function GoalScreen() {
 
       const { start } = getMonthRangeFromKey(monthKey);
       const todayKey = new Date().toISOString().slice(0, 10);
-      const goalData = await getMonthlyGoal(supabase, selectedAccountId, monthKey);
-      setGoal(goalData);
-
-      const { data: transactionsData, error: transactionsError } = await supabase
-        .from("transactions")
-        .select("type, amount_minor, amount_base_minor, category:categories(id, name, icon_id)")
-        .eq("account_id", selectedAccountId)
-        .gte("date", start)
-        .lte("date", todayKey);
-
+      const [goalData, transactionsResult] = await Promise.all([
+        getMonthlyGoal(supabase, selectedAccountId, monthKey),
+        supabase
+          .from("transactions")
+          .select("type, amount_minor, amount_base_minor, category:categories(id, name, icon_id)")
+          .eq("account_id", selectedAccountId)
+          .gte("date", start)
+          .lte("date", todayKey),
+      ]);
+      const { data: transactionsData, error: transactionsError } = transactionsResult;
       if (transactionsError) throw transactionsError;
+
+      setGoal(goalData);
       setTransactions((transactionsData as GoalTransaction[]) ?? []);
+      hasInitialLoadRef.current = true;
 
-      const previousMonthKey = addMonths(monthKey, -1);
-      const previousRange = getMonthRangeFromKey(previousMonthKey);
-      const { data: previousExpenses, error: previousError } = await supabase
-        .from("transactions")
-        .select("amount_minor, amount_base_minor")
-        .eq("account_id", selectedAccountId)
-        .eq("type", "expense")
-        .gte("date", previousRange.start)
-        .lte("date", previousRange.end);
-
-      if (previousError) throw previousError;
-
-      const previousTotal = (previousExpenses ?? []).reduce((total, item) => {
-        const raw = item.amount_base_minor ?? item.amount_minor ?? "0";
-        try {
-          return total + BigInt(raw);
-        } catch {
-          return total;
-        }
-      }, 0n);
-      setPreviousExpenseTotalMinor(previousTotal);
-
-      await fetchGoalSummary();
-
-      // Fetch goal history and gamification if there's a goal
+      // Non-critical data is fetched in background to reduce TTI.
+      void fetchGoalSummary();
       if (goalData) {
-        await fetchGoalHistory();
-        await fetchGamification();
+        void fetchGoalHistory();
+        void fetchGamification();
+      } else {
+        setGoalHistory([]);
+        setGamification(null);
       }
 
       setError(null);
     } catch (err: any) {
       console.error("[GoalScreen] Error:", err);
-      setError(err?.message ?? t(dictionary, "errors.internalServer"));
-      reportNetworkIssue({ onRetry: loadData });
+      if (blocking) {
+        setError(err?.message ?? t(dictionary, "errors.internalServer"));
+      }
+      reportNetworkIssue({ onRetry: () => void loadData({ blocking: true }) });
     } finally {
-      setLoading(false);
+      if (blocking) {
+        setLoading(false);
+      }
     }
   }, [dictionary, fetchGoalSummary, fetchGoalHistory, fetchGamification, monthKey, reportNetworkIssue, selectedAccountId, user]);
 
   useEffect(() => {
     if (!isFocused) return;
-    loadData();
+    void loadData({ blocking: !hasInitialLoadRef.current });
   }, [isFocused, loadData]);
 
   const handleOpenEditor = () => {
@@ -1162,7 +961,7 @@ export default function GoalScreen() {
               backgroundColor: userThemeTokens.surface,
             },
           ]}
-          onPress={loadData}
+          onPress={() => void loadData({ blocking: true })}
         >
           <Text style={[styles.retryButtonText, { color: userThemeTokens.textPrimary }]}>
             {t(dictionary, "common.retry")}

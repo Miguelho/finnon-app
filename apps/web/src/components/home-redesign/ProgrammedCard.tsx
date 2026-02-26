@@ -57,21 +57,21 @@ export function ProgrammedCard({
             >
               <div className="flex items-center gap-3">
                 <div
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-secondary text-base ${
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-secondary text-base font-semibold ${
                     isIncome ? "text-green-600" : "text-red-600"
                   }`}
                 >
                   {isIncome ? "↑" : "↓"}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-foreground">
+                  <p className="text-sm font-semibold text-foreground">
                     {item.name}
                   </p>
                   <p className="text-xs text-muted-foreground">{item.dateLabel}</p>
                 </div>
               </div>
               <span
-                className={`shrink-0 text-sm font-medium ${
+                className={`shrink-0 text-sm font-semibold ${
                   isIncome ? "text-green-600" : "text-red-600"
                 } ${monoClassName ?? ""}`}
               >

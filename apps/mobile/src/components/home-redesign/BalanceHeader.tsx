@@ -42,23 +42,25 @@ export function BalanceHeader({
 const styles = StyleSheet.create({
   container: {
     alignItems: "center",
-    marginBottom: tokens.spacing.lg,
+    marginBottom: 20,
   },
   label: {
-    fontSize: tokens.typography.size.xs,
+    fontSize: 12,
     fontWeight: tokens.typography.weight.medium,
     textTransform: "uppercase",
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
     fontFamily: "DMSans-Medium",
   },
   amount: {
-    fontSize: 42,
+    fontSize: 36,
     fontWeight: tokens.typography.weight.medium,
     marginTop: tokens.spacing.xs,
+    letterSpacing: -1.5,
+    lineHeight: 40,
     fontFamily: "JetBrainsMono-Medium",
   },
   decimals: {
-    fontSize: 24,
+    fontSize: 18,
     fontFamily: "JetBrainsMono-Medium",
   },
   month: {

@@ -53,6 +53,15 @@ export type DayDetailData = {
   movements: DayMovement[];
 };
 
+export type NextProgrammedItem = {
+  id: string;
+  name: string;
+  amountMinor: bigint;
+  type: "income" | "expense";
+  dateLabel: string;
+  category?: string | null;
+};
+
 type CalendarProps = {
   view: CalendarView;
   onViewChange: (view: CalendarView) => void;
@@ -63,6 +72,8 @@ type CalendarProps = {
   onPrevPeriod?: () => void;
   onNextPeriod?: () => void;
   currencySymbol: string;
+  nextProgrammed?: NextProgrammedItem | null;
+  onViewAllProgrammed?: () => void;
   locale?: string;
   monoClassName?: string;
 };
@@ -77,6 +88,8 @@ export function Calendar({
   onPrevPeriod,
   onNextPeriod,
   currencySymbol,
+  nextProgrammed,
+  onViewAllProgrammed,
   locale = "es-ES",
   monoClassName,
 }: CalendarProps) {
@@ -187,14 +200,13 @@ export function Calendar({
                     {day.dayNumber}
                   </span>
                   <div className="mt-1.5 flex min-h-[6px] gap-[3px]">
-                    {day.dots?.map((dot, i) => (
+                    {day.dots && day.dots.length > 0 ? (
                       <span
-                        key={i}
                         className={`h-[5px] w-[5px] rounded-full ${
-                          dot.type === "income" ? "bg-green-600" : "bg-red-600"
+                          isSelected ? "bg-primary" : "bg-red-500"
                         }`}
                       />
-                    ))}
+                    ) : null}
                   </div>
                 </button>
               );
@@ -205,7 +217,7 @@ export function Calendar({
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               {t("mobile.home.calendarIncome")}{" "}
               <span
-                className={`font-medium text-green-600 ${monoClassName ?? ""}`}
+                className={`font-semibold text-green-600 ${monoClassName ?? ""}`}
               >
                 +{weekData.netIncome}
               </span>
@@ -213,7 +225,7 @@ export function Calendar({
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               {t("mobile.home.calendarExpenses")}{" "}
               <span
-                className={`font-medium text-red-600 ${monoClassName ?? ""}`}
+                className={`font-semibold text-red-600 ${monoClassName ?? ""}`}
               >
                 -{weekData.netExpense}
               </span>
@@ -269,14 +281,13 @@ export function Calendar({
                   {day.dayNumber}
                 </span>
                 <div className="mt-0.5 flex min-h-[5px] justify-center gap-0.5">
-                  {day.dots?.map((dot, j) => (
+                  {day.dots && day.dots.length > 0 ? (
                     <span
-                      key={j}
                       className={`h-1 w-1 rounded-full ${
-                        dot.type === "income" ? "bg-green-600" : "bg-red-600"
+                        isSelected ? "bg-primary" : "bg-red-500"
                       }`}
                     />
-                  ))}
+                  ) : null}
                 </div>
               </button>
             );
@@ -293,6 +304,16 @@ export function Calendar({
           emptyLabel={t("mobile.home.calendarEmptyDay")}
         />
       )}
+
+      {nextProgrammed ? (
+        <NextProgrammed
+          item={nextProgrammed}
+          onViewAll={onViewAllProgrammed}
+          currencySymbol={currencySymbol}
+          locale={locale}
+          monoClassName={monoClassName}
+        />
+      ) : null}
     </div>
   );
 }
@@ -353,17 +374,19 @@ function MovementRow({ movement, currencySymbol, locale, monoClassName }: Moveme
     <div className="flex items-center justify-between border-t border-border/50 py-2.5 first:border-t-0">
       <div className="flex items-center gap-3">
         <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-base ${
-            isIncome ? "bg-green-500/15" : "bg-red-500/15"
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border text-base font-semibold ${
+            isIncome
+              ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600"
+              : "border-rose-500/30 bg-rose-500/15 text-rose-600"
           }`}
         >
           {isIncome ? "↑" : "↓"}
         </div>
         <div>
-          <p className="text-sm font-medium text-foreground">
+          <p className="text-sm font-semibold text-foreground">
             {movement.name}
             {movement.badge ? (
-              <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+              <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
                 {movement.badge}
               </span>
             ) : null}
@@ -372,13 +395,74 @@ function MovementRow({ movement, currencySymbol, locale, monoClassName }: Moveme
         </div>
       </div>
       <span
-        className={`shrink-0 text-sm font-medium ${
+        className={`shrink-0 text-sm font-semibold ${
           isIncome ? "text-green-600" : "text-red-600"
         } ${monoClassName ?? ""}`}
       >
         {isIncome ? "+" : "-"}
         {integer},{decimals}
       </span>
+    </div>
+  );
+}
+
+type NextProgrammedProps = {
+  item: NextProgrammedItem;
+  onViewAll?: () => void;
+  currencySymbol: string;
+  locale: string;
+  monoClassName?: string;
+};
+
+function NextProgrammed({
+  item,
+  onViewAll,
+  currencySymbol,
+  locale,
+  monoClassName,
+}: NextProgrammedProps) {
+  const t = useTranslations();
+  const isIncome = item.type === "income";
+  const { integer, decimals } = formatCurrencyParts(item.amountMinor, currencySymbol, locale);
+
+  return (
+    <div className="border-t border-border px-5 py-4">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {t("mobile.home.calendarNextProgrammed")}
+        </p>
+        <button
+          type="button"
+          onClick={onViewAll}
+          className="text-xs font-semibold text-primary hover:underline"
+        >
+          {t("mobile.home.programmedViewAll")}
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-secondary text-base text-amber-400">
+            ⏱
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">{item.name}</p>
+            <p className="text-xs text-muted-foreground">
+              {item.dateLabel}
+              {item.category ? ` · ${item.category}` : ""}
+            </p>
+          </div>
+        </div>
+
+        <span
+          className={`shrink-0 text-sm font-semibold ${
+            isIncome ? "text-green-600" : "text-muted-foreground"
+          } ${monoClassName ?? ""}`}
+        >
+          {isIncome ? "+" : "-"}
+          {integer},{decimals}
+        </span>
+      </div>
     </div>
   );
 }

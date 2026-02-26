@@ -18,16 +18,20 @@ export const toMinor = (value: bigint | number | string | null | undefined): big
   return 0n;
 };
 
+const formatThousands = (value: string) =>
+  value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
 export function formatCurrencyParts(
   amountMinor: bigint,
   currencySymbol: string,
   locale: string = "es-ES"
 ): MoneyParts {
+  void locale;
   const sign = amountMinor < 0n ? "-" : "";
   const abs = amountMinor < 0n ? -amountMinor : amountMinor;
   const intPart = abs / 100n;
   const decPart = abs % 100n;
-  const intFormatted = new Intl.NumberFormat(locale).format(Number(intPart));
+  const intFormatted = formatThousands(intPart.toString());
   const decimals = decPart.toString().padStart(2, "0");
   const integer = `${sign}${currencySymbol}${intFormatted}`;
   return {

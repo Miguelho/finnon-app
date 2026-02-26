@@ -3,21 +3,23 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Target } from "lucide-react";
-import { getExpandedMonthRange, getWeekStrip } from "@poleursus/shared";
-import { BalanceHeader } from "./BalanceHeader";
-import { Timeline } from "./Timeline";
-import { Calendar, type DayDetailData, type DayMovement } from "./Calendar";
-import { ObjectiveCard } from "./ObjectiveCard";
-import { ProgrammedCard } from "./ProgrammedCard";
-import { EmptyStateCard } from "./EmptyStateCard";
 import {
-  formatCurrencyParts,
-  formatFullDate,
-  formatShortDate,
-  toDateKey,
-  toMinor,
-} from "./utils";
+  computeProjectProgress,
+  getExpandedMonthRange,
+  getProjectWidgetState,
+  getWeekStrip,
+  type Project,
+  type ProjectContribution,
+} from "@poleursus/shared";
+import {
+  Calendar,
+  type DayDetailData,
+  type DayMovement,
+  type NextProgrammedItem,
+} from "./Calendar";
+import { BalanceHeader } from "./BalanceHeader";
+import { ProjectObjectiveWidget } from "./ProjectObjectiveWidget";
+import { formatCurrencyParts, formatFullDate, formatShortDate, toDateKey, toMinor } from "./utils";
 
 type TransactionRow = {
   id: string;
@@ -65,6 +67,8 @@ type HomePageClientProps = {
   upcomingTransactions: TransactionRow[];
   obligations: ObligationRow[];
   objective: ObjectiveData | null;
+  projects: Project[];
+  projectContributions: ProjectContribution[];
   locale?: string;
   monoClassName?: string;
 };
@@ -75,18 +79,18 @@ export function HomePageClient({
   upcomingTransactions,
   obligations,
   objective,
+  projects,
+  projectContributions,
   locale = "es",
   monoClassName,
 }: HomePageClientProps) {
   const router = useRouter();
   const t = useTranslations();
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);
   const [calendarView, setCalendarView] = useState<"week" | "month">("week");
   const [weekReference, setWeekReference] = useState<Date>(today);
   const [monthReference, setMonthReference] = useState<Date>(today);
-  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(
-    toDateKey(today)
-  );
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(toDateKey(today));
 
   const allTransactions = useMemo(() => {
     const map = new Map<string, TransactionRow>();
@@ -95,44 +99,42 @@ export function HomePageClient({
     return Array.from(map.values());
   }, [monthlyTransactions, upcomingTransactions]);
 
-  const hasMovements = allTransactions.length > 0 || obligations.length > 0;
-  const hasObjective = Boolean(objective);
+  const contributionsByProject = useMemo(() => {
+    const map = new Map<string, ProjectContribution[]>();
+    projectContributions.forEach((contribution) => {
+      const list = map.get(contribution.project_id) ?? [];
+      list.push(contribution);
+      map.set(contribution.project_id, list);
+    });
+    return map;
+  }, [projectContributions]);
 
-  const lastMovement = useMemo(() => {
-    const past = allTransactions
-      .map((tx) => ({
-        tx,
-        date: new Date(tx.date),
-      }))
-      .filter(({ date }) => !Number.isNaN(date.getTime()) && date <= today)
-      .sort((a, b) => b.date.getTime() - a.date.getTime());
-    const item = past[0]?.tx;
-    if (!item) return null;
-    return {
-      name: item.merchant ?? item.category?.name ?? t("mobile.home.movementFallback"),
-      amountMinor: toMinor(item.amount_base_minor ?? item.amount_minor),
-      date: item.date,
-      type: item.type,
-    };
-  }, [allTransactions, today, t]);
+  const projectWidgetState = useMemo(() => getProjectWidgetState(projects), [projects]);
 
-  const nextMovement = useMemo(() => {
-    const future = allTransactions
-      .map((tx) => ({
-        tx,
-        date: new Date(tx.date),
-      }))
-      .filter(({ date }) => !Number.isNaN(date.getTime()) && date > today)
-      .sort((a, b) => a.date.getTime() - b.date.getTime());
-    const item = future[0]?.tx;
-    if (!item) return null;
+  const activeProject = useMemo(() => {
+    if (projectWidgetState.state !== "active") return null;
+
+    const project = projectWidgetState.project;
+    const progress = computeProjectProgress({
+      project,
+      contributions: contributionsByProject.get(project.id) ?? [],
+    });
+
+    let monthlyImpactPercent = 0;
+    if (objective && progress.targetMinor > 0n) {
+      const ratio =
+        Number(toMinor(objective.currentMinor)) / Number(progress.targetMinor);
+      if (Number.isFinite(ratio) && ratio > 0) {
+        monthlyImpactPercent = Math.max(0, Math.round(ratio * 100));
+      }
+    }
+
     return {
-      name: item.merchant ?? item.category?.name ?? t("mobile.home.movementFallback"),
-      amountMinor: toMinor(item.amount_base_minor ?? item.amount_minor),
-      date: item.date,
-      type: item.type,
+      project,
+      progress,
+      monthlyImpactPercent,
     };
-  }, [allTransactions, today, t]);
+  }, [projectWidgetState, contributionsByProject, objective]);
 
   const weekStrip = useMemo(() => {
     return getWeekStrip(
@@ -182,21 +184,12 @@ export function HomePageClient({
       return `${start.getDate()} – ${end.getDate()} ${endMonth}`;
     }
     return `${start.getDate()} ${startMonth} – ${end.getDate()} ${endMonth}`;
-  }, [weekStrip.weekRange]);
+  }, [weekStrip.weekRange, locale]);
 
   const weekData = useMemo(() => {
-    const netIncome = formatCurrencyParts(
-      weekTotals.income,
-      account.currencySymbol
-    ).full;
-    const netExpense = formatCurrencyParts(
-      weekTotals.expense,
-      account.currencySymbol
-    ).full;
-    const net = formatCurrencyParts(
-      weekTotals.net,
-      account.currencySymbol
-    ).full;
+    const netIncome = formatCurrencyParts(weekTotals.income, account.currencySymbol).full;
+    const netExpense = formatCurrencyParts(weekTotals.expense, account.currencySymbol).full;
+    const net = formatCurrencyParts(weekTotals.net, account.currencySymbol).full;
 
     return {
       days: weekStrip.days.map((day) => ({
@@ -234,7 +227,7 @@ export function HomePageClient({
     });
 
     obligations.forEach((obligation) => {
-      if (!obligation.due_date) return;
+      if (!obligation.due_date || obligation.status === "paid") return;
       const key = toDateKey(obligation.due_date);
       if (!key) return;
       addDot(key, "expense");
@@ -293,14 +286,12 @@ export function HomePageClient({
     });
 
     obligations.forEach((obligation) => {
-      if (!obligation.due_date) return;
+      if (!obligation.due_date || obligation.status === "paid") return;
       if (toDateKey(obligation.due_date) !== selectedDayKey) return;
       movements.push({
         id: `obligation-${obligation.id}`,
         name: obligation.name,
-        amountMinor: toMinor(
-          obligation.amount_base_minor ?? obligation.amount_minor
-        ),
+        amountMinor: toMinor(obligation.amount_base_minor ?? obligation.amount_minor),
         type: "expense",
         category: t("mobile.home.programmedBadge"),
         badge: t("mobile.home.programmedBadge"),
@@ -314,59 +305,45 @@ export function HomePageClient({
     };
   }, [selectedDayKey, allTransactions, obligations, locale, t]);
 
-  const programmedItems = useMemo(() => {
-    const items: {
-      id: string;
-      name: string;
-      amountMinor: bigint;
-      date: Date;
-      type: "income" | "expense";
-    }[] = [];
+  const scheduledItems = useMemo(() => {
+    const items: Array<NextProgrammedItem & { dateKey: string }> = [];
 
     upcomingTransactions.forEach((tx) => {
-      const date = new Date(tx.date);
-      if (Number.isNaN(date.getTime())) return;
+      const dateKey = toDateKey(tx.date);
+      if (!dateKey) return;
       items.push({
         id: tx.id,
         name: tx.merchant ?? tx.category?.name ?? t("mobile.home.movementFallback"),
         amountMinor: toMinor(tx.amount_base_minor ?? tx.amount_minor),
-        date,
         type: tx.type,
+        dateKey,
+        dateLabel: formatShortDate(dateKey, locale),
+        category: tx.category?.name ?? null,
       });
     });
 
     obligations.forEach((obligation) => {
-      if (!obligation.due_date) return;
-      if (obligation.status === "paid") return;
-      const date = new Date(obligation.due_date);
-      if (Number.isNaN(date.getTime())) return;
-      if (date < today) return;
+      if (!obligation.due_date || obligation.status === "paid") return;
+      const dateKey = toDateKey(obligation.due_date);
+      if (!dateKey) return;
       items.push({
         id: `obligation-${obligation.id}`,
         name: obligation.name,
-        amountMinor: toMinor(
-          obligation.amount_base_minor ?? obligation.amount_minor
-        ),
-        date,
+        amountMinor: toMinor(obligation.amount_base_minor ?? obligation.amount_minor),
         type: "expense",
+        dateKey,
+        dateLabel: formatShortDate(dateKey, locale),
+        category: t("mobile.home.programmedBadge"),
       });
     });
 
-    return items
-      .sort((a, b) => a.date.getTime() - b.date.getTime())
-      .slice(0, 3)
-      .map((item) => ({
-        id: item.id,
-        name: item.name,
-        amountMinor: item.amountMinor,
-        type: item.type,
-        dateLabel: formatShortDate(item.date, locale),
-      }));
-  }, [upcomingTransactions, obligations, today, locale, t]);
+    return items.sort((a, b) => (a.dateKey > b.dateKey ? 1 : -1));
+  }, [upcomingTransactions, obligations, locale, t]);
 
-  const handleSelectDay = (dateKey: string) => {
-    setSelectedDayKey(dateKey);
-  };
+  const nextProgrammed = useMemo(() => {
+    const key = selectedDayKey ?? toDateKey(today);
+    return scheduledItems.find((item) => item.dateKey > key) ?? null;
+  }, [scheduledItems, selectedDayKey, today]);
 
   const handlePrevPeriod = () => {
     if (calendarView === "week") {
@@ -403,72 +380,33 @@ export function HomePageClient({
       />
 
       <div className="grid grid-cols-1 items-start gap-6 min-[900px]:grid-cols-[1fr_340px]">
-        <div className="flex flex-col gap-6">
-          {hasMovements ? (
-            <>
-              <Timeline
-                last={lastMovement}
-                next={nextMovement}
-                currencySymbol={account.currencySymbol}
-                locale={locale}
-                monoClassName={monoClassName}
-              />
-              <Calendar
-                view={calendarView}
-                onViewChange={setCalendarView}
-                weekData={weekData}
-                monthData={monthData}
-                selectedDay={selectedDay}
-                onSelectDay={handleSelectDay}
-                onPrevPeriod={handlePrevPeriod}
-                onNextPeriod={handleNextPeriod}
-                currencySymbol={account.currencySymbol}
-                locale={locale}
-                monoClassName={monoClassName}
-              />
-            </>
-          ) : (
-            <EmptyStateCard
-              icon="📝"
-              title={t("mobile.home.emptyMovementsTitle")}
-              description={t("mobile.home.emptyMovementsDescription")}
-              buttonLabel={t("mobile.home.emptyMovementsCta")}
-              onAction={() => router.push("/transactions?new=1")}
-            />
-          )}
-        </div>
+        <Calendar
+          view={calendarView}
+          onViewChange={setCalendarView}
+          weekData={weekData}
+          monthData={monthData}
+          selectedDay={selectedDay}
+          onSelectDay={setSelectedDayKey}
+          onPrevPeriod={handlePrevPeriod}
+          onNextPeriod={handleNextPeriod}
+          currencySymbol={account.currencySymbol}
+          nextProgrammed={nextProgrammed}
+          onViewAllProgrammed={() => router.push("/transactions?filter=programmed")}
+          locale={locale}
+          monoClassName={monoClassName}
+        />
 
-        <div className="flex flex-col gap-6">
-          {hasObjective ? (
-            <ObjectiveCard
-              objective={objective}
-              onNavigate={() => router.push("/goal")}
-              currencySymbol={account.currencySymbol}
-              locale={locale}
-              monoClassName={monoClassName}
-            />
-          ) : (
-            <EmptyStateCard
-              icon={<Target className="h-5 w-5 text-muted-foreground" />}
-              title={t("mobile.home.emptyGoalTitle")}
-              description={t("mobile.home.emptyGoalDescription")}
-              buttonLabel={t("mobile.home.emptyGoalCta")}
-              onAction={() => router.push("/goal")}
-            />
-          )}
-
-          {hasMovements && programmedItems.length > 0 ? (
-            <ProgrammedCard
-              items={programmedItems}
-              onViewAll={() =>
-                router.push("/transactions?filter=programmed")
-              }
-              currencySymbol={account.currencySymbol}
-              locale={locale}
-              monoClassName={monoClassName}
-            />
-          ) : null}
-        </div>
+        <ProjectObjectiveWidget
+          widgetState={projectWidgetState}
+          activeProject={activeProject}
+          objective={objective}
+          onViewProject={(projectId) => router.push(`/projects/${projectId}`)}
+          onCreateProject={() => router.push("/projects")}
+          onCreateGoal={() => router.push("/goal")}
+          currencySymbol={account.currencySymbol}
+          locale={locale}
+          monoClassName={monoClassName}
+        />
       </div>
     </div>
   );

@@ -10,16 +10,19 @@ import {
 } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   CURRENCIES,
   computeGoalProgress,
+  computeProjectProgress,
   getExpandedMonthRange,
   getGoalTotalsFromTransactions,
+  getProjectWidgetState,
   getWeekStrip,
   themeTokens,
   toMonthKey,
   type Obligation,
+  type Project,
+  type ProjectContribution,
   type UserRole,
   type Transaction as SharedTransaction,
 } from "@poleursus/shared";
@@ -28,15 +31,13 @@ import { useAuth } from "../../../../src/contexts/AuthContext";
 import { useUserTheme } from "../../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../../src/lib/i18n";
 import { BalanceHeader } from "../../../../src/components/home-redesign/BalanceHeader";
-import { Timeline } from "../../../../src/components/home-redesign/Timeline";
 import {
   Calendar,
   type DayDetailData,
   type DayMovement,
+  type NextProgrammedItem,
 } from "../../../../src/components/home-redesign/Calendar";
-import { ObjectiveCard } from "../../../../src/components/home-redesign/ObjectiveCard";
-import { ProgrammedCard } from "../../../../src/components/home-redesign/ProgrammedCard";
-import { EmptyStateCard } from "../../../../src/components/home-redesign/EmptyStateCard";
+import { ProjectObjectiveWidget } from "../../../../src/components/home-redesign/ProjectObjectiveWidget";
 import {
   formatCurrencyParts,
   formatFullDate,
@@ -70,6 +71,13 @@ type Category = {
 type Transaction = SharedTransaction & {
   category?: Category | null;
 };
+
+const normalizeCategory = <T extends { category?: unknown }>(row: T) => ({
+  ...row,
+  category: Array.isArray(row.category)
+    ? (row.category[0] ?? null)
+    : (row.category ?? null),
+});
 
 const WEEKDAY_LABELS = {
   es: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
@@ -125,6 +133,8 @@ export default function HomeScreen() {
   const [monthlyTransactions, setMonthlyTransactions] = useState<Transaction[]>([]);
   const [upcomingTransactions, setUpcomingTransactions] = useState<Transaction[]>([]);
   const [obligations, setObligations] = useState<Obligation[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectContributions, setProjectContributions] = useState<ProjectContribution[]>([]);
   const [goalHistory, setGoalHistory] = useState<Array<{ completed: boolean | null }>>([]);
   const [goalTargetMinor, setGoalTargetMinor] = useState<string | null>(null);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
@@ -133,9 +143,7 @@ export default function HomeScreen() {
   const [calendarView, setCalendarView] = useState<"week" | "month">("week");
   const [weekReference, setWeekReference] = useState<Date>(new Date());
   const [monthReference, setMonthReference] = useState<Date>(new Date());
-  const [selectedDayKey, setSelectedDayKey] = useState<string>(
-    toDateKey(new Date())
-  );
+  const [selectedDayKey, setSelectedDayKey] = useState<string>(toDateKey(new Date()));
 
   const mainAccount = useMemo(() => {
     if (!accounts || accounts.length === 0) return null;
@@ -157,8 +165,9 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let cancelled = false;
+    const currentUserId = user?.id;
 
-    if (!session || !user) {
+    if (!session || !currentUserId) {
       setAccounts(null);
       setLoadingAccounts(false);
       return;
@@ -177,7 +186,7 @@ export default function HomeScreen() {
         const { data, error: accountsError } = await supabase
           .from("accounts")
           .select("id, name, base_currency, account_members!inner(role, user_id)")
-          .eq("account_members.user_id", user.id);
+          .eq("account_members.user_id", currentUserId);
 
         if (accountsError) throw accountsError;
 
@@ -278,8 +287,10 @@ export default function HomeScreen() {
         if (noDateError) throw noDateError;
 
         if (!cancelled) {
-          setMonthlyTransactions((monthData as Transaction[]) ?? []);
-          setUpcomingTransactions((upcomingData as Transaction[]) ?? []);
+          const normalizedMonthly = (monthData ?? []).map(normalizeCategory);
+          const normalizedUpcoming = (upcomingData ?? []).map(normalizeCategory);
+          setMonthlyTransactions(normalizedMonthly as unknown as Transaction[]);
+          setUpcomingTransactions(normalizedUpcoming as unknown as Transaction[]);
           const combinedObligations = [
             ...((obligationsRange as Obligation[]) ?? []),
             ...((obligationsNoDate as Obligation[]) ?? []),
@@ -334,7 +345,7 @@ export default function HomeScreen() {
           setGoalTargetMinor(goalRow?.target_amount_base_minor ?? null);
           setGoalHistory((historyData as Array<{ completed: boolean | null }>) ?? []);
         }
-      } catch (e) {
+      } catch {
         if (!cancelled) {
           setGoalTargetMinor(null);
           setGoalHistory([]);
@@ -348,6 +359,54 @@ export default function HomeScreen() {
     };
   }, [mainAccount?.id, isFocused]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProjects() {
+      if (!mainAccount || !isFocused) return;
+
+      try {
+        const { data: projectRows, error: projectsError } = await supabase
+          .from("projects")
+          .select("*")
+          .eq("account_id", mainAccount.id)
+          .in("status", ["active", "completed"])
+          .order("priority", { ascending: true });
+
+        if (projectsError) throw projectsError;
+
+        const projectList = (projectRows as Project[]) ?? [];
+        const projectIds = projectList.map((project) => project.id);
+
+        const { data: contributionsData, error: contributionsError } =
+          projectIds.length > 0
+            ? await supabase
+                .from("project_contributions")
+                .select("id, project_id, actual_amount_base_minor, confirmed")
+                .in("project_id", projectIds)
+            : { data: [], error: null };
+
+        if (!cancelled) {
+          setProjects(projectList);
+          setProjectContributions(
+            contributionsError ? [] : ((contributionsData ?? []) as ProjectContribution[])
+          );
+        }
+      } catch (loadError) {
+        console.warn("[Home] Could not load projects for home widget:", loadError);
+        if (!cancelled) {
+          setProjects([]);
+          setProjectContributions([]);
+        }
+      }
+    }
+
+    loadProjects();
+    return () => {
+      cancelled = true;
+    };
+  }, [mainAccount?.id, isFocused]);
+
   const allTransactions = useMemo(() => {
     const map = new Map<string, Transaction>();
     [...monthlyTransactions, ...upcomingTransactions].forEach((item) => {
@@ -355,8 +414,6 @@ export default function HomeScreen() {
     });
     return Array.from(map.values());
   }, [monthlyTransactions, upcomingTransactions]);
-
-  const hasMovements = allTransactions.length > 0 || obligations.length > 0;
 
   const baseCurrency = mainAccount?.base_currency ?? "EUR";
   const currencySymbol =
@@ -486,65 +543,42 @@ export default function HomeScreen() {
       })()
     : null;
 
-  const lastMovement = useMemo(() => {
-    const past = allTransactions
-      .filter((tx) => {
-        const dateKey = toDateKey(tx.date as string);
-        return dateKey && dateKey <= todayKey;
-      })
-      .sort((a, b) => (toDateKey(a.date as string) > toDateKey(b.date as string) ? -1 : 1));
-    const item = past[0];
-    if (!item) return null;
-    return {
-      name:
-        item.merchant ??
-        item.category?.name ??
-        t(dictionary, "mobile.home.movementFallback"),
-      amountMinor: toMinor(item.amount_base_minor ?? item.amount_minor),
-      date: item.date,
-      type: item.type,
-    };
-  }, [allTransactions, todayKey, dictionary]);
+  const contributionsByProject = useMemo(() => {
+    const map = new Map<string, ProjectContribution[]>();
+    projectContributions.forEach((contribution) => {
+      const list = map.get(contribution.project_id) ?? [];
+      list.push(contribution);
+      map.set(contribution.project_id, list);
+    });
+    return map;
+  }, [projectContributions]);
 
-  const nextMovement = useMemo(() => {
-    const upcoming: Array<{ dateKey: string; item: Transaction | Obligation; type: "income" | "expense" }> = [];
+  const projectWidgetState = useMemo(() => getProjectWidgetState(projects), [projects]);
 
-    upcomingTransactions.forEach((tx) => {
-      const dateKey = toDateKey(tx.date as string);
-      if (dateKey && dateKey > todayKey) {
-        upcoming.push({ dateKey, item: tx, type: tx.type });
-      }
+  const activeProject = useMemo(() => {
+    if (projectWidgetState.state !== "active") return null;
+
+    const project = projectWidgetState.project;
+    const projectProgress = computeProjectProgress({
+      project,
+      contributions: contributionsByProject.get(project.id) ?? [],
     });
 
-    obligations.forEach((obligation) => {
-      if (!obligation.due_date || obligation.status === "paid") return;
-      const dateKey = toDateKey(obligation.due_date as string);
-      if (dateKey && dateKey > todayKey) {
-        upcoming.push({ dateKey, item: obligation, type: "expense" });
+    let monthlyImpactPercent = 0;
+    if (objective && projectProgress.targetMinor > 0n) {
+      const ratio =
+        Number(toMinor(objective.currentMinor)) / Number(projectProgress.targetMinor);
+      if (Number.isFinite(ratio) && ratio > 0) {
+        monthlyImpactPercent = Math.max(0, Math.round(ratio * 100));
       }
-    });
-
-    if (upcoming.length === 0) return null;
-    upcoming.sort((a, b) => (a.dateKey > b.dateKey ? 1 : -1));
-    const next = upcoming[0];
-    const name =
-      "merchant" in next.item
-        ? next.item.merchant ??
-          next.item.category?.name ??
-          t(dictionary, "mobile.home.movementFallback")
-        : next.item.name;
+    }
 
     return {
-      name,
-      amountMinor: toMinor(
-        "amount_base_minor" in next.item
-          ? next.item.amount_base_minor ?? next.item.amount_minor
-          : next.item.amount_base_minor ?? next.item.amount_minor
-      ),
-      date: "date" in next.item ? next.item.date : next.item.due_date,
-      type: next.type,
+      project,
+      progress: projectProgress,
+      monthlyImpactPercent,
     };
-  }, [upcomingTransactions, obligations, todayKey, dictionary]);
+  }, [projectWidgetState, contributionsByProject, objective]);
 
   const weekStrip = useMemo(() => {
     const weekObligations = obligations.filter((item) => item.status !== "paid");
@@ -595,7 +629,7 @@ export default function HomeScreen() {
         dayLabel: weekdayLabels[day.dayOfWeek] ?? "",
         dayNumber: day.dayOfMonth,
         isToday: day.isToday,
-        dots: day.dots.map((dot) => ({
+        dots: day.dots.map((dot): { type: "income" | "expense" } => ({
           type: dot.type === "income" ? "income" : "expense",
         })),
       })),
@@ -702,18 +736,12 @@ export default function HomeScreen() {
     };
   }, [selectedDayKey, allTransactions, obligations, locale, dictionary]);
 
-  const programmedItems = useMemo(() => {
-    const items: {
-      id: string;
-      name: string;
-      amountMinor: bigint;
-      dateKey: string;
-      type: "income" | "expense";
-    }[] = [];
+  const scheduledItems = useMemo(() => {
+    const items: Array<NextProgrammedItem & { dateKey: string }> = [];
 
     upcomingTransactions.forEach((tx) => {
       const dateKey = toDateKey(tx.date as string);
-      if (!dateKey || dateKey < todayKey) return;
+      if (!dateKey) return;
       items.push({
         id: tx.id,
         name:
@@ -723,35 +751,33 @@ export default function HomeScreen() {
         amountMinor: toMinor(tx.amount_base_minor ?? tx.amount_minor),
         dateKey,
         type: tx.type,
+        dateLabel: formatShortDate(dateKey, locale),
+        category: tx.category?.name ?? null,
       });
     });
 
     obligations.forEach((obligation) => {
       if (!obligation.due_date || obligation.status === "paid") return;
       const dateKey = toDateKey(obligation.due_date as string);
-      if (!dateKey || dateKey < todayKey) return;
+      if (!dateKey) return;
       items.push({
         id: `obligation-${obligation.id}`,
         name: obligation.name,
-        amountMinor: toMinor(
-          obligation.amount_base_minor ?? obligation.amount_minor
-        ),
+        amountMinor: toMinor(obligation.amount_base_minor ?? obligation.amount_minor),
         dateKey,
         type: "expense",
+        dateLabel: formatShortDate(dateKey, locale),
+        category: t(dictionary, "mobile.home.programmedBadge"),
       });
     });
 
-    return items
-      .sort((a, b) => (a.dateKey > b.dateKey ? 1 : -1))
-      .slice(0, 3)
-      .map((item) => ({
-        id: item.id,
-        name: item.name,
-        amountMinor: item.amountMinor,
-        type: item.type,
-        dateLabel: formatShortDate(item.dateKey, locale),
-      }));
-  }, [upcomingTransactions, obligations, todayKey, locale]);
+    return items.sort((a, b) => (a.dateKey > b.dateKey ? 1 : -1));
+  }, [upcomingTransactions, obligations, locale, dictionary]);
+
+  const nextProgrammed = useMemo(() => {
+    const key = selectedDayKey || todayKey;
+    return scheduledItems.find((item) => item.dateKey > key) ?? null;
+  }, [scheduledItems, selectedDayKey, todayKey]);
 
   const showLoading = !session || !user || loadingAccounts || loadingData;
   const showError = Boolean(error);
@@ -785,17 +811,6 @@ export default function HomeScreen() {
       </View>
     );
   }
-
-  const handleAddMovement = () => {
-    if (!canEdit) {
-      Alert.alert(
-        t(dictionary, "common.errorTitle"),
-        t(dictionary, "home.guestBlurb")
-      );
-      return;
-    }
-    router.push("/(auth)/(tabs)/transactions/create");
-  };
 
   const handleCreateObjective = () => {
     router.push("/(auth)/(tabs)/goal");
@@ -837,69 +852,42 @@ export default function HomeScreen() {
           currencySymbol={currencySymbol}
         />
 
-        {hasMovements ? (
-          <>
-            <Timeline
-              last={lastMovement}
-              next={nextMovement}
-              currencySymbol={currencySymbol}
-              locale={locale}
-            />
-            <Calendar
-              view={calendarView}
-              onViewChange={setCalendarView}
-              weekData={weekData}
-              monthData={monthData}
-              selectedDay={selectedDay}
-              onSelectDay={setSelectedDayKey}
-              onPrevPeriod={handlePrevPeriod}
-              onNextPeriod={handleNextPeriod}
-              currencySymbol={currencySymbol}
-            />
-          </>
-        ) : (
-          <EmptyStateCard
-            icon="📝"
-            title={t(dictionary, "mobile.home.emptyMovementsTitle")}
-            description={t(dictionary, "mobile.home.emptyMovementsDescription")}
-            buttonLabel={t(dictionary, "mobile.home.emptyMovementsCta")}
-            onAction={handleAddMovement}
-          />
-        )}
+        <Calendar
+          view={calendarView}
+          onViewChange={setCalendarView}
+          weekData={weekData}
+          monthData={monthData}
+          selectedDay={selectedDay}
+          onSelectDay={setSelectedDayKey}
+          onPrevPeriod={handlePrevPeriod}
+          onNextPeriod={handleNextPeriod}
+          currencySymbol={currencySymbol}
+          nextProgrammed={nextProgrammed}
+          onViewAllProgrammed={() =>
+            router.push("/(auth)/(tabs)/transactions?filter=programmed")
+          }
+        />
 
-        {objective ? (
-          <ObjectiveCard
-            objective={objective}
-            onNavigate={() => router.push("/(auth)/(tabs)/goal")}
-            currencySymbol={currencySymbol}
-          />
-        ) : (
-          <EmptyStateCard
-            icon={
-              <MaterialCommunityIcons
-                name="bullseye"
-                size={22}
-                color={userThemeTokens.textSecondary}
-              />
+        <ProjectObjectiveWidget
+          widgetState={projectWidgetState}
+          activeProject={activeProject}
+          objective={objective}
+          onViewProject={(projectId) => router.push(`/(auth)/(tabs)/projects/${projectId}`)}
+          onCreateProject={() => {
+            if (!canEdit) {
+              Alert.alert(
+                t(dictionary, "common.errorTitle"),
+                t(dictionary, "home.guestBlurb")
+              );
+              return;
             }
-            title={t(dictionary, "mobile.home.emptyGoalTitle")}
-            description={t(dictionary, "mobile.home.emptyGoalDescription")}
-            buttonLabel={t(dictionary, "mobile.home.emptyGoalCta")}
-            onAction={handleCreateObjective}
-          />
-        )}
-
-        {hasMovements && programmedItems.length > 0 ? (
-          <ProgrammedCard
-            items={programmedItems}
-            onViewAll={() =>
-              router.push("/(auth)/(tabs)/transactions?filter=programmed")
-            }
-            currencySymbol={currencySymbol}
-          />
-        ) : null}
+            router.push("/(auth)/(tabs)/projects");
+          }}
+          onCreateGoal={handleCreateObjective}
+          currencySymbol={currencySymbol}
+          locale={locale}
+        />
       </ScrollView>
-
     </View>
   );
 }

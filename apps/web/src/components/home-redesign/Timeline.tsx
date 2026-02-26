@@ -99,11 +99,11 @@ function TimelineItem({
       <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
-      <span className="text-sm font-medium text-foreground">
+      <span className="text-sm font-semibold text-foreground">
         {movement.name}
       </span>
       <span
-        className={`text-[15px] font-medium ${
+        className={`text-[15px] font-semibold ${
           isIncome ? "text-green-600" : "text-red-600"
         } ${monoClassName ?? ""}`}
       >

@@ -148,6 +148,22 @@ export default async function DashboardPage() {
     p_limit: 5,
   });
 
+  const { data: projects } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("account_id", mainAccount.id)
+    .in("status", ["active", "completed"])
+    .order("priority", { ascending: true });
+
+  const projectIds = (projects ?? []).map((project) => project.id);
+  const { data: projectContributions, error: projectContributionsError } =
+    projectIds.length > 0
+      ? await supabase
+          .from("project_contributions")
+          .select("id, project_id, actual_amount_base_minor, confirmed")
+          .in("project_id", projectIds)
+      : { data: [], error: null };
+
   const currencySymbol =
     CURRENCIES.find((currency) => currency.code === mainAccount.base_currency)
       ?.symbol ?? mainAccount.base_currency;
@@ -292,6 +308,10 @@ export default async function DashboardPage() {
         upcomingTransactions={normalizedUpcomingTransactions}
         obligations={obligations ?? []}
         objective={objective}
+        projects={projects ?? []}
+        projectContributions={
+          projectContributionsError ? [] : (projectContributions ?? [])
+        }
         locale={locale}
         monoClassName={jetbrains.className}
       />

@@ -22,6 +22,10 @@ type ProjectAmountSliderProps = {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
+const THUMB_SIZE = 24;
+const TRACK_HEIGHT = 8;
+const THUMB_OFFSET = (THUMB_SIZE - TRACK_HEIGHT) / 2;
+
 export function ProjectAmountSlider({
   min,
   max,
@@ -72,37 +76,43 @@ export function ProjectAmountSlider({
   };
 
   return (
-    <View
-      ref={trackRef}
-      style={[styles.track, { backgroundColor: trackColor }]}
-      onLayout={handleTrackLayout}
-      {...panResponder.panHandlers}
-    >
+    <View style={styles.wrapper}>
       <View
-        style={[
-          styles.fill,
-          {
-            backgroundColor: fillColor,
-            width: trackWidth > 0 ? thumbLeft : 0,
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.thumb,
-          {
-            backgroundColor: thumbColor,
-            left: trackWidth > 0 ? thumbLeft - 12 : -12,
-          },
-        ]}
-      />
+        ref={trackRef}
+        style={[styles.track, { backgroundColor: trackColor }]}
+        onLayout={handleTrackLayout}
+        {...panResponder.panHandlers}
+      >
+        <View
+          style={[
+            styles.fill,
+            {
+              backgroundColor: fillColor,
+              width: trackWidth > 0 ? thumbLeft : 0,
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.thumb,
+            {
+              backgroundColor: thumbColor,
+              left: trackWidth > 0 ? thumbLeft - THUMB_SIZE / 2 : -THUMB_SIZE / 2,
+            },
+          ]}
+        />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    // Reserve vertical room so the thumb never overlaps surrounding copy.
+    paddingVertical: THUMB_OFFSET,
+  },
   track: {
-    height: 8,
+    height: TRACK_HEIGHT,
     borderRadius: 999,
     justifyContent: "center",
   },
@@ -115,9 +125,10 @@ const styles = StyleSheet.create({
   },
   thumb: {
     position: "absolute",
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: THUMB_SIZE / 2,
+    top: -THUMB_OFFSET,
     borderWidth: 2,
     borderColor: "#FFFFFF",
     shadowColor: "#000000",
