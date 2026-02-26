@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Mail } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { webDataCacheClient } from "@/cache/client";
 import { useWebUserTheme } from "@/components/theme/web-user-theme-provider";
 import {
   AlertDialog,
@@ -450,6 +451,7 @@ export function UserProfileScreen({ userId, userEmail }: UserProfileScreenProps)
         signOut: async () => {},
         clearLocalSessionArtifacts: async () => {
           localStorage.removeItem(STORAGE_KEY);
+          await webDataCacheClient.clearAll();
         },
         onReset: async () => {
           setIsDeleteDialogOpen(false);

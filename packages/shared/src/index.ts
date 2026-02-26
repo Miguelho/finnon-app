@@ -48,6 +48,7 @@ export * from "./auth/signOut";
 export * from "./auth/demo";
 export * from "./add-transaction";
 export * from "./types/period";
+export * from "./cache";
 
 // Note: utils/invite.ts contains Node.js crypto APIs
 // Import directly only in server-side code:

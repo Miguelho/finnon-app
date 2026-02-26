@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useWebDataCache } from "@/cache/WebDataCacheProvider";
 import {
   SlidePanel,
   SlidePanelContent,
@@ -12,6 +13,9 @@ import {
 } from "@/components/ui/slide-panel";
 import { MonthMap } from "@/components/home/month-map";
 import {
+  CORE_5M,
+  cacheKeys,
+  cacheTags,
   createTypographyStyles,
   formatMoneyWithSymbol,
   getEventsForMonth,
@@ -60,6 +64,7 @@ export function MonthViewPanel({
   onToggleObligation,
 }: MonthViewPanelProps) {
   const supabase = useMemo(() => createClient(), []);
+  const { cache, userId } = useWebDataCache();
   const [viewMonth, setViewMonth] = useState<Date>(initialMonth ?? new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [monthData, setMonthData] = useState<{
@@ -69,23 +74,46 @@ export function MonthViewPanel({
     transactions,
     obligations,
   });
-  const monthCache = useRef<
-    Record<string, { transactions: Transaction[]; obligations: Obligation[] }>
-  >({});
   const colors = themeTokens.light.colors;
   const typography = createTypographyStyles(themeTokens.light);
 
   useEffect(() => {
     const seedMonth = initialMonth ?? new Date();
+    const expandedRange = getExpandedMonthRange(seedMonth);
+    const startDate = expandedRange.start.toISOString().slice(0, 10);
+    const endDate = expandedRange.end.toISOString().slice(0, 10);
+
+    if (userId) {
+      const now = Date.now();
+      void cache.prime({
+        version: 1,
+        userId,
+        accountId,
+        key: cacheKeys.transactionsRange(accountId, startDate, endDate),
+        data: transactions,
+        updatedAt: now,
+        staleAt: now + CORE_5M.staleMs,
+        expiresAt: now + CORE_5M.expireMs,
+        tags: [cacheTags.transactions, cacheTags.homeCalendar],
+      });
+      void cache.prime({
+        version: 1,
+        userId,
+        accountId,
+        key: cacheKeys.obligationsRange(accountId, startDate, endDate),
+        data: obligations,
+        updatedAt: now,
+        staleAt: now + CORE_5M.staleMs,
+        expiresAt: now + CORE_5M.expireMs,
+        tags: [cacheTags.obligations, cacheTags.homeCalendar],
+      });
+    }
+
     const monthKey = getMonthKey(seedMonth);
-    monthCache.current[monthKey] = {
-      transactions,
-      obligations,
-    };
     if (getMonthKey(viewMonth) === monthKey) {
       setMonthData({ transactions, obligations });
     }
-  }, [initialMonth, obligations, transactions, viewMonth]);
+  }, [accountId, cache, initialMonth, obligations, transactions, userId, viewMonth]);
 
   useEffect(() => {
     if (!open) return;
@@ -97,12 +125,6 @@ export function MonthViewPanel({
 
   useEffect(() => {
     let cancelled = false;
-    const monthKey = getMonthKey(viewMonth);
-    const cached = monthCache.current[monthKey];
-    if (cached) {
-      setMonthData(cached);
-      return;
-    }
 
     async function loadMonthData() {
       const expandedRange = getExpandedMonthRange(viewMonth);
@@ -110,8 +132,8 @@ export function MonthViewPanel({
       const endDate = expandedRange.end.toISOString().slice(0, 10);
 
       try {
-        const [txResult, oblResult] = await Promise.all([
-          supabase
+        const loadTransactions = async () => {
+          const { data, error } = await supabase
             .from("transactions")
             .select(
               "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_at, category:categories(id, name, icon_id)"
@@ -120,8 +142,13 @@ export function MonthViewPanel({
             .gte("date", startDate)
             .lte("date", endDate)
             .order("date", { ascending: false })
-            .order("created_at", { ascending: false }),
-          supabase
+            .order("created_at", { ascending: false });
+          if (error) throw error;
+          return (data ?? []) as Transaction[];
+        };
+
+        const loadObligations = async () => {
+          const { data, error } = await supabase
             .from("obligations")
             .select(
               "id, account_id, name, amount_minor, amount_base_minor, currency, due_date, status, paid_at"
@@ -129,17 +156,45 @@ export function MonthViewPanel({
             .eq("account_id", accountId)
             .gte("due_date", startDate)
             .lte("due_date", endDate)
-            .order("due_date", { ascending: true }),
+            .order("due_date", { ascending: true });
+          if (error) throw error;
+          return (data ?? []) as Obligation[];
+        };
+
+        const [nextTransactions, nextObligations] = await Promise.all([
+          userId
+            ? cache.getOrLoad(
+                cacheKeys.transactionsRange(accountId, startDate, endDate),
+                loadTransactions,
+                CORE_5M,
+                {
+                  userId,
+                  accountId,
+                  tags: [cacheTags.transactions, cacheTags.homeCalendar],
+                }
+              )
+            : loadTransactions(),
+          userId
+            ? cache.getOrLoad(
+                cacheKeys.obligationsRange(accountId, startDate, endDate),
+                loadObligations,
+                CORE_5M,
+                {
+                  userId,
+                  accountId,
+                  tags: [cacheTags.obligations, cacheTags.homeCalendar],
+                }
+              )
+            : loadObligations(),
         ]);
 
-        if (!cancelled) {
-          const nextData = {
-            transactions: (txResult.data as Transaction[]) ?? [],
-            obligations: (oblResult.data as Obligation[]) ?? [],
-          };
-          monthCache.current[monthKey] = nextData;
-          setMonthData(nextData);
-        }
+        if (cancelled) return;
+
+        const nextData = {
+          transactions: nextTransactions,
+          obligations: nextObligations,
+        };
+        setMonthData(nextData);
       } catch (error) {
         console.error("[MonthViewPanel] Error loading month data:", error);
       }
@@ -149,7 +204,7 @@ export function MonthViewPanel({
     return () => {
       cancelled = true;
     };
-  }, [accountId, supabase, viewMonth]);
+  }, [accountId, cache, supabase, userId, viewMonth]);
 
   const handlePrevMonth = () => {
     setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
@@ -205,9 +260,7 @@ export function MonthViewPanel({
           ? { ...obligation, status: nextStatus }
           : obligation
       );
-      const nextData = { ...prev, obligations: nextObligations };
-      monthCache.current[getMonthKey(viewMonth)] = nextData;
-      return nextData;
+      return { ...prev, obligations: nextObligations };
     });
   };
 

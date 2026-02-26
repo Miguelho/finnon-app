@@ -1,4 +1,11 @@
-import type { MerchantSuggestion, TopCategory } from "@poleursus/shared";
+import {
+  CORE_5M,
+  cacheTags,
+  type MerchantSuggestion,
+  type TopCategory,
+  type CacheEnvelope,
+} from "@poleursus/shared";
+import { webDataCacheClient } from "@/cache/client";
 
 export type AddActionCategory = {
   id: string;
@@ -28,7 +35,6 @@ export type AddActionDataPayload = {
 type AddActionDataCacheEntry = {
   payload: AddActionDataPayload | null;
   updatedAt: number;
-  inFlight?: Promise<AddActionDataPayload>;
 };
 
 type LoadAddActionDataOptions = {
@@ -38,6 +44,8 @@ type LoadAddActionDataOptions = {
 const addActionDataCache = new Map<string, AddActionDataCacheEntry>();
 
 export const ADD_ACTION_DATA_TTL_MS = 7 * 60 * 1000;
+
+const getAddActionDataKey = (accountId: string) => `add_action_data:${accountId}`;
 
 function createEmptyPayload(): AddActionDataPayload {
   return {
@@ -75,6 +83,13 @@ function normalizePayload(value: unknown): AddActionDataPayload {
   };
 }
 
+function cacheSnapshot(accountId: string, payload: AddActionDataPayload | null) {
+  addActionDataCache.set(accountId, {
+    payload,
+    updatedAt: Date.now(),
+  });
+}
+
 export function getAddActionDataSnapshot(accountId: string): {
   payload: AddActionDataPayload | null;
   isStale: boolean;
@@ -96,57 +111,43 @@ export async function loadAddActionData(
     throw new Error("Missing accountId");
   }
 
-  const entry = addActionDataCache.get(accountId);
-  if (entry?.inFlight) {
-    return entry.inFlight;
-  }
+  const currentUserId =
+    typeof window === "undefined"
+      ? "unknown"
+      : (window.localStorage.getItem("finnon:currentUserId") ?? "unknown");
 
-  if (entry?.payload && !options.force) {
-    const isFresh = Date.now() - entry.updatedAt < ADD_ACTION_DATA_TTL_MS;
-    if (isFresh) {
-      return entry.payload;
+  const payload = await webDataCacheClient.getOrLoad(
+    getAddActionDataKey(accountId),
+    async () => {
+      const response = await fetch(
+        `/api/add-action-data?accountId=${encodeURIComponent(accountId)}`,
+        { cache: "no-store" }
+      );
+      if (!response.ok) {
+        throw new Error("Failed to load add action data");
+      }
+      return normalizePayload(await response.json());
+    },
+    CORE_5M,
+    {
+      userId: currentUserId,
+      accountId,
+      force: options.force,
+      tags: [cacheTags.categories, cacheTags.topCategories, cacheTags.merchants],
+    }
+  );
+
+  cacheSnapshot(accountId, payload);
+
+  if (payload.currentUserId) {
+    try {
+      window.localStorage.setItem("finnon:currentUserId", payload.currentUserId);
+    } catch {
+      // ignore storage write errors
     }
   }
 
-  const previousPayload = entry?.payload ?? null;
-  const previousUpdatedAt = entry?.updatedAt ?? 0;
-
-  const inFlight = (async () => {
-    const response = await fetch(
-      `/api/add-action-data?accountId=${encodeURIComponent(accountId)}`,
-      { cache: "no-store" }
-    );
-    if (!response.ok) {
-      throw new Error("Failed to load add action data");
-    }
-
-    const payload = normalizePayload(await response.json());
-    addActionDataCache.set(accountId, {
-      payload,
-      updatedAt: Date.now(),
-    });
-    return payload;
-  })();
-
-  addActionDataCache.set(accountId, {
-    payload: previousPayload,
-    updatedAt: previousUpdatedAt,
-    inFlight,
-  });
-
-  try {
-    return await inFlight;
-  } catch (error) {
-    if (previousPayload) {
-      addActionDataCache.set(accountId, {
-        payload: previousPayload,
-        updatedAt: previousUpdatedAt,
-      });
-    } else {
-      addActionDataCache.delete(accountId);
-    }
-    throw error;
-  }
+  return payload;
 }
 
 export function primeAddActionData(
@@ -154,20 +155,39 @@ export function primeAddActionData(
   payload: AddActionDataPayload
 ) {
   if (!accountId) return;
-  const existing = addActionDataCache.get(accountId);
-  addActionDataCache.set(accountId, {
-    payload: normalizePayload(payload),
-    updatedAt: Date.now(),
-    inFlight: existing?.inFlight,
-  });
+  const normalized = normalizePayload(payload);
+  cacheSnapshot(accountId, normalized);
+
+  const currentUserId =
+    typeof window === "undefined"
+      ? "unknown"
+      : (window.localStorage.getItem("finnon:currentUserId") ?? "unknown");
+
+  const now = Date.now();
+  const entry: CacheEnvelope<AddActionDataPayload> = {
+    version: 1,
+    userId: currentUserId,
+    accountId,
+    key: getAddActionDataKey(accountId),
+    data: normalized,
+    updatedAt: now,
+    staleAt: now + ADD_ACTION_DATA_TTL_MS,
+    expiresAt: now + 24 * 60 * 60 * 1000,
+    tags: [cacheTags.categories, cacheTags.topCategories, cacheTags.merchants],
+  };
+
+  void webDataCacheClient.prime(entry);
 }
 
 export function clearAddActionDataCache(accountId?: string) {
   if (accountId) {
     addActionDataCache.delete(accountId);
+    void webDataCacheClient.invalidateByKeys([getAddActionDataKey(accountId)]);
     return;
   }
+
   addActionDataCache.clear();
+  void webDataCacheClient.clearAll();
 }
 
 export function getEmptyAddActionDataPayload(): AddActionDataPayload {

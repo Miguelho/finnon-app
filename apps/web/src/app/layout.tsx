@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { NetworkNoticeProvider } from "@/components/network/network-notice";
 import { WebUserThemeProvider } from "@/components/theme/web-user-theme-provider";
 import { getThemePrehydrateScript } from "@/components/theme/theme-prehydrate-script";
+import { WebDataCacheProvider } from "@/cache/WebDataCacheProvider";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -88,7 +89,9 @@ export default async function RootLayout({
       <body>
         <NextIntlClientProvider messages={messages}>
           <NetworkNoticeProvider>
-            <WebUserThemeProvider>{children}</WebUserThemeProvider>
+            <WebUserThemeProvider>
+              <WebDataCacheProvider>{children}</WebDataCacheProvider>
+            </WebUserThemeProvider>
           </NetworkNoticeProvider>
           <Toaster />
           <Analytics />

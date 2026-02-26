@@ -4,7 +4,10 @@ import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
+  CORE_5M,
   CURRENCIES,
+  cacheKeys,
+  cacheTags,
   formatDateISO,
   formatMinorToMoney,
   getPeriodEnd,
@@ -43,6 +46,8 @@ import {
 } from "@/components/ui/slide-panel";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { useWebDataCache } from "@/cache/WebDataCacheProvider";
+import { useCachedRecurringRange, useCachedTransactionsRange } from "@/cache/hooks";
 import { confirmRecurringTransaction, updateTransaction } from "./actions";
 
 type Category = {
@@ -150,15 +155,7 @@ type RecurringTemplate = {
 };
 
 const design = movementsTokens;
-const PERIOD_DATA_CACHE_TTL_MS = 5 * 60 * 1000;
 const SUMMARY_BAR_TRANSITION = "flex 360ms cubic-bezier(0.22, 1, 0.36, 1)";
-
-type PeriodDataCacheEntry = {
-  transactions: Transaction[];
-  recurrents: RecurringItem[];
-  profilesById: Record<string, Profile>;
-  updatedAt: number;
-};
 
 const buildProfilesById = (profiles: Profile[]) =>
   profiles.reduce<Record<string, Profile>>((acc, profile) => {
@@ -941,6 +938,9 @@ export function MovementsClient({
 }: MovementsClientProps) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  const { cache, userId, emitMutation } = useWebDataCache();
+  const loadCachedTransactionsRange = useCachedTransactionsRange();
+  const loadCachedRecurringRange = useCachedRecurringRange();
   const t = useTranslations();
   const locale = useLocale();
 
@@ -974,10 +974,8 @@ export function MovementsClient({
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<TransactionDraft | null>(null);
-  const periodDataCacheRef = useRef<Record<string, PeriodDataCacheEntry>>({});
   const loadPeriodRequestIdRef = useRef(0);
   const profilesByIdRef = useRef<Record<string, Profile>>(buildProfilesById(profiles));
-  const currentDataCacheKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     setTransactions(initialTransactions);
@@ -1015,126 +1013,129 @@ export function MovementsClient({
     setIsDoneCollapsed(false);
   }, [initialCategoryFilter, initialTypeFilter]);
 
-  const getPeriodCacheKey = useCallback(
-    (period: Period) => {
-      const now = new Date();
-      const range = getPeriodRange(period, now);
-      const start = formatDateISO(range.start);
-      const end = formatDateISO(getPeriodEnd(period, now));
-      return `${accountId}:${period}:${start}:${end}`;
-    },
-    [accountId]
-  );
-
   useEffect(() => {
-    const cacheKey = getPeriodCacheKey(initialPeriod);
-    const nextProfilesById = buildProfilesById(profiles);
-    periodDataCacheRef.current[cacheKey] = {
-      transactions: initialTransactions,
-      recurrents: initialRecurringItems,
-      profilesById: nextProfilesById,
-      updatedAt: Date.now(),
-    };
-    currentDataCacheKeyRef.current = cacheKey;
+    if (!userId) return;
+    const now = new Date();
+    const range = getPeriodRange(initialPeriod, now);
+    const rangeStart = formatDateISO(range.start);
+    const rangeEnd = formatDateISO(getPeriodEnd(initialPeriod, now));
+    const timestamp = Date.now();
+
+    void cache.prime({
+      version: 1,
+      userId,
+      accountId,
+      key: cacheKeys.transactionsRange(accountId, rangeStart, rangeEnd),
+      data: initialTransactions,
+      updatedAt: timestamp,
+      staleAt: timestamp + CORE_5M.staleMs,
+      expiresAt: timestamp + CORE_5M.expireMs,
+      tags: [cacheTags.transactions],
+    });
+
+    void cache.prime({
+      version: 1,
+      userId,
+      accountId,
+      key: cacheKeys.recurrentsRange(accountId, rangeStart, rangeEnd),
+      data: initialRecurringItems,
+      updatedAt: timestamp,
+      staleAt: timestamp + CORE_5M.staleMs,
+      expiresAt: timestamp + CORE_5M.expireMs,
+      tags: [cacheTags.recurrents],
+    });
   }, [
-    getPeriodCacheKey,
+    accountId,
+    cache,
     initialPeriod,
     initialRecurringItems,
     initialTransactions,
-    profiles,
+    userId,
   ]);
 
   const loadPeriodData = useCallback(
     async (period: Period, options?: { force?: boolean }) => {
-      const forceReload = options?.force ?? false;
-      const cacheKey = getPeriodCacheKey(period);
-      const cached = periodDataCacheRef.current[cacheKey];
-      const isCacheFresh =
-        cached && Date.now() - cached.updatedAt <= PERIOD_DATA_CACHE_TTL_MS;
+      try {
+        const forceReload = options?.force ?? false;
+        const requestId = ++loadPeriodRequestIdRef.current;
+        const now = new Date();
+        const range = getPeriodRange(period, now);
+        const rangeStart = formatDateISO(range.start);
+        const rangeEnd = formatDateISO(getPeriodEnd(period, now));
 
-      if (!forceReload && isCacheFresh) {
-        setTransactions(cached.transactions);
-        setRecurrents(cached.recurrents);
-        setProfilesById(cached.profilesById);
-        profilesByIdRef.current = cached.profilesById;
-        currentDataCacheKeyRef.current = cacheKey;
-        return;
-      }
-
-      const requestId = ++loadPeriodRequestIdRef.current;
-      const now = new Date();
-      const range = getPeriodRange(period, now);
-      const rangeStart = formatDateISO(range.start);
-      const rangeEnd = formatDateISO(getPeriodEnd(period, now));
-
-      const [transactionsResult, recurringResult] = await Promise.all([
-        supabase
-          .from("transactions")
-          .select("*, category:categories(id, name, icon_id, type)")
-          .eq("account_id", accountId)
-          .gte("date", rangeStart)
-          .lte("date", rangeEnd)
-          .order("date", { ascending: false })
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("recurring_items")
-          .select(
-            "id, account_id, type, amount_minor, currency, category_id, merchant, notes, start_date, frequency, interval, day_of_month, end_date, is_paused, created_by"
-          )
-          .eq("account_id", accountId)
-          .lte("start_date", rangeEnd)
-          .or(`end_date.is.null,end_date.gte.${rangeStart}`),
-      ]);
-
-      if (requestId !== loadPeriodRequestIdRef.current) return;
-
-      if (transactionsResult.error || recurringResult.error) {
-        console.error("[MovementsClient] Error loading period data:", {
-          transactions: transactionsResult.error,
-          recurrents: recurringResult.error,
-        });
-        return;
-      }
-
-      const nextTransactions = (transactionsResult.data as Transaction[]) ?? [];
-      const nextRecurrents = (recurringResult.data as RecurringItem[]) ?? [];
-      const userIds = Array.from(
-        new Set(nextTransactions.map((item) => item.created_by))
-      );
-
-      let nextProfilesById = profilesByIdRef.current;
-      if (userIds.length > 0) {
-        const { data: profileRows, error: profileError } = await supabase
-          .from("profiles")
-          .select(
-            "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
-          )
-          .in("user_id", userIds);
+        const [nextTransactions, nextRecurrents] = await Promise.all([
+          loadCachedTransactionsRange<Transaction[]>({
+            accountId,
+            start: rangeStart,
+            end: rangeEnd,
+            force: forceReload,
+            loader: async () => {
+              const { data, error } = await supabase
+                .from("transactions")
+                .select("*, category:categories(id, name, icon_id, type)")
+                .eq("account_id", accountId)
+                .gte("date", rangeStart)
+                .lte("date", rangeEnd)
+                .order("date", { ascending: false })
+                .order("created_at", { ascending: false });
+              if (error) throw error;
+              return (data ?? []) as Transaction[];
+            },
+          }),
+          loadCachedRecurringRange<RecurringItem[]>({
+            accountId,
+            start: rangeStart,
+            end: rangeEnd,
+            force: forceReload,
+            loader: async () => {
+              const { data, error } = await supabase
+                .from("recurring_items")
+                .select(
+                  "id, account_id, type, amount_minor, currency, category_id, merchant, notes, start_date, frequency, interval, day_of_month, end_date, is_paused, created_by"
+                )
+                .eq("account_id", accountId)
+                .lte("start_date", rangeEnd)
+                .or(`end_date.is.null,end_date.gte.${rangeStart}`);
+              if (error) throw error;
+              return (data ?? []) as RecurringItem[];
+            },
+          }),
+        ]);
 
         if (requestId !== loadPeriodRequestIdRef.current) return;
 
-        if (!profileError && profileRows) {
-          nextProfilesById = { ...profilesByIdRef.current };
-          (profileRows as Profile[]).forEach((profile) => {
-            nextProfilesById[profile.user_id] = profile;
-          });
+        const userIds = Array.from(
+          new Set(nextTransactions.map((item) => item.created_by))
+        );
+
+        let nextProfilesById = profilesByIdRef.current;
+        if (userIds.length > 0) {
+          const { data: profileRows, error: profileError } = await supabase
+            .from("profiles")
+            .select(
+              "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
+            )
+            .in("user_id", userIds);
+
+          if (requestId !== loadPeriodRequestIdRef.current) return;
+
+          if (!profileError && profileRows) {
+            nextProfilesById = { ...profilesByIdRef.current };
+            (profileRows as Profile[]).forEach((profile) => {
+              nextProfilesById[profile.user_id] = profile;
+            });
+          }
         }
+
+        setTransactions(nextTransactions);
+        setRecurrents(nextRecurrents);
+        setProfilesById(nextProfilesById);
+        profilesByIdRef.current = nextProfilesById;
+      } catch (error) {
+        console.error("[MovementsClient] Error loading period data:", error);
       }
-
-      setTransactions(nextTransactions);
-      setRecurrents(nextRecurrents);
-      setProfilesById(nextProfilesById);
-      profilesByIdRef.current = nextProfilesById;
-      currentDataCacheKeyRef.current = cacheKey;
-
-      periodDataCacheRef.current[cacheKey] = {
-        transactions: nextTransactions,
-        recurrents: nextRecurrents,
-        profilesById: nextProfilesById,
-        updatedAt: Date.now(),
-      };
     },
-    [accountId, getPeriodCacheKey, supabase]
+    [accountId, loadCachedRecurringRange, loadCachedTransactionsRange, supabase]
   );
 
   useEffect(() => {
@@ -1318,10 +1319,11 @@ export function MovementsClient({
           category: category ? { ...category } : null,
         };
         setTransactions((prev) => [nextTransaction, ...prev]);
+        await emitMutation("transactions", "insert");
       }
       setIsRegistering(false);
     },
-    [categories, role, unregisteredRecurrents]
+    [categories, emitMutation, role, unregisteredRecurrents]
   );
 
   const handleRegisterAll = useCallback(async () => {
@@ -1431,8 +1433,9 @@ export function MovementsClient({
       setTransactions((prev) =>
         prev.map((item) => (item.id === nextTransaction.id ? nextTransaction : item))
       );
+      await emitMutation("transactions", "update");
     },
-    [canEdit, categories, selectedTransaction, t]
+    [canEdit, categories, emitMutation, selectedTransaction, t]
   );
 
   const handlePeriodChange = useCallback(
@@ -1463,20 +1466,8 @@ export function MovementsClient({
   }, [selectedPeriod, categoryFilters, merchantFilters, typeFilters]);
 
   useEffect(() => {
-    const cacheKey = currentDataCacheKeyRef.current;
-    if (!cacheKey) return;
-    periodDataCacheRef.current[cacheKey] = {
-      transactions,
-      recurrents,
-      profilesById,
-      updatedAt: Date.now(),
-    };
     profilesByIdRef.current = profilesById;
-  }, [
-    transactions,
-    recurrents,
-    profilesById,
-  ]);
+  }, [profilesById]);
 
   const showPendingGroup = groupedByStatus.pending.length > 0;
 

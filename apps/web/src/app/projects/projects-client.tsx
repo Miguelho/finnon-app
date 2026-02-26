@@ -15,6 +15,7 @@ import {
 } from "@poleursus/shared";
 import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useWebDataCache } from "@/cache/WebDataCacheProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -100,6 +101,7 @@ export function ProjectsClient({
   const tCommon = useTranslations("common");
   const tGlobal = useTranslations();
   const supabase = useMemo(() => createClient(), []);
+  const { emitMutation } = useWebDataCache();
 
   const canEdit = role !== "viewer";
 
@@ -198,6 +200,7 @@ export function ProjectsClient({
       setProjects((previous) =>
         [...previous, data as Project].sort((a, b) => a.priority - b.priority)
       );
+      await emitMutation("projects", "insert");
       setIsCreateOpen(false);
     } catch (error) {
       console.error("[Projects] Create error", error);

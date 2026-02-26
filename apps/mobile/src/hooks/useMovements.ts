@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIsFocused } from "@react-navigation/native";
 import {
   CURRENCIES,
+  CORE_5M,
+  META_24H,
+  cacheKeys,
+  cacheTags,
   formatDateISO,
   getPeriodEnd,
   getPeriodRange,
@@ -17,17 +21,12 @@ import {
   selectUnregisteredRecurrents,
   useMovementsStore,
 } from "../stores/useMovementsStore";
+import { useDataCache } from "../cache/DataCacheProvider";
+import {
+  useCachedRecurringRange,
+  useCachedTransactionsRange,
+} from "../cache/hooks";
 import type { Category, Movement, UserProfile } from "../types/movements";
-
-const PERIOD_DATA_CACHE_TTL_MS = 5 * 60 * 1000;
-
-type PeriodDataCacheEntry = {
-  periodMovements: Movement[];
-  categories: Category[];
-  recurringItems: RecurringItem[];
-  baseCurrency: string;
-  updatedAt: number;
-};
 
 type TransactionRow = {
   id: string;
@@ -100,6 +99,9 @@ const matchesSearch = (movement: Movement, query: string) => {
 export function useMovements() {
   const isFocused = useIsFocused();
   const { selectedAccountId } = useAuth();
+  const { cache, userId } = useDataCache();
+  const loadCachedTransactionsRange = useCachedTransactionsRange();
+  const loadCachedRecurringRange = useCachedRecurringRange();
   const { locale, dictionary } = useCopy();
   const { reportNetworkIssue } = useNetworkNotice();
 
@@ -124,10 +126,8 @@ export function useMovements() {
   const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const periodDataCacheRef = useRef<Record<string, PeriodDataCacheEntry>>({});
   const latestPeriodCacheKeyRef = useRef<string | null>(null);
   const periodLoadRequestIdRef = useRef(0);
-  const loadedPeriodCacheKeyRef = useRef<string | null>(null);
 
   const periodRange = useMemo(() => {
     const now = new Date();
@@ -175,7 +175,6 @@ export function useMovements() {
   const loadPeriodData = useCallback(async (options?: { force?: boolean }) => {
     const forceReload = options?.force ?? false;
     if (!selectedAccountId || !periodCacheKey) {
-      loadedPeriodCacheKeyRef.current = null;
       setLoading(false);
       return;
     }
@@ -186,56 +185,105 @@ export function useMovements() {
       periodLoadRequestIdRef.current !== requestId ||
       latestPeriodCacheKeyRef.current !== requestKey;
 
-    const cacheEntry = periodDataCacheRef.current[requestKey];
-    const isCacheFresh =
-      cacheEntry &&
-      Date.now() - cacheEntry.updatedAt <= PERIOD_DATA_CACHE_TTL_MS;
-
-    if (!forceReload && isCacheFresh) {
-      if (isStaleRequest()) return;
-      loadedPeriodCacheKeyRef.current = requestKey;
-      setError(null);
-      setPeriodMovements(cacheEntry.periodMovements);
-      setCategories(cacheEntry.categories);
-      setRecurringItems(cacheEntry.recurringItems);
-      setBaseCurrency(cacheEntry.baseCurrency);
-      setLoading(false);
-      await loadProfiles(cacheEntry.periodMovements);
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
     try {
-      const accountPromise = supabase
-        .from("accounts")
-        .select("base_currency")
-        .eq("id", selectedAccountId)
-        .maybeSingle();
+      const accountPromise = userId
+        ? cache.getOrLoad(
+            cacheKeys.accountSummary(selectedAccountId),
+            async () => {
+              const { data, error } = await supabase
+                .from("accounts")
+                .select("base_currency")
+                .eq("id", selectedAccountId)
+                .maybeSingle();
+              if (error) throw error;
+              return { base_currency: data?.base_currency ?? baseCurrency };
+            },
+            CORE_5M,
+            {
+              userId,
+              accountId: selectedAccountId,
+              force: forceReload,
+              tags: [cacheTags.accountSummary],
+            }
+          )
+        : (async () => {
+            const { data, error } = await supabase
+              .from("accounts")
+              .select("base_currency")
+              .eq("id", selectedAccountId)
+              .maybeSingle();
+            if (error) throw error;
+            return { base_currency: data?.base_currency ?? baseCurrency };
+          })();
 
-      const transactionsPromise = supabase
-        .from("transactions")
-        .select("*, category:categories(id, name, icon_id, type)")
-        .eq("account_id", selectedAccountId)
-        .gte("date", periodRange.start)
-        .lte("date", periodRange.end)
-        .order("date", { ascending: false })
-        .order("created_at", { ascending: false });
+      const transactionsPromise = loadCachedTransactionsRange<TransactionRow[]>({
+        accountId: selectedAccountId,
+        start: periodRange.start,
+        end: periodRange.end,
+        force: forceReload,
+        loader: async () => {
+          const { data, error } = await supabase
+            .from("transactions")
+            .select("*, category:categories(id, name, icon_id, type)")
+            .eq("account_id", selectedAccountId)
+            .gte("date", periodRange.start)
+            .lte("date", periodRange.end)
+            .order("date", { ascending: false })
+            .order("created_at", { ascending: false });
+          if (error) throw error;
+          return (data ?? []) as TransactionRow[];
+        },
+      });
 
-      const categoriesPromise = supabase
-        .from("categories")
-        .select("id, name, icon_id, type, account_id")
-        .eq("account_id", selectedAccountId);
+      const categoriesPromise = userId
+        ? cache.getOrLoad(
+            cacheKeys.categories(selectedAccountId),
+            async () => {
+              const { data, error } = await supabase
+                .from("categories")
+                .select("id, name, icon_id, type, account_id")
+                .eq("account_id", selectedAccountId);
+              if (error) throw error;
+              return (data ?? []) as Category[];
+            },
+            META_24H,
+            {
+              userId,
+              accountId: selectedAccountId,
+              force: forceReload,
+              tags: [cacheTags.categories],
+            }
+          )
+        : (async () => {
+            const { data, error } = await supabase
+              .from("categories")
+              .select("id, name, icon_id, type, account_id")
+              .eq("account_id", selectedAccountId);
+            if (error) throw error;
+            return (data ?? []) as Category[];
+          })();
 
-      const recurringPromise = supabase
-        .from("recurring_items")
-        .select(
-          "id, account_id, type, amount_minor, currency, category_id, merchant, notes, start_date, frequency, interval, day_of_month, end_date, is_paused, created_by"
-        )
-        .eq("account_id", selectedAccountId)
-        .lte("start_date", periodRange.end)
-        .or(`end_date.is.null,end_date.gte.${periodRange.start}`);
+      const recurringPromise = loadCachedRecurringRange<RecurringItem[]>({
+        accountId: selectedAccountId,
+        start: periodRange.start,
+        end: periodRange.end,
+        force: forceReload,
+        loader: async () => {
+          const { data, error } = await supabase
+            .from("recurring_items")
+            .select(
+              "id, account_id, type, amount_minor, currency, category_id, merchant, notes, start_date, frequency, interval, day_of_month, end_date, is_paused, created_by"
+            )
+            .eq("account_id", selectedAccountId)
+            .lte("start_date", periodRange.end)
+            .or(`end_date.is.null,end_date.gte.${periodRange.start}`);
+          if (error) throw error;
+          return (data ?? []) as RecurringItem[];
+        },
+      });
 
       const [accountResult, transactionsResult, categoriesResult, recurringResult] =
         await Promise.all([
@@ -247,34 +295,20 @@ export function useMovements() {
 
       if (isStaleRequest()) return;
 
-      if (accountResult.error) throw accountResult.error;
-      if (transactionsResult.error) throw transactionsResult.error;
-      if (categoriesResult.error) throw categoriesResult.error;
-      if (recurringResult.error) throw recurringResult.error;
-
-      const nextBaseCurrency = accountResult.data?.base_currency ?? baseCurrency;
+      const nextBaseCurrency = accountResult.base_currency ?? baseCurrency;
       setBaseCurrency(nextBaseCurrency);
 
-      const mappedMovements = (transactionsResult.data || []).map((row) =>
+      const mappedMovements = (transactionsResult || []).map((row) =>
         mapTransactionToMovement(row as TransactionRow, {
           uncategorized: t(dictionary, "transactions.uncategorized"),
           movementFallback: t(dictionary, "transactions.ui.movementFallback"),
         })
       );
-      const nextCategories = (categoriesResult.data || []) as Category[];
-      const nextRecurringItems = (recurringResult.data || []) as RecurringItem[];
-      loadedPeriodCacheKeyRef.current = requestKey;
+      const nextCategories = (categoriesResult || []) as Category[];
+      const nextRecurringItems = (recurringResult || []) as RecurringItem[];
       setPeriodMovements(mappedMovements);
       setCategories(nextCategories);
       setRecurringItems(nextRecurringItems);
-
-      periodDataCacheRef.current[requestKey] = {
-        periodMovements: mappedMovements,
-        categories: nextCategories,
-        recurringItems: nextRecurringItems,
-        baseCurrency: nextBaseCurrency,
-        updatedAt: Date.now(),
-      };
 
       await loadProfiles(mappedMovements);
     } catch (e: any) {
@@ -292,6 +326,10 @@ export function useMovements() {
     periodRange.end,
     periodRange.start,
     baseCurrency,
+    cache,
+    loadCachedRecurringRange,
+    loadCachedTransactionsRange,
+    userId,
     reportNetworkIssue,
     selectedAccountId,
     dictionary,
@@ -299,32 +337,6 @@ export function useMovements() {
     setCategories,
     setPeriodMovements,
     setRecurringItems,
-  ]);
-
-  useEffect(() => {
-    if (
-      !periodCacheKey ||
-      loading ||
-      error ||
-      loadedPeriodCacheKeyRef.current !== periodCacheKey
-    ) {
-      return;
-    }
-    periodDataCacheRef.current[periodCacheKey] = {
-      periodMovements,
-      categories,
-      recurringItems,
-      baseCurrency,
-      updatedAt: Date.now(),
-    };
-  }, [
-    periodCacheKey,
-    loading,
-    error,
-    periodMovements,
-    categories,
-    recurringItems,
-    baseCurrency,
   ]);
 
   const loadSearchResults = useCallback(async () => {

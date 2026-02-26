@@ -3,6 +3,9 @@ import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
+  CORE_5M,
+  cacheKeys,
+  cacheTags,
   buildEqualSplit,
   CURRENCY_MINOR_UNITS,
   computeAmountBaseMinor,
@@ -20,6 +23,8 @@ import { useAuth } from "../../../src/contexts/AuthContext";
 import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../src/lib/i18n";
 import { AddTransactionForm } from "../../../src/components/add-transaction";
+import { useDataCache } from "../../../src/cache/DataCacheProvider";
+import { useCachedCategoriesAndSuggestions } from "../../../src/cache/hooks";
 
 interface Category {
   id: string;
@@ -59,6 +64,8 @@ export default function EditTransactionScreen(): React.JSX.Element {
   const { id } = useLocalSearchParams();
   const isFocused = useIsFocused();
   const { selectedAccountId } = useAuth();
+  const { cache, userId, emitMutation } = useDataCache();
+  const loadCachedCategoriesAndSuggestions = useCachedCategoriesAndSuggestions();
   const { tokens: userTokens } = useUserTheme();
   const { dictionary } = useCopy();
 
@@ -130,12 +137,8 @@ export default function EditTransactionScreen(): React.JSX.Element {
       try {
         const [
           transactionResult,
-          categoriesResult,
+          categoriesAndSuggestions,
           accountResult,
-          topExpenseResult,
-          topIncomeResult,
-          merchantExpenseResult,
-          merchantIncomeResult,
           accountSummaryResult,
         ] = await Promise.all([
           supabase
@@ -143,44 +146,70 @@ export default function EditTransactionScreen(): React.JSX.Element {
             .select("*")
             .eq("id", transactionId)
             .single(),
-          supabase
-            .from("categories")
-            .select("id, name, icon_id, type")
-            .eq("account_id", selectedAccountId)
-            .order("name", { ascending: true }),
-          supabase
-            .from("accounts")
-            .select("base_currency")
-            .eq("id", selectedAccountId)
-            .single(),
-          supabase.rpc("get_top_categories", {
-            p_account_id: selectedAccountId,
-            p_tx_type: "expense",
-            p_limit: 3,
+          loadCachedCategoriesAndSuggestions({
+            accountId: selectedAccountId,
+            loadCategories: async () => {
+              const { data, error } = await supabase
+                .from("categories")
+                .select("id, name, icon_id, type")
+                .eq("account_id", selectedAccountId)
+                .order("name", { ascending: true });
+              if (error) throw error;
+              return (data ?? []) as Category[];
+            },
+            loadTopCategories: async (txType) => {
+              const { data, error } = await supabase.rpc("get_top_categories", {
+                p_account_id: selectedAccountId,
+                p_tx_type: txType,
+                p_limit: 3,
+              });
+              if (error) throw error;
+              return (data ?? []) as TopCategory[];
+            },
+            loadMerchantSuggestions: async (txType) => {
+              const { data, error } = await supabase.rpc("get_merchant_suggestions", {
+                p_account_id: selectedAccountId,
+                p_tx_type: txType,
+                p_limit: 20,
+              });
+              if (error) throw error;
+              return (data ?? []) as MerchantSuggestion[];
+            },
           }),
-          supabase.rpc("get_top_categories", {
-            p_account_id: selectedAccountId,
-            p_tx_type: "income",
-            p_limit: 3,
-          }),
-          supabase.rpc("get_merchant_suggestions", {
-            p_account_id: selectedAccountId,
-            p_tx_type: "expense",
-            p_limit: 20,
-          }),
-          supabase.rpc("get_merchant_suggestions", {
-            p_account_id: selectedAccountId,
-            p_tx_type: "income",
-            p_limit: 20,
-          }),
+          userId
+            ? cache.getOrLoad(
+                cacheKeys.accountSummary(selectedAccountId),
+                async () => {
+                  const { data, error } = await supabase
+                    .from("accounts")
+                    .select("base_currency")
+                    .eq("id", selectedAccountId)
+                    .single();
+                  if (error) throw error;
+                  return { base_currency: data?.base_currency ?? "EUR" };
+                },
+                CORE_5M,
+                {
+                  userId,
+                  accountId: selectedAccountId,
+                  tags: [cacheTags.accountSummary],
+                }
+              )
+            : (async () => {
+                const { data, error } = await supabase
+                  .from("accounts")
+                  .select("base_currency")
+                  .eq("id", selectedAccountId)
+                  .single();
+                if (error) throw error;
+                return { base_currency: data?.base_currency ?? "EUR" };
+              })(),
           supabase.rpc("get_account_summary", {
             p_account_id: selectedAccountId,
           }),
         ]);
 
         if (transactionResult.error) throw transactionResult.error;
-        if (categoriesResult.error) throw categoriesResult.error;
-        if (accountResult.error) throw accountResult.error;
         if (accountSummaryResult.error) throw accountSummaryResult.error;
 
         const tx = transactionResult.data as Transaction | null;
@@ -202,16 +231,10 @@ export default function EditTransactionScreen(): React.JSX.Element {
         setTransaction(tx);
         setInitialDraft(buildDraft(tx));
         setAddedByName(resolvedAddedBy);
-        setCategories((categoriesResult.data ?? []) as Category[]);
-        setBaseCurrency(accountResult.data?.base_currency ?? "EUR");
-        setTopCategories({
-          expense: (topExpenseResult.data ?? []) as TopCategory[],
-          income: (topIncomeResult.data ?? []) as TopCategory[],
-        });
-        setMerchantSuggestions({
-          expense: (merchantExpenseResult.data ?? []) as MerchantSuggestion[],
-          income: (merchantIncomeResult.data ?? []) as MerchantSuggestion[],
-        });
+        setCategories(categoriesAndSuggestions.categories);
+        setBaseCurrency(accountResult.base_currency ?? "EUR");
+        setTopCategories(categoriesAndSuggestions.topCategories);
+        setMerchantSuggestions(categoriesAndSuggestions.merchantSuggestions);
         const summary = accountSummaryResult.data as AccountSummaryData | null;
         const nextParticipants = (summary?.participants ?? []).map((member) => ({
           userId: member.user_id,
@@ -241,7 +264,10 @@ export default function EditTransactionScreen(): React.JSX.Element {
     isFocused,
     router,
     selectedAccountId,
+    cache,
+    loadCachedCategoriesAndSuggestions,
     transactionId,
+    userId,
   ]);
 
   const handleSubmitDraft = useCallback(
@@ -348,8 +374,9 @@ export default function EditTransactionScreen(): React.JSX.Element {
         .eq("id", transaction.id);
 
       if (error) throw error;
+      await emitMutation("transactions", "update");
     },
-    [baseCurrency, dictionary, participants, transaction]
+    [baseCurrency, dictionary, emitMutation, participants, transaction]
   );
 
   const participantNameById = useMemo(() => {

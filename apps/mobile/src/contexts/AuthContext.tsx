@@ -5,6 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { signOutAndReset } from "@poleursus/shared";
 import { supabase } from "../lib/supabase";
 import { getVerifiedUser } from "../lib/auth";
+import { mobileDataCacheClient } from "../cache/client";
 
 const SELECTED_ACCOUNT_KEY = "@finnon/selectedAccountId";
 
@@ -217,6 +218,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await supabase.auth.signOut();
       },
       clearLocalSessionArtifacts: clearSelectedAccount,
+      onReset: async () => {
+        await mobileDataCacheClient.clearAll();
+      },
     });
   };
 

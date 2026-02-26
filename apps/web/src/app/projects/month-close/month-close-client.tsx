@@ -17,6 +17,7 @@ import {
 } from "@poleursus/shared";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useWebDataCache } from "@/cache/WebDataCacheProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -89,6 +90,7 @@ export function MonthCloseClient({
   const tCommon = useTranslations("common");
   const tGlobal = useTranslations();
   const supabase = useMemo(() => createClient(), []);
+  const { emitMutation } = useWebDataCache();
 
   const canEdit = role !== "viewer";
 
@@ -390,6 +392,7 @@ export function MonthCloseClient({
       if (error) throw error;
 
       setConfirmedRows((data as ProjectContribution[]) ?? []);
+      await emitMutation("project_contributions", "upsert");
       setSuccessMessage(tProjects("monthClose.confirmed"));
       router.refresh();
     } catch (error) {

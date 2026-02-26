@@ -1,13 +1,17 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Modal, View, StyleSheet, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   themeTokens,
+  type MutationAction,
+  type MutationEntity,
   type TopCategory,
   type MerchantSuggestion,
 } from "@poleursus/shared";
 import { supabase } from "../../lib/supabase";
 import { AddTransactionForm } from "./AddTransactionForm";
+import { useDataCache } from "../../cache/DataCacheProvider";
+import { useCachedCategoriesAndSuggestions } from "../../cache/hooks";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -39,6 +43,8 @@ export function AddTransactionModal({
   onSuccess,
 }: AddTransactionModalProps) {
   const insets = useSafeAreaInsets();
+  const { emitMutation } = useDataCache();
+  const loadCachedCategoriesAndSuggestions = useCachedCategoriesAndSuggestions();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [topCategories, setTopCategories] = useState<{
@@ -51,9 +57,6 @@ export function AddTransactionModal({
   }>({ expense: [], income: [] });
   const [isLoading, setIsLoading] = useState(true);
 
-  const topCategoriesCache = useRef<Record<string, TopCategory[]>>({});
-  const merchantSuggestionsCache = useRef<Record<string, MerchantSuggestion[]>>({});
-
   useEffect(() => {
     if (visible && accountId) {
       loadData();
@@ -64,77 +67,40 @@ export function AddTransactionModal({
     setIsLoading(true);
 
     try {
-      // Load categories (all types)
-      const { data: categoriesData } = await supabase
-        .from("categories")
-        .select("id, name, icon_id, type")
-        .eq("account_id", accountId)
-        .order("name");
+      const payload = await loadCachedCategoriesAndSuggestions({
+        accountId,
+        loadCategories: async () => {
+          const { data, error } = await supabase
+            .from("categories")
+            .select("id, name, icon_id, type")
+            .eq("account_id", accountId)
+            .order("name");
+          if (error) throw error;
+          return (data ?? []) as Category[];
+        },
+        loadTopCategories: async (txType) => {
+          const { data, error } = await supabase.rpc("get_top_categories", {
+            p_account_id: accountId,
+            p_tx_type: txType,
+            p_limit: 3,
+          });
+          if (error) throw error;
+          return (data ?? []) as TopCategory[];
+        },
+        loadMerchantSuggestions: async (txType) => {
+          const { data, error } = await supabase.rpc("get_merchant_suggestions", {
+            p_account_id: accountId,
+            p_tx_type: txType,
+            p_limit: 20,
+          });
+          if (error) throw error;
+          return (data ?? []) as MerchantSuggestion[];
+        },
+      });
 
-      setCategories(categoriesData ?? []);
-
-      // Load top categories for both types
-      const expenseTopKey = `${accountId}:expense`;
-      const incomeTopKey = `${accountId}:income`;
-
-      let expenseTop: TopCategory[] = [];
-      let incomeTop: TopCategory[] = [];
-
-      if (topCategoriesCache.current[expenseTopKey]) {
-        expenseTop = topCategoriesCache.current[expenseTopKey];
-      } else {
-        const { data: topData } = await supabase.rpc("get_top_categories", {
-          p_account_id: accountId,
-          p_tx_type: "expense",
-          p_limit: 3,
-        });
-        expenseTop = topData ?? [];
-        topCategoriesCache.current[expenseTopKey] = expenseTop;
-      }
-
-      if (topCategoriesCache.current[incomeTopKey]) {
-        incomeTop = topCategoriesCache.current[incomeTopKey];
-      } else {
-        const { data: topData } = await supabase.rpc("get_top_categories", {
-          p_account_id: accountId,
-          p_tx_type: "income",
-          p_limit: 3,
-        });
-        incomeTop = topData ?? [];
-        topCategoriesCache.current[incomeTopKey] = incomeTop;
-      }
-
-      setTopCategories({ expense: expenseTop, income: incomeTop });
-
-      // Load merchant suggestions for both types
-      let expenseMerchants: MerchantSuggestion[] = [];
-      let incomeMerchants: MerchantSuggestion[] = [];
-
-      if (merchantSuggestionsCache.current[expenseTopKey]) {
-        expenseMerchants = merchantSuggestionsCache.current[expenseTopKey];
-      } else {
-        const { data: merchantData } = await supabase.rpc("get_merchant_suggestions", {
-          p_account_id: accountId,
-          p_tx_type: "expense",
-          p_limit: 20,
-        });
-        expenseMerchants = merchantData ?? [];
-        merchantSuggestionsCache.current[expenseTopKey] = expenseMerchants;
-      }
-
-      if (merchantSuggestionsCache.current[incomeTopKey]) {
-        incomeMerchants = merchantSuggestionsCache.current[incomeTopKey];
-      } else {
-        const { data: merchantData } = await supabase.rpc("get_merchant_suggestions", {
-          p_account_id: accountId,
-          p_tx_type: "income",
-          p_limit: 20,
-        });
-        incomeMerchants = merchantData ?? [];
-        merchantSuggestionsCache.current[incomeTopKey] = incomeMerchants;
-      }
-
-      setMerchantSuggestions({ expense: expenseMerchants, income: incomeMerchants });
+      setCategories(payload.categories);
+      setTopCategories(payload.topCategories);
+      setMerchantSuggestions(payload.merchantSuggestions);
     } catch (error) {
       console.error("Error loading data for transaction form:", error);
     } finally {
@@ -142,10 +108,14 @@ export function AddTransactionModal({
     }
   };
 
+  const handleMutationSuccess = async (
+    entity: MutationEntity,
+    action: MutationAction
+  ) => {
+    await emitMutation(entity, action);
+  };
+
   const handleSuccess = () => {
-    // Clear caches on success so next load gets fresh data
-    topCategoriesCache.current = {};
-    merchantSuggestionsCache.current = {};
     onSuccess?.();
     onClose();
   };
@@ -172,6 +142,7 @@ export function AddTransactionModal({
             topCategories={topCategories}
             merchantSuggestions={merchantSuggestions}
             defaultDate={defaultDate}
+            onMutationSuccess={handleMutationSuccess}
             onSuccess={handleSuccess}
             onCancel={onClose}
           />

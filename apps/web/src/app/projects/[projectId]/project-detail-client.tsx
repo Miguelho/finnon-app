@@ -13,6 +13,7 @@ import {
 } from "@poleursus/shared";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useWebDataCache } from "@/cache/WebDataCacheProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -109,6 +110,7 @@ export function ProjectDetailClient({
   const tProjects = useTranslations("projects");
   const tGlobal = useTranslations();
   const supabase = useMemo(() => createClient(), []);
+  const { emitMutation } = useWebDataCache();
 
   const canEdit = role !== "viewer";
   const minorUnits = getMinorUnits(baseCurrency);
@@ -285,6 +287,7 @@ export function ProjectDetailClient({
       setProject(data as Project);
       setSliderMinor(Number(effectiveMonthlyMinor));
       setDisabledRecurringIds(new Set());
+      await emitMutation("projects", "update");
       setSaveMessage(
         tProjects("simulator.saved", {
           amount: formatMoneyWithSymbol(effectiveMonthlyMinor, baseCurrency, currencySymbol),

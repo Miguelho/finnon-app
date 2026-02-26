@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ConfirmationModal, signOutAndReset } from "@poleursus/shared";
 import { toast } from "sonner";
+import { webDataCacheClient } from "@/cache/client";
 
 const STORAGE_KEY = "finnon:activeAccountId";
 
@@ -20,6 +21,7 @@ export function UserSignOutRow() {
 
   const clearActiveAccount = async () => {
     localStorage.removeItem(STORAGE_KEY);
+    await webDataCacheClient.clearAll();
   };
 
   const handleSignOut = async () => {

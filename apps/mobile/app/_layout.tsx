@@ -20,6 +20,7 @@ import {
   UserThemeProvider,
   useUserTheme,
 } from "../src/contexts/UserThemeContext";
+import { DataCacheProvider } from "../src/cache/DataCacheProvider";
 import { SettingsDrawerContent } from "../src/components/settings/SettingsDrawerContent";
 import { LocaleProvider } from "../src/lib/i18n";
 
@@ -67,13 +68,15 @@ export default function RootLayout() {
   return (
     <LocaleProvider>
       <AuthProvider>
-        <UserThemeProvider>
-          <ActionSheetProvider>
-            <NetworkNoticeProvider>
-              <RootLayoutNav />
-            </NetworkNoticeProvider>
-          </ActionSheetProvider>
-        </UserThemeProvider>
+        <DataCacheProvider>
+          <UserThemeProvider>
+            <ActionSheetProvider>
+              <NetworkNoticeProvider>
+                <RootLayoutNav />
+              </NetworkNoticeProvider>
+            </ActionSheetProvider>
+          </UserThemeProvider>
+        </DataCacheProvider>
       </AuthProvider>
     </LocaleProvider>
   );

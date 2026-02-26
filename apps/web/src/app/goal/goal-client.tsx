@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,8 @@ import { useWebUserTheme } from "@/components/theme/web-user-theme-provider";
 import { GoalSimulator } from "@/components/goal/goal-simulator";
 import { GoalGamificationSection } from "@/components/goal/goal-gamification";
 import { GoalHistoryHero } from "@/components/goal/goal-history-hero";
+import { useWebDataCache } from "@/cache/WebDataCacheProvider";
+import { useCachedGoalData } from "@/cache/hooks";
 import {
   SlidePanel,
   SlidePanelBody,
@@ -24,6 +25,9 @@ import {
 } from "@/components/ui/slide-panel";
 import { createClient } from "@/lib/supabase/client";
 import {
+  CORE_5M,
+  cacheKeys,
+  cacheTags,
   computeGoalInsights,
   computeGoalComposition,
   computeGoalProgress,
@@ -296,8 +300,9 @@ export function GoalClient({
   const tCommon = useTranslations("common");
   const tGoal = useTranslations("goal");
   const tTransactions = useTranslations("transactions");
-  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  const { cache, userId, emitMutation } = useWebDataCache();
+  const loadCachedGoalData = useCachedGoalData();
 
   const [goal, setGoal] = useState<FinancialGoal | null>(initialGoal);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -381,29 +386,37 @@ export function GoalClient({
 
   const hasGoalContext = effectiveGoal !== null;
 
-  const fetchGoalSummary = useCallback(async () => {
+  const fetchGoalSummary = useCallback(async (options?: { force?: boolean }) => {
     try {
-      const params = new URLSearchParams({
+      const parsed = await loadCachedGoalData({
         accountId,
         month: monthKey,
-        origin: "goal",
+        force: options?.force,
+        loader: async () => {
+          const params = new URLSearchParams({
+            accountId,
+            month: monthKey,
+            origin: "goal",
+          });
+          if (goalComposition.totalMinor > 0n) {
+            params.set("targetMinor", goalComposition.totalMinor.toString());
+          }
+          const response = await fetch(
+            `/api/goal/savings-candidates?${params.toString()}`,
+            { cache: "no-store" }
+          );
+          if (!response.ok) {
+            const errorBody = await response.json().catch(() => ({}));
+            const errorKey =
+              typeof errorBody?.errorKey === "string"
+                ? errorBody.errorKey
+                : "errors.internalServer";
+            throw new Error(tGlobal(errorKey));
+          }
+          const data = await response.json();
+          return parseSavingsCandidates(data);
+        },
       });
-      if (goalComposition.totalMinor > 0n) {
-        params.set("targetMinor", goalComposition.totalMinor.toString());
-      }
-      const response = await fetch(
-        `/api/goal/savings-candidates?${params.toString()}`
-      );
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => ({}));
-        const errorKey =
-          typeof errorBody?.errorKey === "string"
-            ? errorBody.errorKey
-            : "errors.internalServer";
-        throw new Error(tGlobal(errorKey));
-      }
-      const data = await response.json();
-      const parsed = parseSavingsCandidates(data);
       setGoalSummary(parsed.summary);
       // Extract candidates for simulator
       const candidates = extractCandidatesFromSections(parsed.sections);
@@ -411,17 +424,44 @@ export function GoalClient({
     } catch (error) {
       console.error("[Goal] Summary error", error);
     }
-  }, [accountId, goalComposition.totalMinor, monthKey, tGlobal]);
+  }, [accountId, goalComposition.totalMinor, loadCachedGoalData, monthKey, tGlobal]);
 
-  const fetchGoalHistory = useCallback(async () => {
+  const fetchGoalHistory = useCallback(async (options?: { force?: boolean }) => {
     try {
       setIsLoadingHistory(true);
-      const { data, error } = await supabase.rpc('get_goal_history', {
-        p_account_id: accountId,
-        p_limit: 12,
-      });
-
-      if (error) throw error;
+      const data = userId
+        ? await cache.getOrLoad(
+            cacheKeys.goalHistory(accountId),
+            async () => {
+              const { data: goalHistoryData, error } = await supabase.rpc(
+                "get_goal_history",
+                {
+                  p_account_id: accountId,
+                  p_limit: 12,
+                }
+              );
+              if (error) throw error;
+              return goalHistoryData;
+            },
+            CORE_5M,
+            {
+              userId,
+              accountId,
+              force: options?.force,
+              tags: [cacheTags.goalHistory, cacheTags.goalSummary],
+            }
+          )
+        : await (async () => {
+            const { data: goalHistoryData, error } = await supabase.rpc(
+              "get_goal_history",
+              {
+                p_account_id: accountId,
+                p_limit: 12,
+              }
+            );
+            if (error) throw error;
+            return goalHistoryData;
+          })();
       if (data) {
         const parsed = parseGoalHistoryResponse(data);
         setGoalHistory(parsed);
@@ -431,15 +471,41 @@ export function GoalClient({
     } finally {
       setIsLoadingHistory(false);
     }
-  }, [accountId, supabase]);
+  }, [accountId, cache, supabase, userId]);
 
-  const fetchGamification = useCallback(async () => {
+  const fetchGamification = useCallback(async (options?: { force?: boolean }) => {
     try {
-      const { data, error } = await supabase.rpc('get_goal_gamification', {
-        p_account_id: accountId,
-      });
-
-      if (error) throw error;
+      const data = userId
+        ? await cache.getOrLoad(
+            cacheKeys.goalGamification(accountId),
+            async () => {
+              const { data: gamificationData, error } = await supabase.rpc(
+                "get_goal_gamification",
+                {
+                  p_account_id: accountId,
+                }
+              );
+              if (error) throw error;
+              return gamificationData;
+            },
+            CORE_5M,
+            {
+              userId,
+              accountId,
+              force: options?.force,
+              tags: [cacheTags.goalGamification, cacheTags.goalSummary],
+            }
+          )
+        : await (async () => {
+            const { data: gamificationData, error } = await supabase.rpc(
+              "get_goal_gamification",
+              {
+                p_account_id: accountId,
+              }
+            );
+            if (error) throw error;
+            return gamificationData;
+          })();
       if (data && data.length > 0) {
         const parsed = parseGoalGamificationResponse(data[0]);
         setGamification(parsed);
@@ -447,7 +513,7 @@ export function GoalClient({
     } catch (error) {
       console.error('[Goal] Gamification fetch error', error);
     }
-  }, [accountId, supabase]);
+  }, [accountId, cache, supabase, userId]);
 
   useEffect(() => {
     const runId = ++initialLoadRunIdRef.current;
@@ -967,10 +1033,11 @@ export function GoalClient({
         createdBy: currentUserId,
       });
       setGoal(nextGoal);
+      await emitMutation("financial_goals", "upsert");
       await Promise.all([
-        fetchGoalSummary(),
-        fetchGoalHistory(),
-        fetchGamification(),
+        fetchGoalSummary({ force: true }),
+        fetchGoalHistory({ force: true }),
+        fetchGamification({ force: true }),
       ]);
       setIsEditorOpen(false);
     } catch (error) {

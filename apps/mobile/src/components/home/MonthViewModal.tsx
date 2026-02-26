@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,9 @@ import {
 import { ChevronLeft, ChevronRight, X } from "lucide-react-native";
 import { MonthMap } from "./MonthMap";
 import {
+  CORE_5M,
+  cacheKeys,
+  cacheTags,
   createTypographyStyles,
   getEventsForMonth,
   getExpandedMonthRange,
@@ -20,6 +23,7 @@ import {
   type Transaction,
 } from "@poleursus/shared";
 import { supabase } from "../../lib/supabase";
+import { useDataCache } from "../../cache/DataCacheProvider";
 
 type MonthViewModalProps = {
   visible: boolean;
@@ -50,6 +54,7 @@ export function MonthViewModal({
   initialMonth,
   onSelectDate,
 }: MonthViewModalProps) {
+  const { cache, userId, accountId: activeAccountId } = useDataCache();
   const [viewMonth, setViewMonth] = useState<Date>(initialMonth ?? new Date());
   const [monthData, setMonthData] = useState<{
     transactions: Transaction[];
@@ -58,14 +63,10 @@ export function MonthViewModal({
     transactions,
     obligations,
   });
-  const monthCache = useRef<
-    Record<string, { transactions: Transaction[]; obligations: Obligation[] }>
-  >({});
 
   useEffect(() => {
     const seedMonth = initialMonth ?? new Date();
     const monthKey = getMonthKey(seedMonth);
-    monthCache.current[monthKey] = { transactions, obligations };
     if (getMonthKey(viewMonth) === monthKey) {
       setMonthData({ transactions, obligations });
     }
@@ -80,46 +81,76 @@ export function MonthViewModal({
 
   useEffect(() => {
     let cancelled = false;
-    const monthKey = getMonthKey(viewMonth);
-    const cached = monthCache.current[monthKey];
-    if (cached) {
-      setMonthData(cached);
-      return;
-    }
 
     async function loadMonthData() {
       const expandedRange = getExpandedMonthRange(viewMonth);
       const startDate = expandedRange.start.toISOString().slice(0, 10);
       const endDate = expandedRange.end.toISOString().slice(0, 10);
+      const selectedAccount = accountId || activeAccountId;
+      if (!selectedAccount) return;
 
       try {
-        const { data: txData } = await supabase
-          .from("transactions")
-          .select(
-            "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id)"
-          )
-          .eq("account_id", accountId)
-          .gte("date", startDate)
-          .lte("date", endDate)
-          .order("date", { ascending: false })
-          .order("created_at", { ascending: false });
+        const loadTransactions = async () => {
+          const { data, error } = await supabase
+            .from("transactions")
+            .select(
+              "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id)"
+            )
+            .eq("account_id", selectedAccount)
+            .gte("date", startDate)
+            .lte("date", endDate)
+            .order("date", { ascending: false })
+            .order("created_at", { ascending: false });
+          if (error) throw error;
+          return (data ?? []) as unknown as Transaction[];
+        };
 
-        const { data: obligationsData } = await supabase
-          .from("obligations")
-          .select(
-            "id, account_id, name, amount_minor, amount_base_minor, currency, due_date, status, paid_at"
-          )
-          .eq("account_id", accountId)
-          .gte("due_date", startDate)
-          .lte("due_date", endDate)
-          .order("due_date", { ascending: true });
+        const loadObligations = async () => {
+          const { data, error } = await supabase
+            .from("obligations")
+            .select(
+              "id, account_id, name, amount_minor, amount_base_minor, currency, due_date, status, paid_at"
+            )
+            .eq("account_id", selectedAccount)
+            .gte("due_date", startDate)
+            .lte("due_date", endDate)
+            .order("due_date", { ascending: true });
+          if (error) throw error;
+          return (data ?? []) as Obligation[];
+        };
+
+        const [txData, obligationsData] = await Promise.all([
+          userId
+            ? cache.getOrLoad(
+                cacheKeys.transactionsRange(selectedAccount, startDate, endDate),
+                loadTransactions,
+                CORE_5M,
+                {
+                  userId,
+                  accountId: selectedAccount,
+                  tags: [cacheTags.transactions, cacheTags.homeCalendar],
+                }
+              )
+            : loadTransactions(),
+          userId
+            ? cache.getOrLoad(
+                cacheKeys.obligationsRange(selectedAccount, startDate, endDate),
+                loadObligations,
+                CORE_5M,
+                {
+                  userId,
+                  accountId: selectedAccount,
+                  tags: [cacheTags.obligations, cacheTags.homeCalendar],
+                }
+              )
+            : loadObligations(),
+        ]);
 
         if (!cancelled) {
           const nextData = {
-            transactions: (txData as Transaction[]) ?? [],
-            obligations: (obligationsData as Obligation[]) ?? [],
+            transactions: txData,
+            obligations: obligationsData,
           };
-          monthCache.current[monthKey] = nextData;
           setMonthData(nextData);
         }
       } catch (error) {
@@ -131,7 +162,7 @@ export function MonthViewModal({
     return () => {
       cancelled = true;
     };
-  }, [accountId, viewMonth]);
+  }, [accountId, activeAccountId, cache, userId, viewMonth]);
 
   const handlePrevMonth = () => {
     setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));

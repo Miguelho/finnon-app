@@ -8,7 +8,12 @@ import { useAuth } from "../../../src/contexts/AuthContext";
 import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { AddTransactionForm } from "../../../src/components/add-transaction";
 import {
+  CORE_5M,
+  cacheKeys,
+  cacheTags,
   type AccountSummaryData,
+  type MutationAction,
+  type MutationEntity,
   type TransactionType,
   type TopCategory,
   type MerchantSuggestion,
@@ -19,6 +24,8 @@ import {
   themeTokens,
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../src/lib/i18n";
+import { useDataCache } from "../../../src/cache/DataCacheProvider";
+import { useCachedCategoriesAndSuggestions } from "../../../src/cache/hooks";
 
 type Category = {
   id: string;
@@ -57,6 +64,8 @@ function CreateMovementTransactionScreen(): React.JSX.Element {
   const router = useRouter();
   const params = useLocalSearchParams<{ type?: string }>();
   const { selectedAccountId } = useAuth();
+  const { cache, userId, emitMutation } = useDataCache();
+  const loadCachedCategoriesAndSuggestions = useCachedCategoriesAndSuggestions();
   const { tokens: userThemeTokens } = useUserTheme();
   const { dictionary } = useCopy();
   const isFocused = useIsFocused();
@@ -86,70 +95,85 @@ function CreateMovementTransactionScreen(): React.JSX.Element {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [
-          accountResult,
-          categoriesResult,
-          topExpenseResult,
-          topIncomeResult,
-          merchantExpenseResult,
-          merchantIncomeResult,
-          accountSummaryResult,
-        ] = await Promise.all([
-          supabase
-            .from("accounts")
-            .select("base_currency")
-            .eq("id", selectedAccountId)
-            .single(),
-          supabase
-            .from("categories")
-            .select("id, name, icon_id, type")
-            .eq("account_id", selectedAccountId)
-            .order("name", { ascending: true }),
-          supabase.rpc("get_top_categories", {
-            p_account_id: selectedAccountId,
-            p_tx_type: "expense",
-            p_limit: 3,
-          }),
-          supabase.rpc("get_top_categories", {
-            p_account_id: selectedAccountId,
-            p_tx_type: "income",
-            p_limit: 3,
-          }),
-          supabase.rpc("get_merchant_suggestions", {
-            p_account_id: selectedAccountId,
-            p_tx_type: "expense",
-            p_limit: 20,
-          }),
-          supabase.rpc("get_merchant_suggestions", {
-            p_account_id: selectedAccountId,
-            p_tx_type: "income",
-            p_limit: 20,
-          }),
-          supabase.rpc("get_account_summary", {
-            p_account_id: selectedAccountId,
-          }),
-        ]);
+        const accountPromise = userId
+          ? cache.getOrLoad(
+              cacheKeys.accountSummary(selectedAccountId),
+              async () => {
+                const { data, error } = await supabase
+                  .from("accounts")
+                  .select("base_currency")
+                  .eq("id", selectedAccountId)
+                  .single();
+                if (error) throw error;
+                return { base_currency: data?.base_currency ?? "EUR" };
+              },
+              CORE_5M,
+              {
+                userId,
+                accountId: selectedAccountId,
+                tags: [cacheTags.accountSummary],
+              }
+            )
+          : (async () => {
+              const { data, error } = await supabase
+                .from("accounts")
+                .select("base_currency")
+                .eq("id", selectedAccountId)
+                .single();
+              if (error) throw error;
+              return { base_currency: data?.base_currency ?? "EUR" };
+            })();
 
-        if (accountResult.error) throw accountResult.error;
-        if (categoriesResult.error) throw categoriesResult.error;
-        if (topExpenseResult.error) throw topExpenseResult.error;
-        if (topIncomeResult.error) throw topIncomeResult.error;
-        if (merchantExpenseResult.error) throw merchantExpenseResult.error;
-        if (merchantIncomeResult.error) throw merchantIncomeResult.error;
+        const categoriesAndSuggestionsPromise = loadCachedCategoriesAndSuggestions({
+          accountId: selectedAccountId,
+          loadCategories: async () => {
+            const { data, error } = await supabase
+              .from("categories")
+              .select("id, name, icon_id, type")
+              .eq("account_id", selectedAccountId)
+              .order("name", { ascending: true });
+            if (error) throw error;
+            return (data ?? []) as Category[];
+          },
+          loadTopCategories: async (txType) => {
+            const { data, error } = await supabase.rpc("get_top_categories", {
+              p_account_id: selectedAccountId,
+              p_tx_type: txType,
+              p_limit: 3,
+            });
+            if (error) throw error;
+            return (data ?? []) as TopCategory[];
+          },
+          loadMerchantSuggestions: async (txType) => {
+            const { data, error } = await supabase.rpc("get_merchant_suggestions", {
+              p_account_id: selectedAccountId,
+              p_tx_type: txType,
+              p_limit: 20,
+            });
+            if (error) throw error;
+            return (data ?? []) as MerchantSuggestion[];
+          },
+        });
+
+        const summaryPromise = supabase.rpc("get_account_summary", {
+          p_account_id: selectedAccountId,
+        });
+
+        const [accountResult, categoriesAndSuggestions, accountSummaryResult] =
+          await Promise.all([
+            accountPromise,
+            categoriesAndSuggestionsPromise,
+            summaryPromise,
+          ]);
+
         if (accountSummaryResult.error) throw accountSummaryResult.error;
 
         if (cancelled) return;
 
-        setBaseCurrency(accountResult.data?.base_currency ?? "EUR");
-        setCategories((categoriesResult.data ?? []) as Category[]);
-        setTopCategories({
-          expense: (topExpenseResult.data ?? []) as TopCategory[],
-          income: (topIncomeResult.data ?? []) as TopCategory[],
-        });
-        setMerchantSuggestions({
-          expense: (merchantExpenseResult.data ?? []) as MerchantSuggestion[],
-          income: (merchantIncomeResult.data ?? []) as MerchantSuggestion[],
-        });
+        setBaseCurrency(accountResult.base_currency ?? "EUR");
+        setCategories(categoriesAndSuggestions.categories);
+        setTopCategories(categoriesAndSuggestions.topCategories);
+        setMerchantSuggestions(categoriesAndSuggestions.merchantSuggestions);
         const summary = accountSummaryResult.data as AccountSummaryData | null;
         const nextParticipants = (summary?.participants ?? []).map((member) => ({
           userId: member.user_id,
@@ -179,7 +203,25 @@ function CreateMovementTransactionScreen(): React.JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [dictionary, isFocused, selectedAccountId]);
+  }, [
+    cache,
+    dictionary,
+    isFocused,
+    loadCachedCategoriesAndSuggestions,
+    selectedAccountId,
+    userId,
+  ]);
+
+  const handleMutationSuccess = async (
+    entity: MutationEntity,
+    action: MutationAction
+  ) => {
+    await emitMutation(entity, action);
+  };
+
+  const handleSuccess = () => {
+    router.back();
+  };
 
   if (!selectedAccountId) {
     return (
@@ -219,7 +261,8 @@ function CreateMovementTransactionScreen(): React.JSX.Element {
           topCategories={topCategories}
           merchantSuggestions={merchantSuggestions}
           participants={participants}
-          onSuccess={() => router.back()}
+          onMutationSuccess={handleMutationSuccess}
+          onSuccess={handleSuccess}
           onCancel={() => router.back()}
         />
       )}
@@ -231,6 +274,8 @@ function CreateRecurringTransactionScreen(): React.JSX.Element {
   const router = useRouter();
   const params = useLocalSearchParams<{ type?: string }>();
   const { selectedAccountId, user } = useAuth();
+  const { cache, userId, emitMutation } = useDataCache();
+  const loadCachedCategoriesAndSuggestions = useCachedCategoriesAndSuggestions();
   const { tokens: userThemeTokens } = useUserTheme();
   const { dictionary } = useCopy();
   const isFocused = useIsFocused();
@@ -259,65 +304,73 @@ function CreateRecurringTransactionScreen(): React.JSX.Element {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [
-          accountResult,
-          categoriesResult,
-          topExpenseResult,
-          topIncomeResult,
-          merchantExpenseResult,
-          merchantIncomeResult,
-        ] = await Promise.all([
-          supabase
-            .from("accounts")
-            .select("base_currency")
-            .eq("id", selectedAccountId)
-            .single(),
-          supabase
-            .from("categories")
-            .select("id, name, icon_id, type")
-            .eq("account_id", selectedAccountId)
-            .order("name", { ascending: true }),
-          supabase.rpc("get_top_categories", {
-            p_account_id: selectedAccountId,
-            p_tx_type: "expense",
-            p_limit: 3,
-          }),
-          supabase.rpc("get_top_categories", {
-            p_account_id: selectedAccountId,
-            p_tx_type: "income",
-            p_limit: 3,
-          }),
-          supabase.rpc("get_merchant_suggestions", {
-            p_account_id: selectedAccountId,
-            p_tx_type: "expense",
-            p_limit: 20,
-          }),
-          supabase.rpc("get_merchant_suggestions", {
-            p_account_id: selectedAccountId,
-            p_tx_type: "income",
-            p_limit: 20,
-          }),
-        ]);
+        const accountPromise = userId
+          ? cache.getOrLoad(
+              cacheKeys.accountSummary(selectedAccountId),
+              async () => {
+                const { data, error } = await supabase
+                  .from("accounts")
+                  .select("base_currency")
+                  .eq("id", selectedAccountId)
+                  .single();
+                if (error) throw error;
+                return { base_currency: data?.base_currency ?? "EUR" };
+              },
+              CORE_5M,
+              {
+                userId,
+                accountId: selectedAccountId,
+                tags: [cacheTags.accountSummary],
+              }
+            )
+          : (async () => {
+              const { data, error } = await supabase
+                .from("accounts")
+                .select("base_currency")
+                .eq("id", selectedAccountId)
+                .single();
+              if (error) throw error;
+              return { base_currency: data?.base_currency ?? "EUR" };
+            })();
 
-        if (accountResult.error) throw accountResult.error;
-        if (categoriesResult.error) throw categoriesResult.error;
-        if (topExpenseResult.error) throw topExpenseResult.error;
-        if (topIncomeResult.error) throw topIncomeResult.error;
-        if (merchantExpenseResult.error) throw merchantExpenseResult.error;
-        if (merchantIncomeResult.error) throw merchantIncomeResult.error;
+        const categoriesAndSuggestions = await loadCachedCategoriesAndSuggestions({
+          accountId: selectedAccountId,
+          loadCategories: async () => {
+            const { data, error } = await supabase
+              .from("categories")
+              .select("id, name, icon_id, type")
+              .eq("account_id", selectedAccountId)
+              .order("name", { ascending: true });
+            if (error) throw error;
+            return (data ?? []) as Category[];
+          },
+          loadTopCategories: async (txType) => {
+            const { data, error } = await supabase.rpc("get_top_categories", {
+              p_account_id: selectedAccountId,
+              p_tx_type: txType,
+              p_limit: 3,
+            });
+            if (error) throw error;
+            return (data ?? []) as TopCategory[];
+          },
+          loadMerchantSuggestions: async (txType) => {
+            const { data, error } = await supabase.rpc("get_merchant_suggestions", {
+              p_account_id: selectedAccountId,
+              p_tx_type: txType,
+              p_limit: 20,
+            });
+            if (error) throw error;
+            return (data ?? []) as MerchantSuggestion[];
+          },
+        });
+        const accountResult = await accountPromise;
 
         if (cancelled) return;
 
-        setBaseCurrency(accountResult.data?.base_currency ?? "EUR");
-        setCategories((categoriesResult.data ?? []) as Category[]);
-        setTopCategories({
-          expense: (topExpenseResult.data ?? []) as TopCategory[],
-          income: (topIncomeResult.data ?? []) as TopCategory[],
-        });
-        setMerchantSuggestions({
-          expense: (merchantExpenseResult.data ?? []) as MerchantSuggestion[],
-          income: (merchantIncomeResult.data ?? []) as MerchantSuggestion[],
-        });
+        setBaseCurrency(accountResult.base_currency ?? "EUR");
+        setCategories(categoriesAndSuggestions.categories);
+        setTopCategories(categoriesAndSuggestions.topCategories);
+        setMerchantSuggestions(categoriesAndSuggestions.merchantSuggestions);
       } catch (error) {
         console.error("[CreateRecurringTransaction] Error loading data:", error);
         if (!cancelled) {
@@ -337,7 +390,14 @@ function CreateRecurringTransactionScreen(): React.JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [dictionary, isFocused, selectedAccountId]);
+  }, [
+    cache,
+    dictionary,
+    isFocused,
+    loadCachedCategoriesAndSuggestions,
+    selectedAccountId,
+    userId,
+  ]);
 
   const handleSubmitRecurringDraft = async (
     draft: TransactionDraft,
@@ -392,6 +452,7 @@ function CreateRecurringTransactionScreen(): React.JSX.Element {
       .single();
 
     if (error) throw error;
+    await emitMutation("recurring_items", "insert");
   };
 
   if (!selectedAccountId) {

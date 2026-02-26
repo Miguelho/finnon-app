@@ -16,6 +16,7 @@ import { AddMenuItem } from "@/components/home/AddMenuItem";
 import { AddTransactionForm } from "@/components/add-transaction";
 import { CategoryFormPanel } from "@/components/categories/category-form-panel";
 import type { AddActionCategory } from "@/lib/add-action-data-cache";
+import { useWebDataCache } from "@/cache/WebDataCacheProvider";
 import { createCategory } from "@/app/categories/actions";
 import { createRecurringItem } from "@/app/transactions/actions";
 import {
@@ -71,6 +72,7 @@ export function AddAction({
   renderTrigger,
 }: AddActionProps) {
   const router = useRouter();
+  const { emitMutation } = useWebDataCache();
   const t = useTranslations();
   const [isOpen, setIsOpen] = useState(false);
   const [isTransactionOpen, setIsTransactionOpen] = useState(false);
@@ -119,6 +121,7 @@ export function AddAction({
   };
 
   const handleTransactionSuccess = () => {
+    void emitMutation("transactions", "insert");
     setIsTransactionOpen(false);
     router.refresh();
   };
@@ -167,6 +170,7 @@ export function AddAction({
           return [...prev, created];
         });
         onCategoryCreated?.(created);
+        await emitMutation("categories", "insert");
         setIsCategoryOpen(false);
         resetCategoryForm();
         router.refresh();
@@ -226,6 +230,8 @@ export function AddAction({
           : translateDynamic("transactions.repeat.createError")
       );
     }
+
+    await emitMutation("recurring_items", "insert");
   };
 
   const handleRecurringSuccess = () => {

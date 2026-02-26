@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowLeft } from "lucide-react";
+import { useWebDataCache } from "@/cache/WebDataCacheProvider";
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent } from "@/components/ui/card";
@@ -75,6 +76,7 @@ export function RecurrentesClient({
   const tCommon = useTranslations("common");
   const tTransactions = useTranslations("transactions");
   const colors = themeTokens.light.colors;
+  const { emitMutation } = useWebDataCache();
 
   const [recurringItems, setRecurringItems] = useState(initialRecurringItems);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -150,6 +152,7 @@ export function RecurrentesClient({
         );
         setIsEditOpen(false);
         setSelectedItem(null);
+        await emitMutation("recurring_items", "update");
         router.refresh();
       } else {
         alert(t("updateError"));
@@ -175,6 +178,7 @@ export function RecurrentesClient({
               : item
           )
         );
+        await emitMutation("recurring_items", "update");
         router.refresh();
       } else {
         alert(isPaused ? t("pauseError") : t("resumeError"));
@@ -213,6 +217,7 @@ export function RecurrentesClient({
         );
         setIsEndConfirmOpen(false);
         setSelectedItem(null);
+        await emitMutation("recurring_items", "update");
         router.refresh();
       } else {
         alert(t("endError"));

@@ -22,6 +22,8 @@ import {
   type TopCategory,
   type MerchantSuggestion,
   type RecurringFrequency,
+  type MutationAction,
+  type MutationEntity,
   buildEqualSplit,
   createInitialDraft,
   validateStep1,
@@ -117,6 +119,10 @@ interface AddTransactionFormProps {
     draft: TransactionDraft,
     extra?: { recurring?: RecurringSubmitData }
   ) => Promise<void>;
+  onMutationSuccess?: (
+    entity: MutationEntity,
+    action: MutationAction
+  ) => Promise<void> | void;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
@@ -137,6 +143,7 @@ export function AddTransactionForm({
   successMessageKey,
   errorMessageKey,
   onSubmitDraft,
+  onMutationSuccess,
   onSuccess,
   onCancel,
 }: AddTransactionFormProps) {
@@ -522,6 +529,7 @@ export function AddTransactionForm({
 
         if (obligationError) throw obligationError;
 
+        await onMutationSuccess?.("obligations", "insert");
         setIsSuccessOpen(true);
         return;
       }
@@ -563,6 +571,7 @@ export function AddTransactionForm({
 
       // TODO: Handle photo uploads here if draft.photos.length > 0
 
+      await onMutationSuccess?.("transactions", "insert");
       setIsSuccessOpen(true);
     } catch (error: any) {
       console.error("Failed to create transaction:", error);

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -21,6 +21,9 @@ import { DatePickerField } from "../../../../src/components/DatePickerField";
 import { TopCategorySelector } from "../../../../src/components/TopCategorySelector";
 import { MerchantAutocomplete } from "../../../../src/components/MerchantAutocomplete";
 import {
+  META_24H,
+  cacheKeys,
+  cacheTags,
   themeTokens,
   type RecurringItem,
   type TopCategory,
@@ -30,6 +33,7 @@ import {
   CURRENCY_MINOR_UNITS,
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../../src/lib/i18n";
+import { useDataCache } from "../../../../src/cache/DataCacheProvider";
 
 type Category = {
   id: string;
@@ -54,6 +58,7 @@ export default function EditRecurringScreen(): React.JSX.Element {
   const { selectedAccountId } = useAuth();
   const { tokens: userThemeTokens } = useUserTheme();
   const { dictionary } = useCopy();
+  const { cache, userId, emitMutation } = useDataCache();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -76,8 +81,6 @@ export default function EditRecurringScreen(): React.JSX.Element {
   const [topCategories, setTopCategories] = useState<TopCategory[]>([]);
   const [showFullCategorySelector, setShowFullCategorySelector] = useState(false);
   const [merchantSuggestions, setMerchantSuggestions] = useState<MerchantSuggestion[]>([]);
-  const topCategoriesCache = useRef<Record<string, TopCategory[]>>({});
-  const merchantSuggestionsCache = useRef<Record<string, MerchantSuggestion[]>>({});
 
   const loadData = useCallback(async () => {
     if (!id || !selectedAccountId) {
@@ -127,54 +130,89 @@ export default function EditRecurringScreen(): React.JSX.Element {
 
   const fetchCategories = useCallback(async () => {
     if (!selectedAccountId) return;
-    const { data } = await supabase
-      .from("categories")
-      .select("id, name, icon_id, type")
-      .eq("account_id", selectedAccountId)
-      .order("name", { ascending: true });
-    if (data) setCategories(data);
-  }, [selectedAccountId]);
+    const loader = async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name, icon_id, type")
+        .eq("account_id", selectedAccountId)
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Category[];
+    };
+
+    const rows = userId
+      ? await cache.getOrLoad(cacheKeys.categories(selectedAccountId), loader, META_24H, {
+          userId,
+          accountId: selectedAccountId,
+          tags: [cacheTags.categories],
+        })
+      : await loader();
+
+    setCategories(rows);
+  }, [cache, selectedAccountId, userId]);
 
   const fetchTopCategories = useCallback(
     async (txType: string) => {
       if (!selectedAccountId) return;
-      const cacheKey = `${selectedAccountId}:${txType}`;
-      if (topCategoriesCache.current[cacheKey]) {
-        setTopCategories(topCategoriesCache.current[cacheKey]);
-        return;
-      }
-      const { data, error } = await supabase.rpc("get_top_categories", {
-        p_account_id: selectedAccountId,
-        p_tx_type: txType,
-        p_limit: 3,
-      });
-      if (!error && data) {
-        topCategoriesCache.current[cacheKey] = data as TopCategory[];
-        setTopCategories(data as TopCategory[]);
-      }
+      const safeType = txType === "income" ? "income" : "expense";
+      const loader = async () => {
+        const { data, error } = await supabase.rpc("get_top_categories", {
+          p_account_id: selectedAccountId,
+          p_tx_type: safeType,
+          p_limit: 3,
+        });
+        if (error) throw error;
+        return (data ?? []) as TopCategory[];
+      };
+
+      const rows = userId
+        ? await cache.getOrLoad(
+            cacheKeys.topCategories(selectedAccountId, safeType),
+            loader,
+            META_24H,
+            {
+              userId,
+              accountId: selectedAccountId,
+              tags: [cacheTags.topCategories],
+            }
+          )
+        : await loader();
+
+      setTopCategories(rows);
     },
-    [selectedAccountId]
+    [cache, selectedAccountId, userId]
   );
 
   const fetchMerchantSuggestions = useCallback(
     async (txType: string) => {
       if (!selectedAccountId) return;
-      const cacheKey = `${selectedAccountId}:${txType}`;
-      if (merchantSuggestionsCache.current[cacheKey]) {
-        setMerchantSuggestions(merchantSuggestionsCache.current[cacheKey]);
-        return;
-      }
-      const { data, error } = await supabase.rpc("get_merchant_suggestions", {
-        p_account_id: selectedAccountId,
-        p_tx_type: txType,
-        p_limit: 20,
-      });
-      if (!error && data) {
-        merchantSuggestionsCache.current[cacheKey] = data as MerchantSuggestion[];
-        setMerchantSuggestions(data as MerchantSuggestion[]);
-      }
+      const safeType = txType === "income" ? "income" : "expense";
+      const loader = async () => {
+        const { data, error } = await supabase.rpc("get_merchant_suggestions", {
+          p_account_id: selectedAccountId,
+          p_tx_type: safeType,
+          p_limit: 20,
+        });
+        if (error) throw error;
+        return (data ?? []) as MerchantSuggestion[];
+      };
+
+      const rows = userId
+        ? await cache.getOrLoad(
+            cacheKeys.merchantSuggestions(selectedAccountId, safeType),
+            loader,
+            META_24H,
+            {
+              userId,
+              accountId: selectedAccountId,
+              tags: [cacheTags.merchants],
+            }
+          )
+        : await loader();
+
+      setMerchantSuggestions(rows);
     },
-    [selectedAccountId]
+    [cache, selectedAccountId, userId]
   );
 
   useEffect(() => {
@@ -249,6 +287,7 @@ export default function EditRecurringScreen(): React.JSX.Element {
         .single();
 
       if (updateError) throw updateError;
+      await emitMutation("recurring_items", "update");
 
       Alert.alert(
         t(dictionary, "common.successTitle"),
