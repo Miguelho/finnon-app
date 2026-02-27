@@ -11,20 +11,19 @@ export async function BottomNavWrapper() {
   const navItems = [
     { href: "/home", label: t(dictionary, "navigation.home"), iconKey: "home" as const },
     {
-      href: "/transactions",
-      label: t(dictionary, "transactions.pageTitle"),
-      iconKey: "transactions" as const,
+      href: "/account",
+      label: t(dictionary, "navigation.account"),
+      iconKey: "account" as const,
     },
     {
       href: "/projects",
       label: t(dictionary, "navigation.projects"),
       iconKey: "projects" as const,
     },
-    { href: "/goal", label: t(dictionary, "goal.pageTitle"), iconKey: "goal" as const },
     {
-      href: "/account",
-      label: t(dictionary, "navigation.account"),
-      iconKey: "account" as const,
+      href: "/transactions",
+      label: t(dictionary, "transactions.pageTitle"),
+      iconKey: "transactions" as const,
     },
   ];
 

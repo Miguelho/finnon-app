@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -6,24 +6,23 @@ import {
   ActivityIndicator,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import {
+  type AvatarColorToken,
   CURRENCIES,
-  computeGoalProgress,
-  computeProjectProgress,
+  computeMovementBalanceSummary,
+  computeSavingsDistribution,
+  formatMoneyWithSymbol,
   getExpandedMonthRange,
   getGoalTotalsFromTransactions,
-  getProjectWidgetState,
   getWeekStrip,
   themeTokens,
-  toMonthKey,
   type Obligation,
   type Project,
-  type ProjectContribution,
   type UserRole,
+  type UserAvatarColorId,
   type Transaction as SharedTransaction,
 } from "@poleursus/shared";
 import { supabase } from "../../../../src/lib/supabase";
@@ -33,11 +32,11 @@ import { useCopy, t } from "../../../../src/lib/i18n";
 import { BalanceHeader } from "../../../../src/components/home-redesign/BalanceHeader";
 import {
   Calendar,
+  type ContextMovement,
   type DayDetailData,
   type DayMovement,
-  type NextProgrammedItem,
 } from "../../../../src/components/home-redesign/Calendar";
-import { ProjectObjectiveWidget } from "../../../../src/components/home-redesign/ProjectObjectiveWidget";
+import { SavingsMonthCard } from "../../../../src/components/home-redesign/SavingsMonthCard";
 import {
   formatCurrencyParts,
   formatFullDate,
@@ -69,7 +68,18 @@ type Category = {
 };
 
 type Transaction = SharedTransaction & {
+  created_by?: string | null;
   category?: Category | null;
+};
+
+type ProfileRow = {
+  user_id: string;
+  email: string | null;
+  display_name: string | null;
+  avatar_path: string | null;
+  avatar_fallback_text: string | null;
+  avatar_fallback_bg_token: AvatarColorToken | null;
+  avatar_color: UserAvatarColorId | null;
 };
 
 const normalizeCategory = <T extends { category?: unknown }>(row: T) => ({
@@ -132,12 +142,9 @@ export default function HomeScreen() {
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [monthlyTransactions, setMonthlyTransactions] = useState<Transaction[]>([]);
   const [upcomingTransactions, setUpcomingTransactions] = useState<Transaction[]>([]);
+  const [profilesByUserId, setProfilesByUserId] = useState<Record<string, ProfileRow>>({});
   const [obligations, setObligations] = useState<Obligation[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [projectContributions, setProjectContributions] = useState<ProjectContribution[]>([]);
-  const [projectParticipantCount, setProjectParticipantCount] = useState(1);
-  const [goalHistory, setGoalHistory] = useState<Array<{ completed: boolean | null }>>([]);
-  const [goalTargetMinor, setGoalTargetMinor] = useState<string | null>(null);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -153,52 +160,6 @@ export default function HomeScreen() {
     }
     return accounts[0];
   }, [accounts, selectedAccountId]);
-
-  const activeRole = useMemo<UserRole>(() => {
-    if (!mainAccount || !user) return "viewer";
-    return (
-      mainAccount.account_members?.find((member) => member.user_id === user.id)?.role ??
-      "viewer"
-    );
-  }, [mainAccount, user]);
-
-  const canEdit = activeRole !== "viewer";
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadProjectParticipantCount() {
-      if (!isFocused || !mainAccount?.id) {
-        if (!cancelled) setProjectParticipantCount(1);
-        return;
-      }
-
-      try {
-        const { count, error: membersError } = await supabase
-          .from("account_members")
-          .select("user_id", { count: "exact", head: true })
-          .eq("account_id", mainAccount.id);
-
-        if (membersError) throw membersError;
-
-        const safeCount = typeof count === "number" && count >= 1 ? count : 1;
-        if (!cancelled) {
-          setProjectParticipantCount(safeCount);
-        }
-      } catch (membersError) {
-        console.warn("[Home] Could not load participant count for project widget:", membersError);
-        if (!cancelled) {
-          setProjectParticipantCount(1);
-        }
-      }
-    }
-
-    void loadProjectParticipantCount();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isFocused, mainAccount?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -323,11 +284,40 @@ export default function HomeScreen() {
 
         if (noDateError) throw noDateError;
 
+        const normalizedMonthly = (monthData ?? []).map(normalizeCategory);
+        const normalizedUpcoming = (upcomingData ?? []).map(normalizeCategory);
+        const creatorIds = Array.from(
+          new Set(
+            [...normalizedMonthly, ...normalizedUpcoming]
+              .map((tx) => tx.created_by)
+              .filter((id): id is string => Boolean(id))
+          )
+        );
+        let nextProfilesByUserId: Record<string, ProfileRow> = {};
+        if (creatorIds.length > 0) {
+          const { data: profileRows, error: profilesError } = await supabase
+            .from("profiles")
+            .select(
+              "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
+            )
+            .in("user_id", creatorIds);
+
+          if (profilesError) {
+            console.warn("[Home] Profiles query error:", profilesError);
+          } else {
+            nextProfilesByUserId = ((profileRows as ProfileRow[]) ?? []).reduce<
+              Record<string, ProfileRow>
+            >((acc, profile) => {
+              acc[profile.user_id] = profile;
+              return acc;
+            }, {});
+          }
+        }
+
         if (!cancelled) {
-          const normalizedMonthly = (monthData ?? []).map(normalizeCategory);
-          const normalizedUpcoming = (upcomingData ?? []).map(normalizeCategory);
           setMonthlyTransactions(normalizedMonthly as unknown as Transaction[]);
           setUpcomingTransactions(normalizedUpcoming as unknown as Transaction[]);
+          setProfilesByUserId(nextProfilesByUserId);
           const combinedObligations = [
             ...((obligationsRange as Obligation[]) ?? []),
             ...((obligationsNoDate as Obligation[]) ?? []),
@@ -353,52 +343,6 @@ export default function HomeScreen() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadGoal() {
-      if (!mainAccount || !isFocused) return;
-
-      try {
-        const monthKey = toMonthKey(new Date());
-        const { data: goalRow, error: goalError } = await supabase
-          .from("financial_goals")
-          .select("id, month, type, target_amount_base_minor")
-          .eq("account_id", mainAccount.id)
-          .eq("month", monthKey)
-          .eq("type", "save")
-          .maybeSingle();
-
-        if (goalError) throw goalError;
-
-        const { data: historyData, error: historyError } = await supabase.rpc(
-          "get_goal_history",
-          {
-            p_account_id: mainAccount.id,
-            p_limit: 5,
-          }
-        );
-
-        if (historyError) throw historyError;
-
-        if (!cancelled) {
-          setGoalTargetMinor(goalRow?.target_amount_base_minor ?? null);
-          setGoalHistory((historyData as Array<{ completed: boolean | null }>) ?? []);
-        }
-      } catch {
-        if (!cancelled) {
-          setGoalTargetMinor(null);
-          setGoalHistory([]);
-        }
-      }
-    }
-
-    loadGoal();
-    return () => {
-      cancelled = true;
-    };
-  }, [mainAccount?.id, isFocused]);
-
-  useEffect(() => {
-    let cancelled = false;
-
     async function loadProjects() {
       if (!mainAccount || !isFocused) return;
 
@@ -413,27 +357,14 @@ export default function HomeScreen() {
         if (projectsError) throw projectsError;
 
         const projectList = (projectRows as Project[]) ?? [];
-        const projectIds = projectList.map((project) => project.id);
-
-        const { data: contributionsData, error: contributionsError } =
-          projectIds.length > 0
-            ? await supabase
-                .from("project_contributions")
-                .select("id, project_id, actual_amount_base_minor, confirmed")
-                .in("project_id", projectIds)
-            : { data: [], error: null };
 
         if (!cancelled) {
           setProjects(projectList);
-          setProjectContributions(
-            contributionsError ? [] : ((contributionsData ?? []) as ProjectContribution[])
-          );
         }
       } catch (loadError) {
         console.warn("[Home] Could not load projects for home widget:", loadError);
         if (!cancelled) {
           setProjects([]);
-          setProjectContributions([]);
         }
       }
     }
@@ -451,6 +382,40 @@ export default function HomeScreen() {
     });
     return Array.from(map.values());
   }, [monthlyTransactions, upcomingTransactions]);
+  const resolveMovementCreator = useCallback(
+    (createdBy?: string | null) => {
+      if (!createdBy) return undefined;
+      const profile = profilesByUserId[createdBy];
+      const fallbackName =
+        profile?.display_name?.trim() ||
+        profile?.email?.trim() ||
+        createdBy.slice(0, 6);
+      return {
+        userId: createdBy,
+        email: profile?.email ?? null,
+        displayName: profile?.display_name ?? fallbackName,
+        avatarPath: profile?.avatar_path ?? null,
+        fallbackText: profile?.avatar_fallback_text ?? null,
+        fallbackBgToken: profile?.avatar_fallback_bg_token ?? null,
+        avatarColor: profile?.avatar_color ?? null,
+        label: fallbackName,
+      };
+    },
+    [profilesByUserId]
+  );
+  const selectedMonthReference = calendarView === "month" ? monthReference : weekReference;
+  const selectedMonthKey = useMemo(() => {
+    const year = selectedMonthReference.getFullYear();
+    const month = String(selectedMonthReference.getMonth() + 1).padStart(2, "0");
+    return `${year}-${month}`;
+  }, [selectedMonthReference]);
+  const selectedMonthBalanceMinor = useMemo(() => {
+    const selectedMonthTransactions = allTransactions.filter((tx) => {
+      const dateKey = toDateKey(tx.date as string);
+      return Boolean(dateKey) && dateKey.startsWith(selectedMonthKey);
+    });
+    return computeMovementBalanceSummary(selectedMonthTransactions).totalBalanceMinor;
+  }, [allTransactions, selectedMonthKey]);
 
   const baseCurrency = mainAccount?.base_currency ?? "EUR";
   const currencySymbol =
@@ -478,108 +443,36 @@ export default function HomeScreen() {
 
   const monthlyBalanceMinor =
     goalTotals.incomeTotalMinor - goalTotals.expenseTotalMinor;
+  const savingsDistribution = useMemo(
+    () =>
+      computeSavingsDistribution({
+        projects,
+        savingsMinor: monthlyBalanceMinor,
+      }),
+    [monthlyBalanceMinor, projects]
+  );
 
-  const progress =
-    goalTargetMinor && mainAccount && user
-      ? computeGoalProgress({
-          goal: {
-            id: "local",
-            account_id: mainAccount.id,
-            month: toMonthKey(today),
-            type: "save",
-            target_amount_base_minor: goalTargetMinor,
-            created_by: user.id,
-          },
-          totals: goalTotals,
-          now: today,
-        })
-      : null;
-
-  const objective = progress
-    ? (() => {
-        const targetMinor = progress.targetMinor;
-        const currentMinor = progress.savedMinor;
-
-        let status: "on-track" | "at-risk" | "off-track" = "at-risk";
-        if (currentMinor >= targetMinor) {
-          status = "on-track";
-        } else if (progress.forecastEndMinor < targetMinor) {
-          status = "off-track";
-        } else if (currentMinor >= progress.expectedSavedMinor) {
-          status = "on-track";
-        }
-
-        const forecastFormatted = formatCurrencyParts(
-          progress.forecastEndMinor,
-          currencySymbol
-        ).full;
-        const remainingFormatted = formatCurrencyParts(
-          progress.remainingMinor,
-          currencySymbol
-        ).full;
-
-        let message = t(dictionary, "mobile.home.objectiveForecastMessage", {
-          month: monthLabel,
-          amount: forecastFormatted,
-        });
-        if (progress.forecastEndMinor < targetMinor) {
-          message += ` ${t(dictionary, "mobile.home.objectiveRemainingMessage", {
-            amount: remainingFormatted,
-          })}`;
-        } else if (currentMinor < progress.expectedSavedMinor) {
-          message += ` ${t(dictionary, "mobile.home.objectiveCatchUpMessage")}`;
-        } else {
-          message += ` ${t(dictionary, "mobile.home.objectiveKeepItUpMessage")}`;
-        }
-
-        return {
-          status,
-          currentMinor: currentMinor.toString(),
-          targetMinor: targetMinor.toString(),
-          messageHtml: message,
-          streak: (goalHistory ?? []).map((entry) => ({
-            hit: entry.completed === true,
-          })),
-        };
-      })()
-    : null;
-
-  const contributionsByProject = useMemo(() => {
-    const map = new Map<string, ProjectContribution[]>();
-    projectContributions.forEach((contribution) => {
-      const list = map.get(contribution.project_id) ?? [];
-      list.push(contribution);
-      map.set(contribution.project_id, list);
-    });
-    return map;
-  }, [projectContributions]);
-
-  const projectWidgetState = useMemo(() => getProjectWidgetState(projects), [projects]);
-
-  const activeProject = useMemo(() => {
-    if (projectWidgetState.state !== "active") return null;
-
-    const project = projectWidgetState.project;
-    const projectProgress = computeProjectProgress({
-      project,
-      contributions: contributionsByProject.get(project.id) ?? [],
-    });
-
-    let monthlyImpactPercent = 0;
-    if (projectProgress.targetMinor > 0n && projectProgress.commitmentMinor > 0n) {
-      const ratio =
-        Number(projectProgress.commitmentMinor) / Number(projectProgress.targetMinor);
-      if (Number.isFinite(ratio) && ratio > 0) {
-        monthlyImpactPercent = Math.max(0, Math.round(ratio * 100));
-      }
+  const savingsMessage = useMemo(() => {
+    if (savingsDistribution.status === "no_savings") {
+      return t(dictionary, "home.savings.noSavings");
     }
-
-    return {
-      project,
-      progress: projectProgress,
-      monthlyImpactPercent,
-    };
-  }, [projectWidgetState, contributionsByProject, objective]);
+    if (savingsDistribution.status === "needs_projects") {
+      return t(dictionary, "home.savings.needsProjects", {
+        amount: formatMoneyWithSymbol(
+          savingsDistribution.gapToObjectiveMinor,
+          baseCurrency,
+          currencySymbol
+        ),
+      });
+    }
+    return t(dictionary, "home.savings.toHucha", {
+      amount: formatMoneyWithSymbol(
+        savingsDistribution.huchaMinor,
+        baseCurrency,
+        currencySymbol
+      ),
+    });
+  }, [baseCurrency, currencySymbol, dictionary, savingsDistribution]);
 
   const weekStrip = useMemo(() => {
     const weekObligations = obligations.filter((item) => item.status !== "paid");
@@ -644,6 +537,11 @@ export default function HomeScreen() {
   const monthData = useMemo(() => {
     const monthRange = getExpandedMonthRange(monthReference);
     const dotsMap = new Map<string, Array<{ type: "income" | "expense" }>>();
+    const monthKey = `${monthReference.getFullYear()}-${String(
+      monthReference.getMonth() + 1
+    ).padStart(2, "0")}`;
+    let monthIncome = 0n;
+    let monthExpense = 0n;
 
     const addDot = (dateKey: string, type: "income" | "expense") => {
       const existing = dotsMap.get(dateKey) ?? [];
@@ -655,6 +553,13 @@ export default function HomeScreen() {
       const key = toDateKey(tx.date as string);
       if (!key) return;
       addDot(key, tx.type === "income" ? "income" : "expense");
+      if (!key.startsWith(monthKey)) return;
+      const amount = toMinor(tx.amount_base_minor ?? tx.amount_minor);
+      if (tx.type === "income") {
+        monthIncome += amount;
+      } else {
+        monthExpense += amount;
+      }
     });
 
     obligations.forEach((obligation) => {
@@ -689,12 +594,18 @@ export default function HomeScreen() {
     const monthLabel = `${monthsLong[monthReference.getMonth()] ?? ""} ${
       monthReference.getFullYear()
     }`;
+    const netIncome = formatCurrencyParts(monthIncome, currencySymbol).full;
+    const netExpense = formatCurrencyParts(monthExpense, currencySymbol).full;
+    const net = formatCurrencyParts(monthIncome - monthExpense, currencySymbol).full;
 
     return {
       days,
       period: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1),
+      netIncome,
+      netExpense,
+      net,
     };
-  }, [allTransactions, obligations, monthReference, todayKey, monthsLong]);
+  }, [allTransactions, obligations, monthReference, todayKey, monthsLong, currencySymbol]);
 
   const selectedDay = useMemo<DayDetailData | null>(() => {
     if (!selectedDayKey) return null;
@@ -711,7 +622,9 @@ export default function HomeScreen() {
         amountMinor: toMinor(tx.amount_base_minor ?? tx.amount_minor),
         type: tx.type,
         category: tx.category?.name ?? null,
+        categoryIconId: tx.category?.icon_id ?? null,
         badge: null,
+        createdBy: resolveMovementCreator(tx.created_by),
       });
     });
 
@@ -726,6 +639,7 @@ export default function HomeScreen() {
         ),
         type: "expense",
         category: t(dictionary, "mobile.home.programmedBadge"),
+        categoryIconId: null,
         badge: t(dictionary, "mobile.home.programmedBadge"),
       });
     });
@@ -735,12 +649,19 @@ export default function HomeScreen() {
       formattedLabel: formatFullDate(selectedDayKey, locale),
       movements,
     };
-  }, [selectedDayKey, allTransactions, obligations, locale, dictionary]);
+  }, [
+    selectedDayKey,
+    allTransactions,
+    obligations,
+    locale,
+    dictionary,
+    resolveMovementCreator,
+  ]);
 
-  const scheduledItems = useMemo(() => {
-    const items: Array<NextProgrammedItem & { dateKey: string }> = [];
+  const contextMovements = useMemo(() => {
+    const items: Array<ContextMovement & { dateKey: string; sortKey: string }> = [];
 
-    upcomingTransactions.forEach((tx) => {
+    allTransactions.forEach((tx) => {
       const dateKey = toDateKey(tx.date as string);
       if (!dateKey) return;
       items.push({
@@ -750,10 +671,17 @@ export default function HomeScreen() {
           tx.category?.name ??
           t(dictionary, "mobile.home.movementFallback"),
         amountMinor: toMinor(tx.amount_base_minor ?? tx.amount_minor),
-        dateKey,
         type: tx.type,
         dateLabel: formatShortDate(dateKey, locale),
         category: tx.category?.name ?? null,
+        categoryIconId: tx.category?.icon_id ?? null,
+        badge: null,
+        createdBy: resolveMovementCreator(tx.created_by),
+        dateKey,
+        sortKey:
+          typeof tx.created_at === "string"
+            ? tx.created_at
+            : tx.created_at?.toISOString?.() ?? "",
       });
     });
 
@@ -765,20 +693,44 @@ export default function HomeScreen() {
         id: `obligation-${obligation.id}`,
         name: obligation.name,
         amountMinor: toMinor(obligation.amount_base_minor ?? obligation.amount_minor),
-        dateKey,
         type: "expense",
         dateLabel: formatShortDate(dateKey, locale),
         category: t(dictionary, "mobile.home.programmedBadge"),
+        categoryIconId: null,
+        badge: t(dictionary, "mobile.home.programmedBadge"),
+        dateKey,
+        sortKey: "",
       });
     });
 
-    return items.sort((a, b) => (a.dateKey > b.dateKey ? 1 : -1));
-  }, [upcomingTransactions, obligations, locale, dictionary]);
+    return items;
+  }, [allTransactions, obligations, locale, dictionary, resolveMovementCreator]);
 
-  const nextProgrammed = useMemo(() => {
-    const key = selectedDayKey || todayKey;
-    return scheduledItems.find((item) => item.dateKey > key) ?? null;
-  }, [scheduledItems, selectedDayKey, todayKey]);
+  const selectedReferenceDayKey = selectedDayKey || todayKey;
+
+  const contextUpcomingMovements = useMemo(() => {
+    return contextMovements
+      .filter((movement) => movement.dateKey > selectedReferenceDayKey)
+      .sort((left, right) => {
+        if (left.dateKey !== right.dateKey) return left.dateKey > right.dateKey ? 1 : -1;
+        if (left.sortKey === right.sortKey) return 0;
+        return left.sortKey > right.sortKey ? 1 : -1;
+      })
+      .slice(0, 3)
+      .map(({ dateKey: _dateKey, sortKey: _sortKey, ...movement }) => movement);
+  }, [contextMovements, selectedReferenceDayKey]);
+
+  const contextPastMovements = useMemo(() => {
+    return contextMovements
+      .filter((movement) => movement.dateKey < selectedReferenceDayKey)
+      .sort((left, right) => {
+        if (left.dateKey !== right.dateKey) return left.dateKey > right.dateKey ? -1 : 1;
+        if (left.sortKey === right.sortKey) return 0;
+        return left.sortKey > right.sortKey ? -1 : 1;
+      })
+      .slice(0, 3)
+      .map(({ dateKey: _dateKey, sortKey: _sortKey, ...movement }) => movement);
+  }, [contextMovements, selectedReferenceDayKey]);
 
   const showLoading = !session || !user || loadingAccounts || loadingData;
   const showError = Boolean(error);
@@ -813,10 +765,6 @@ export default function HomeScreen() {
     );
   }
 
-  const handleCreateObjective = () => {
-    router.push("/(auth)/(tabs)/goal");
-  };
-
   const handlePrevPeriod = () => {
     if (calendarView === "week") {
       const next = new Date(weekReference);
@@ -841,17 +789,44 @@ export default function HomeScreen() {
     }
   };
 
+  const savingsSection = (
+    <SavingsMonthCard
+      title={t(dictionary, "home.savings.title")}
+      monthLabel={monthLabelCapitalized}
+      message={savingsMessage}
+      baseCurrency={baseCurrency}
+      currencySymbol={currencySymbol}
+      objectiveMinor={savingsDistribution.objectiveMinor}
+      savingsMinor={savingsDistribution.savingsMinor}
+      projectsMinor={savingsDistribution.projectCoveredMinor}
+      huchaMinor={savingsDistribution.huchaMinor}
+      onPress={() => router.push("/(auth)/(tabs)/home/savings")}
+      projectsLabel={t(dictionary, "home.savings.projects")}
+      huchaLabel={t(dictionary, "home.savings.hucha")}
+      totalLabel={t(dictionary, "home.savings.total")}
+    />
+  );
+
   return (
     <View style={[styles.root, { backgroundColor: userThemeTokens.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
-        <BalanceHeader
-          amountMinor={monthlyBalanceMinor}
-          monthLabel={monthLabelCapitalized}
-          currencySymbol={currencySymbol}
-        />
+        <View style={styles.summaryRow}>
+          <TouchableOpacity
+            style={styles.summaryBalance}
+            activeOpacity={0.86}
+            onPress={() => router.push("/(auth)/(tabs)/transactions")}
+          >
+            <BalanceHeader
+              amountMinor={selectedMonthBalanceMinor}
+              monthLabel={monthLabelCapitalized}
+              currencySymbol={currencySymbol}
+            />
+          </TouchableOpacity>
+          <View style={styles.summarySavings}>{savingsSection}</View>
+        </View>
 
         <Calendar
           view={calendarView}
@@ -863,31 +838,10 @@ export default function HomeScreen() {
           onPrevPeriod={handlePrevPeriod}
           onNextPeriod={handleNextPeriod}
           currencySymbol={currencySymbol}
-          nextProgrammed={nextProgrammed}
-          onViewAllProgrammed={() =>
-            router.push("/(auth)/(tabs)/transactions?filter=programmed")
-          }
-        />
-
-        <ProjectObjectiveWidget
-          widgetState={projectWidgetState}
-          activeProject={activeProject}
-          objective={objective}
-          participantCount={projectParticipantCount}
-          onViewProject={(projectId) => router.push(`/(auth)/(tabs)/projects/${projectId}`)}
-          onCreateProject={() => {
-            if (!canEdit) {
-              Alert.alert(
-                t(dictionary, "common.errorTitle"),
-                t(dictionary, "home.guestBlurb")
-              );
-              return;
-            }
-            router.push("/(auth)/(tabs)/projects");
-          }}
-          onCreateGoal={handleCreateObjective}
-          currencySymbol={currencySymbol}
-          locale={locale}
+          upcomingMovements={contextUpcomingMovements}
+          pastMovements={contextPastMovements}
+          onViewAllMovements={() => router.push("/(auth)/(tabs)/transactions")}
+          onCreateMovement={() => router.push("/(auth)/(tabs)/transactions/create")}
         />
       </ScrollView>
     </View>
@@ -916,6 +870,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.spacing.lg,
     paddingBottom: 120,
     gap: tokens.spacing.lg,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: tokens.spacing.md,
+  },
+  summaryBalance: {
+    flex: 1.15,
+    alignItems: "stretch",
+  },
+  summarySavings: {
+    flex: 1.85,
   },
   errorCard: {
     borderRadius: tokens.radii.lg,

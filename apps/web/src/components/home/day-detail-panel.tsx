@@ -104,6 +104,7 @@ export function DayDetailPanel({
             {copy.balanceLabel}
           </p>
           <p
+            className="font-balance"
             style={{
               fontSize: typography.body.fontSize,
               fontWeight: typography.body.fontWeight,

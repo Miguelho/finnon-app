@@ -14,7 +14,7 @@ type BalanceHeaderProps = {
 
 export function BalanceHeader({
   amountMinor,
-  monthLabel,
+  monthLabel: _monthLabel,
   currencySymbol,
 }: BalanceHeaderProps) {
   const { dictionary } = useCopy();
@@ -22,27 +22,47 @@ export function BalanceHeader({
   const { integer, decimals } = formatCurrencyParts(amountMinor, currencySymbol);
 
   return (
-    <View style={styles.container}>
-      <Text style={[styles.label, { color: userTokens.textSecondary }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: userTokens.surface, borderColor: userTokens.border },
+      ]}
+    >
+      <Text style={[styles.label, { color: userTokens.textPrimary }]}>
         {t(dictionary, "mobile.home.balanceLabel")}
       </Text>
-      <Text style={[styles.amount, { color: userTokens.textPrimary }]}>
-        {integer}
-        <Text style={[styles.decimals, { color: userTokens.textSecondary }]}>
-          ,{decimals}
+      <View style={styles.amountWrap}>
+        <Text
+          style={[styles.amount, { color: userTokens.textPrimary }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.55}
+        >
+          {integer}
+          <Text style={[styles.decimals, { color: userTokens.textSecondary }]}>
+            ,{decimals}
+          </Text>
         </Text>
-      </Text>
-      <Text style={[styles.month, { color: userTokens.textSecondary }]}>
-        {monthLabel}
-      </Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    width: "100%",
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.md,
+    justifyContent: "flex-start",
+    alignItems: "stretch",
+  },
+  amountWrap: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
   },
   label: {
     fontSize: 12,
@@ -50,22 +70,19 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
     fontFamily: "DMSans-Medium",
+    alignSelf: "flex-start",
+    textAlign: "left",
   },
   amount: {
-    fontSize: 36,
+    fontSize: 30,
     fontWeight: tokens.typography.weight.medium,
     marginTop: tokens.spacing.xs,
-    letterSpacing: -1.5,
-    lineHeight: 40,
+    letterSpacing: -1.2,
+    lineHeight: 34,
     fontFamily: "JetBrainsMono-Medium",
   },
   decimals: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: "JetBrainsMono-Medium",
-  },
-  month: {
-    marginTop: tokens.spacing.xs,
-    fontSize: tokens.typography.size.sm,
-    fontFamily: "DMSans",
   },
 });

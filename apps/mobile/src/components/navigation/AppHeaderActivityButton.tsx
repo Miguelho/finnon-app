@@ -330,9 +330,7 @@ export function AppHeaderActivityButton() {
                       <Pressable
                         onPress={() => {
                           setModalVisible(false);
-                          router.push(
-                            `/(auth)/(tabs)/projects/month-close?month=${pendingMonthClose.monthKey}`
-                          );
+                          router.push("/(auth)/(tabs)/projects/month-close");
                         }}
                         hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
                         style={styles.viewButton}

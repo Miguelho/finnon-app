@@ -2,8 +2,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   addMonths,
+  computePendingMonthCloseKeys,
   CURRENCIES,
-  getMonthRangeFromKey,
   toMonthKey,
 } from "@poleursus/shared";
 import { createClient } from "@/lib/supabase/server";
@@ -65,10 +65,9 @@ export default async function ProjectsPage() {
       : { data: [] };
 
   const currentMonthKey = toMonthKey(new Date());
-  const pendingMonthKey = addMonths(currentMonthKey, -1);
-  const pendingRange = getMonthRangeFromKey(pendingMonthKey);
   const projectsWithCommitment = (projects ?? []).filter((project) => {
     const raw = project.monthly_commitment_base_minor;
+    if (project.is_hucha) return false;
     if (raw === null || raw === undefined) return false;
     try {
       return BigInt(raw) > 0n;
@@ -77,28 +76,31 @@ export default async function ProjectsPage() {
     }
   });
 
-  const commitmentProjectIds = projectsWithCommitment.map((project) => project.id);
-  const { data: pendingMonthConfirmed } =
-    commitmentProjectIds.length > 0
-      ? await supabase
-          .from("project_contributions")
-          .select("project_id")
-          .eq("account_id", activeAccount.id)
-          .eq("period", pendingRange.start)
-          .eq("confirmed", true)
-          .in("project_id", commitmentProjectIds)
-      : { data: [] };
+  const pendingMonthKeys = computePendingMonthCloseKeys({
+    commitmentProjects: projectsWithCommitment.map((project) => ({
+      projectId: project.id,
+      createdAt: project.created_at ?? null,
+    })),
+    confirmedContributions: ((contributions ?? []) as Array<{
+      project_id: string;
+      confirmed?: boolean;
+      period: string | Date;
+    }>)
+      .filter((row) => Boolean(row.confirmed))
+      .map((row) => ({
+        projectId: row.project_id,
+        period: row.period,
+      })),
+    currentMonthKey,
+  });
 
-  const confirmedProjectIds = new Set(
-    (pendingMonthConfirmed ?? []).map((item) => item.project_id)
-  );
-  const hasPendingMonthlyClose =
-    commitmentProjectIds.length > 0 &&
-    commitmentProjectIds.some((projectId) => !confirmedProjectIds.has(projectId));
+  const hasPendingMonthlyClose = pendingMonthKeys.length > 0;
+  const pendingMonthKey =
+    pendingMonthKeys[0] ?? addMonths(currentMonthKey, -1);
 
   return (
     <div className="min-h-screen bg-background">
-      <TopNav containerClassName="max-w-6xl" />
+      <TopNav />
       <ProjectsClient
         accountId={activeAccount.id}
         currentUserId={user.id}

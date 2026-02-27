@@ -12,7 +12,7 @@ import { ObjectiveStep } from "./steps/ObjectiveStep";
 import { DoneStep } from "./steps/DoneStep";
 import type {
   DefaultCategory,
-  OnboardingGoalInput,
+  OnboardingFirstProjectInput,
   OnboardingRecurrentInput,
 } from "@poleursus/shared";
 import { DEFAULT_CATEGORIES } from "@poleursus/shared";
@@ -28,7 +28,7 @@ type OnboardingStep =
   | "invitations"
   | "categories"
   | "recurrents"
-  | "objective"
+  | "project"
   | "create-account"
   | "done";
 
@@ -44,12 +44,19 @@ export default function OnboardingPage() {
   const [recurrentsState, setRecurrentsState] = useState<RecurrentsStepState>(() =>
     createInitialRecurrentsState(tGlobal)
   );
-  const [objectiveDraft, setObjectiveDraft] = useState<{
-    amount: string;
-    months: 3 | 6 | 12;
-  }>({ amount: "", months: 3 });
+  const [projectDraft, setProjectDraft] = useState<{
+    name: string;
+    emoji: string;
+    targetAmount: string;
+    monthlyCommitment: string;
+  }>({
+    name: "",
+    emoji: "🎯",
+    targetAmount: "",
+    monthlyCommitment: "",
+  });
   const [recurrents, setRecurrents] = useState<OnboardingRecurrentInput[]>([]);
-  const [goal, setGoal] = useState<OnboardingGoalInput | null>(null);
+  const [firstProject, setFirstProject] = useState<OnboardingFirstProjectInput | null>(null);
   const [hasHydrated, setHasHydrated] = useState(false);
 
   const goTo = (step: OnboardingStep) => setCurrentStep(step);
@@ -61,7 +68,7 @@ export default function OnboardingPage() {
       "invitations",
       "categories",
       "recurrents",
-      "objective",
+      "project",
       "create-account",
       "done",
     ].includes(value);
@@ -78,9 +85,21 @@ export default function OnboardingPage() {
           setSelectedCategories(parsed.selectedCategories);
         }
         if (parsed.recurrentsState) setRecurrentsState(parsed.recurrentsState);
-        if (parsed.objectiveDraft) setObjectiveDraft(parsed.objectiveDraft);
+        if (parsed.projectDraft) {
+          setProjectDraft(parsed.projectDraft);
+        } else if ((parsed as any).objectiveDraft) {
+          const legacy = (parsed as any).objectiveDraft;
+          setProjectDraft((prev) => ({
+            ...prev,
+            targetAmount: legacy.amount ?? "",
+          }));
+        }
         if (Array.isArray(parsed.recurrents)) setRecurrents(parsed.recurrents);
-        if (parsed.goal !== undefined) setGoal(parsed.goal ?? null);
+        if (parsed.firstProject !== undefined) {
+          setFirstProject(parsed.firstProject ?? null);
+        } else if ((parsed as any).goal !== undefined) {
+          setFirstProject(null);
+        }
         if (parsed.currentStep && isOnboardingStep(parsed.currentStep)) {
           setCurrentStep(parsed.currentStep);
         }
@@ -100,9 +119,9 @@ export default function OnboardingPage() {
       currency,
       selectedCategories,
       recurrentsState,
-      objectiveDraft,
+      projectDraft,
       recurrents,
-      goal,
+      firstProject,
     };
     sessionStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(payload));
   }, [
@@ -113,9 +132,9 @@ export default function OnboardingPage() {
     currency,
     selectedCategories,
     recurrentsState,
-    objectiveDraft,
+    projectDraft,
     recurrents,
-    goal,
+    firstProject,
   ]);
 
   switch (currentStep) {
@@ -129,9 +148,7 @@ export default function OnboardingPage() {
       );
       break;
     case "invitations":
-      content = (
-        <InvitationsClient onBack={() => goTo("welcome")} />
-      );
+      content = <InvitationsClient onBack={() => goTo("welcome")} />;
       break;
     case "create-account":
       content = (
@@ -165,30 +182,38 @@ export default function OnboardingPage() {
           onChangeState={setRecurrentsState}
           onContinue={(recs) => {
             setRecurrents(recs);
-            goTo("objective");
+            goTo("project");
           }}
           onBack={() => goTo("categories")}
         />
       );
       break;
-    case "objective":
+    case "project":
       content = (
         <ObjectiveStep
           currency={currency}
-          amount={objectiveDraft.amount}
-          months={objectiveDraft.months}
-          onAmountChange={(value) =>
-            setObjectiveDraft((prev) => ({ ...prev, amount: value }))
+          name={projectDraft.name}
+          emoji={projectDraft.emoji}
+          targetAmount={projectDraft.targetAmount}
+          monthlyCommitment={projectDraft.monthlyCommitment}
+          onNameChange={(value) =>
+            setProjectDraft((prev) => ({ ...prev, name: value }))
           }
-          onMonthsChange={(value) =>
-            setObjectiveDraft((prev) => ({ ...prev, months: value }))
+          onEmojiChange={(value) =>
+            setProjectDraft((prev) => ({ ...prev, emoji: value }))
           }
-          onContinue={(g) => {
-            setGoal(g);
+          onTargetAmountChange={(value) =>
+            setProjectDraft((prev) => ({ ...prev, targetAmount: value }))
+          }
+          onMonthlyCommitmentChange={(value) =>
+            setProjectDraft((prev) => ({ ...prev, monthlyCommitment: value }))
+          }
+          onContinue={(project) => {
+            setFirstProject(project);
             goTo("done");
           }}
           onSkip={() => {
-            setGoal(null);
+            setFirstProject(null);
             goTo("done");
           }}
           onBack={() => goTo("recurrents")}
@@ -202,7 +227,7 @@ export default function OnboardingPage() {
           accountName={accountName}
           selectedCategories={selectedCategories}
           recurrents={recurrents}
-          goal={goal}
+          firstProject={firstProject}
           currency={currency}
           onAccountResolved={setAccountId}
         />
@@ -215,7 +240,7 @@ export default function OnboardingPage() {
             setCurrency(curr);
             goTo("done");
           }}
-          onBack={() => goTo("objective")}
+          onBack={() => goTo("project")}
         />
       );
       break;
@@ -232,3 +257,4 @@ export default function OnboardingPage() {
     </div>
   );
 }
+

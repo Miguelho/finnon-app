@@ -220,28 +220,118 @@ export function useCachedCategoriesAndSuggestions() {
   );
 }
 
-export function useCachedGoalData() {
+export function useCachedSavingsSummary() {
   const { cache, userId } = useDataCache();
 
   return useCallback(
     async <T>({
       accountId,
-      month,
+      period,
       loader,
       force,
     }: {
       accountId: string;
-      month: string;
+      period: string;
       loader: () => Promise<T>;
       force?: boolean;
     }) => {
       if (!userId) return loader();
-      return cache.getOrLoad(cacheKeys.goalMonth(accountId, month), loader, CORE_5M, {
+      return cache.getOrLoad(
+        cacheKeys.savingsSummary(accountId, period),
+        loader,
+        CORE_5M,
+        {
+          userId,
+          accountId,
+          force,
+          tags: [cacheTags.savingsSummary],
+        }
+      );
+    },
+    [cache, userId]
+  );
+}
+
+export function useCachedSavingsHistory() {
+  const { cache, userId } = useDataCache();
+
+  return useCallback(
+    async <T>({
+      accountId,
+      loader,
+      force,
+    }: {
+      accountId: string;
+      loader: () => Promise<T>;
+      force?: boolean;
+    }) => {
+      if (!userId) return loader();
+      return cache.getOrLoad(cacheKeys.savingsHistory(accountId), loader, CORE_5M, {
         userId,
         accountId,
         force,
-        tags: [cacheTags.goalMonth, cacheTags.goalSummary],
+        tags: [cacheTags.savingsHistory],
       });
+    },
+    [cache, userId]
+  );
+}
+
+export function useCachedSavingsGamification() {
+  const { cache, userId } = useDataCache();
+
+  return useCallback(
+    async <T>({
+      accountId,
+      loader,
+      force,
+    }: {
+      accountId: string;
+      loader: () => Promise<T>;
+      force?: boolean;
+    }) => {
+      if (!userId) return loader();
+      return cache.getOrLoad(
+        cacheKeys.savingsGamification(accountId),
+        loader,
+        CORE_5M,
+        {
+          userId,
+          accountId,
+          force,
+          tags: [cacheTags.savingsGamification],
+        }
+      );
+    },
+    [cache, userId]
+  );
+}
+
+export function useCachedHuchaAccumulated() {
+  const { cache, userId } = useDataCache();
+
+  return useCallback(
+    async <T>({
+      accountId,
+      loader,
+      force,
+    }: {
+      accountId: string;
+      loader: () => Promise<T>;
+      force?: boolean;
+    }) => {
+      if (!userId) return loader();
+      return cache.getOrLoad(
+        cacheKeys.huchaAccumulated(accountId),
+        loader,
+        CORE_5M,
+        {
+          userId,
+          accountId,
+          force,
+          tags: [cacheTags.hucha],
+        }
+      );
     },
     [cache, userId]
   );

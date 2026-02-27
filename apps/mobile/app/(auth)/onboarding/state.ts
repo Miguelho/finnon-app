@@ -1,7 +1,7 @@
 import {
   SUGGESTED_RECURRENTS,
   type DefaultCategory,
-  type OnboardingGoalInput,
+  type OnboardingFirstProjectInput,
   type OnboardingRecurrentInput,
   type RecurringFrequency,
 } from "@poleursus/shared";
@@ -39,12 +39,14 @@ export type OnboardingPersistedState = {
   currency: string;
   selectedCategories: DefaultCategory[];
   recurrentsState: RecurrentsStepState;
-  objectiveDraft: {
-    amount: string;
-    months: 3 | 6 | 12;
+  projectDraft: {
+    name: string;
+    emoji: string;
+    targetAmount: string;
+    monthlyCommitment: string;
   };
   recurrents: OnboardingRecurrentInput[];
-  goal: OnboardingGoalInput | null;
+  firstProject: OnboardingFirstProjectInput | null;
 };
 
 export const createInitialRecurrentsState = (

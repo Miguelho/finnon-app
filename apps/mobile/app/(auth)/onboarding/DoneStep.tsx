@@ -11,7 +11,7 @@ import {
   formatMoneyWithSymbol,
   persistOnboarding,
   type DefaultCategory,
-  type OnboardingGoalInput,
+  type OnboardingFirstProjectInput,
   type OnboardingPayload,
   type OnboardingRecurrentInput,
 } from "@poleursus/shared";
@@ -24,7 +24,7 @@ interface DoneStepProps {
   accountName: string;
   selectedCategories: DefaultCategory[];
   recurrents: OnboardingRecurrentInput[];
-  goal: OnboardingGoalInput | null;
+  firstProject: OnboardingFirstProjectInput | null;
   currency: string;
   onAccountResolved: (accountId: string) => void;
 }
@@ -34,7 +34,7 @@ export function DoneStep({
   accountName,
   selectedCategories,
   recurrents,
-  goal,
+  firstProject,
   currency,
   onAccountResolved,
 }: DoneStepProps) {
@@ -98,9 +98,13 @@ export function DoneStep({
           throw accountError ?? new Error("Failed to create account");
         }
 
-        targetAccountId = account.id;
-        setResolvedAccountId(targetAccountId);
-        onAccountResolved(targetAccountId);
+        const createdAccountId = account.id;
+        if (!createdAccountId) {
+          throw new Error("Failed to create account");
+        }
+        targetAccountId = createdAccountId;
+        setResolvedAccountId(createdAccountId);
+        onAccountResolved(createdAccountId);
       }
       if (!targetAccountId) {
         setError(t(dictionary, "errors.internalServer"));
@@ -112,7 +116,7 @@ export function DoneStep({
         accountId: targetAccountId,
         selectedCategories,
         recurrents,
-        goal,
+        firstProject,
       };
 
       const result = await persistOnboarding(
@@ -184,19 +188,19 @@ export function DoneStep({
             )}
           </View>
 
-          {goal && (
+          {firstProject && (
             <View style={styles.goalCard}>
               <Text style={styles.goalTitle}>
-                {t(dictionary, "onboarding.objective.previewTitle")}
+                {t(dictionary, "onboarding.project.previewTitle")}
               </Text>
               <Text style={styles.goalText}>
-                {t(dictionary, "onboarding.objective.previewText", {
-                  amount: formatMoneyWithSymbol(
-                    BigInt(goal.targetAmountMinor) / BigInt(goal.months),
-                    currency,
-                    currencySymbol
-                  ),
-                })}
+                {firstProject.emoji || "🎯"} {firstProject.name} ·{" "}
+                {formatMoneyWithSymbol(
+                  BigInt(firstProject.monthlyCommitmentMinor),
+                  currency,
+                  currencySymbol
+                )}
+                /mes
               </Text>
             </View>
           )}

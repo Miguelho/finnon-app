@@ -82,10 +82,8 @@ export const WeekView = forwardRef<WeekViewHandle, WeekViewProps>(
               onClick={() => onSelectDate(day.date)}
               className="flex flex-col items-center justify-start rounded-lg p-2 transition-colors hover:bg-gray-50"
               style={{
-                backgroundColor: isSelected
-                  ? colors.action.secondary
-                  : "transparent",
-                border: isToday
+                backgroundColor: "transparent",
+                border: isToday || isSelected
                   ? `2px solid ${colors.action.primary}`
                   : "2px solid transparent",
               }}
@@ -104,7 +102,8 @@ export const WeekView = forwardRef<WeekViewHandle, WeekViewProps>(
               <span
                 className="text-sm font-semibold"
                 style={{
-                  color: isToday ? colors.action.primary : colors.text.primary,
+                  color:
+                    isToday || isSelected ? colors.action.primary : colors.text.primary,
                 }}
               >
                 {day.dayOfMonth}

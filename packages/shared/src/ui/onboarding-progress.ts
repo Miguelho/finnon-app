@@ -1,4 +1,4 @@
-export type OnboardingProgressStep = "categories" | "recurrents" | "objective";
+export type OnboardingProgressStep = "categories" | "recurrents" | "project";
 
 export type OnboardingProgressState = {
   step: OnboardingProgressStep;
@@ -11,7 +11,7 @@ export function getProgressState(
   const steps: OnboardingProgressStep[] = [
     "categories",
     "recurrents",
-    "objective",
+    "project",
   ];
   const currentIndex = steps.indexOf(current);
 

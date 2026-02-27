@@ -318,7 +318,7 @@ export function AccountSummaryClient({
             </CardDescription>
           </CardHeader>
           <CardContent className="px-3 pb-3 pt-0">
-            <p className="text-lg md:text-2xl font-bold">
+            <p className="font-balance text-lg font-bold md:text-2xl">
               {formatMoneyWithSymbol(
                 viewModel.totals.balanceMinor,
                 viewModel.account.baseCurrency,

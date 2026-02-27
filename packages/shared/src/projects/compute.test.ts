@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   computeGoalComposition,
+  computePendingMonthCloseKeys,
   computeProjectMonthlyAllocation,
   computeProjectProgress,
   distributeProjectSurplusProportionally,
@@ -121,4 +122,34 @@ test("computeGoalComposition enforces projects as minimum total", () => {
   assert.equal(composition.fromProjectsMinor, 55000n);
   assert.equal(composition.totalMinor, 55000n);
   assert.equal(composition.manualMinor, 0n);
+});
+
+test("computePendingMonthCloseKeys returns all pending months in descending order", () => {
+  const pending = computePendingMonthCloseKeys({
+    commitmentProjects: [
+      { projectId: "p1", createdAt: "2026-01-12" },
+      { projectId: "p2", createdAt: "2026-03-02" },
+    ],
+    confirmedContributions: [
+      { projectId: "p1", period: "2026-01-01" },
+      { projectId: "p1", period: "2026-03-01" },
+      { projectId: "p2", period: "2026-03-01" },
+      { projectId: "p1", period: "2026-04-01" },
+      { projectId: "p2", period: "2026-04-01" },
+      { projectId: "p1", period: "2026-06-01" },
+    ],
+    currentMonthKey: "2026-07",
+  });
+
+  assert.deepEqual(pending, ["2026-06", "2026-05", "2026-02"]);
+});
+
+test("computePendingMonthCloseKeys ignores future project starts", () => {
+  const pending = computePendingMonthCloseKeys({
+    commitmentProjects: [{ projectId: "future-project", createdAt: "2026-03-01" }],
+    confirmedContributions: [],
+    currentMonthKey: "2026-03",
+  });
+
+  assert.deepEqual(pending, []);
 });

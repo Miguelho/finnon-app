@@ -157,7 +157,7 @@ export function BalanceHeroAccordion({
             <span />
           )}
           <p
-            className="justify-self-end text-right"
+            className="font-balance justify-self-end text-right"
             style={{
               fontSize: typography.display.fontSize,
               fontWeight: typography.display.fontWeight,
@@ -178,7 +178,9 @@ export function BalanceHeroAccordion({
                 }}
               >
                 <span>{chip.label}</span>
-                <span style={{ color: chip.tone }}>{chip.value}</span>
+                <span className="font-balance" style={{ color: chip.tone }}>
+                  {chip.value}
+                </span>
               </span>
             ))}
           </div>
@@ -231,7 +233,7 @@ export function BalanceHeroAccordion({
               style={{ borderColor: colors.state.neutral }}
             >
               <span style={{ color: colors.text.secondary }}>{copy.netLabel}</span>
-              <span style={{ color: getNetColor(real.netMinor) }}>
+              <span className="font-balance" style={{ color: getNetColor(real.netMinor) }}>
                 {formatSignedBalance(real.netMinor, currency, currencySymbol)}
               </span>
             </div>
@@ -277,7 +279,10 @@ export function BalanceHeroAccordion({
               style={{ borderColor: colors.state.neutral }}
             >
               <span style={{ color: colors.text.secondary }}>{copy.netLabel}</span>
-              <span style={{ color: getNetColor(scheduledRange.netMinor) }}>
+              <span
+                className="font-balance"
+                style={{ color: getNetColor(scheduledRange.netMinor) }}
+              >
                 {formatSignedBalance(scheduledRange.netMinor, currency, currencySymbol)}
               </span>
             </div>
@@ -368,7 +373,7 @@ export function BalanceHeroAccordion({
               style={{ borderColor: colors.state.neutral }}
             >
               <span style={{ color: colors.text.secondary }}>{copy.netLabel}</span>
-              <span style={{ color: getNetColor(noDate.netMinor) }}>
+              <span className="font-balance" style={{ color: getNetColor(noDate.netMinor) }}>
                 {formatSignedBalance(noDate.netMinor, currency, currencySymbol)}
               </span>
             </div>
@@ -418,7 +423,10 @@ export function BalanceHeroAccordion({
               <span style={{ color: colors.text.secondary }}>
                 {copy.endOfMonthEstimateLabel}
               </span>
-              <span style={{ color: getNetColor(balanceEndOfMonthEstimatedMinor) }}>
+              <span
+                className="font-balance"
+                style={{ color: getNetColor(balanceEndOfMonthEstimatedMinor) }}
+              >
                 {formatSignedBalance(
                   balanceEndOfMonthEstimatedMinor,
                   currency,
@@ -430,7 +438,7 @@ export function BalanceHeroAccordion({
               <span style={{ color: colors.text.secondary }}>
                 {copy.exposureTotalLabel}
               </span>
-              <span style={{ color: getNetColor(exposureTotalMinor) }}>
+              <span className="font-balance" style={{ color: getNetColor(exposureTotalMinor) }}>
                 {formatSignedBalance(exposureTotalMinor, currency, currencySymbol)}
               </span>
             </div>

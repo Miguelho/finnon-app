@@ -1,6 +1,16 @@
-import { useMemo } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ArrowUp,
+  ArrowDown,
+  Equal,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
+import type { AvatarColorToken, UserAvatarColorId } from "@poleursus/shared";
+import { UserAvatar } from "@/components/user-avatar";
+import { CategoryIcon } from "@/components/category-icon";
 import { formatCurrencyParts } from "./utils";
 
 type CalendarView = "week" | "month";
@@ -36,6 +46,9 @@ export type WeekData = {
 export type MonthData = {
   days: MonthDayData[];
   period: string;
+  netIncome: string;
+  netExpense: string;
+  net: string;
 };
 
 export type DayMovement = {
@@ -44,7 +57,22 @@ export type DayMovement = {
   amountMinor: bigint;
   type: "income" | "expense";
   category?: string | null;
+  categoryIconId?: string | null;
   badge?: string | null;
+  createdBy?: {
+    userId?: string | null;
+    email?: string | null;
+    displayName?: string | null;
+    avatarPath?: string | null;
+    fallbackText?: string | null;
+    fallbackBgToken?: AvatarColorToken | null;
+    avatarColor?: UserAvatarColorId | null;
+    label?: string;
+  };
+};
+
+export type ContextMovement = DayMovement & {
+  dateLabel: string;
 };
 
 export type DayDetailData = {
@@ -53,13 +81,112 @@ export type DayDetailData = {
   movements: DayMovement[];
 };
 
-export type NextProgrammedItem = {
-  id: string;
-  name: string;
-  amountMinor: bigint;
-  type: "income" | "expense";
-  dateLabel: string;
-  category?: string | null;
+type MovementCreator = NonNullable<DayMovement["createdBy"]>;
+
+type DayCategoryGroup = {
+  key: string;
+  label: string;
+  movements: DayMovement[];
+  netMinor: bigint;
+  categoryIconId: string | null;
+  contributorPreviews: MovementCreator[];
+  contributorCount: number;
+};
+
+const getDotTypes = (dots?: CalendarDot[]): Array<"income" | "expense"> => {
+  const hasIncome = dots?.some((dot) => dot.type === "income") ?? false;
+  const hasExpense = dots?.some((dot) => dot.type === "expense") ?? false;
+  const dotTypes: Array<"income" | "expense"> = [];
+  if (hasIncome) dotTypes.push("income");
+  if (hasExpense) dotTypes.push("expense");
+  return dotTypes;
+};
+
+const getAbsMinor = (value: bigint): bigint => (value < 0n ? -value : value);
+
+const groupDayMovementsByCategory = (
+  movements: DayMovement[],
+  noCategoryLabel: string
+): DayCategoryGroup[] => {
+  const groups = new Map<
+    string,
+    DayCategoryGroup & { contributorMap: Map<string, MovementCreator> }
+  >();
+
+  movements.forEach((movement) => {
+    const categoryLabel = movement.category?.trim() || noCategoryLabel;
+    const key = categoryLabel.toLocaleLowerCase();
+    const existing = groups.get(key);
+    const signedAmount =
+      movement.type === "income" ? movement.amountMinor : -movement.amountMinor;
+
+    if (existing) {
+      existing.movements.push(movement);
+      existing.netMinor += signedAmount;
+      if (!existing.categoryIconId && movement.categoryIconId) {
+        existing.categoryIconId = movement.categoryIconId;
+      }
+      const contributor = movement.createdBy;
+      if (contributor) {
+        const contributorKey =
+          contributor.userId?.trim() ||
+          contributor.email?.trim() ||
+          contributor.displayName?.trim() ||
+          contributor.fallbackText?.trim() ||
+          contributor.label?.trim();
+        if (contributorKey && !existing.contributorMap.has(contributorKey)) {
+          existing.contributorMap.set(contributorKey, contributor);
+        }
+      }
+      return;
+    }
+
+    const contributorMap = new Map<string, MovementCreator>();
+    const contributor = movement.createdBy;
+    if (contributor) {
+      const contributorKey =
+        contributor.userId?.trim() ||
+        contributor.email?.trim() ||
+        contributor.displayName?.trim() ||
+        contributor.fallbackText?.trim() ||
+        contributor.label?.trim();
+      if (contributorKey) contributorMap.set(contributorKey, contributor);
+    }
+
+    groups.set(key, {
+      key,
+      label: categoryLabel,
+      movements: [movement],
+      netMinor: signedAmount,
+      categoryIconId: movement.categoryIconId ?? null,
+      contributorPreviews: [],
+      contributorCount: 0,
+      contributorMap,
+    });
+  });
+
+  return Array.from(groups.values())
+    .map((group) => {
+      const contributors = Array.from(group.contributorMap.values());
+      return {
+        key: group.key,
+        label: group.label,
+        movements: group.movements,
+        netMinor: group.netMinor,
+        categoryIconId: group.categoryIconId,
+        contributorPreviews: contributors.slice(0, 3),
+        contributorCount: contributors.length,
+      };
+    })
+    .sort((left, right) => {
+      const leftAbs = getAbsMinor(left.netMinor);
+      const rightAbs = getAbsMinor(right.netMinor);
+      if (leftAbs !== rightAbs) return rightAbs > leftAbs ? 1 : -1;
+      if (left.movements.length !== right.movements.length) {
+        return right.movements.length - left.movements.length;
+      }
+      return left.label.localeCompare(right.label);
+    });
 };
 
 type CalendarProps = {
@@ -72,8 +199,10 @@ type CalendarProps = {
   onPrevPeriod?: () => void;
   onNextPeriod?: () => void;
   currencySymbol: string;
-  nextProgrammed?: NextProgrammedItem | null;
-  onViewAllProgrammed?: () => void;
+  upcomingMovements: ContextMovement[];
+  pastMovements: ContextMovement[];
+  onViewAllMovements?: () => void;
+  onCreateMovement?: () => void;
   locale?: string;
   monoClassName?: string;
 };
@@ -88,8 +217,10 @@ export function Calendar({
   onPrevPeriod,
   onNextPeriod,
   currencySymbol,
-  nextProgrammed,
-  onViewAllProgrammed,
+  upcomingMovements,
+  pastMovements,
+  onViewAllMovements,
+  onCreateMovement,
   locale = "es-ES",
   monoClassName,
 }: CalendarProps) {
@@ -97,6 +228,7 @@ export function Calendar({
   const isWeek = view === "week";
   const selectedKey = selectedDay?.dateKey ?? "";
   const data = isWeek ? weekData : monthData;
+  const totals = isWeek ? weekData : monthData;
   const monthLabels = useMemo(() => {
     const formatter = new Intl.DateTimeFormat(locale, { weekday: "narrow" });
     const baseMonday = new Date(2024, 0, 1); // Monday
@@ -137,7 +269,7 @@ export function Calendar({
           {t("mobile.home.calendarMonth")}
         </button>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex w-[182px] items-center justify-between">
           <button
             type="button"
             onClick={onPrevPeriod}
@@ -145,7 +277,7 @@ export function Calendar({
           >
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
-          <span className="text-[13px] font-medium text-muted-foreground">
+          <span className="w-[118px] truncate text-center text-[13px] font-medium text-muted-foreground">
             {data?.period}
           </span>
           <button
@@ -164,26 +296,27 @@ export function Calendar({
             {weekData.days.map((day) => {
               const isSelected = day.date === selectedKey;
               const isToday = day.isToday;
+              const dayDotTypes = getDotTypes(day.dots);
               return (
                 <button
                   type="button"
                   key={day.date}
                   onClick={() => onSelectDay(day.date)}
-                  className={`flex flex-col items-center rounded-lg px-1 py-2 transition-all ${
+                  className={`flex flex-col items-center rounded-lg border px-1 py-2 transition-all ${
                     isToday
-                      ? "bg-primary text-primary-foreground"
+                      ? "border-primary/60"
                       : isSelected
-                      ? "bg-primary/10"
-                      : "hover:bg-muted/50"
+                        ? "border-primary/40"
+                        : "border-transparent hover:bg-muted/50"
                   }`}
                 >
                   <span
                     className={`text-[11px] font-medium uppercase tracking-wide ${
                       isToday
-                        ? "text-primary-foreground/70"
+                        ? "text-primary/80"
                         : isSelected
-                        ? "text-primary"
-                        : "text-muted-foreground"
+                          ? "text-primary"
+                          : "text-muted-foreground"
                     }`}
                   >
                     {day.dayLabel}
@@ -191,54 +324,31 @@ export function Calendar({
                   <span
                     className={`text-lg font-semibold leading-tight ${
                       isToday
-                        ? "text-primary-foreground"
-                        : isSelected
                         ? "text-primary"
-                        : "text-foreground"
+                        : isSelected
+                          ? "text-primary"
+                          : "text-foreground"
                     }`}
                   >
                     {day.dayNumber}
                   </span>
-                  <div className="mt-1.5 flex min-h-[6px] gap-[3px]">
-                    {day.dots && day.dots.length > 0 ? (
+                  <div className="mt-1.5 flex min-h-[6px] items-center gap-[3px]">
+                    {dayDotTypes.map((dotType) => (
                       <span
+                        key={`${day.date}-${dotType}`}
                         className={`h-[5px] w-[5px] rounded-full ${
-                          isSelected ? "bg-primary" : "bg-[var(--account-expense)]"
+                          dotType === "income"
+                            ? "bg-[var(--account-income)]"
+                            : "bg-[var(--account-expense)]"
                         }`}
                       />
-                    ) : null}
+                    ))}
                   </div>
                 </button>
               );
             })}
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-4 px-5 pb-1">
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              {t("mobile.home.calendarIncome")}{" "}
-              <span
-                className={`font-semibold text-[var(--account-income)] ${monoClassName ?? ""}`}
-              >
-                +{weekData.netIncome}
-              </span>
-            </span>
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              {t("mobile.home.calendarExpenses")}{" "}
-              <span
-                className={`font-semibold text-[var(--account-expense)] ${monoClassName ?? ""}`}
-              >
-                -{weekData.netExpense}
-              </span>
-            </span>
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              {t("mobile.home.calendarNet")}{" "}
-              <span
-                className={`font-semibold text-foreground ${monoClassName ?? ""}`}
-              >
-                {weekData.net}
-              </span>
-            </span>
-          </div>
         </>
       )}
 
@@ -254,40 +364,44 @@ export function Calendar({
           ))}
           {monthData.days.map((day, i) => {
             const isSelected = day.date === selectedKey;
+            const dayDotTypes = getDotTypes(day.dots);
             return (
               <button
                 type="button"
                 key={i}
                 onClick={() => !day.isOtherMonth && onSelectDay(day.date)}
-                className={`rounded-md px-1 py-1.5 text-center transition-all ${
+                className={`rounded-md border px-1 py-1.5 text-center transition-all ${
                   day.isOtherMonth
-                    ? "opacity-30"
+                    ? "border-transparent opacity-30"
                     : day.isToday
-                    ? "bg-primary"
-                    : isSelected
-                    ? "bg-primary/10 ring-1 ring-primary/20"
-                    : "hover:bg-muted/50"
+                      ? "border-primary/60"
+                      : isSelected
+                        ? "border-primary/40"
+                        : "border-transparent hover:bg-muted/50"
                 }`}
               >
                 <span
                   className={`text-sm font-medium ${
                     day.isToday
-                      ? "text-primary-foreground"
-                      : isSelected
                       ? "text-primary"
-                      : "text-foreground"
+                      : isSelected
+                        ? "text-primary"
+                        : "text-foreground"
                   }`}
                 >
                   {day.dayNumber}
                 </span>
                 <div className="mt-0.5 flex min-h-[5px] justify-center gap-0.5">
-                  {day.dots && day.dots.length > 0 ? (
+                  {dayDotTypes.map((dotType) => (
                     <span
+                      key={`${day.date}-${dotType}`}
                       className={`h-1 w-1 rounded-full ${
-                        isSelected ? "bg-primary" : "bg-[var(--account-expense)]"
+                        dotType === "income"
+                          ? "bg-[var(--account-income)]"
+                          : "bg-[var(--account-expense)]"
                       }`}
                     />
-                  ) : null}
+                  ))}
                 </div>
               </button>
             );
@@ -295,174 +409,447 @@ export function Calendar({
         </div>
       )}
 
-      {selectedDay && (
-        <DayDetail
-          day={selectedDay}
-          currencySymbol={currencySymbol}
-          locale={locale}
-          monoClassName={monoClassName}
-          emptyLabel={t("mobile.home.calendarEmptyDay")}
-        />
-      )}
-
-      {nextProgrammed ? (
-        <NextProgrammed
-          item={nextProgrammed}
-          onViewAll={onViewAllProgrammed}
-          currencySymbol={currencySymbol}
-          locale={locale}
-          monoClassName={monoClassName}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-type DayDetailProps = {
-  day: DayDetailData;
-  currencySymbol: string;
-  locale: string;
-  emptyLabel: string;
-  monoClassName?: string;
-};
-
-function DayDetail({
-  day,
-  currencySymbol,
-  locale,
-  emptyLabel,
-  monoClassName,
-}: DayDetailProps) {
-  return (
-    <div className="border-t border-border px-5 py-4">
-      <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {day.formattedLabel}
-      </p>
-      {day.movements.length > 0 ? (
-        day.movements.map((movement) => (
-          <MovementRow
-            key={movement.id}
-            movement={movement}
-            currencySymbol={currencySymbol}
-            locale={locale}
-            monoClassName={monoClassName}
-          />
-        ))
-      ) : (
-        <p className="text-sm text-muted-foreground">{emptyLabel}</p>
-      )}
-    </div>
-  );
-}
-
-type MovementRowProps = {
-  movement: DayMovement;
-  currencySymbol: string;
-  locale: string;
-  monoClassName?: string;
-};
-
-function MovementRow({ movement, currencySymbol, locale, monoClassName }: MovementRowProps) {
-  const isIncome = movement.type === "income";
-  const { integer, decimals } = formatCurrencyParts(
-    movement.amountMinor,
-    currencySymbol,
-    locale
-  );
-
-  return (
-    <div className="flex items-center justify-between border-t border-border/50 py-2.5 first:border-t-0">
-      <div className="flex items-center gap-3">
-        <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border text-base font-semibold ${
-            isIncome
-              ? "border-[var(--account-income-light)] bg-[var(--account-income-bg)] text-[var(--account-income)]"
-              : "border-[var(--account-expense-light)] bg-[var(--account-expense-bg)] text-[var(--account-expense)]"
-          }`}
-        >
-          {isIncome ? "↑" : "↓"}
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-foreground">
-            {movement.name}
-            {movement.badge ? (
-              <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                {movement.badge}
-              </span>
-            ) : null}
-          </p>
-          <p className="text-xs text-muted-foreground">{movement.category ?? ""}</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-center gap-2 px-5 pb-3 pt-1">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--account-income-light)] bg-[var(--account-income-bg)] px-2.5 py-1">
+          <ArrowUp className="h-3.5 w-3.5 text-[var(--account-income)]" />
+          <span
+            className={`text-xs font-semibold text-[var(--account-income)] ${monoClassName ?? ""}`}
+          >
+            +{totals.netIncome}
+          </span>
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--account-expense-light)] bg-[var(--account-expense-bg)] px-2.5 py-1">
+          <ArrowDown className="h-3.5 w-3.5 text-[var(--account-expense)]" />
+          <span
+            className={`text-xs font-semibold text-[var(--account-expense)] ${monoClassName ?? ""}`}
+          >
+            -{totals.netExpense}
+          </span>
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-white/20 px-2.5 py-1">
+          <Equal className="h-3.5 w-3.5 text-white" />
+          <span className={`text-xs font-semibold text-foreground ${monoClassName ?? ""}`}>
+            {totals.net}
+          </span>
+        </span>
       </div>
-      <span
-        className={`shrink-0 text-sm font-semibold ${
-          isIncome ? "text-[var(--account-income)]" : "text-[var(--account-expense)]"
-        } ${monoClassName ?? ""}`}
-      >
-        {isIncome ? "+" : "-"}
-        {integer},{decimals}
-      </span>
+
+      {selectedDay && (
+        <ContextMovementsPanel
+          day={selectedDay}
+          upcoming={upcomingMovements}
+          past={pastMovements}
+          currencySymbol={currencySymbol}
+          locale={locale}
+          onViewAllMovements={onViewAllMovements}
+          onCreateMovement={onCreateMovement}
+        />
+      )}
     </div>
   );
 }
 
-type NextProgrammedProps = {
-  item: NextProgrammedItem;
-  onViewAll?: () => void;
+type ContextMovementsPanelProps = {
+  day: DayDetailData;
+  upcoming: ContextMovement[];
+  past: ContextMovement[];
   currencySymbol: string;
   locale: string;
-  monoClassName?: string;
+  onViewAllMovements?: () => void;
+  onCreateMovement?: () => void;
 };
 
-function NextProgrammed({
-  item,
-  onViewAll,
+function ContextMovementsPanel({
+  day,
+  upcoming,
+  past,
   currencySymbol,
   locale,
-  monoClassName,
-}: NextProgrammedProps) {
+  onViewAllMovements,
+  onCreateMovement,
+}: ContextMovementsPanelProps) {
   const t = useTranslations();
-  const isIncome = item.type === "income";
-  const { integer, decimals } = formatCurrencyParts(item.amountMinor, currencySymbol, locale);
+  const noCategoryLabel = t("common.noneOption");
+  const groupedDayMovements = useMemo(
+    () => groupDayMovementsByCategory(day.movements, noCategoryLabel),
+    [day.movements, noCategoryLabel]
+  );
+  const groupedUpcomingMovements = useMemo(
+    () => groupDayMovementsByCategory(upcoming, noCategoryLabel),
+    [upcoming, noCategoryLabel]
+  );
+  const groupedPastMovements = useMemo(
+    () => groupDayMovementsByCategory(past, noCategoryLabel),
+    [past, noCategoryLabel]
+  );
+  const [expandedDayCategoryKey, setExpandedDayCategoryKey] = useState<string | null>(null);
+  const [expandedUpcomingCategoryKey, setExpandedUpcomingCategoryKey] = useState<string | null>(
+    null
+  );
+  const [expandedPastCategoryKey, setExpandedPastCategoryKey] = useState<string | null>(
+    null
+  );
+  const hasDayMovements = groupedDayMovements.length > 0;
+  const contextEmphasis = hasDayMovements ? "secondary" : "primary";
+
+  useEffect(() => {
+    setExpandedDayCategoryKey(null);
+    setExpandedUpcomingCategoryKey(null);
+    setExpandedPastCategoryKey(null);
+  }, [day.dateKey]);
 
   return (
     <div className="border-t border-border px-5 py-4">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {t("mobile.home.calendarNextProgrammed")}
+          {day.formattedLabel}
         </p>
+        {onViewAllMovements ? (
+          <button
+            type="button"
+            onClick={onViewAllMovements}
+            className="text-xs font-semibold text-primary hover:underline"
+          >
+            {t("mobile.home.programmedViewAll")}
+          </button>
+        ) : null}
+      </div>
+
+      {hasDayMovements ? (
+        groupedDayMovements.map((group, index) => (
+          <DayCategoryGroupRow
+            key={`day-category-${group.key}`}
+            group={group}
+            isExpanded={expandedDayCategoryKey === group.key}
+            onToggle={() =>
+              setExpandedDayCategoryKey((current) =>
+                current === group.key ? null : group.key
+              )
+            }
+            currencySymbol={currencySymbol}
+            locale={locale}
+            hasTopBorder={index > 0}
+            emphasis="primary"
+          />
+        ))
+      ) : onCreateMovement ? (
         <button
           type="button"
-          onClick={onViewAll}
-          className="text-xs font-semibold text-primary hover:underline"
+          onClick={onCreateMovement}
+          className="flex w-full items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-3 text-left transition-colors hover:bg-muted/50"
         >
-          {t("mobile.home.programmedViewAll")}
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-lg text-muted-foreground">
+            :(
+          </span>
+          <span className="text-sm font-semibold text-primary">
+            {t("mobile.home.calendarCreateMovementCta")}
+          </span>
         </button>
-      </div>
+      ) : (
+        <p className="py-2 text-sm text-muted-foreground">
+          {t("mobile.home.calendarEmptyDay")}
+        </p>
+      )}
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-secondary text-base text-amber-400">
-            ⏱
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-foreground">{item.name}</p>
-            <p className="text-xs text-muted-foreground">
-              {item.dateLabel}
-              {item.category ? ` · ${item.category}` : ""}
-            </p>
+      <SectionTitle
+        title={t("mobile.home.movementsUpcomingTitle")}
+        className="mt-4"
+      />
+      {groupedUpcomingMovements.length > 0 ? (
+        groupedUpcomingMovements.map((group, index) => (
+          <DayCategoryGroupRow
+            key={`upcoming-category-${group.key}`}
+            group={group}
+            isExpanded={expandedUpcomingCategoryKey === group.key}
+            onToggle={() =>
+              setExpandedUpcomingCategoryKey((current) =>
+                current === group.key ? null : group.key
+              )
+            }
+            currencySymbol={currencySymbol}
+            locale={locale}
+            hasTopBorder={index > 0}
+            emphasis={contextEmphasis}
+            showDateLabelInDetails
+          />
+        ))
+      ) : (
+        <p className="py-2 text-sm text-muted-foreground">
+          {t("mobile.home.movementsUpcomingEmpty")}
+        </p>
+      )}
+
+      <SectionTitle
+        title={t("mobile.home.calendarPastMovementsTitle")}
+        className="mt-4"
+      />
+      {groupedPastMovements.length > 0 ? (
+        groupedPastMovements.map((group, index) => (
+          <DayCategoryGroupRow
+            key={`past-category-${group.key}`}
+            group={group}
+            isExpanded={expandedPastCategoryKey === group.key}
+            onToggle={() =>
+              setExpandedPastCategoryKey((current) =>
+                current === group.key ? null : group.key
+              )
+            }
+            currencySymbol={currencySymbol}
+            locale={locale}
+            hasTopBorder={index > 0}
+            emphasis={contextEmphasis}
+            showDateLabelInDetails
+          />
+        ))
+      ) : (
+        <p className="py-2 text-sm text-muted-foreground">
+          {t("mobile.home.movementsRecentEmpty")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+type DayCategoryGroupRowProps = {
+  group: DayCategoryGroup;
+  isExpanded: boolean;
+  onToggle: () => void;
+  currencySymbol: string;
+  locale: string;
+  hasTopBorder: boolean;
+  emphasis: "primary" | "secondary";
+  showDateLabelInDetails?: boolean;
+};
+
+function DayCategoryGroupRow({
+  group,
+  isExpanded,
+  onToggle,
+  currencySymbol,
+  locale,
+  hasTopBorder,
+  emphasis,
+  showDateLabelInDetails = false,
+}: DayCategoryGroupRowProps) {
+  const absNetMinor = getAbsMinor(group.netMinor);
+  const { integer, decimals } = formatCurrencyParts(absNetMinor, currencySymbol, locale);
+  const amountPrefix = group.netMinor > 0n ? "+" : group.netMinor < 0n ? "-" : "";
+  const amountClass =
+    group.netMinor > 0n
+      ? "text-[var(--account-income)]"
+      : group.netMinor < 0n
+        ? "text-[var(--account-expense)]"
+        : "text-muted-foreground";
+  const isSecondary = emphasis === "secondary";
+
+  return (
+    <div
+      className={`${hasTopBorder ? "border-t border-border/50 pt-2" : ""} ${
+        isSecondary ? "opacity-70" : ""
+      }`}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-2 rounded-md px-1 py-2 text-left transition-colors hover:bg-muted/40"
+      >
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/70 bg-muted/20">
+            <CategoryIcon iconId={group.categoryIconId ?? "Tag"} size={15} tone="muted" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <p className="truncate text-sm font-semibold text-foreground">{group.label}</p>
+              <span className="shrink-0 text-xs font-semibold text-muted-foreground">
+                x{group.movements.length}
+              </span>
+            </div>
+            {group.contributorCount > 0 ? (
+              <div className="mt-1">
+                <ContributorsPreview
+                  creators={group.contributorPreviews}
+                  totalContributors={group.contributorCount}
+                />
+              </div>
+            ) : null}
           </div>
         </div>
+        <div className="flex items-center gap-1.5">
+          <span className={`text-sm font-semibold ${amountClass}`}>
+            {amountPrefix}
+            {integer},{decimals}
+          </span>
+          <ChevronDown
+            className={`h-4 w-4 text-muted-foreground transition-transform ${
+              isExpanded ? "rotate-180" : "rotate-0"
+            }`}
+          />
+        </div>
+      </button>
 
-        <span
-          className={`shrink-0 text-sm font-semibold ${
-            isIncome ? "text-[var(--account-income)]" : "text-[var(--account-expense)]"
-          } ${monoClassName ?? ""}`}
-        >
-          {isIncome ? "+" : "-"}
-          {integer},{decimals}
-        </span>
+      {isExpanded ? (
+        <div className="rounded-lg border border-border/60 bg-muted/20 px-2.5 py-1">
+          {group.movements.map((movement, index) => (
+            <MovementRow
+              key={`detail-${group.key}-${movement.id}`}
+              movement={movement}
+              currencySymbol={currencySymbol}
+              locale={locale}
+              emphasis={emphasis}
+              hasTopBorder={index > 0}
+              showDateLabel={showDateLabelInDetails}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+type ContributorsPreviewProps = {
+  creators: MovementCreator[];
+  totalContributors: number;
+};
+
+function ContributorsPreview({ creators, totalContributors }: ContributorsPreviewProps) {
+  const extra = Math.max(totalContributors - creators.length, 0);
+
+  return (
+    <div className="flex items-center">
+      <div className="flex items-center">
+        {creators.map((creator, index) => {
+          const key =
+            creator.userId?.trim() ||
+            creator.email?.trim() ||
+            creator.label?.trim() ||
+            `${index}`;
+          return (
+            <div key={`${key}-${index}`} className={index > 0 ? "-ml-1.5" : ""}>
+              <UserAvatar
+                email={creator.email ?? null}
+                displayName={creator.displayName ?? null}
+                userId={creator.userId ?? null}
+                avatarPath={creator.avatarPath ?? null}
+                fallbackText={creator.fallbackText ?? null}
+                fallbackBgToken={creator.fallbackBgToken ?? null}
+                avatarColor={creator.avatarColor ?? null}
+                label={creator.label}
+                size={20}
+                className="border border-card"
+              />
+            </div>
+          );
+        })}
       </div>
+      {extra > 0 ? (
+        <span className="ml-1 text-[10px] font-semibold text-muted-foreground">+{extra}</span>
+      ) : null}
+    </div>
+  );
+}
+
+type SectionTitleProps = {
+  title: string;
+  className?: string;
+};
+
+function SectionTitle({ title, className }: SectionTitleProps) {
+  return (
+    <p
+      className={`mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground ${
+        className ?? ""
+      }`}
+    >
+      {title}
+    </p>
+  );
+}
+
+type MovementRowProps = {
+  movement: DayMovement | ContextMovement;
+  currencySymbol: string;
+  locale: string;
+  emphasis: "primary" | "secondary";
+  hasTopBorder?: boolean;
+  showDateLabel?: boolean;
+};
+
+function MovementRow({
+  movement,
+  currencySymbol,
+  locale,
+  emphasis,
+  hasTopBorder = true,
+  showDateLabel = false,
+}: MovementRowProps) {
+  const isIncome = movement.type === "income";
+  const isSecondary = emphasis === "secondary";
+  const avatarSize = isSecondary ? 32 : 36;
+  const { integer, decimals } = formatCurrencyParts(
+    movement.amountMinor,
+    currencySymbol,
+    locale
+  );
+  const dateLabel =
+    showDateLabel && "dateLabel" in movement ? movement.dateLabel : null;
+  const metaParts = [dateLabel, movement.category]
+    .filter((part): part is string => Boolean(part && part.trim()));
+
+  return (
+    <div
+      className={`flex items-center justify-between py-2.5 ${
+        hasTopBorder ? "border-t border-border/50" : ""
+      } ${isSecondary ? "opacity-70" : ""}`}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <UserAvatar
+          email={movement.createdBy?.email ?? null}
+          displayName={movement.createdBy?.displayName ?? null}
+          userId={movement.createdBy?.userId ?? null}
+          avatarPath={movement.createdBy?.avatarPath ?? null}
+          fallbackText={movement.createdBy?.fallbackText ?? null}
+          fallbackBgToken={movement.createdBy?.fallbackBgToken ?? null}
+          avatarColor={movement.createdBy?.avatarColor ?? null}
+          label={movement.createdBy?.label}
+          size={avatarSize}
+          className="shrink-0"
+        />
+        <div className="min-w-0">
+          <p
+            className={`truncate ${
+              isSecondary
+                ? "text-sm font-medium text-muted-foreground"
+                : "text-sm font-semibold text-foreground"
+            }`}
+          >
+            {movement.name}
+            {movement.badge ? (
+              <span
+                className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                  isSecondary
+                    ? "bg-muted text-muted-foreground"
+                    : "bg-primary/10 text-primary"
+                }`}
+              >
+                {movement.badge}
+              </span>
+            ) : null}
+          </p>
+          {metaParts.length > 0 ? (
+            <p className="truncate text-xs text-muted-foreground">
+              {metaParts.join(" · ")}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      <span
+        className={`shrink-0 text-sm font-semibold ${
+          isIncome ? "text-[var(--account-income)]" : "text-[var(--account-expense)]"
+        }`}
+      >
+        {isIncome ? "+" : "-"}
+        {integer},{decimals}
+      </span>
     </div>
   );
 }

@@ -55,3 +55,12 @@ export const getMonthRangeFromKey = (
 
   return { monthKey: normalized, start, end };
 };
+
+export const getRecentMonthKeys = (count: number = 12): string[] => {
+  const currentKey = toMonthKey(new Date());
+  const keys: string[] = [currentKey];
+  for (let i = 1; i < count; i++) {
+    keys.push(addMonths(currentKey, -i));
+  }
+  return keys;
+};

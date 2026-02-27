@@ -60,7 +60,13 @@ function SummaryCard({
   return (
     <View style={[styles.card, { borderLeftColor: accentColor }]}>
       <Text style={styles.label}>{label}</Text>
-      <Text style={[styles.amount, { color: amountColor }]}>
+      <Text
+        style={[
+          styles.amount,
+          { color: amountColor },
+          variant === "balance" ? styles.balanceAmount : null,
+        ]}
+      >
         {formatAmount(
           totalValue,
           currencyCode,
@@ -69,7 +75,12 @@ function SummaryCard({
         )}
       </Text>
       <Text style={styles.confirmed}>
-        <Text style={styles.confirmedValue}>
+        <Text
+          style={[
+            styles.confirmedValue,
+            variant === "balance" ? styles.balanceConfirmedValue : null,
+          ]}
+        >
           {formatAmount(
             confirmedValue,
             currencyCode,
@@ -146,6 +157,9 @@ const styles = StyleSheet.create({
     fontSize: movementsDesignTokens.typography.sizes.xl,
     fontFamily: "DMSans-Bold",
   },
+  balanceAmount: {
+    fontFamily: "JetBrainsMono-Medium",
+  },
   confirmed: {
     marginTop: 4,
     fontSize: movementsDesignTokens.typography.sizes.xs,
@@ -155,5 +169,8 @@ const styles = StyleSheet.create({
   confirmedValue: {
     color: colors.textSecondary,
     fontFamily: "DMSans-SemiBold",
+  },
+  balanceConfirmedValue: {
+    fontFamily: "JetBrainsMono-Medium",
   },
 });

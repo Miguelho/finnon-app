@@ -7,7 +7,6 @@ export type MutationEntity =
   | "obligations"
   | "recurring_items"
   | "categories"
-  | "financial_goals"
   | "projects"
   | "project_contributions";
 
@@ -17,13 +16,14 @@ const tableToTags: Record<MutationEntity, string[]> = {
     cacheTags.merchants,
     cacheTags.topCategories,
     cacheTags.homeCalendar,
-    cacheTags.goalSummary,
+    cacheTags.savingsSummary,
     cacheTags.projectsMonthCloseInputs,
   ],
   obligations: [
     cacheTags.obligations,
     cacheTags.homeCalendar,
     cacheTags.homeNextProgrammed,
+    cacheTags.savingsSummary,
   ],
   recurring_items: [
     cacheTags.recurrents,
@@ -36,21 +36,18 @@ const tableToTags: Record<MutationEntity, string[]> = {
     cacheTags.topCategories,
     cacheTags.transactions,
   ],
-  financial_goals: [
-    cacheTags.goalMonth,
-    cacheTags.goalHistory,
-    cacheTags.goalGamification,
-    cacheTags.homeObjective,
-  ],
   projects: [
+    cacheTags.savingsSummary,
     cacheTags.projects,
-    cacheTags.homeProjectWidget,
-    cacheTags.goalComposition,
+    cacheTags.hucha,
   ],
   project_contributions: [
+    cacheTags.savingsSummary,
+    cacheTags.savingsHistory,
+    cacheTags.savingsGamification,
+    cacheTags.hucha,
     cacheTags.projectContributions,
     cacheTags.projects,
-    cacheTags.homeProjectWidget,
   ],
 };
 

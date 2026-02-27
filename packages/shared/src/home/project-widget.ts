@@ -27,10 +27,10 @@ export function getProjectWidgetState(
   now: Date = new Date()
 ): HomeProjectWidgetState {
   const activeProjects = sortByPriority(
-    projects.filter((project) => project.status === "active")
+    projects.filter((project) => project.status === "active" && !project.is_hucha)
   );
   const completedProjects = sortByUpdatedDesc(
-    projects.filter((project) => project.status === "completed")
+    projects.filter((project) => project.status === "completed" && !project.is_hucha)
   );
 
   if (activeProjects.length === 0 && completedProjects.length === 0) {

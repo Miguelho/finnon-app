@@ -144,10 +144,8 @@ export function WeekStrip({
               onClick={() => onSelectDate(day.date)}
               className="flex flex-1 flex-col items-center rounded-lg p-2 transition-colors"
               style={{
-                backgroundColor: isSelected
-                  ? colors.action.secondary
-                  : "transparent",
-                border: isToday
+                backgroundColor: "transparent",
+                border: isToday || isSelected
                   ? `2px solid ${colors.action.primary}`
                   : "2px solid transparent",
               }}
@@ -164,7 +162,8 @@ export function WeekStrip({
               <span
                 className="text-sm font-semibold"
                 style={{
-                  color: isToday ? colors.action.primary : colors.text.primary,
+                  color:
+                    isToday || isSelected ? colors.action.primary : colors.text.primary,
                 }}
               >
                 {day.dayOfMonth}

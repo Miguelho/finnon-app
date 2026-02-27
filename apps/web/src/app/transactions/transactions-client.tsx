@@ -1314,7 +1314,7 @@ export function TransactionsClient({
             <CardHeader className="p-3">
               <CardDescription className="text-xs">{t("balance")}</CardDescription>
               <CardTitle
-                className="text-lg md:text-2xl"
+                className="font-balance text-lg md:text-2xl"
                 style={{
                   color:
                     monthlySummary.balance >= 0n

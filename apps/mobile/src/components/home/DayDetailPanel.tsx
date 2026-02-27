@@ -131,7 +131,9 @@ export function DayDetailPanel({
             <View style={styles.summaryRow}>
               <View>
                 <Text style={styles.meta}>{copy.balanceLabel}</Text>
-                <Text style={[styles.summaryValue, { color: netColor }]}>
+                <Text
+                  style={[styles.summaryValue, styles.summaryBalanceValue, { color: netColor }]}
+                >
                   {summary.netMinor < 0n ? "-" : "+"}
                   {formatMoneyWithSymbol(
                     summary.netMinor < 0n ? -summary.netMinor : summary.netMinor,
@@ -389,6 +391,9 @@ const styles = StyleSheet.create({
   summaryValue: {
     ...typography.body,
     color: colors.text.primary,
+  },
+  summaryBalanceValue: {
+    fontFamily: "JetBrainsMono-Medium",
   },
   emptyText: {
     ...typography.body,

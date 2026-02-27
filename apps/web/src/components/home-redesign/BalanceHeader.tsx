@@ -1,5 +1,4 @@
 import { formatCurrencyParts } from "./utils";
-import { useTranslations } from "next-intl";
 
 type BalanceHeaderProps = {
   amountMinor: bigint;
@@ -11,12 +10,11 @@ type BalanceHeaderProps = {
 
 export function BalanceHeader({
   amountMinor,
-  monthLabel,
+  monthLabel: _monthLabel,
   currencySymbol,
   locale = "es-ES",
   monoClassName,
 }: BalanceHeaderProps) {
-  const t = useTranslations();
   const { integer, decimals } = formatCurrencyParts(
     amountMinor,
     currencySymbol,
@@ -24,21 +22,22 @@ export function BalanceHeader({
   );
 
   return (
-    <div className="mb-8 text-center">
-      <p className="text-[12px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
-        {t("mobile.home.balanceLabel")}
+    <div className="flex h-full w-full flex-col rounded-xl border bg-card px-4 py-4">
+      <p className="text-left text-[12px] font-semibold uppercase tracking-[0.5px] text-foreground">
+        Balance
       </p>
-      <p
-        className={`text-[44px] font-semibold leading-none tracking-[-0.04em] text-foreground sm:text-[44px] ${
-          monoClassName ?? ""
-        }`}
-      >
-        {integer}
-        <span className="text-[22px] font-normal text-muted-foreground">
-          ,{decimals}
-        </span>
-      </p>
-      <p className="mt-1 text-sm text-muted-foreground">{monthLabel}</p>
+      <div className="mt-1 flex flex-1 items-center justify-center">
+        <p
+          className={`font-balance whitespace-nowrap text-[30px] font-semibold leading-none tracking-[-0.03em] text-foreground sm:text-[34px] ${
+            monoClassName ?? ""
+          }`}
+        >
+          {integer}
+          <span className="text-[18px] font-normal text-muted-foreground">
+            ,{decimals}
+          </span>
+        </p>
+      </div>
     </div>
   );
 }

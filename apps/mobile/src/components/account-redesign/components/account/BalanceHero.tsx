@@ -1,9 +1,9 @@
-import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
-import { Info } from 'lucide-react-native';
-import { typography, spacing } from '../../theme/tokens';
-import { formatCurrency } from '../../utils/currency';
-import { useUserTheme } from '../../../../contexts/UserThemeContext';
-import { useCopy, t } from '../../../../lib/i18n';
+import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
+import { Info } from "lucide-react-native";
+import { typography, spacing } from "../../theme/tokens";
+import { formatCurrency } from "../../utils/currency";
+import { useUserTheme } from "../../../../contexts/UserThemeContext";
+import { useCopy, t } from "../../../../lib/i18n";
 
 interface BalanceHeroProps {
   balance: number;
@@ -13,7 +13,7 @@ interface BalanceHeroProps {
 
 export function BalanceHero({
   balance,
-  currency = '€',
+  currency = "€",
   decimals = 2,
 }: BalanceHeroProps) {
   const { dictionary } = useCopy();
@@ -22,8 +22,8 @@ export function BalanceHero({
   const translate = t as any;
   const handleBalanceInfoPress = () => {
     Alert.alert(
-      translate(dictionary, 'account.redesign.balanceTotalLabel'),
-      translate(dictionary, 'account.redesign.balanceTotalTooltip')
+      translate(dictionary, "account.redesign.balanceTotalLabel"),
+      translate(dictionary, "account.redesign.balanceTotalTooltip")
     );
   };
 
@@ -31,7 +31,7 @@ export function BalanceHero({
     <View style={styles.container}>
       <View style={styles.labelRow}>
         <Text style={[styles.label, { color: userTokens.textSecondary }]}>
-          {translate(dictionary, 'account.redesign.balanceTotalLabel')}
+          {translate(dictionary, "account.redesign.balanceTotalLabel")}
         </Text>
         <Pressable
           onPress={handleBalanceInfoPress}
@@ -45,6 +45,7 @@ export function BalanceHero({
         </Pressable>
       </View>
       <Text style={[styles.amount, { color: userTokens.textPrimary }]}>
+        {formatted.sign}
         {currency}
         {formatted.whole}
         <Text style={[styles.cents, { color: userTokens.textSecondary }]}>
@@ -57,39 +58,37 @@ export function BalanceHero({
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
-    paddingHorizontal: spacing['4xl'],
-    paddingTop: spacing.md,
-    paddingBottom: spacing['4xl'],
+    alignItems: "center",
+    marginBottom: 20,
   },
   label: {
     fontFamily: typography.family.sansMedium,
-    fontSize: typography.size.base,
+    fontSize: 12,
     letterSpacing: 0.5,
-    marginBottom: spacing.xs,
+    textTransform: "uppercase",
   },
   labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   tooltipButton: {
     width: 18,
     height: 18,
     borderRadius: 999,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   amount: {
-    fontFamily: typography.family.monoMedium,
-    fontSize: typography.size['4xl'],
+    fontFamily: "JetBrainsMono-Medium",
+    fontSize: 36,
     letterSpacing: -1.5,
     lineHeight: 40,
   },
   cents: {
-    fontSize: typography.size['2xl'],
-    fontFamily: typography.family.mono,
+    fontSize: 18,
+    fontFamily: "JetBrainsMono-Medium",
   },
 });

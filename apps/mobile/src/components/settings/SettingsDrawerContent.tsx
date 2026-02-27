@@ -19,7 +19,6 @@ import { usePathname, useRouter } from "expo-router";
 import {
   ALLOWED_AVATAR_BG_TOKENS,
   buildSettingsMenuVM,
-  mapUserToUserDetailsVM,
   signOutAndReset,
   themeTokens,
   type AvatarColorToken,
@@ -38,6 +37,7 @@ type ProfileAvatarState = {
   fallbackBgToken: AvatarColorToken | null;
   avatarColor: UserAvatarColorId | null;
   email: string | null;
+  displayName: string | null;
 };
 
 const tokens = themeTokens.light;
@@ -56,6 +56,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
     fallbackBgToken: null,
     avatarColor: null,
     email: null,
+    displayName: null,
   });
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isSignOutDialogOpen, setIsSignOutDialogOpen] = useState(false);
@@ -66,10 +67,6 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
         accountId: selectedAccountId,
       }),
     [dictionary, selectedAccountId]
-  );
-  const userDetails = useMemo(
-    () => (user ? mapUserToUserDetailsVM(user) : null),
-    [user]
   );
 
   useEffect(() => {
@@ -84,6 +81,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
             fallbackBgToken: null,
             avatarColor: null,
             email: null,
+            displayName: null,
           });
         }
         return;
@@ -92,7 +90,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "avatar_path, email, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
+          "avatar_path, email, display_name, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
         )
         .eq("user_id", user.id)
         .maybeSingle();
@@ -106,6 +104,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
           fallbackBgToken: null,
           avatarColor: null,
           email: user.email ?? null,
+          displayName: null,
         });
         return;
       }
@@ -122,6 +121,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
         fallbackBgToken: bgToken,
         avatarColor: (data?.avatar_color as UserAvatarColorId | null) ?? null,
         email: data?.email ?? user.email ?? null,
+        displayName: data?.display_name ?? null,
       });
     }
 
@@ -196,29 +196,7 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
       ]}
     >
       <View style={styles.header}>
-        <View style={styles.profileRow}>
-          <UserAvatar
-            email={email}
-            displayName={userDetails?.displayName ?? null}
-            userId={user?.id ?? null}
-            avatarPath={profile.avatarPath}
-            fallbackText={profile.fallbackText}
-            fallbackBgToken={profile.fallbackBgToken}
-            avatarColor={profile.avatarColor}
-            size={44}
-            label={email}
-          />
-          <View style={styles.profileText}>
-            {userDetails?.displayName ? (
-              <Text style={[styles.profileName, { color: userTokens.textPrimary }]}>
-                {userDetails.displayName}
-              </Text>
-            ) : null}
-            <Text style={[styles.profileEmail, { color: userTokens.textSecondary }]}>
-              {email}
-            </Text>
-          </View>
-        </View>
+        <View style={{ flex: 1 }} />
         <TouchableOpacity
           onPress={handleCloseDrawer}
           accessibilityRole="button"
@@ -239,6 +217,31 @@ export function SettingsDrawerContent(props: DrawerContentComponentProps) {
             {section.title}
           </Text>
           <View style={[styles.sectionContent, { borderTopColor: userTokens.border }]}>
+            {section.id === "user" && (
+              <View style={styles.profileRow}>
+                <UserAvatar
+                  email={email}
+                  displayName={profile.displayName}
+                  userId={user?.id ?? null}
+                  avatarPath={profile.avatarPath}
+                  fallbackText={profile.fallbackText}
+                  fallbackBgToken={profile.fallbackBgToken}
+                  avatarColor={profile.avatarColor}
+                  size={44}
+                  label={email}
+                />
+                <View style={styles.profileText}>
+                  {profile.displayName ? (
+                    <Text style={[styles.profileName, { color: userTokens.textPrimary }]}>
+                      {profile.displayName}
+                    </Text>
+                  ) : null}
+                  <Text style={[styles.profileEmail, { color: userTokens.textSecondary }]}>
+                    {email}
+                  </Text>
+                </View>
+              </View>
+            )}
             {section.items.map((item) => (
               <SettingsRow
                 key={item.id}
@@ -367,15 +370,15 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: tokens.spacing.md,
+    justifyContent: "flex-end",
     paddingHorizontal: tokens.spacing.lg,
   },
   profileRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: tokens.spacing.md,
-    flex: 1,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.md,
   },
   profileText: {
     gap: tokens.spacing.xs,

@@ -2,9 +2,11 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   addMonths,
+  computePendingMonthCloseKeys,
   CURRENCIES,
   getMonthRangeFromKey,
   toMonthKey,
+  type Project,
   type UserRole,
 } from "@poleursus/shared";
 import { createClient } from "@/lib/supabase/server";
@@ -83,28 +85,50 @@ export default async function ProjectsMonthClosePage({
     CURRENCIES.find((currency) => currency.code === activeAccount.base_currency)
       ?.symbol ?? activeAccount.base_currency;
 
-  const currentMonthKey = toMonthKey(new Date());
-  const defaultMonthKey = addMonths(currentMonthKey, -1);
-  const requestedMonth = resolvedSearchParams.month;
-  const monthKey =
-    typeof requestedMonth === "string" && MONTH_KEY_PATTERN.test(requestedMonth)
-      ? requestedMonth
-      : defaultMonthKey;
-
-  const monthRange = getMonthRangeFromKey(monthKey);
-
   const { data: projectRows } = await supabase
     .from("projects")
     .select("*")
     .eq("account_id", activeAccount.id)
     .eq("status", "active")
-    .not("monthly_commitment_base_minor", "is", null)
     .order("priority", { ascending: true })
     .order("created_at", { ascending: true });
 
-  const projects = (projectRows ?? []).filter((project) => {
-    return toMinor(project.monthly_commitment_base_minor) > 0n;
+  const allActiveProjects = (projectRows ?? []) as Project[];
+  const huchaProject = allActiveProjects.find((project) => project.is_hucha) ?? null;
+  const projects = allActiveProjects.filter((project) => {
+    return !project.is_hucha && toMinor(project.monthly_commitment_base_minor) > 0n;
   });
+
+  const currentMonthKey = toMonthKey(new Date());
+  const defaultMonthKey = addMonths(currentMonthKey, -1);
+  const { data: confirmedContributionRows } =
+    projects.length > 0
+      ? await supabase
+          .from("project_contributions")
+          .select("project_id, period")
+          .eq("account_id", activeAccount.id)
+          .eq("confirmed", true)
+          .in("project_id", projects.map((project) => project.id))
+      : { data: [] };
+
+  const pendingMonthKeys = computePendingMonthCloseKeys({
+    commitmentProjects: projects.map((project) => ({
+      projectId: project.id,
+      createdAt: project.created_at ?? null,
+    })),
+    confirmedContributions: (confirmedContributionRows ?? []).map((row) => ({
+      projectId: row.project_id,
+      period: row.period,
+    })),
+    currentMonthKey,
+  });
+
+  const requestedMonth = resolvedSearchParams.month;
+  const monthKey =
+    typeof requestedMonth === "string" && MONTH_KEY_PATTERN.test(requestedMonth)
+      ? requestedMonth
+      : pendingMonthKeys[0] ?? defaultMonthKey;
+  const monthRange = getMonthRangeFromKey(monthKey);
 
   const { data: monthTransactions } = await supabase
     .from("transactions")
@@ -128,7 +152,10 @@ export default async function ProjectsMonthClosePage({
 
   const actualSavedMinor = incomeMinor - expenseMinor;
 
-  const projectIds = projects.map((project) => project.id);
+  const projectIds = [
+    ...projects.map((project) => project.id),
+    ...(huchaProject ? [huchaProject.id] : []),
+  ];
   const { data: contributions } =
     projectIds.length > 0
       ? await supabase
@@ -158,17 +185,19 @@ export default async function ProjectsMonthClosePage({
 
   return (
     <div className="min-h-screen bg-background">
-      <TopNav containerClassName="max-w-6xl" />
+      <TopNav />
       <MonthCloseClient
         accountId={activeAccount.id}
         role={role}
         currentUserId={user.id}
         monthKey={monthKey}
+        pendingMonthKeys={pendingMonthKeys}
         monthStart={monthRange.start}
         baseCurrency={activeAccount.base_currency}
         currencySymbol={currencySymbol}
         actualSavedMinor={actualSavedMinor.toString()}
         projects={projects}
+        huchaProject={huchaProject}
         existingContributions={contributions ?? []}
         userLabels={userLabels}
       />

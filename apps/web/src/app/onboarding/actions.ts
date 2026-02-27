@@ -13,7 +13,7 @@ type CompleteOnboardingInput = {
   currency: string;
   selectedCategories: OnboardingPayload["selectedCategories"];
   recurrents: OnboardingPayload["recurrents"];
-  goal: OnboardingPayload["goal"];
+  firstProject: OnboardingPayload["firstProject"];
 };
 
 export async function completeOnboardingAction(
@@ -51,14 +51,21 @@ export async function completeOnboardingAction(
         return { success: false, error: "Failed to create account" };
       }
 
+      if (!account.id) {
+        return { success: false, error: "Failed to create account" };
+      }
       resolvedAccountId = account.id;
+    }
+
+    if (!resolvedAccountId) {
+      return { success: false, error: "Missing account id" };
     }
 
     const payload: OnboardingPayload = {
       accountId: resolvedAccountId,
       selectedCategories: input.selectedCategories,
       recurrents: input.recurrents,
-      goal: input.goal,
+      firstProject: input.firstProject,
     };
 
     const result = await persistOnboarding(client, payload, user.id, locale);

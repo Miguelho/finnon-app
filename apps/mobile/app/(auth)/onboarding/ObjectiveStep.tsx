@@ -14,11 +14,8 @@ import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../src/lib/i18n";
 import {
   CURRENCIES,
-  GOAL_TIMELINE_OPTIONS,
-  formatMoneyWithSymbol,
   parseMoneyToMinor,
-  withAlpha,
-  type OnboardingGoalInput,
+  type OnboardingFirstProjectInput,
 } from "@poleursus/shared";
 import { OnboardingProgress } from "./OnboardingProgress";
 import { OnboardingSurface } from "./OnboardingSurface";
@@ -26,50 +23,70 @@ import { onboardingRadii } from "./onboarding-theme";
 
 interface ObjectiveStepProps {
   currency: string;
-  amount: string;
-  months: 3 | 6 | 12;
-  onAmountChange: (value: string) => void;
-  onMonthsChange: (value: 3 | 6 | 12) => void;
-  onContinue: (goal: OnboardingGoalInput) => void;
+  name: string;
+  emoji: string;
+  targetAmount: string;
+  monthlyCommitment: string;
+  onNameChange: (value: string) => void;
+  onEmojiChange: (value: string) => void;
+  onTargetAmountChange: (value: string) => void;
+  onMonthlyCommitmentChange: (value: string) => void;
+  onContinue: (project: OnboardingFirstProjectInput) => void;
   onSkip: () => void;
   onBack: () => void;
 }
 
+const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
+
 export function ObjectiveStep({
   currency,
-  amount,
-  months,
-  onAmountChange,
-  onMonthsChange,
+  name,
+  emoji,
+  targetAmount,
+  monthlyCommitment,
+  onNameChange,
+  onEmojiChange,
+  onTargetAmountChange,
+  onMonthlyCommitmentChange,
   onContinue,
   onSkip,
   onBack,
 }: ObjectiveStepProps) {
   const { dictionary } = useCopy();
-  const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
-    useUserTheme();
+  const { tokens: userTokens } = useUserTheme();
 
   const currencySymbol = useMemo(
     () => CURRENCIES.find((curr) => curr.code === currency)?.symbol ?? currency,
     [currency]
   );
 
-  const parsedAmount = amount.trim() ? parseMoneyToMinor(amount, currency) : null;
-  const amountValid = parsedAmount !== null && typeof parsedAmount !== "object";
+  const parsedTarget = targetAmount.trim()
+    ? parseMoneyToMinor(targetAmount, currency)
+    : null;
+  const parsedCommitment = monthlyCommitment.trim()
+    ? parseMoneyToMinor(monthlyCommitment, currency)
+    : null;
 
-  const monthlyAmount = amountValid
-    ? formatMoneyWithSymbol(parsedAmount / BigInt(months), currency, currencySymbol)
-    : formatMoneyWithSymbol(0n, currency, currencySymbol);
+  const targetValid = parsedTarget !== null && typeof parsedTarget !== "object" && parsedTarget > 0n;
+  const commitmentValid =
+    parsedCommitment !== null &&
+    typeof parsedCommitment !== "object" &&
+    parsedCommitment > 0n;
+  const hasName = name.trim().length > 0;
+  const canContinue = hasName && targetValid && commitmentValid;
 
   const handleContinue = () => {
-    if (!amountValid || typeof parsedAmount === "object") return;
+    if (!canContinue) return;
+    if (typeof parsedTarget === "object" || typeof parsedCommitment === "object") return;
+    if (parsedTarget === null || parsedCommitment === null) return;
+
     onContinue({
-      targetAmountMinor: Number(parsedAmount),
-      months,
+      name: name.trim(),
+      emoji: emoji.trim() || "🎯",
+      targetAmountMinor: Number(parsedTarget),
+      monthlyCommitmentMinor: Number(parsedCommitment),
     });
   };
-  const previewBg = withAlpha(primaryActionColor, 0.12);
-  const previewBorder = withAlpha(primaryActionColor, 0.28);
 
   return (
     <KeyboardAvoidingView
@@ -83,19 +100,19 @@ export function ObjectiveStep({
             borderColor: userTokens.border,
           }}
         >
-          <OnboardingProgress current="objective" />
+          <OnboardingProgress current="project" />
           <View style={styles.header}>
             <Text style={[styles.title, { color: userTokens.textPrimary }]}>
-              {t(dictionary, "onboarding.objective.title")}
+              {t(dictionary, "onboarding.project.title")}
             </Text>
             <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
-              {t(dictionary, "onboarding.objective.subtitle")}
+              {t(dictionary, "onboarding.project.subtitle")}
             </Text>
           </View>
 
           <View
             style={[
-              styles.objectiveCard,
+              styles.projectCard,
               {
                 borderColor: userTokens.border,
                 backgroundColor: userTokens.surfaceAlt,
@@ -103,7 +120,30 @@ export function ObjectiveStep({
             ]}
           >
             <Text style={[styles.sectionLabel, { color: userTokens.textSecondary }]}>
-              {t(dictionary, "onboarding.objective.amountLabel")}
+              {t(dictionary, "onboarding.project.nameLabel")}
+            </Text>
+            <TextInput
+              style={[styles.input, { color: userTokens.textPrimary }]}
+              value={name}
+              onChangeText={onNameChange}
+              placeholder={t(dictionary, "onboarding.project.namePlaceholder")}
+              placeholderTextColor={userTokens.textTertiary}
+            />
+
+            <Text style={[styles.sectionLabel, { color: userTokens.textSecondary }]}>
+              {t(dictionary, "onboarding.project.emojiLabel")}
+            </Text>
+            <TextInput
+              style={[styles.input, { color: userTokens.textPrimary }]}
+              value={emoji}
+              onChangeText={onEmojiChange}
+              placeholder="🎯"
+              placeholderTextColor={userTokens.textTertiary}
+              maxLength={8}
+            />
+
+            <Text style={[styles.sectionLabel, { color: userTokens.textSecondary }]}>
+              {t(dictionary, "onboarding.project.targetLabel")}
             </Text>
             <View style={styles.amountRow}>
               <Text style={[styles.currencySymbol, { color: userTokens.textTertiary }]}>
@@ -111,88 +151,43 @@ export function ObjectiveStep({
               </Text>
               <TextInput
                 style={[styles.amountInput, { color: userTokens.textPrimary }]}
-                value={amount}
-                onChangeText={onAmountChange}
+                value={targetAmount}
+                onChangeText={(value) => onTargetAmountChange(sanitizeNumericInput(value))}
                 keyboardType="decimal-pad"
-                placeholder="3.000"
+                placeholder="3000"
                 placeholderTextColor={userTokens.textTertiary}
               />
             </View>
-            {!amountValid && amount.trim() !== "" && (
-              <Text style={[styles.errorText, { color: userTokens.dangerText }]}>
-                {t(dictionary, "money.invalidFormat")}
-              </Text>
-            )}
 
-            <Text
-              style={[
-                styles.sectionLabel,
-                styles.timelineLabel,
-                { color: userTokens.textSecondary },
-              ]}
-            >
-              {t(dictionary, "onboarding.objective.timelineLabel")}
+            <Text style={[styles.sectionLabel, { color: userTokens.textSecondary }]}>
+              {t(dictionary, "onboarding.project.commitmentLabel")}
             </Text>
-            <View style={styles.timelineRow}>
-              {GOAL_TIMELINE_OPTIONS.map((option) => (
-                <TouchableOpacity
-                  key={option}
-                  style={[
-                    styles.timelineButton,
-                    { borderColor: userTokens.border },
-                    months === option && {
-                      backgroundColor: primaryActionColor,
-                      borderColor: primaryActionColor,
-                    },
-                  ]}
-                  onPress={() => onMonthsChange(option)}
-                >
-                  <Text
-                    style={[
-                      styles.timelineText,
-                      { color: userTokens.textSecondary },
-                      months === option && {
-                        color: primaryActionTextColor,
-                      },
-                    ]}
-                  >
-                    {t(dictionary, `onboarding.objective.months${option}`)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <View style={styles.amountRow}>
+              <Text style={[styles.currencySymbol, { color: userTokens.textTertiary }]}>
+                {currencySymbol}
+              </Text>
+              <TextInput
+                style={[styles.amountInput, { color: userTokens.textPrimary }]}
+                value={monthlyCommitment}
+                onChangeText={(value) =>
+                  onMonthlyCommitmentChange(sanitizeNumericInput(value))
+                }
+                keyboardType="decimal-pad"
+                placeholder="200"
+                placeholderTextColor={userTokens.textTertiary}
+              />
             </View>
           </View>
 
-          {amountValid && (
-            <View
-              style={[
-                styles.previewCard,
-                {
-                  borderColor: previewBorder,
-                  backgroundColor: previewBg,
-                },
-              ]}
-            >
-              <Text style={[styles.previewTitle, { color: primaryActionColor }]}>
-                {t(dictionary, "onboarding.objective.previewTitle")}
-              </Text>
-              <Text style={[styles.previewText, { color: userTokens.textPrimary }]}>
-                {t(dictionary, "onboarding.objective.previewText", {
-                  amount: monthlyAmount,
-                })}
-              </Text>
-            </View>
-          )}
-
           <View style={styles.actions}>
             <Button
-              title={t(dictionary, "onboarding.objective.continue")}
+              title={t(dictionary, "onboarding.project.continue")}
               onPress={handleContinue}
-              disabled={!amountValid}
+              disabled={!canContinue}
             />
             <TouchableOpacity onPress={onSkip} style={styles.skipLink}>
               <Text style={[styles.skipText, { color: userTokens.textSecondary }]}>
-                {t(dictionary, "onboarding.objective.skip")}
+                {t(dictionary, "onboarding.project.skip")}
               </Text>
             </TouchableOpacity>
             <Button title={t(dictionary, "common.back")} onPress={onBack} variant="secondary" />
@@ -226,27 +221,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
   },
-  objectiveCard: {
+  projectCard: {
     marginTop: 18,
     borderWidth: 1.5,
     borderRadius: onboardingRadii.lg,
     padding: 18,
+    gap: 10,
   },
   sectionLabel: {
+    marginTop: 4,
     fontSize: 11,
     fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  timelineLabel: {
-    marginTop: 18,
-    marginBottom: 8,
+  input: {
+    borderWidth: 1,
+    borderColor: "#2f2f2f",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    fontWeight: "500",
   },
   amountRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginTop: 12,
   },
   currencySymbol: {
     fontSize: 24,
@@ -254,41 +255,8 @@ const styles = StyleSheet.create({
   },
   amountInput: {
     flex: 1,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "700",
-  },
-  errorText: {
-    fontSize: 12,
-    marginTop: 6,
-  },
-  previewCard: {
-    marginTop: 16,
-    borderWidth: 1,
-    borderRadius: onboardingRadii.sm,
-    padding: 14,
-  },
-  previewTitle: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginBottom: 6,
-  },
-  previewText: {
-    fontSize: 12,
-  },
-  timelineRow: {
-    flexDirection: "row",
-    gap: 8,
-    flexWrap: "wrap",
-  },
-  timelineButton: {
-    borderWidth: 1.5,
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  timelineText: {
-    fontSize: 12,
-    fontWeight: "500",
   },
   actions: {
     gap: 12,
@@ -302,3 +270,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 });
+

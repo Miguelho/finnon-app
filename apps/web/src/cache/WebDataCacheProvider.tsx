@@ -37,7 +37,6 @@ const REALTIME_TABLES: MutationEntity[] = [
   "obligations",
   "recurring_items",
   "categories",
-  "financial_goals",
   "projects",
   "project_contributions",
 ];

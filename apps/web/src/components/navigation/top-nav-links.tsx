@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
 
-type NavIconKey = "home" | "transactions" | "projects" | "goal" | "account";
+type NavIconKey = "home" | "transactions" | "projects" | "account";
 
 type NavItem = {
   href: string;

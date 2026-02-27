@@ -8,6 +8,8 @@ import type {
   ProjectProgress,
 } from "./types";
 
+const MONTH_KEY_PATTERN = /^\d{4}-\d{2}$/;
+
 const clampNumber = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
@@ -34,6 +36,138 @@ const addMonths = (date: Date, months: number) => {
   const next = new Date(date.getTime());
   next.setMonth(next.getMonth() + months);
   return next;
+};
+
+const toMonthKey = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+};
+
+const addMonthsToKey = (monthKey: string, delta: number): string => {
+  if (!MONTH_KEY_PATTERN.test(monthKey)) {
+    return toMonthKey(new Date());
+  }
+
+  const [yearStr, monthStr] = monthKey.split("-");
+  const year = Number(yearStr);
+  const monthIndex = Number(monthStr) - 1;
+  if (!Number.isFinite(year) || !Number.isFinite(monthIndex)) {
+    return toMonthKey(new Date());
+  }
+
+  const date = new Date(year, monthIndex + delta, 1);
+  return toMonthKey(date);
+};
+
+const normalizeMonthKey = (value: string): string | null => {
+  if (MONTH_KEY_PATTERN.test(value)) return value;
+
+  const monthPrefix = value.slice(0, 7);
+  if (MONTH_KEY_PATTERN.test(monthPrefix)) return monthPrefix;
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return toMonthKey(parsed);
+};
+
+const toMonthKeyFromInput = (
+  value: string | Date | null | undefined
+): string | null => {
+  if (!value) return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return toMonthKey(value);
+  }
+  return normalizeMonthKey(value);
+};
+
+export const computePendingMonthCloseKeys = (params: {
+  commitmentProjects: Array<{
+    projectId: string;
+    createdAt?: string | Date | null;
+  }>;
+  confirmedContributions: Array<{
+    projectId: string;
+    period: string | Date;
+  }>;
+  currentMonthKey?: string;
+}) => {
+  const { commitmentProjects, confirmedContributions, currentMonthKey } = params;
+
+  if (commitmentProjects.length === 0) return [];
+
+  const resolvedCurrentMonthKey =
+    typeof currentMonthKey === "string" && MONTH_KEY_PATTERN.test(currentMonthKey)
+      ? currentMonthKey
+      : toMonthKey(new Date());
+  const latestClosableMonthKey = addMonthsToKey(resolvedCurrentMonthKey, -1);
+
+  const uniqueProjectIds = Array.from(
+    new Set(
+      commitmentProjects
+        .map((project) => project.projectId)
+        .filter((projectId) => projectId.length > 0)
+    )
+  );
+  if (uniqueProjectIds.length === 0) return [];
+
+  const defaultProjectMonth = latestClosableMonthKey;
+  const projectStarts = new Map<string, string>();
+  commitmentProjects.forEach((project) => {
+    if (!project.projectId) return;
+
+    const createdMonth =
+      toMonthKeyFromInput(project.createdAt ?? null) ?? defaultProjectMonth;
+    const currentStart = projectStarts.get(project.projectId);
+    if (!currentStart || createdMonth < currentStart) {
+      projectStarts.set(project.projectId, createdMonth);
+    }
+  });
+
+  const earliestRequiredMonthKey = Array.from(projectStarts.values())
+    .filter((monthKey) => monthKey <= latestClosableMonthKey)
+    .sort()[0];
+  if (!earliestRequiredMonthKey) return [];
+
+  const confirmedByMonth = new Map<string, Set<string>>();
+  confirmedContributions.forEach((row) => {
+    if (!row.projectId) return;
+
+    const periodMonthKey = toMonthKeyFromInput(row.period);
+    if (
+      !periodMonthKey ||
+      periodMonthKey < earliestRequiredMonthKey ||
+      periodMonthKey > latestClosableMonthKey
+    ) {
+      return;
+    }
+
+    const monthConfirmed = confirmedByMonth.get(periodMonthKey) ?? new Set<string>();
+    monthConfirmed.add(row.projectId);
+    confirmedByMonth.set(periodMonthKey, monthConfirmed);
+  });
+
+  const pendingMonthKeys: string[] = [];
+  for (
+    let monthKey = earliestRequiredMonthKey;
+    monthKey <= latestClosableMonthKey;
+    monthKey = addMonthsToKey(monthKey, 1)
+  ) {
+    const requiredProjectIds = uniqueProjectIds.filter((projectId) => {
+      const startMonth = projectStarts.get(projectId);
+      return typeof startMonth === "string" && startMonth <= monthKey;
+    });
+    if (requiredProjectIds.length === 0) continue;
+
+    const confirmedProjectIds = confirmedByMonth.get(monthKey);
+    const isPending = requiredProjectIds.some(
+      (projectId) => !confirmedProjectIds?.has(projectId)
+    );
+    if (isPending) pendingMonthKeys.push(monthKey);
+  }
+
+  return pendingMonthKeys.sort().reverse();
 };
 
 export const getProjectSavedMinor = (
@@ -103,6 +237,7 @@ export const getMonthlyProjectCommitmentTotal = (
 
   return projects.reduce((total, project) => {
     if (activeOnly && project.status !== "active") return total;
+    if (project.is_hucha) return total;
     return total + toMinor(project.monthly_commitment_base_minor ?? 0);
   }, 0n);
 };

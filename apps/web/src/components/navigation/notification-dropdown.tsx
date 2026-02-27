@@ -290,7 +290,7 @@ export function NotificationDropdown({
                   <button
                     type="button"
                     onClick={() => {
-                      router.push(`/projects/month-close?month=${notif.monthKey}`);
+                      router.push("/projects/month-close");
                       setOpen(false);
                     }}
                     className="shrink-0 rounded-md px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"

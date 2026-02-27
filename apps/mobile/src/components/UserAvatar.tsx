@@ -66,11 +66,8 @@ export function UserAvatar({
     [avatarColor]
   );
   const preferredFallbackText = useMemo(
-    () =>
-      avatarPalette
-        ? getAvatarInitials(email, displayName)
-        : fallback.text,
-    [avatarPalette, displayName, email, fallback.text]
+    () => getAvatarInitials(email, displayName),
+    [displayName, email]
   );
   const fallbackFontSize = useMemo(
     () => Math.max(9, Math.floor(size * 0.38)),

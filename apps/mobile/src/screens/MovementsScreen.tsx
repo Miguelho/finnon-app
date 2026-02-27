@@ -37,10 +37,12 @@ export default function MovementsScreen() {
   const { dictionary } = useCopy();
   const params = useLocalSearchParams<{
     period?: string | string[];
+    month?: string | string[];
     category?: string | string[];
     type?: string | string[];
   }>();
   const periodParam = Array.isArray(params.period) ? params.period[0] : params.period;
+  const monthParam = Array.isArray(params.month) ? params.month[0] : params.month;
   const categoryParam = Array.isArray(params.category)
     ? params.category[0]
     : params.category;
@@ -63,10 +65,12 @@ export default function MovementsScreen() {
 
   const {
     selectedPeriod,
+    selectedMonth,
     filters,
     isSearchMode,
     isRecurrentSectionCollapsed,
     setPeriod,
+    setMonth,
     toggleTypeFilter,
     setTypeFilter,
     setCategoryFilter,
@@ -80,8 +84,8 @@ export default function MovementsScreen() {
   } = useMovementsStore();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isPendingCollapsed, setIsPendingCollapsed] = useState(true);
-  const [isDoneCollapsed, setIsDoneCollapsed] = useState(true);
+  const [isPendingCollapsed, setIsPendingCollapsed] = useState(false);
+  const [isDoneCollapsed, setIsDoneCollapsed] = useState(false);
 
   const periodVisibility = useRef(new Animated.Value(1)).current;
   const [periodNavHeight, setPeriodNavHeight] = useState(0);
@@ -116,6 +120,14 @@ export default function MovementsScreen() {
       setPeriod(periodParam as Period);
     }
   }, [periodParam, setPeriod]);
+
+  useEffect(() => {
+    if (!monthParam) return;
+    if (/^\d{4}-\d{2}$/.test(monthParam)) {
+      setMonth(monthParam);
+      setPeriod("month");
+    }
+  }, [monthParam, setMonth, setPeriod]);
 
   useEffect(() => {
     if (!categoryParam) return;
@@ -256,40 +268,40 @@ export default function MovementsScreen() {
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
         }
       >
-        <Animated.View
-          style={[
-            styles.periodNavWrapper,
-            periodNavHeight
-              ? {
-                  height: periodVisibility.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, periodNavHeight],
-                  }),
-                  opacity: periodVisibility,
-                }
-              : { opacity: periodVisibility },
-          ]}
-          onLayout={(event) => {
-            if (periodNavHeight === 0) {
-              setPeriodNavHeight(event.nativeEvent.layout.height);
-            }
-          }}
-          pointerEvents={isSearchMode ? "none" : "auto"}
-        >
-          <View
-            style={[
-              styles.periodNav,
-              { backgroundColor: userTokens.surface, borderColor: userTokens.border },
-            ]}
-          >
-            <PeriodSelector selected={selectedPeriod} onSelect={setPeriod} locale={locale} />
-          </View>
-        </Animated.View>
-
         <MovementsSummary
           movements={filteredMovements}
           currencyCode={currencyCode}
           currencySymbol={currencySymbol}
+          rangeSelector={
+            <Animated.View
+              style={[
+                styles.periodNavWrapper,
+                periodNavHeight
+                  ? {
+                      height: periodVisibility.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, periodNavHeight],
+                      }),
+                      opacity: periodVisibility,
+                    }
+                  : { opacity: periodVisibility },
+              ]}
+              onLayout={(event) => {
+                if (periodNavHeight === 0) {
+                  setPeriodNavHeight(event.nativeEvent.layout.height);
+                }
+              }}
+              pointerEvents={isSearchMode ? "none" : "auto"}
+            >
+              <PeriodSelector
+                selectedPeriod={selectedPeriod}
+                selectedMonth={selectedMonth}
+                onSelectPeriod={setPeriod}
+                onSelectMonth={setMonth}
+                locale={locale}
+              />
+            </Animated.View>
+          }
         />
 
         <Pressable
@@ -486,12 +498,6 @@ const styles = StyleSheet.create({
   },
   periodNavWrapper: {
     overflow: "hidden",
-  },
-  periodNav: {
-    borderRadius: movementsDesignTokens.radius.md,
-    borderWidth: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
   },
   recurrentLink: {
     alignSelf: "flex-end",

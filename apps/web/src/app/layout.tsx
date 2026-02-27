@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import { JetBrains_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Analytics } from "@vercel/analytics/next";
@@ -10,6 +11,12 @@ import { WebUserThemeProvider } from "@/components/theme/web-user-theme-provider
 import { getThemePrehydrateScript } from "@/components/theme/theme-prehydrate-script";
 import { WebDataCacheProvider } from "@/cache/WebDataCacheProvider";
 import "./globals.css";
+
+const balanceFont = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-balance",
+});
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -86,7 +93,7 @@ export default async function RootLayout({
           }}
         />
       </head>
-      <body>
+      <body className={balanceFont.variable}>
         <NextIntlClientProvider messages={messages}>
           <NetworkNoticeProvider>
             <WebUserThemeProvider>

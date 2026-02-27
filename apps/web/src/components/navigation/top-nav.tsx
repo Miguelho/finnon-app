@@ -7,6 +7,7 @@ import { NotificationDropdown } from "@/components/navigation/notification-dropd
 import { SettingsDrawer } from "@/components/settings/settings-drawer";
 import { AddActionTrigger } from "@/components/navigation/add-action-trigger";
 import { cn } from "@/lib/utils";
+import { APP_SHELL_CONTAINER_CLASS } from "@/components/layout/shell";
 import {
   buildSettingsMenuVM,
   getDictionary,
@@ -17,11 +18,7 @@ import {
 } from "@poleursus/shared";
 import { Plus } from "lucide-react";
 
-type TopNavProps = {
-  containerClassName?: string;
-};
-
-export async function TopNav({ containerClassName }: TopNavProps) {
+export async function TopNav() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -99,29 +96,24 @@ export async function TopNav({ containerClassName }: TopNavProps) {
   const navItems: Array<{
     href: string;
     label: string;
-    iconKey: "home" | "transactions" | "projects" | "goal" | "account";
+    iconKey: "home" | "transactions" | "projects" | "account";
   }> = [
     { href: "/home", label: t(dictionary, "navigation.home"), iconKey: "home" },
-    {
-      href: "/transactions",
-      label: t(dictionary, "transactions.pageTitle"),
-      iconKey: "transactions",
-    },
+    { href: "/account", label: t(dictionary, "navigation.account"), iconKey: "account" },
     {
       href: "/projects",
       label: t(dictionary, "navigation.projects"),
       iconKey: "projects",
     },
-    { href: "/goal", label: t(dictionary, "goal.pageTitle"), iconKey: "goal" },
     {
-      href: "/account",
-      label: t(dictionary, "navigation.account"),
-      iconKey: "account",
+      href: "/transactions",
+      label: t(dictionary, "transactions.pageTitle"),
+      iconKey: "transactions",
     },
   ];
   const containerClasses = cn(
-    "mx-auto flex w-full items-center justify-between gap-4 px-4 py-3",
-    containerClassName ?? "max-w-6xl"
+    APP_SHELL_CONTAINER_CLASS,
+    "flex items-center justify-between gap-4 py-3"
   );
 
   const profileEmail = profile?.email ?? user.email ?? "";

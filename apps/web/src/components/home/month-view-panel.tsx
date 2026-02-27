@@ -346,6 +346,7 @@ export function MonthViewPanel({
                     {t(dictionary, "common.balanceLabel")}
                   </p>
                   <p
+                    className="font-balance"
                     style={{
                       fontSize: typography.body.fontSize,
                       fontWeight: typography.body.fontWeight,

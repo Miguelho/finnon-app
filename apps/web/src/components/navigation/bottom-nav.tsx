@@ -7,14 +7,13 @@ import { useTranslations } from "next-intl";
 import {
   Bookmark,
   ClipboardList,
-  Flag,
   FolderKanban,
   Home,
   Plus,
 } from "lucide-react";
 import { AddActionTrigger } from "./add-action-trigger";
 
-type NavIconKey = "home" | "transactions" | "projects" | "goal" | "account";
+type NavIconKey = "home" | "transactions" | "projects" | "account";
 
 type NavItem = {
   href: string;
@@ -41,7 +40,6 @@ const navIconMap: Record<NavIconKey, typeof Home> = {
   home: Home,
   transactions: ClipboardList,
   projects: FolderKanban,
-  goal: Flag,
   account: Bookmark,
 };
 

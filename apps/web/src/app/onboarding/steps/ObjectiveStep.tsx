@@ -3,33 +3,40 @@
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import {
   CURRENCIES,
-  GOAL_TIMELINE_OPTIONS,
-  formatMoneyWithSymbol,
   parseMoneyToMinor,
-  type OnboardingGoalInput,
+  type OnboardingFirstProjectInput,
 } from "@poleursus/shared";
 import { OnboardingProgress } from "./OnboardingProgress";
 
 type ObjectiveStepProps = {
   currency: string;
-  amount: string;
-  months: 3 | 6 | 12;
-  onAmountChange: (value: string) => void;
-  onMonthsChange: (value: 3 | 6 | 12) => void;
-  onContinue: (goal: OnboardingGoalInput) => void;
+  name: string;
+  emoji: string;
+  targetAmount: string;
+  monthlyCommitment: string;
+  onNameChange: (value: string) => void;
+  onEmojiChange: (value: string) => void;
+  onTargetAmountChange: (value: string) => void;
+  onMonthlyCommitmentChange: (value: string) => void;
+  onContinue: (project: OnboardingFirstProjectInput) => void;
   onSkip: () => void;
   onBack: () => void;
 };
 
+const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
+
 export function ObjectiveStep({
   currency,
-  amount,
-  months,
-  onAmountChange,
-  onMonthsChange,
+  name,
+  emoji,
+  targetAmount,
+  monthlyCommitment,
+  onNameChange,
+  onEmojiChange,
+  onTargetAmountChange,
+  onMonthlyCommitmentChange,
   onContinue,
   onSkip,
   onBack,
@@ -42,106 +49,131 @@ export function ObjectiveStep({
     [currency]
   );
 
-  const parsedAmount = amount.trim()
-    ? parseMoneyToMinor(amount, currency)
+  const parsedTarget = targetAmount.trim()
+    ? parseMoneyToMinor(targetAmount, currency)
     : null;
-  const amountValid = parsedAmount !== null && typeof parsedAmount !== "object";
+  const parsedCommitment = monthlyCommitment.trim()
+    ? parseMoneyToMinor(monthlyCommitment, currency)
+    : null;
 
-  const monthlyAmount = amountValid
-    ? formatMoneyWithSymbol(parsedAmount / BigInt(months), currency, currencySymbol)
-    : formatMoneyWithSymbol(0n, currency, currencySymbol);
+  const targetValid =
+    parsedTarget !== null && typeof parsedTarget !== "object" && parsedTarget > 0n;
+  const commitmentValid =
+    parsedCommitment !== null &&
+    typeof parsedCommitment !== "object" &&
+    parsedCommitment > 0n;
+  const canContinue = name.trim().length > 0 && targetValid && commitmentValid;
 
   const handleContinue = () => {
-    if (!amountValid || typeof parsedAmount === "object") return;
+    if (!canContinue) return;
+    if (typeof parsedTarget === "object" || typeof parsedCommitment === "object") return;
+    if (parsedTarget === null || parsedCommitment === null) return;
 
     onContinue({
-      targetAmountMinor: Number(parsedAmount),
-      months,
+      name: name.trim(),
+      emoji: emoji.trim() || "🎯",
+      targetAmountMinor: Number(parsedTarget),
+      monthlyCommitmentMinor: Number(parsedCommitment),
     });
   };
 
   return (
     <div className="w-full rounded-2xl border border-border bg-card">
       <div className="px-6 pt-8">
-        <OnboardingProgress current="objective" />
+        <OnboardingProgress current="project" />
         <div className="mt-6 text-center">
           <h2 className="text-2xl font-bold text-foreground">
-            {t("objective.title")}
+            {t("project.title")}
           </h2>
-          <p className="text-sm text-muted-foreground">{t("objective.subtitle")}</p>
+          <p className="text-sm text-muted-foreground">{t("project.subtitle")}</p>
         </div>
       </div>
 
       <div className="mx-6 mt-6 rounded-2xl border border-border bg-card p-6">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {t("objective.amountLabel")}
-        </p>
-        <div className="mt-3 flex items-center gap-3">
-          <span className="text-2xl font-bold text-muted-foreground">
-            {currencySymbol}
-          </span>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={amount}
-            onChange={(event) => onAmountChange(event.target.value)}
-            className="w-full bg-transparent text-3xl font-bold text-foreground outline-none placeholder:text-muted-foreground"
-            placeholder="3.000"
-          />
-        </div>
-        {!amountValid && amount.trim() !== "" && (
-          <p className="mt-2 text-xs text-destructive">
-            {tGlobal("money.invalidFormat")}
-          </p>
-        )}
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("project.nameLabel")}
+            </p>
+            <input
+              type="text"
+              value={name}
+              onChange={(event) => onNameChange(event.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
+              placeholder={t("project.namePlaceholder")}
+            />
+          </div>
 
-        <p className="mt-6 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {t("objective.timelineLabel")}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {GOAL_TIMELINE_OPTIONS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => onMonthsChange(option)}
-              className={cn(
-                "rounded-full border px-4 py-2 text-xs font-medium",
-                months === option
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border text-muted-foreground"
-              )}
-            >
-              {t(`objective.months${option}` as const)}
-            </button>
-          ))}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("project.emojiLabel")}
+            </p>
+            <input
+              type="text"
+              value={emoji}
+              onChange={(event) => onEmojiChange(event.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
+              placeholder="🎯"
+              maxLength={8}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("project.targetLabel")}
+            </p>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl font-bold text-muted-foreground">{currencySymbol}</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={targetAmount}
+                onChange={(event) =>
+                  onTargetAmountChange(sanitizeNumericInput(event.target.value))
+                }
+                className="w-full bg-transparent text-3xl font-bold text-foreground outline-none placeholder:text-muted-foreground"
+                placeholder="3000"
+              />
+            </div>
+            {!targetValid && targetAmount.trim() !== "" ? (
+              <p className="text-xs text-destructive">{tGlobal("money.invalidFormat")}</p>
+            ) : null}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("project.commitmentLabel")}
+            </p>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl font-bold text-muted-foreground">{currencySymbol}</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={monthlyCommitment}
+                onChange={(event) =>
+                  onMonthlyCommitmentChange(sanitizeNumericInput(event.target.value))
+                }
+                className="w-full bg-transparent text-3xl font-bold text-foreground outline-none placeholder:text-muted-foreground"
+                placeholder="200"
+              />
+            </div>
+            {!commitmentValid && monthlyCommitment.trim() !== "" ? (
+              <p className="text-xs text-destructive">{tGlobal("money.invalidFormat")}</p>
+            ) : null}
+          </div>
         </div>
       </div>
 
-      {amountValid && (
-        <div className="mx-6 mt-5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
-          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-            {t("objective.previewTitle")}
-          </p>
-          <p className="text-sm text-foreground">
-            {t("objective.previewText", { amount: monthlyAmount })}
-          </p>
-        </div>
-      )}
-
       <div className="flex flex-col gap-2 px-6 pb-8 pt-6">
-        <Button
-          onClick={handleContinue}
-          disabled={!amountValid}
-          className="w-full"
-        >
-          {t("objective.continue")}
+        <Button onClick={handleContinue} disabled={!canContinue} className="w-full">
+          {t("project.continue")}
         </Button>
         <Button
           variant="ghost"
           onClick={onSkip}
           className="w-full text-foreground/80 hover:text-foreground"
         >
-          {t("objective.skip")}
+          {t("project.skip")}
         </Button>
         <Button
           variant="outline"
@@ -154,3 +186,4 @@ export function ObjectiveStep({
     </div>
   );
 }
+

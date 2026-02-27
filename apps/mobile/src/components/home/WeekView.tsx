@@ -88,8 +88,7 @@ export const WeekView = forwardRef<WeekViewHandle, WeekViewProps>(
               onPress={() => onSelectDate(day.date)}
               style={[
                 styles.dayCell,
-                isSelected && styles.dayCellSelected,
-                isToday && { borderColor: primaryActionColor },
+                (isSelected || isToday) && { borderColor: primaryActionColor },
               ]}
               accessibilityLabel={`${dayNames[index]} ${day.dayOfMonth}`}
               accessibilityState={{ selected: isSelected }}
@@ -101,7 +100,7 @@ export const WeekView = forwardRef<WeekViewHandle, WeekViewProps>(
               <Text
                 style={[
                   styles.dayNumber,
-                  isToday && { color: primaryActionColor },
+                  (isToday || isSelected) && { color: primaryActionColor },
                 ]}
               >
                 {day.dayOfMonth}
@@ -144,9 +143,6 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radii.md,
     borderWidth: 2,
     borderColor: "transparent",
-  },
-  dayCellSelected: {
-    backgroundColor: colors.action.secondary,
   },
   dayName: {
     fontSize: tokens.typography.size.xs,

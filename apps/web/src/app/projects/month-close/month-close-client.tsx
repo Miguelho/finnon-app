@@ -18,6 +18,7 @@ import {
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useWebDataCache } from "@/cache/WebDataCacheProvider";
+import { PageContainer } from "@/components/layout/page-container";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,16 +28,18 @@ type MonthCloseClientProps = {
   role: UserRole;
   currentUserId: string;
   monthKey: string;
+  pendingMonthKeys: string[];
   monthStart: string;
   baseCurrency: string;
   currencySymbol: string;
   actualSavedMinor: string;
   projects: Project[];
+  huchaProject: Project | null;
   existingContributions: ProjectContribution[];
   userLabels: Record<string, string>;
 };
 
-type AllocationMode = "unassigned" | "proportional" | "manual";
+type AllocationMode = "hucha" | "proportional" | "manual";
 
 type ParsedRow = {
   projectId: string;
@@ -76,11 +79,13 @@ export function MonthCloseClient({
   role,
   currentUserId,
   monthKey,
+  pendingMonthKeys,
   monthStart,
   baseCurrency,
   currencySymbol,
   actualSavedMinor,
   projects,
+  huchaProject,
   existingContributions,
   userLabels,
 }: MonthCloseClientProps) {
@@ -201,7 +206,7 @@ export function MonthCloseClient({
 
   const initialMode: AllocationMode = isInitiallyConfirmed
     ? "manual"
-    : "unassigned";
+    : "hucha";
 
   const initialInputs = useMemo(() => {
     const result: Record<string, string> = {};
@@ -336,7 +341,7 @@ export function MonthCloseClient({
   const handleConfirm = async () => {
     if (!canEdit || isSaving) return;
 
-    if (projects.length === 0) {
+    if (projects.length === 0 && !huchaProject) {
       setErrorMessage(tProjects("monthClose.noProjects"));
       return;
     }
@@ -352,6 +357,11 @@ export function MonthCloseClient({
           amount: formatMoneyWithSymbol(overAssignedMinor, baseCurrency, currencySymbol),
         })
       );
+      return;
+    }
+
+    if (unassignedMinor > 0n && !huchaProject) {
+      setErrorMessage(tProjects("monthClose.huchaMissing"));
       return;
     }
 
@@ -384,6 +394,21 @@ export function MonthCloseClient({
         };
       });
 
+      if (huchaProject && unassignedMinor > 0n) {
+        payload.push({
+          account_id: accountId,
+          project_id: huchaProject.id,
+          user_id: currentUserId,
+          period: monthStart,
+          committed_amount_base_minor: "0",
+          actual_amount_base_minor: String(unassignedMinor),
+          source: "automatic",
+          confirmed: true,
+          confirmed_at: nowIso,
+          updated_at: nowIso,
+        });
+      }
+
       const { data, error } = await supabase
         .from("project_contributions")
         .upsert(payload, { onConflict: "project_id,period" })
@@ -404,7 +429,7 @@ export function MonthCloseClient({
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4">
+    <PageContainer className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <Link
           href="/projects"
@@ -414,6 +439,33 @@ export function MonthCloseClient({
           {tProjects("backToList")}
         </Link>
       </div>
+
+      {pendingMonthKeys.length > 0 ? (
+        <Card>
+          <CardContent className="space-y-3 p-4">
+            <p className="text-sm font-medium">
+              {tProjects("monthClose.pendingMonthsListTitle")}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {tProjects("monthClose.pendingMonthsListHint")}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {pendingMonthKeys.map((pendingKey) => (
+                <Button
+                  key={pendingKey}
+                  asChild
+                  size="sm"
+                  variant={pendingKey === monthKey ? "default" : "outline"}
+                >
+                  <Link href={`/projects/month-close?month=${pendingKey}`}>
+                    {formatMonthLabel(pendingKey, locale)}
+                  </Link>
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -468,7 +520,7 @@ export function MonthCloseClient({
         </Card>
       ) : null}
 
-      {projects.length === 0 ? (
+      {projects.length === 0 && !huchaProject ? (
         <Card>
           <CardContent className="space-y-2 p-6">
             <p className="text-sm text-muted-foreground">{tProjects("monthClose.noProjects")}</p>
@@ -495,11 +547,11 @@ export function MonthCloseClient({
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
-                    variant={allocationMode === "unassigned" ? "default" : "outline"}
-                    onClick={() => applyAutomaticMode("unassigned")}
+                    variant={allocationMode === "hucha" ? "default" : "outline"}
+                    onClick={() => applyAutomaticMode("hucha")}
                     disabled={!canEdit}
                   >
-                    {tProjects("monthClose.surplusUnassigned")}
+                    {tProjects("monthClose.surplusToHucha")}
                   </Button>
                   <Button
                     type="button"
@@ -582,7 +634,7 @@ export function MonthCloseClient({
           <Card>
             <CardContent className="space-y-2 p-4 text-sm">
               <p className="text-muted-foreground">
-                {tProjects("monthClose.unassigned", {
+                {tProjects("monthClose.toHucha", {
                   amount: formatMoneyWithSymbol(unassignedMinor, baseCurrency, currencySymbol),
                 })}
               </p>
@@ -622,6 +674,6 @@ export function MonthCloseClient({
           </div>
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

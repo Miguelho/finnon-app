@@ -2,9 +2,12 @@ import { create } from "zustand";
 import { supabase } from "../lib/supabase";
 import { getVerifiedUser } from "../lib/auth";
 import {
+  computeMovementBalanceSummary,
   formatDateISO,
+  getMonthRangeFromKey,
   getPeriodEnd,
   getPeriodRange,
+  toMonthKey,
   isFutureDay,
   getOccurrenceKey,
   getOccurrencesBetween,
@@ -22,6 +25,7 @@ import type {
 
 type MovementsStore = {
   selectedPeriod: Period;
+  selectedMonth: string;
   filters: MovementFilter;
   isSearchMode: boolean;
   isRecurrentSectionCollapsed: boolean;
@@ -34,6 +38,7 @@ type MovementsStore = {
   baseCurrency: string;
 
   setPeriod: (period: Period) => void;
+  setMonth: (monthKey: string) => void;
   toggleTypeFilter: (type: "income" | "expense") => void;
   setTypeFilter: (types: Array<"income" | "expense">) => void;
   setCategoryFilter: (categoryIds: string[]) => void;
@@ -53,6 +58,18 @@ type MovementsStore = {
   registerAllRecurrents: () => Promise<void>;
   setRecurrentSectionCollapsed: (collapsed: boolean) => void;
   toggleRecurrentCollapse: () => void;
+};
+
+const computeRange = (period: Period, monthKey: string) => {
+  if (period === "month") {
+    const { start, end } = getMonthRangeFromKey(monthKey);
+    return { start, end };
+  }
+  const now = new Date();
+  return {
+    start: formatDateISO(getPeriodRange(period, now).start),
+    end: formatDateISO(getPeriodEnd(period, now)),
+  };
 };
 
 const defaultFilters: MovementFilter = {
@@ -125,18 +142,16 @@ const sortByDateDesc = (items: Movement[]) =>
 
 const buildUnregisteredRecurrents = (state: {
   selectedPeriod: Period;
+  selectedMonth: string;
   periodMovements: Movement[];
   recurringItems: RecurringItem[];
   categories: Category[];
   baseCurrency: string;
 }): RecurringTemplate[] => {
-  const { selectedPeriod, periodMovements, recurringItems, categories } = state;
+  const { selectedPeriod, selectedMonth, periodMovements, recurringItems, categories } = state;
   if (!recurringItems.length) return [];
 
-  const now = new Date();
-  const range = getPeriodRange(selectedPeriod, now);
-  const rangeStart = formatDateISO(range.start);
-  const rangeEnd = formatDateISO(getPeriodEnd(selectedPeriod, now));
+  const { start: rangeStart, end: rangeEnd } = computeRange(selectedPeriod, selectedMonth);
   const categoriesById = categories.reduce<Record<string, Category>>(
     (acc, category) => {
       acc[category.id] = category;
@@ -198,9 +213,10 @@ const matchesSearchQuery = (movement: Movement, query: string) => {
 export const useMovementsStore = create<MovementsStore>((set, get) => {
   return {
     selectedPeriod: "month",
+    selectedMonth: toMonthKey(new Date()),
     filters: defaultFilters,
     isSearchMode: false,
-    isRecurrentSectionCollapsed: true,
+    isRecurrentSectionCollapsed: false,
 
     periodMovements: [],
     searchMovements: [],
@@ -211,6 +227,9 @@ export const useMovementsStore = create<MovementsStore>((set, get) => {
 
     setPeriod: (period) => {
       set({ selectedPeriod: period });
+    },
+    setMonth: (monthKey) => {
+      set({ selectedMonth: monthKey });
     },
     toggleTypeFilter: (type) => {
       const current = get().filters.types;
@@ -358,31 +377,14 @@ export const selectUnregisteredRecurrents = (state: MovementsStore) =>
 export const selectMovementsSummary = (
   movements: Movement[]
 ): MovementsSummary => {
-  let totalIncome = 0n;
-  let totalExpense = 0n;
-  let confirmedIncome = 0n;
-  let confirmedExpense = 0n;
-
-  movements.forEach((movement) => {
-    if (movement.type === "income") {
-      totalIncome += movement.amountMinor;
-      if (movement.status === "confirmed") {
-        confirmedIncome += movement.amountMinor;
-      }
-    } else {
-      totalExpense += movement.amountMinor;
-      if (movement.status === "confirmed") {
-        confirmedExpense += movement.amountMinor;
-      }
-    }
-  });
+  const totals = computeMovementBalanceSummary(movements);
 
   return {
-    totalIncome,
-    totalExpense,
-    totalBalance: totalIncome - totalExpense,
-    confirmedIncome,
-    confirmedExpense,
-    confirmedBalance: confirmedIncome - confirmedExpense,
+    totalIncome: totals.totalIncomeMinor,
+    totalExpense: totals.totalExpenseMinor,
+    totalBalance: totals.totalBalanceMinor,
+    confirmedIncome: totals.confirmedIncomeMinor,
+    confirmedExpense: totals.confirmedExpenseMinor,
+    confirmedBalance: totals.confirmedBalanceMinor,
   };
 };

@@ -6,7 +6,9 @@ import { useLocale, useTranslations } from "next-intl";
 import {
   computeProjectProgress,
   formatMoneyWithSymbol,
+  getHuchaStats,
   getMinorUnits,
+  toMonthKey,
   type Project,
   type ProjectContribution,
   type UserRole,
@@ -14,6 +16,7 @@ import {
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useWebDataCache } from "@/cache/WebDataCacheProvider";
+import { PageContainer } from "@/components/layout/page-container";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -41,7 +44,10 @@ type ProjectDetailClientProps = {
 };
 
 type HistoryStatus = "fulfilled" | "deficit" | "no_plan" | "pending";
-type TranslateFn = (key: any, values?: Record<string, unknown>) => string;
+type TranslateFn = (
+  key: any,
+  values?: Record<string, string | number | Date>
+) => string;
 
 const toMinor = (value: bigint | number | string | null | undefined) => {
   if (value === null || value === undefined) return 0n;
@@ -245,6 +251,15 @@ export function ProjectDetailClient({
     }).format(date);
   }, [project.created_at, locale]);
 
+  const huchaStats = useMemo(() => {
+    if (!project.is_hucha) return null;
+    return getHuchaStats({
+      huchaProjectId: project.id,
+      contributions,
+      currentPeriod: toMonthKey(new Date()),
+    });
+  }, [contributions, project.id, project.is_hucha]);
+
   const toggleRecurringExpense = (id: string) => {
     setDisabledRecurringIds((previous) => {
       const next = new Set(previous);
@@ -301,8 +316,124 @@ export function ProjectDetailClient({
     }
   };
 
+  if (project.is_hucha && huchaStats) {
+    return (
+      <PageContainer className="space-y-6">
+        <div className="flex items-center justify-between gap-3">
+          <Link
+            href="/projects"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {tProjects("backToList")}
+          </Link>
+        </div>
+
+        <Card>
+          <CardHeader className="space-y-2">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="text-4xl">{project.emoji || "🐷"}</span>
+                <div className="min-w-0">
+                  <h1 className="truncate text-2xl font-semibold">{project.name}</h1>
+                  <p className="text-sm text-muted-foreground">
+                    {tProjects("hucha.subtitle")}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="font-balance text-4xl font-bold text-orange-400">
+                {formatMoneyWithSymbol(huchaStats.accumulatedMinor, baseCurrency, currencySymbol)}
+              </p>
+              <p className="text-sm text-muted-foreground">{tProjects("hucha.accumulated")}</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">{tProjects("hucha.thisMonth")}</p>
+                <p className="text-lg font-semibold text-emerald-500">
+                  +
+                  {formatMoneyWithSymbol(
+                    huchaStats.currentMonthContributionMinor,
+                    baseCurrency,
+                    currencySymbol
+                  )}
+                </p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">
+                  {tProjects("hucha.monthlyAverage")}
+                </p>
+                <p className="text-lg font-semibold">
+                  {formatMoneyWithSymbol(huchaStats.averageMinor, baseCurrency, currencySymbol)}
+                </p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">{tProjects("hucha.bestMonth")}</p>
+                <p className="text-lg font-semibold">
+                  {huchaStats.bestMonth
+                    ? formatMoneyWithSymbol(
+                        huchaStats.bestMonth.amountMinor,
+                        baseCurrency,
+                        currencySymbol
+                      )
+                    : tGlobal("common.noneOption")}
+                </p>
+                {huchaStats.bestMonth ? (
+                  <p className="text-xs text-muted-foreground">
+                    {formatMonthLabel(`${huchaStats.bestMonth.period}-01`, locale)}
+                  </p>
+                ) : null}
+              </div>
+              <div className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">
+                  {tProjects("hucha.monthsWithContribution")}
+                </p>
+                <p className="text-lg font-semibold">
+                  {huchaStats.monthsWithContribution}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <h2 className="text-lg font-semibold">{tProjects("hucha.historyTitle")}</h2>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {contributions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{tProjects("hucha.emptyHistory")}</p>
+            ) : (
+              contributions.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
+                  <p className="text-sm text-muted-foreground">
+                    {formatMonthLabel(String(entry.period).slice(0, 10), locale)}
+                  </p>
+                  <p className="text-sm font-semibold text-emerald-500">
+                    +
+                    {formatMoneyWithSymbol(
+                      toMinor(entry.actual_amount_base_minor),
+                      baseCurrency,
+                      currencySymbol
+                    )}
+                  </p>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </PageContainer>
+    );
+  }
+
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4">
+    <PageContainer className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <Link
           href="/projects"
@@ -688,6 +819,6 @@ export function ProjectDetailClient({
           </CardContent>
         </Card>
       )}
-    </div>
+    </PageContainer>
   );
 }

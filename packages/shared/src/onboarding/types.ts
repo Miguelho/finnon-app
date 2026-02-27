@@ -35,10 +35,12 @@ export type OnboardingRecurrentInput = {
   dayOfMonth: number;
 };
 
-/** Datos del objetivo del onboarding */
-export type OnboardingGoalInput = {
+/** Datos del primer proyecto del onboarding */
+export type OnboardingFirstProjectInput = {
+  name: string;
+  emoji: string;
   targetAmountMinor: number;
-  months: 3 | 6 | 12;
+  monthlyCommitmentMinor: number;
 };
 
 /** Payload completo del onboarding para persistir */
@@ -46,5 +48,5 @@ export type OnboardingPayload = {
   accountId: string;
   selectedCategories: DefaultCategory[];
   recurrents: OnboardingRecurrentInput[];
-  goal: OnboardingGoalInput | null;
+  firstProject: OnboardingFirstProjectInput | null;
 };

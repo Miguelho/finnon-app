@@ -21,7 +21,8 @@ type AddActionTriggerProps = {
   accountId: string;
   currency: string;
   locale: string;
-  variant?: "top-nav" | "bottom-nav";
+  variant?: "top-nav" | "bottom-nav" | "hidden";
+  registerExternalOpen?: (open: (() => void) | null) => void;
 };
 
 function upsertCategory(items: Category[], category: Category) {
@@ -37,6 +38,7 @@ export function AddActionTrigger({
   currency,
   locale,
   variant = "top-nav",
+  registerExternalOpen,
 }: AddActionTriggerProps) {
   const t = useTranslations();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -59,6 +61,7 @@ export function AddActionTrigger({
   const [isLoading, setIsLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const currentAccountIdRef = useRef(accountId);
+  const externalOpenRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     currentAccountIdRef.current = accountId;
@@ -211,7 +214,19 @@ export function AddActionTrigger({
   const triggerClassName =
     variant === "bottom-nav"
       ? "relative -mt-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
-      : "inline-flex items-center gap-2 rounded-full bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70 sm:px-4 sm:py-1.5";
+      : variant === "hidden"
+        ? "hidden"
+        : "inline-flex items-center gap-2 rounded-full bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70 sm:px-4 sm:py-1.5";
+
+  useEffect(() => {
+    if (!registerExternalOpen) return;
+    registerExternalOpen(() => {
+      externalOpenRef.current?.();
+    });
+    return () => {
+      registerExternalOpen(null);
+    };
+  }, [registerExternalOpen]);
 
   return (
     <AddAction
@@ -226,25 +241,33 @@ export function AddActionTrigger({
       currentUserId={currentUserId}
       onCategoryCreated={handleCategoryCreated}
       renderTrigger={(open) => (
-        <button
-          type="button"
-          onClick={() => void handleOpen(open)}
-          className={triggerClassName}
-          aria-label={label}
-          aria-busy={isLoading}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <Loader2
-              className={`${variant === "bottom-nav" ? "h-5 w-5" : "h-4 w-4"} animate-spin`}
-            />
-          ) : (
-            <Plus className={variant === "bottom-nav" ? "h-5 w-5" : "h-4 w-4"} />
-          )}
-          {variant === "top-nav" && (
-            <span className="hidden sm:inline">{label}</span>
-          )}
-        </button>
+        (() => {
+          externalOpenRef.current = () => {
+            void handleOpen(open);
+          };
+
+          return (
+            <button
+              type="button"
+              onClick={() => void handleOpen(open)}
+              className={triggerClassName}
+              aria-label={label}
+              aria-busy={isLoading}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2
+                  className={`${variant === "bottom-nav" ? "h-5 w-5" : "h-4 w-4"} animate-spin`}
+                />
+              ) : (
+                <Plus className={variant === "bottom-nav" ? "h-5 w-5" : "h-4 w-4"} />
+              )}
+              {variant === "top-nav" && (
+                <span className="hidden sm:inline">{label}</span>
+              )}
+            </button>
+          );
+        })()
       )}
     />
   );

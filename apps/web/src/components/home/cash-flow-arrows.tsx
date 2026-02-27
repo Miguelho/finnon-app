@@ -172,6 +172,7 @@ export function CashFlowArrows({
           {balanceLabel}
         </p>
         <p
+          className="font-balance"
           style={{
             fontSize: typography.display.fontSize,
             fontWeight: typography.display.fontWeight,

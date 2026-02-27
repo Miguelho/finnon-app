@@ -108,8 +108,7 @@ export function WeekStrip({
               onPress={() => onSelectDate(day.date)}
               style={[
                 styles.dayCell,
-                isSelected && styles.dayCellSelected,
-                isToday && { borderColor: primaryActionColor },
+                (isSelected || isToday) && { borderColor: primaryActionColor },
               ]}
             >
               {/* Day name */}
@@ -119,7 +118,7 @@ export function WeekStrip({
               <Text
                 style={[
                   styles.dayNumber,
-                  isToday && { color: primaryActionColor },
+                  (isToday || isSelected) && { color: primaryActionColor },
                 ]}
               >
                 {day.dayOfMonth}
@@ -214,9 +213,6 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radii.sm,
     borderWidth: 2,
     borderColor: "transparent",
-  },
-  dayCellSelected: {
-    backgroundColor: colors.action.secondary,
   },
   dayName: {
     fontSize: typography.caption.fontSize,

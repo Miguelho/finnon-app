@@ -7,15 +7,17 @@ import {
   formatMonthLabel,
   computeProjectProgress,
   formatMoneyWithSymbol,
+  getHuchaStats,
   getMonthlyProjectCommitmentTotal,
   parseMoneyToMinor,
+  toMonthKey,
   type Project,
   type ProjectContribution,
   type UserRole,
 } from "@poleursus/shared";
-import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useWebDataCache } from "@/cache/WebDataCacheProvider";
+import { PageContainer } from "@/components/layout/page-container";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -58,7 +60,10 @@ const EMOJI_SUGGESTIONS = [
 
 const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
 
-type TranslateFn = (key: any, values?: Record<string, unknown>) => string;
+type TranslateFn = (
+  key: any,
+  values?: Record<string, string | number | Date>
+) => string;
 
 const formatDuration = (months: number, t: TranslateFn) => {
   if (months <= 0) return t("simulator.reached");
@@ -135,13 +140,33 @@ export function ProjectsClient({
     [projects]
   );
 
+  const huchaProject = useMemo(
+    () => projects.find((project) => project.is_hucha) ?? null,
+    [projects]
+  );
+
+  const activeProjects = useMemo(
+    () => projects.filter((project) => !project.is_hucha),
+    [projects]
+  );
+
+  const huchaStats = useMemo(
+    () =>
+      getHuchaStats({
+        huchaProjectId: huchaProject?.id,
+        contributions,
+        currentPeriod: toMonthKey(new Date()),
+      }),
+    [contributions, huchaProject?.id]
+  );
+
   const nextPriority = useMemo(() => {
-    const highest = projects.reduce(
+    const highest = activeProjects.reduce(
       (max, project) => Math.max(max, project.priority),
       0
     );
     return highest + 1;
-  }, [projects]);
+  }, [activeProjects]);
 
   const openCreate = () => {
     setCreateError(null);
@@ -187,6 +212,7 @@ export function ProjectsClient({
           account_id: accountId,
           name: trimmedName,
           emoji: emojiInput.trim() || DEFAULT_EMOJI,
+          is_hucha: false,
           target_amount_base_minor: String(parsedTarget),
           priority: safePriority,
           status: "active",
@@ -211,7 +237,7 @@ export function ProjectsClient({
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4">
+    <PageContainer className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-semibold">{tProjects("pageTitle")}</h1>
@@ -221,34 +247,58 @@ export function ProjectsClient({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild variant="outline">
-            <Link href={`/projects/month-close?month=${pendingMonthKey}`}>
+            <Link href="/projects/month-close">
               {tProjects("monthClose.openCta")}
             </Link>
-          </Button>
-          <Button
-            onClick={openCreate}
-            disabled={!canEdit}
-            className="inline-flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            {tProjects("newProject")}
           </Button>
         </div>
       </div>
 
-      <Card>
-        <CardContent className="flex items-center justify-between gap-2 p-4">
-          <div>
-            <p className="text-sm text-muted-foreground">{tProjects("totalCommitment")}</p>
-            <p className="text-2xl font-semibold">
-              {formatMoneyWithSymbol(totalCommitmentMinor, baseCurrency, currencySymbol)}
-              <span className="ml-1 text-base font-medium text-muted-foreground">
-                {tProjects("perMonth")}
-              </span>
-            </p>
+      {huchaProject ? (
+        <Link
+          href={`/projects/${huchaProject.id}`}
+          className="block overflow-hidden rounded-xl border border-orange-500/35 bg-card transition-colors hover:bg-muted/30"
+        >
+          <div className="h-1.5 w-full bg-gradient-to-r from-[#fb923c] to-[#f472b6]" />
+          <div className="space-y-3 p-4">
+            <div className="flex min-w-0 items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-base font-semibold">
+                  {huchaProject.emoji || "🐷"} Hucha
+                </p>
+                <p className="break-words text-sm text-muted-foreground">
+                  {tProjects("hucha.subtitle")}
+                </p>
+              </div>
+              <div className="min-w-0 text-right">
+                <p className="break-all text-base font-semibold leading-tight text-orange-400">
+                  {formatMoneyWithSymbol(huchaStats.accumulatedMinor, baseCurrency, currencySymbol)}
+                </p>
+                <p className="text-xs text-muted-foreground">{tProjects("hucha.accumulated")}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{tProjects("hucha.thisMonth")}</p>
+                <p className="break-all font-semibold text-emerald-500">
+                  +
+                  {formatMoneyWithSymbol(
+                    huchaStats.currentMonthContributionMinor,
+                    baseCurrency,
+                    currencySymbol
+                  )}
+                </p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{tProjects("hucha.monthlyAverage")}</p>
+                <p className="break-all font-semibold">
+                  {formatMoneyWithSymbol(huchaStats.averageMinor, baseCurrency, currencySymbol)}
+                </p>
+              </div>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </Link>
+      ) : null}
 
       {hasPendingMonthlyClose ? (
         <Card>
@@ -270,7 +320,21 @@ export function ProjectsClient({
         </Card>
       ) : null}
 
-      {projects.length === 0 ? (
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          {locale === "en" ? "Active projects" : "Proyectos activos"}
+        </p>
+        <Button
+          variant="outline"
+          onClick={openCreate}
+          disabled={!canEdit}
+          className="h-8 rounded-full px-3 text-xs font-medium text-muted-foreground hover:text-foreground"
+        >
+          + {tProjects("newProject")}
+        </Button>
+      </div>
+
+      {activeProjects.length === 0 ? (
         <Card>
           <CardContent className="space-y-3 p-6">
             <h2 className="text-lg font-semibold">{tProjects("emptyTitle")}</h2>
@@ -282,7 +346,7 @@ export function ProjectsClient({
         </Card>
       ) : (
         <div className="grid gap-3">
-          {projects.map((project) => {
+          {activeProjects.map((project) => {
             const progress = computeProjectProgress({
               project,
               contributions: contributionsByProject.get(project.id) ?? [],
@@ -344,6 +408,20 @@ export function ProjectsClient({
           })}
         </div>
       )}
+
+      <Card>
+        <CardContent className="flex items-center justify-between gap-2 p-4">
+          <div>
+            <p className="text-sm text-muted-foreground">{tProjects("totalCommitment")}</p>
+            <p className="text-2xl font-semibold">
+              {formatMoneyWithSymbol(totalCommitmentMinor, baseCurrency, currencySymbol)}
+              <span className="ml-1 text-base font-medium text-muted-foreground">
+                {tProjects("perMonth")}
+              </span>
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <SlidePanel open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <SlidePanelContent>
@@ -431,6 +509,6 @@ export function ProjectsClient({
           </SlidePanelFooter>
         </SlidePanelContent>
       </SlidePanel>
-    </div>
+    </PageContainer>
   );
 }

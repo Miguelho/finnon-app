@@ -168,24 +168,47 @@ export async function persistOnboarding(
       }
     }
 
-    // 4. Insertar goal si existe
-    if (payload.goal) {
-      const now = new Date();
-      const monthKey = `${now.getUTCFullYear()}-${String(
-        now.getUTCMonth() + 1
-      ).padStart(2, "0")}`;
+    // 4. Insertar primer proyecto si existe.
+    if (payload.firstProject) {
+      const nextProject = payload.firstProject;
+      const targetMinor = Math.max(0, Math.round(nextProject.targetAmountMinor));
+      const commitmentMinor = Math.max(
+        0,
+        Math.round(nextProject.monthlyCommitmentMinor)
+      );
 
-      const { error: goalError } = await client
-        .from("financial_goals")
-        .insert({
-          account_id: payload.accountId,
-          month: monthKey,
-          type: "save",
-          target_amount_base_minor: payload.goal.targetAmountMinor,
-          created_by: userId,
-        });
+      if (targetMinor > 0 && commitmentMinor > 0) {
+        const { data: existingProjects, error: existingProjectsError } = await client
+          .from("projects")
+          .select("priority, is_hucha")
+          .eq("account_id", payload.accountId)
+          .order("priority", { ascending: true });
 
-      if (goalError) throw goalError;
+        if (existingProjectsError) throw existingProjectsError;
+
+        const usedPriorities = (existingProjects ?? [])
+          .filter((project: { is_hucha?: boolean }) => !project.is_hucha)
+          .map((project: { priority?: number }) => Number(project.priority ?? 0))
+          .filter((value) => Number.isFinite(value) && value > 0);
+
+        const nextPriority =
+          usedPriorities.length > 0 ? Math.max(...usedPriorities) + 1 : 1;
+
+        const { error: firstProjectError } = await client
+          .from("projects")
+          .insert({
+            account_id: payload.accountId,
+            name: nextProject.name.trim(),
+            emoji: nextProject.emoji?.trim() || "🎯",
+            target_amount_base_minor: targetMinor,
+            monthly_commitment_base_minor: commitmentMinor,
+            priority: nextPriority,
+            status: "active",
+            created_by: userId,
+          });
+
+        if (firstProjectError) throw firstProjectError;
+      }
     }
 
     return { success: true };

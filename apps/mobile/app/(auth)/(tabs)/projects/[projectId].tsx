@@ -15,8 +15,10 @@ import {
   CURRENCIES,
   computeProjectProgress,
   formatMoneyWithSymbol,
+  getHuchaStats,
   getMinorUnits,
   themeTokens,
+  toMonthKey,
   type Project,
   type ProjectContribution,
   type UserRole,
@@ -353,6 +355,15 @@ export default function ProjectDetailScreen() {
     return withCumulative.reverse();
   }, [contributions]);
 
+  const huchaStats = useMemo(() => {
+    if (!project?.is_hucha) return null;
+    return getHuchaStats({
+      huchaProjectId: project.id,
+      contributions,
+      currentPeriod: toMonthKey(new Date()),
+    });
+  }, [contributions, project?.id, project?.is_hucha]);
+
   const createdAtLabel = useMemo(() => {
     if (!project?.created_at) return null;
     const date =
@@ -440,6 +451,134 @@ export default function ProjectDetailScreen() {
               <Button onPress={() => void loadData()} title={t(dictionary, "common.retry")} />
             </Card>
           </View>
+        </View>
+      </>
+    );
+  }
+
+  if (project.is_hucha && huchaStats) {
+    return (
+      <>
+        <Stack.Screen options={{ title: project.name }} />
+        <View style={[styles.screen, { backgroundColor: userTokens.background }]}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.container,
+              { paddingBottom: tokens.spacing.xxl + insets.bottom + 64 },
+            ]}
+          >
+            <Card>
+              <View style={styles.projectHeader}>
+                <View style={styles.projectHeaderMain}>
+                  <Text style={styles.projectEmoji}>{project.emoji || "🐷"}</Text>
+                  <View style={styles.projectHeaderText}>
+                    <Text style={[styles.projectName, { color: userTokens.textPrimary }]}>
+                      {project.name}
+                    </Text>
+                    <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                      {t(dictionary, "projects.hucha.subtitle")}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.huchaHero}>
+                <Text style={[styles.huchaAmount, { color: "#fb923c" }]}>
+                  {formatMoneyWithSymbol(
+                    huchaStats.accumulatedMinor,
+                    baseCurrency,
+                    currencySymbol
+                  )}
+                </Text>
+                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                  {t(dictionary, "projects.hucha.accumulated")}
+                </Text>
+              </View>
+
+              <View style={styles.huchaStatsGrid}>
+                <View style={styles.huchaStatCard}>
+                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                    {t(dictionary, "projects.hucha.thisMonth")}
+                  </Text>
+                  <Text style={[styles.huchaStatValue, { color: "#4ade80" }]}>
+                    +
+                    {formatMoneyWithSymbol(
+                      huchaStats.currentMonthContributionMinor,
+                      baseCurrency,
+                      currencySymbol
+                    )}
+                  </Text>
+                </View>
+                <View style={styles.huchaStatCard}>
+                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                    {t(dictionary, "projects.hucha.monthlyAverage")}
+                  </Text>
+                  <Text style={[styles.huchaStatValue, { color: userTokens.textPrimary }]}>
+                    {formatMoneyWithSymbol(huchaStats.averageMinor, baseCurrency, currencySymbol)}
+                  </Text>
+                </View>
+                <View style={styles.huchaStatCard}>
+                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                    {t(dictionary, "projects.hucha.bestMonth")}
+                  </Text>
+                  <Text style={[styles.huchaStatValue, { color: userTokens.textPrimary }]}>
+                    {huchaStats.bestMonth
+                      ? formatMoneyWithSymbol(
+                          huchaStats.bestMonth.amountMinor,
+                          baseCurrency,
+                          currencySymbol
+                        )
+                      : t(dictionary, "common.noneOption")}
+                  </Text>
+                  {huchaStats.bestMonth ? (
+                    <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                      {formatPeriodLabel(`${huchaStats.bestMonth.period}-01`, locale)}
+                    </Text>
+                  ) : null}
+                </View>
+                <View style={styles.huchaStatCard}>
+                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                    {t(dictionary, "projects.hucha.monthsWithContribution")}
+                  </Text>
+                  <Text style={[styles.huchaStatValue, { color: userTokens.textPrimary }]}>
+                    {huchaStats.monthsWithContribution}
+                  </Text>
+                </View>
+              </View>
+            </Card>
+
+            <Card>
+              <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
+                {t(dictionary, "projects.hucha.historyTitle")}
+              </Text>
+              <View style={styles.historyList}>
+                {contributions.length === 0 ? (
+                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                    {t(dictionary, "projects.hucha.emptyHistory")}
+                  </Text>
+                ) : (
+                  contributions.map((entry) => {
+                    const periodLabel = formatPeriodLabel(String(entry.period), locale);
+                    return (
+                      <View key={entry.id} style={styles.historyRow}>
+                        <Text style={[styles.historyPeriod, { color: userTokens.textSecondary }]}>
+                          {periodLabel}
+                        </Text>
+                        <Text style={[styles.historyAmount, { color: "#4ade80" }]}>
+                          +
+                          {formatMoneyWithSymbol(
+                            toMinor(entry.actual_amount_base_minor),
+                            baseCurrency,
+                            currencySymbol
+                          )}
+                        </Text>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            </Card>
+          </ScrollView>
         </View>
       </>
     );
@@ -965,6 +1104,37 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.xs,
     fontFamily: "DMSans-Regular",
   },
+  sectionTitle: {
+    fontSize: tokens.typography.size.md,
+    fontFamily: "DMSans-SemiBold",
+    marginBottom: tokens.spacing.sm,
+  },
+  huchaHero: {
+    marginTop: tokens.spacing.md,
+    marginBottom: tokens.spacing.md,
+    alignItems: "flex-start",
+  },
+  huchaAmount: {
+    fontSize: 32,
+    fontFamily: "DMSans-Bold",
+  },
+  huchaStatsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: tokens.spacing.sm,
+  },
+  huchaStatCard: {
+    width: "48%",
+    borderRadius: tokens.radii.md,
+    borderWidth: 1,
+    borderColor: "#2f2f2f",
+    padding: tokens.spacing.sm,
+  },
+  huchaStatValue: {
+    marginTop: 2,
+    fontSize: tokens.typography.size.md,
+    fontFamily: "DMSans-SemiBold",
+  },
   priorityBlock: {
     alignItems: "flex-end",
   },
@@ -1111,6 +1281,20 @@ const styles = StyleSheet.create({
   },
   historyList: {
     gap: tokens.spacing.sm,
+  },
+  historyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: tokens.spacing.sm,
+    gap: tokens.spacing.sm,
+  },
+  historyPeriod: {
+    fontSize: tokens.typography.size.sm,
+    fontFamily: "DMSans-Medium",
   },
   historyCard: {
     borderWidth: 1,

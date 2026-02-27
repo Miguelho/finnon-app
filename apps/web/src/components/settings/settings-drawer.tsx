@@ -82,9 +82,6 @@ export function SettingsDrawer({
               <DialogPrimitive.Title className="text-base font-semibold">
                 {settingsLabel}
               </DialogPrimitive.Title>
-              {profile.displayName && (
-                <p className="text-sm text-muted-foreground">{profile.displayName}</p>
-              )}
             </div>
             <DialogPrimitive.Close
               className={cn(

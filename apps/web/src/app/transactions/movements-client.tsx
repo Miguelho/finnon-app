@@ -1,15 +1,21 @@
 "use client";
 
-import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { type ReactNode, useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
   CORE_5M,
   CURRENCIES,
+  PERIODS,
   cacheKeys,
   cacheTags,
+  computeMovementBalanceSummary,
   formatDateISO,
   formatMinorToMoney,
+  getMonthRangeFromKey,
+  getRecentMonthKeys,
+  formatMonthLabel,
+  toMonthKey,
   getPeriodEnd,
   getPeriodRange,
   getOccurrencesBetween,
@@ -29,7 +35,6 @@ import { AddTransactionForm } from "@/components/add-transaction";
 import { PageContainer } from "@/components/layout/page-container";
 import { CategoryIcon } from "@/components/category-icon";
 import { UserAvatar } from "@/components/user-avatar";
-import { PeriodSelector } from "@/components/shared/PeriodSelector";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,6 +53,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useWebDataCache } from "@/cache/WebDataCacheProvider";
 import { useCachedRecurringRange, useCachedTransactionsRange } from "@/cache/hooks";
+import { formatCurrencyParts } from "@/components/home-redesign/utils";
 import { confirmRecurringTransaction, updateTransaction } from "./actions";
 
 type Category = {
@@ -103,6 +109,7 @@ type MovementsClientProps = {
   initialTransactions: Transaction[];
   initialRecurringItems: RecurringItem[];
   initialPeriod: Period;
+  initialMonth: string;
   initialCategoryFilter: string | null;
   initialTypeFilter: string | null;
   categories: Category[];
@@ -156,6 +163,18 @@ type RecurringTemplate = {
 
 const design = movementsTokens;
 const SUMMARY_BAR_TRANSITION = "flex 360ms cubic-bezier(0.22, 1, 0.36, 1)";
+
+const computeRange = (period: Period, monthKey: string) => {
+  if (period === "month") {
+    const { start, end } = getMonthRangeFromKey(monthKey);
+    return { start, end };
+  }
+  const now = new Date();
+  return {
+    start: formatDateISO(getPeriodRange(period, now).start),
+    end: formatDateISO(getPeriodEnd(period, now)),
+  };
+};
 
 const buildProfilesById = (profiles: Profile[]) =>
   profiles.reduce<Record<string, Profile>>((acc, profile) => {
@@ -330,14 +349,120 @@ function FilterDropdown({
   );
 }
 
+const periodLabelKey: Record<Period, string> = {
+  week: "common.periodWeek",
+  month: "common.periodMonth",
+  quarter: "common.periodQuarter",
+  year: "common.periodYear",
+};
+
+function PeriodMonthSelector({
+  selectedPeriod,
+  selectedMonth,
+  onPeriodChange,
+  onMonthChange,
+  locale,
+}: {
+  selectedPeriod: Period;
+  selectedMonth: string;
+  onPeriodChange: (period: Period) => void;
+  onMonthChange: (monthKey: string) => void;
+  locale: string;
+}) {
+  const t = useTranslations();
+  const [open, setOpen] = useState(false);
+  const months = useMemo(() => getRecentMonthKeys(12), []);
+  const selectedMonthLabel = useMemo(
+    () => formatMonthLabel(selectedMonth, locale),
+    [selectedMonth, locale]
+  );
+
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-1">
+      {PERIODS.map(({ key }) => {
+        if (key === "month") {
+          const isActive = selectedPeriod === "month";
+          return (
+            <DropdownMenu key={key} open={open} onOpenChange={setOpen}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-primary"
+                  )}
+                  onClick={() => {
+                    if (!isActive) {
+                      onPeriodChange("month");
+                    }
+                  }}
+                >
+                  <span className="capitalize">{selectedMonthLabel}</span>
+                  <ChevronDown size={12} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="max-h-64 w-52 overflow-auto p-2" align="center">
+                {months.map((monthKey) => {
+                  const isSelected = monthKey === selectedMonth;
+                  return (
+                    <button
+                      key={monthKey}
+                      type="button"
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-md px-3 py-2 text-sm capitalize transition",
+                        isSelected
+                          ? "bg-primary/10 font-semibold text-primary"
+                          : "text-foreground hover:bg-muted/60"
+                      )}
+                      onClick={() => {
+                        onMonthChange(monthKey);
+                        onPeriodChange("month");
+                        setOpen(false);
+                      }}
+                    >
+                      <span>{formatMonthLabel(monthKey, locale)}</span>
+                      {isSelected ? <Check size={14} /> : null}
+                    </button>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        }
+
+        const isActive = selectedPeriod === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onPeriodChange(key)}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-xs font-medium transition",
+              isActive
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-primary"
+            )}
+          >
+            {t(periodLabelKey[key] as any)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function MovementsSummary({
   movements,
   currencySymbol,
   currencyCode,
+  periodSelector,
 }: {
   movements: Movement[];
   currencySymbol: string;
   currencyCode: string;
+  periodSelector?: ReactNode;
 }) {
   const t = useTranslations();
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
@@ -345,20 +470,11 @@ function MovementsSummary({
   const tooltipRef = useRef<HTMLDivElement | null>(null);
 
   const summary = useMemo(() => {
-    let totalIncome = 0n;
-    let totalExpense = 0n;
-    let confirmedIncome = 0n;
-    let confirmedExpense = 0n;
-
-    movements.forEach((movement) => {
-      if (movement.type === "income") {
-        totalIncome += movement.amountMinor;
-        if (movement.status === "confirmed") confirmedIncome += movement.amountMinor;
-      } else {
-        totalExpense += movement.amountMinor;
-        if (movement.status === "confirmed") confirmedExpense += movement.amountMinor;
-      }
-    });
+    const totals = computeMovementBalanceSummary(movements);
+    const totalIncome = totals.totalIncomeMinor;
+    const totalExpense = totals.totalExpenseMinor;
+    const confirmedIncome = totals.confirmedIncomeMinor;
+    const confirmedExpense = totals.confirmedExpenseMinor;
 
     const combinedTotal = totalIncome + totalExpense;
     const incomeRatio = clampPercent(toPercent(totalIncome, combinedTotal));
@@ -375,8 +491,8 @@ function MovementsSummary({
       totalExpense,
       confirmedIncome,
       confirmedExpense,
-      balance: totalIncome - totalExpense,
-      confirmedBalance: confirmedIncome - confirmedExpense,
+      balance: totals.totalBalanceMinor,
+      confirmedBalance: totals.confirmedBalanceMinor,
       incomeRatio,
       expenseRatio,
       incomeConfirmedRatio,
@@ -384,7 +500,7 @@ function MovementsSummary({
       hasIncome: totalIncome > 0n,
       hasExpense: totalExpense > 0n,
       isEmpty: movements.length === 0,
-      movementCount: movements.length,
+      movementCount: totals.movementCount,
     };
   }, [movements]);
 
@@ -408,26 +524,34 @@ function MovementsSummary({
   const movementCountLabel = t("transactions.ui.sectionMovementCount", {
     count: summary.movementCount,
   });
+  const balanceParts = formatCurrencyParts(summary.balance, currencySymbol);
 
   return (
     <div className="space-y-2">
-      <div className="mb-[14px] text-center">
-        <div className="text-[11px] font-medium uppercase tracking-[0.5px] text-muted-foreground">
+      <div className="mb-5">
+        <div className="text-left text-[12px] font-semibold uppercase tracking-[0.5px] text-foreground">
           {t("transactions.ui.summaryBalanceTitle")}
         </div>
-        <div
-          className="text-[30px] font-bold tracking-[-1px] text-foreground"
-          style={{
-            color: summary.balance < 0n ? design.colors.expenseRed : undefined,
-          }}
-        >
-          {formatSignedAmount(summary.balance, currencyCode, currencySymbol)}
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {formatSignedAmount(summary.confirmedBalance, currencyCode, currencySymbol)}{" "}
-          {t("transactions.ui.summaryConfirmedOne")}
+        <div className="mt-1 text-center">
+          <div
+            className="font-balance text-[44px] font-semibold leading-none tracking-[-0.04em] text-foreground"
+            style={{
+              color: summary.balance < 0n ? design.colors.expenseRed : undefined,
+            }}
+          >
+            {balanceParts.integer}
+            <span className="text-[22px] font-normal text-muted-foreground">
+              ,{balanceParts.decimals}
+            </span>
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {formatSignedAmount(summary.confirmedBalance, currencyCode, currencySymbol)}{" "}
+            {t("transactions.ui.summaryConfirmedOne")}
+          </div>
         </div>
       </div>
+
+      {periodSelector ? <div className="mb-2">{periodSelector}</div> : null}
 
       {summary.isEmpty ? (
         <p className="mb-2 text-center text-sm font-medium text-muted-foreground">
@@ -926,6 +1050,7 @@ export function MovementsClient({
   initialTransactions,
   initialRecurringItems,
   initialPeriod,
+  initialMonth,
   initialCategoryFilter,
   initialTypeFilter,
   categories,
@@ -945,6 +1070,7 @@ export function MovementsClient({
   const locale = useLocale();
 
   const [selectedPeriod, setSelectedPeriod] = useState<Period>(initialPeriod);
+  const [selectedMonth, setSelectedMonth] = useState(initialMonth);
   const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
   const [recurrents, setRecurrents] = useState<RecurringItem[]>(initialRecurringItems);
   const [profilesById, setProfilesById] = useState<Record<string, Profile>>(
@@ -960,15 +1086,9 @@ export function MovementsClient({
     parseFilterParam(initialCategoryFilter)
   );
   const [merchantFilters, setMerchantFilters] = useState<string[]>([]);
-  const [isRecurrentCollapsed, setIsRecurrentCollapsed] = useState(
-    !initialCategoryFilter && !initialTypeFilter
-  );
-  const [isPendingCollapsed, setIsPendingCollapsed] = useState(
-    !initialCategoryFilter && !initialTypeFilter
-  );
-  const [isDoneCollapsed, setIsDoneCollapsed] = useState(
-    !initialCategoryFilter && !initialTypeFilter
-  );
+  const [isRecurrentCollapsed, setIsRecurrentCollapsed] = useState(false);
+  const [isPendingCollapsed, setIsPendingCollapsed] = useState(false);
+  const [isDoneCollapsed, setIsDoneCollapsed] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -988,6 +1108,10 @@ export function MovementsClient({
   useEffect(() => {
     setSelectedPeriod(initialPeriod);
   }, [initialPeriod]);
+
+  useEffect(() => {
+    setSelectedMonth(initialMonth);
+  }, [initialMonth]);
 
   useEffect(() => {
     setCategoryFilters(parseFilterParam(initialCategoryFilter));
@@ -1015,10 +1139,7 @@ export function MovementsClient({
 
   useEffect(() => {
     if (!userId) return;
-    const now = new Date();
-    const range = getPeriodRange(initialPeriod, now);
-    const rangeStart = formatDateISO(range.start);
-    const rangeEnd = formatDateISO(getPeriodEnd(initialPeriod, now));
+    const { start: rangeStart, end: rangeEnd } = getMonthRangeFromKey(initialMonth);
     const timestamp = Date.now();
 
     void cache.prime({
@@ -1047,21 +1168,18 @@ export function MovementsClient({
   }, [
     accountId,
     cache,
-    initialPeriod,
+    initialMonth,
     initialRecurringItems,
     initialTransactions,
     userId,
   ]);
 
   const loadPeriodData = useCallback(
-    async (period: Period, options?: { force?: boolean }) => {
+    async (period: Period, monthKey: string, options?: { force?: boolean }) => {
       try {
         const forceReload = options?.force ?? false;
         const requestId = ++loadPeriodRequestIdRef.current;
-        const now = new Date();
-        const range = getPeriodRange(period, now);
-        const rangeStart = formatDateISO(range.start);
-        const rangeEnd = formatDateISO(getPeriodEnd(period, now));
+        const { start: rangeStart, end: rangeEnd } = computeRange(period, monthKey);
 
         const [nextTransactions, nextRecurrents] = await Promise.all([
           loadCachedTransactionsRange<Transaction[]>({
@@ -1139,8 +1257,8 @@ export function MovementsClient({
   );
 
   useEffect(() => {
-    void loadPeriodData(selectedPeriod);
-  }, [selectedPeriod, loadPeriodData]);
+    void loadPeriodData(selectedPeriod, selectedMonth);
+  }, [selectedPeriod, selectedMonth, loadPeriodData]);
 
   const currencySymbol =
     CURRENCIES.find((currency) => currency.code === baseCurrency)?.symbol ??
@@ -1241,10 +1359,7 @@ export function MovementsClient({
 
   const unregisteredRecurrents = useMemo(() => {
     if (!recurrents.length) return [];
-    const now = new Date();
-    const range = getPeriodRange(selectedPeriod, now);
-    const rangeStart = formatDateISO(range.start);
-    const rangeEnd = formatDateISO(getPeriodEnd(selectedPeriod, now));
+    const { start: rangeStart, end: rangeEnd } = computeRange(selectedPeriod, selectedMonth);
 
     const existingKeys = new Set(
       movements
@@ -1289,7 +1404,7 @@ export function MovementsClient({
             } as RecurringTemplate;
           })
       );
-  }, [recurrents, categories, movements, selectedPeriod, t]);
+  }, [recurrents, categories, movements, selectedPeriod, selectedMonth, t]);
 
   const recurrentTotal = useMemo(
     () =>
@@ -1440,8 +1555,15 @@ export function MovementsClient({
   );
 
   const handlePeriodChange = useCallback(
-    (newPeriod: Period) => {
-      setSelectedPeriod(newPeriod);
+    (period: Period) => {
+      setSelectedPeriod(period);
+    },
+    []
+  );
+
+  const handleMonthChange = useCallback(
+    (monthKey: string) => {
+      setSelectedMonth(monthKey);
     },
     []
   );
@@ -1449,6 +1571,7 @@ export function MovementsClient({
   useEffect(() => {
     const params = new URLSearchParams();
     params.set("period", selectedPeriod);
+    params.set("month", selectedMonth);
     if (categoryFilters.length > 0) {
       params.set("category", categoryFilters.join(","));
     }
@@ -1464,7 +1587,7 @@ export function MovementsClient({
       "",
       `/transactions?${params.toString()}`
     );
-  }, [selectedPeriod, categoryFilters, merchantFilters, typeFilters]);
+  }, [selectedPeriod, selectedMonth, categoryFilters, merchantFilters, typeFilters]);
 
   useEffect(() => {
     profilesByIdRef.current = profilesById;
@@ -1491,29 +1614,31 @@ export function MovementsClient({
     merchantFilters.forEach((name) => tags.push({ id: name, label: name, type: "merchant" }));
     return tags;
   }, [categoryFilters, categories, merchantFilters, typeFilters, t]);
-
   return (
-    <PageContainer className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-foreground">
-          {t("transactions.pageTitle")}
-        </h1>
-      </div>
-
-      <div
-        className={cn(
-          "transition-all duration-200 overflow-hidden",
-          isSearchMode ? "max-h-0 opacity-0" : "max-h-20 opacity-100"
-        )}
-      >
-        <PeriodSelector selected={selectedPeriod} onChange={handlePeriodChange} />
-      </div>
+    <PageContainer className="space-y-6 pt-8">
+      <h1 className="sr-only">{t("transactions.pageTitle")}</h1>
 
       <div className="space-y-2">
         <MovementsSummary
           movements={filteredMovements}
           currencySymbol={currencySymbol}
           currencyCode={baseCurrency}
+          periodSelector={
+            <div
+              className={cn(
+                "transition-all duration-200 overflow-hidden",
+                isSearchMode ? "max-h-0 opacity-0" : "max-h-20 opacity-100"
+              )}
+            >
+              <PeriodMonthSelector
+                selectedPeriod={selectedPeriod}
+                selectedMonth={selectedMonth}
+                onPeriodChange={handlePeriodChange}
+                onMonthChange={handleMonthChange}
+                locale={locale}
+              />
+            </div>
+          }
         />
         <div className="flex justify-end">
           <button

@@ -7,9 +7,11 @@ import {
   cacheKeys,
   cacheTags,
   formatDateISO,
+  getMonthRangeFromKey,
   getPeriodEnd,
   getPeriodRange,
   isFutureDay,
+  type Period,
   type RecurringItem,
 } from "@poleursus/shared";
 import { supabase } from "../lib/supabase";
@@ -96,6 +98,18 @@ const matchesSearch = (movement: Movement, query: string) => {
   );
 };
 
+const computeRange = (period: Period, monthKey: string) => {
+  if (period === "month") {
+    const { start, end } = getMonthRangeFromKey(monthKey);
+    return { start, end };
+  }
+  const now = new Date();
+  return {
+    start: formatDateISO(getPeriodRange(period, now).start),
+    end: formatDateISO(getPeriodEnd(period, now)),
+  };
+};
+
 export function useMovements() {
   const isFocused = useIsFocused();
   const { selectedAccountId } = useAuth();
@@ -107,6 +121,7 @@ export function useMovements() {
 
   const {
     selectedPeriod,
+    selectedMonth,
     filters,
     isSearchMode,
     periodMovements,
@@ -129,19 +144,15 @@ export function useMovements() {
   const latestPeriodCacheKeyRef = useRef<string | null>(null);
   const periodLoadRequestIdRef = useRef(0);
 
-  const periodRange = useMemo(() => {
-    const now = new Date();
-    const range = getPeriodRange(selectedPeriod, now);
-    return {
-      start: formatDateISO(range.start),
-      end: formatDateISO(getPeriodEnd(selectedPeriod, now)),
-    };
-  }, [selectedPeriod]);
+  const monthRange = useMemo(
+    () => computeRange(selectedPeriod, selectedMonth),
+    [selectedPeriod, selectedMonth]
+  );
 
   const periodCacheKey = useMemo(() => {
     if (!selectedAccountId) return null;
-    return `${selectedAccountId}:${periodRange.start}:${periodRange.end}`;
-  }, [selectedAccountId, periodRange.end, periodRange.start]);
+    return `${selectedAccountId}:${monthRange.start}:${monthRange.end}`;
+  }, [selectedAccountId, monthRange.end, monthRange.start]);
 
   useEffect(() => {
     latestPeriodCacheKeyRef.current = periodCacheKey;
@@ -221,16 +232,16 @@ export function useMovements() {
 
       const transactionsPromise = loadCachedTransactionsRange<TransactionRow[]>({
         accountId: selectedAccountId,
-        start: periodRange.start,
-        end: periodRange.end,
+        start: monthRange.start,
+        end: monthRange.end,
         force: forceReload,
         loader: async () => {
           const { data, error } = await supabase
             .from("transactions")
             .select("*, category:categories(id, name, icon_id, type)")
             .eq("account_id", selectedAccountId)
-            .gte("date", periodRange.start)
-            .lte("date", periodRange.end)
+            .gte("date", monthRange.start)
+            .lte("date", monthRange.end)
             .order("date", { ascending: false })
             .order("created_at", { ascending: false });
           if (error) throw error;
@@ -268,8 +279,8 @@ export function useMovements() {
 
       const recurringPromise = loadCachedRecurringRange<RecurringItem[]>({
         accountId: selectedAccountId,
-        start: periodRange.start,
-        end: periodRange.end,
+        start: monthRange.start,
+        end: monthRange.end,
         force: forceReload,
         loader: async () => {
           const { data, error } = await supabase
@@ -278,8 +289,8 @@ export function useMovements() {
               "id, account_id, type, amount_minor, currency, category_id, merchant, notes, start_date, frequency, interval, day_of_month, end_date, is_paused, created_by"
             )
             .eq("account_id", selectedAccountId)
-            .lte("start_date", periodRange.end)
-            .or(`end_date.is.null,end_date.gte.${periodRange.start}`);
+            .lte("start_date", monthRange.end)
+            .or(`end_date.is.null,end_date.gte.${monthRange.start}`);
           if (error) throw error;
           return (data ?? []) as RecurringItem[];
         },
@@ -323,8 +334,8 @@ export function useMovements() {
   }, [
     loadProfiles,
     periodCacheKey,
-    periodRange.end,
-    periodRange.start,
+    monthRange.end,
+    monthRange.start,
     baseCurrency,
     cache,
     loadCachedRecurringRange,
@@ -370,8 +381,8 @@ export function useMovements() {
         .from("transactions")
         .select("*, category:categories(id, name, icon_id, type)")
         .eq("account_id", selectedAccountId)
-        .gte("date", periodRange.start)
-        .lte("date", periodRange.end)
+        .gte("date", monthRange.start)
+        .lte("date", monthRange.end)
         .or(filtersOr.join(","))
         .order("date", { ascending: false })
         .order("created_at", { ascending: false });
@@ -394,8 +405,8 @@ export function useMovements() {
   }, [
     filters.searchQuery,
     loadProfiles,
-    periodRange.end,
-    periodRange.start,
+    monthRange.end,
+    monthRange.start,
     selectedAccountId,
     dictionary,
     setSearchMovements,
@@ -468,7 +479,7 @@ export function useMovements() {
 
   const unregisteredRecurrents = useMemo(
     () => selectUnregisteredRecurrents(useMovementsStore.getState()),
-    [periodMovements, recurringItems, categories, selectedPeriod]
+    [periodMovements, recurringItems, categories, selectedPeriod, selectedMonth]
   );
 
   const counts = useMemo(() => {

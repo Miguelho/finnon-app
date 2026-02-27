@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   addMonths,
   CURRENCIES,
+  computePendingMonthCloseKeys,
   computeProjectMonthlyAllocation,
   distributeProjectSurplusProportionally,
   formatMinorToMoney,
@@ -33,7 +35,7 @@ import { Button } from "../../../../src/components/Button";
 import { Card } from "../../../../src/components/Card";
 import { Input } from "../../../../src/components/Input";
 
-type AllocationMode = "unassigned" | "proportional" | "manual";
+type AllocationMode = "hucha" | "proportional" | "manual";
 
 type AccountRow = {
   id: string;
@@ -92,13 +94,15 @@ export default function ProjectsMonthCloseScreen() {
   const [baseCurrency, setBaseCurrency] = useState("EUR");
   const [currencySymbol, setCurrencySymbol] = useState("€");
   const [monthKey, setMonthKey] = useState(addMonths(toMonthKey(new Date()), -1));
+  const [pendingMonthKeys, setPendingMonthKeys] = useState<string[]>([]);
   const [monthStart, setMonthStart] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
+  const [huchaProject, setHuchaProject] = useState<Project | null>(null);
   const [actualSavedMinor, setActualSavedMinor] = useState(0n);
   const [confirmedRows, setConfirmedRows] = useState<ProjectContribution[]>([]);
   const [userLabels, setUserLabels] = useState<Record<string, string>>({});
 
-  const [allocationMode, setAllocationMode] = useState<AllocationMode>("unassigned");
+  const [allocationMode, setAllocationMode] = useState<AllocationMode>("hucha");
   const [inputsByProject, setInputsByProject] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -132,28 +136,59 @@ export default function ProjectsMonthCloseScreen() {
         CURRENCIES.find((item) => item.code === currentCurrency)?.symbol ??
         currentCurrency;
 
-      const currentMonth = toMonthKey(new Date());
-      const fallbackMonth = addMonths(currentMonth, -1);
-      const resolvedMonth =
-        typeof month === "string" && MONTH_KEY_PATTERN.test(month)
-          ? month
-          : fallbackMonth;
-      const range = getMonthRangeFromKey(resolvedMonth);
-
       const { data: projectRows, error: projectError } = await supabase
         .from("projects")
         .select("*")
         .eq("account_id", selectedAccountId)
         .eq("status", "active")
-        .not("monthly_commitment_base_minor", "is", null)
         .order("priority", { ascending: true })
         .order("created_at", { ascending: true });
 
       if (projectError) throw projectError;
 
-      const currentProjects = ((projectRows ?? []) as Project[]).filter(
-        (project) => toMinor(project.monthly_commitment_base_minor) > 0n
+      const allActiveProjects = (projectRows ?? []) as Project[];
+      const currentHucha = allActiveProjects.find((project) => project.is_hucha) ?? null;
+      const currentProjects = allActiveProjects.filter(
+        (project) =>
+          !project.is_hucha &&
+          toMinor(project.monthly_commitment_base_minor) > 0n
       );
+
+      const currentMonth = toMonthKey(new Date());
+      const fallbackMonth = addMonths(currentMonth, -1);
+      const commitmentProjectIds = currentProjects.map((project) => project.id);
+      const { data: confirmedContributionRows, error: confirmedRowsError } =
+        commitmentProjectIds.length > 0
+          ? await supabase
+              .from("project_contributions")
+              .select("project_id, period")
+              .eq("account_id", selectedAccountId)
+              .eq("confirmed", true)
+              .in("project_id", commitmentProjectIds)
+          : {
+              data: [] as Array<{ project_id: string; period: string | Date }>,
+              error: null,
+            };
+
+      if (confirmedRowsError) throw confirmedRowsError;
+
+      const computedPendingMonthKeys = computePendingMonthCloseKeys({
+        commitmentProjects: currentProjects.map((project) => ({
+          projectId: project.id,
+          createdAt: project.created_at ?? null,
+        })),
+        confirmedContributions: (confirmedContributionRows ?? []).map((row) => ({
+          projectId: row.project_id,
+          period: row.period,
+        })),
+        currentMonthKey: currentMonth,
+      });
+
+      const resolvedMonth =
+        typeof month === "string" && MONTH_KEY_PATTERN.test(month)
+          ? month
+          : computedPendingMonthKeys[0] ?? fallbackMonth;
+      const range = getMonthRangeFromKey(resolvedMonth);
 
       const { data: monthTransactions, error: txError } = await supabase
         .from("transactions")
@@ -176,15 +211,14 @@ export default function ProjectsMonthCloseScreen() {
       });
       const currentActualSaved = incomeMinor - expenseMinor;
 
-      const projectIds = currentProjects.map((project) => project.id);
       const { data: contributionRows, error: contributionsError } =
-        projectIds.length > 0
+        commitmentProjectIds.length > 0
           ? await supabase
               .from("project_contributions")
               .select("*")
               .eq("account_id", selectedAccountId)
               .eq("period", range.start)
-              .in("project_id", projectIds)
+              .in("project_id", commitmentProjectIds)
           : { data: [] as ProjectContribution[], error: null };
 
       if (contributionsError) throw contributionsError;
@@ -260,13 +294,15 @@ export default function ProjectsMonthCloseScreen() {
       setRole(currentRole);
       setBaseCurrency(currentCurrency);
       setCurrencySymbol(currentSymbol);
+      setPendingMonthKeys(computedPendingMonthKeys);
       setMonthKey(resolvedMonth);
       setMonthStart(range.start);
       setProjects(currentProjects);
+      setHuchaProject(currentHucha);
       setActualSavedMinor(currentActualSaved);
       setConfirmedRows((contributionRows ?? []) as ProjectContribution[]);
       setUserLabels(labels);
-      setAllocationMode(isInitiallyConfirmed ? "manual" : "unassigned");
+      setAllocationMode(isInitiallyConfirmed ? "manual" : "hucha");
       setInputsByProject(initialInputs);
       setErrorMessage(null);
       setSuccessMessage(null);
@@ -434,7 +470,7 @@ export default function ProjectsMonthCloseScreen() {
   const handleConfirm = async () => {
     if (!canEdit || !selectedAccountId || !user || isSaving) return;
 
-    if (projects.length === 0) {
+    if (projects.length === 0 && !huchaProject) {
       setErrorMessage(t(dictionary, "projects.monthClose.noProjects"));
       return;
     }
@@ -450,6 +486,11 @@ export default function ProjectsMonthCloseScreen() {
           amount: formatMoneyWithSymbol(overAssignedMinor, baseCurrency, currencySymbol),
         })
       );
+      return;
+    }
+
+    if (unassignedMinor > 0n && !huchaProject) {
+      setErrorMessage(t(dictionary, "projects.monthClose.huchaMissing"));
       return;
     }
 
@@ -480,6 +521,21 @@ export default function ProjectsMonthCloseScreen() {
           updated_at: nowIso,
         };
       });
+
+      if (huchaProject && unassignedMinor > 0n) {
+        payload.push({
+          account_id: selectedAccountId,
+          project_id: huchaProject.id,
+          user_id: user.id,
+          period: monthStart,
+          committed_amount_base_minor: "0",
+          actual_amount_base_minor: String(unassignedMinor),
+          source: "automatic",
+          confirmed: true,
+          confirmed_at: nowIso,
+          updated_at: nowIso,
+        });
+      }
 
       const { data, error: confirmError } = await supabase
         .from("project_contributions")
@@ -546,6 +602,50 @@ export default function ProjectsMonthCloseScreen() {
             </Text>
           </Card>
 
+          {pendingMonthKeys.length > 0 ? (
+            <Card>
+              <Text style={[styles.pendingMonthsTitle, { color: userTokens.textPrimary }]}>
+                {t(dictionary, "projects.monthClose.pendingMonthsListTitle")}
+              </Text>
+              <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
+                {t(dictionary, "projects.monthClose.pendingMonthsListHint")}
+              </Text>
+              <View style={styles.pendingMonthsWrap}>
+                {pendingMonthKeys.map((pendingKey) => {
+                  const isSelected = pendingKey === monthKey;
+                  return (
+                    <Pressable
+                      key={pendingKey}
+                      onPress={() =>
+                        router.replace(
+                          `/(auth)/(tabs)/projects/month-close?month=${pendingKey}`
+                        )
+                      }
+                      style={[
+                        styles.pendingMonthChip,
+                        {
+                          borderColor: isSelected ? primaryActionColor : userTokens.border,
+                          backgroundColor: isSelected
+                            ? primaryActionColor
+                            : userTokens.surface,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.pendingMonthChipText,
+                          { color: isSelected ? "#FFFFFF" : userTokens.textPrimary },
+                        ]}
+                      >
+                        {formatMonthLabel(pendingKey, locale)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Card>
+          ) : null}
+
           <View style={styles.summaryGrid}>
             <Card style={styles.summaryCard}>
               <Text style={[styles.summaryLabel, { color: userTokens.textSecondary }]}>
@@ -594,7 +694,7 @@ export default function ProjectsMonthCloseScreen() {
             </Card>
           ) : null}
 
-          {projects.length === 0 ? (
+          {projects.length === 0 && !huchaProject ? (
             <Card>
               <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
                 {t(dictionary, "projects.monthClose.noProjects")}
@@ -625,9 +725,9 @@ export default function ProjectsMonthCloseScreen() {
                   </Text>
                   <View style={styles.modeButtons}>
                     <Button
-                      title={t(dictionary, "projects.monthClose.surplusUnassigned")}
-                      variant={allocationMode === "unassigned" ? "primary" : "secondary"}
-                      onPress={() => applyAutomaticMode("unassigned")}
+                      title={t(dictionary, "projects.monthClose.surplusToHucha")}
+                      variant={allocationMode === "hucha" ? "primary" : "secondary"}
+                      onPress={() => applyAutomaticMode("hucha")}
                       disabled={!canEdit}
                     />
                     <Button
@@ -707,7 +807,7 @@ export default function ProjectsMonthCloseScreen() {
 
               <Card>
                 <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "projects.monthClose.unassigned", {
+                  {t(dictionary, "projects.monthClose.toHucha", {
                     amount: formatMoneyWithSymbol(unassignedMinor, baseCurrency, currencySymbol),
                   })}
                 </Text>
@@ -776,6 +876,26 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: tokens.typography.size.sm,
     fontFamily: "DMSans-Regular",
+  },
+  pendingMonthsTitle: {
+    fontSize: tokens.typography.size.sm,
+    fontFamily: "DMSans-SemiBold",
+  },
+  pendingMonthsWrap: {
+    marginTop: tokens.spacing.sm,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: tokens.spacing.xs,
+  },
+  pendingMonthChip: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.pill,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: 6,
+  },
+  pendingMonthChipText: {
+    fontSize: tokens.typography.size.xs,
+    fontFamily: "DMSans-Medium",
   },
   summaryGrid: {
     gap: tokens.spacing.sm,

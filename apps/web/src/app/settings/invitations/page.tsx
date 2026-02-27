@@ -22,7 +22,7 @@ export default async function InvitationsPage(): Promise<React.JSX.Element> {
 
   return (
     <div className="min-h-screen bg-background">
-      <TopNav containerClassName="max-w-6xl" />
+      <TopNav />
       <PageContainer className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">

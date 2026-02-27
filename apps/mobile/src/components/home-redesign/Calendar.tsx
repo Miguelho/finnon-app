@@ -1,8 +1,16 @@
+import { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { themeTokens } from "@poleursus/shared";
+import { ArrowUp, ArrowDown, Equal, ChevronDown } from "lucide-react-native";
+import {
+  themeTokens,
+  type AvatarColorToken,
+  type UserAvatarColorId,
+} from "@poleursus/shared";
 import { formatCurrencyParts } from "./utils";
 import { useCopy, t } from "../../lib/i18n";
 import { useUserTheme } from "../../contexts/UserThemeContext";
+import { UserAvatar } from "../UserAvatar";
+import { CategoryIcon } from "../CategoryIcon";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -61,6 +69,9 @@ export type WeekData = {
 export type MonthData = {
   days: MonthDayData[];
   period: string;
+  netIncome: string;
+  netExpense: string;
+  net: string;
 };
 
 export type DayMovement = {
@@ -69,7 +80,22 @@ export type DayMovement = {
   amountMinor: bigint;
   type: "income" | "expense";
   category?: string | null;
+  categoryIconId?: string | null;
   badge?: string | null;
+  createdBy?: {
+    userId?: string | null;
+    email?: string | null;
+    displayName?: string | null;
+    avatarPath?: string | null;
+    fallbackText?: string | null;
+    fallbackBgToken?: AvatarColorToken | null;
+    avatarColor?: UserAvatarColorId | null;
+    label?: string;
+  };
+};
+
+export type ContextMovement = DayMovement & {
+  dateLabel: string;
 };
 
 export type DayDetailData = {
@@ -78,13 +104,112 @@ export type DayDetailData = {
   movements: DayMovement[];
 };
 
-export type NextProgrammedItem = {
-  id: string;
-  name: string;
-  amountMinor: bigint;
-  type: "income" | "expense";
-  dateLabel: string;
-  category?: string | null;
+type MovementCreator = NonNullable<DayMovement["createdBy"]>;
+
+type DayCategoryGroup = {
+  key: string;
+  label: string;
+  movements: DayMovement[];
+  netMinor: bigint;
+  categoryIconId: string | null;
+  contributorPreviews: MovementCreator[];
+  contributorCount: number;
+};
+
+const getDotTypes = (dots?: CalendarDot[]): Array<"income" | "expense"> => {
+  const hasIncome = dots?.some((dot) => dot.type === "income") ?? false;
+  const hasExpense = dots?.some((dot) => dot.type === "expense") ?? false;
+  const dotTypes: Array<"income" | "expense"> = [];
+  if (hasIncome) dotTypes.push("income");
+  if (hasExpense) dotTypes.push("expense");
+  return dotTypes;
+};
+
+const getAbsMinor = (value: bigint): bigint => (value < 0n ? -value : value);
+
+const groupDayMovementsByCategory = (
+  movements: DayMovement[],
+  noCategoryLabel: string
+): DayCategoryGroup[] => {
+  const groups = new Map<
+    string,
+    DayCategoryGroup & { contributorMap: Map<string, MovementCreator> }
+  >();
+
+  movements.forEach((movement) => {
+    const categoryLabel = movement.category?.trim() || noCategoryLabel;
+    const key = categoryLabel.toLocaleLowerCase();
+    const existing = groups.get(key);
+    const signedAmount =
+      movement.type === "income" ? movement.amountMinor : -movement.amountMinor;
+
+    if (existing) {
+      existing.movements.push(movement);
+      existing.netMinor += signedAmount;
+      if (!existing.categoryIconId && movement.categoryIconId) {
+        existing.categoryIconId = movement.categoryIconId;
+      }
+      const contributor = movement.createdBy;
+      if (contributor) {
+        const contributorKey =
+          contributor.userId?.trim() ||
+          contributor.email?.trim() ||
+          contributor.displayName?.trim() ||
+          contributor.fallbackText?.trim() ||
+          contributor.label?.trim();
+        if (contributorKey && !existing.contributorMap.has(contributorKey)) {
+          existing.contributorMap.set(contributorKey, contributor);
+        }
+      }
+      return;
+    }
+
+    const contributorMap = new Map<string, MovementCreator>();
+    const contributor = movement.createdBy;
+    if (contributor) {
+      const contributorKey =
+        contributor.userId?.trim() ||
+        contributor.email?.trim() ||
+        contributor.displayName?.trim() ||
+        contributor.fallbackText?.trim() ||
+        contributor.label?.trim();
+      if (contributorKey) contributorMap.set(contributorKey, contributor);
+    }
+
+    groups.set(key, {
+      key,
+      label: categoryLabel,
+      movements: [movement],
+      netMinor: signedAmount,
+      categoryIconId: movement.categoryIconId ?? null,
+      contributorPreviews: [],
+      contributorCount: 0,
+      contributorMap,
+    });
+  });
+
+  return Array.from(groups.values())
+    .map((group) => {
+      const contributors = Array.from(group.contributorMap.values());
+      return {
+        key: group.key,
+        label: group.label,
+        movements: group.movements,
+        netMinor: group.netMinor,
+        categoryIconId: group.categoryIconId,
+        contributorPreviews: contributors.slice(0, 3),
+        contributorCount: contributors.length,
+      };
+    })
+    .sort((left, right) => {
+      const leftAbs = getAbsMinor(left.netMinor);
+      const rightAbs = getAbsMinor(right.netMinor);
+      if (leftAbs !== rightAbs) return rightAbs > leftAbs ? 1 : -1;
+      if (left.movements.length !== right.movements.length) {
+        return right.movements.length - left.movements.length;
+      }
+      return left.label.localeCompare(right.label);
+    });
 };
 
 type CalendarProps = {
@@ -97,8 +222,10 @@ type CalendarProps = {
   onPrevPeriod?: () => void;
   onNextPeriod?: () => void;
   currencySymbol: string;
-  nextProgrammed?: NextProgrammedItem | null;
-  onViewAllProgrammed?: () => void;
+  upcomingMovements: ContextMovement[];
+  pastMovements: ContextMovement[];
+  onViewAllMovements?: () => void;
+  onCreateMovement?: () => void;
 };
 
 export function Calendar({
@@ -111,8 +238,10 @@ export function Calendar({
   onPrevPeriod,
   onNextPeriod,
   currencySymbol,
-  nextProgrammed,
-  onViewAllProgrammed,
+  upcomingMovements,
+  pastMovements,
+  onViewAllMovements,
+  onCreateMovement,
 }: CalendarProps) {
   const { dictionary, locale } = useCopy();
   const {
@@ -124,14 +253,15 @@ export function Calendar({
   const modeColors = themeTokens[resolvedMode].colors;
   const incomeColor = modeColors.state.positive;
   const expenseColor = modeColors.state.negative;
-  const incomeIconBg = withAlpha(incomeColor, resolvedMode === "dark" ? 0.28 : 0.15);
-  const expenseIconBg = withAlpha(expenseColor, resolvedMode === "dark" ? 0.28 : 0.15);
-  const incomeIconBorder = withAlpha(incomeColor, resolvedMode === "dark" ? 0.5 : 0.32);
-  const expenseIconBorder = withAlpha(expenseColor, resolvedMode === "dark" ? 0.5 : 0.32);
+  const whiteColor = tokens.colors.bg.surface;
   const isWeek = view === "week";
   const selectedKey = selectedDay?.dateKey ?? "";
   const data = isWeek ? weekData : monthData;
-  const monthLabels = locale === "en" ? ["M", "T", "W", "T", "F", "S", "S"] : ["L", "M", "X", "J", "V", "S", "D"];
+  const totals = isWeek ? weekData : monthData;
+  const monthLabels =
+    locale === "en"
+      ? ["M", "T", "W", "T", "F", "S", "S"]
+      : ["L", "M", "X", "J", "V", "S", "D"];
 
   return (
     <View
@@ -148,10 +278,7 @@ export function Calendar({
 
       <View style={styles.toggleRow}>
         <TouchableOpacity
-          style={[
-            styles.toggleButton,
-            isWeek && { backgroundColor: primaryActionColor },
-          ]}
+          style={[styles.toggleButton, isWeek && { backgroundColor: primaryActionColor }]}
           onPress={() => onViewChange("week")}
         >
           <Text
@@ -165,10 +292,7 @@ export function Calendar({
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[
-            styles.toggleButton,
-            !isWeek && { backgroundColor: primaryActionColor },
-          ]}
+          style={[styles.toggleButton, !isWeek && { backgroundColor: primaryActionColor }]}
           onPress={() => onViewChange("month")}
         >
           <Text
@@ -191,7 +315,11 @@ export function Calendar({
               ‹
             </Text>
           </TouchableOpacity>
-          <Text style={[styles.navLabel, { color: userTokens.textSecondary }]}>
+          <Text
+            style={[styles.navLabel, { color: userTokens.textSecondary }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {data?.period}
           </Text>
           <TouchableOpacity
@@ -210,17 +338,20 @@ export function Calendar({
           <View style={styles.weekGrid}>
             {weekData.days.map((day) => {
               const isSelected = day.date === selectedKey;
+              const dayDotTypes = getDotTypes(day.dots);
               return (
                 <TouchableOpacity
                   key={day.date}
                   style={[
                     styles.dayCell,
-                    day.isToday && { backgroundColor: primaryActionColor },
+                    day.isToday && {
+                      borderWidth: 1,
+                      borderColor: withAlpha(primaryActionColor, 0.45),
+                    },
                     isSelected &&
                       !day.isToday && {
-                        backgroundColor: withAlpha(primaryActionColor, 0.12),
                         borderWidth: 1,
-                        borderColor: withAlpha(primaryActionColor, 0.3),
+                        borderColor: withAlpha(primaryActionColor, 0.35),
                       },
                   ]}
                   onPress={() => onSelectDay(day.date)}
@@ -230,10 +361,7 @@ export function Calendar({
                       styles.dayLabel,
                       { color: userTokens.textSecondary },
                       isSelected && !day.isToday && { color: primaryActionColor },
-                      day.isToday && {
-                        color: primaryActionTextColor,
-                        opacity: 0.7,
-                      },
+                      day.isToday && { color: primaryActionColor, opacity: 0.8 },
                     ]}
                   >
                     {day.dayLabel}
@@ -243,57 +371,31 @@ export function Calendar({
                       styles.dayNumber,
                       { color: userTokens.textPrimary },
                       isSelected && !day.isToday && { color: primaryActionColor },
-                      day.isToday && { color: primaryActionTextColor },
+                      day.isToday && { color: primaryActionColor },
                     ]}
                   >
                     {day.dayNumber}
                   </Text>
                   <View style={styles.dotRow}>
-                    {day.dots && day.dots.length > 0 ? (
+                    {dayDotTypes.map((dotType) => (
                       <View
+                        key={`${day.date}-${dotType}`}
                         style={[
                           styles.dot,
                           {
-                            backgroundColor: isSelected
-                              ? primaryActionColor
-                              : modeColors.state.negative,
+                            backgroundColor:
+                              dotType === "income" ? incomeColor : expenseColor,
                             marginRight: 0,
                           },
                         ]}
                       />
-                    ) : null}
+                    ))}
                   </View>
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          <View style={styles.weekSummary}>
-            <Text style={[styles.weekSummaryText, { color: userTokens.textSecondary }]}>
-              {t(dictionary, "mobile.home.calendarIncome")}{" "}
-              <Text style={[styles.weekSummaryValue, styles.amountPositive]}>
-                +{weekData.netIncome}
-              </Text>
-            </Text>
-            <Text style={[styles.weekSummaryText, { color: userTokens.textSecondary }]}>
-              {t(dictionary, "mobile.home.calendarExpenses")}{" "}
-              <Text style={[styles.weekSummaryValue, styles.amountNegative]}>
-                -{weekData.netExpense}
-              </Text>
-            </Text>
-            <Text style={[styles.weekSummaryText, { color: userTokens.textSecondary }]}>
-              {t(dictionary, "mobile.home.calendarNet")}{" "}
-              <Text
-                style={[
-                  styles.weekSummaryValue,
-                  styles.amountNet,
-                  { color: userTokens.textPrimary },
-                ]}
-              >
-                {weekData.net}
-              </Text>
-            </Text>
-          </View>
         </>
       )}
 
@@ -309,18 +411,21 @@ export function Calendar({
           ))}
           {monthData.days.map((day, index) => {
             const isSelected = day.date === selectedKey;
+            const dayDotTypes = getDotTypes(day.dots);
             return (
               <TouchableOpacity
                 key={`${day.date}-${index}`}
                 style={[
                   styles.monthCell,
                   day.isOtherMonth && styles.monthCellMuted,
-                  day.isToday && { backgroundColor: primaryActionColor },
+                  day.isToday && {
+                    borderWidth: 1,
+                    borderColor: withAlpha(primaryActionColor, 0.45),
+                  },
                   isSelected &&
                     !day.isToday && {
-                      backgroundColor: withAlpha(primaryActionColor, 0.12),
                       borderWidth: 1,
-                      borderColor: withAlpha(primaryActionColor, 0.3),
+                      borderColor: withAlpha(primaryActionColor, 0.35),
                     },
                 ]}
                 onPress={() => !day.isOtherMonth && onSelectDay(day.date)}
@@ -330,25 +435,25 @@ export function Calendar({
                     styles.monthNumber,
                     { color: userTokens.textPrimary },
                     isSelected && !day.isToday && { color: primaryActionColor },
-                    day.isToday && { color: primaryActionTextColor },
+                    day.isToday && { color: primaryActionColor },
                   ]}
                 >
                   {day.dayNumber}
                 </Text>
                 <View style={styles.dotRowSmall}>
-                  {day.dots && day.dots.length > 0 ? (
+                  {dayDotTypes.map((dotType) => (
                     <View
+                      key={`${day.date}-${dotType}`}
                       style={[
                         styles.dotSmall,
                         {
-                          backgroundColor: isSelected
-                            ? primaryActionColor
-                            : modeColors.state.negative,
+                          backgroundColor:
+                            dotType === "income" ? incomeColor : expenseColor,
                           marginRight: 0,
                         },
                       ]}
                     />
-                  ) : null}
+                  ))}
                 </View>
               </TouchableOpacity>
             );
@@ -356,243 +461,529 @@ export function Calendar({
         </View>
       )}
 
-      {selectedDay && (
-        <DayDetail
-          day={selectedDay}
-          currencySymbol={currencySymbol}
-          emptyLabel={t(dictionary, "mobile.home.calendarEmptyDay")}
-          primaryActionColor={primaryActionColor}
-          userTextPrimary={userTokens.textPrimary}
-          userTextSecondary={userTokens.textSecondary}
-          userBorder={userTokens.border}
-          incomeColor={incomeColor}
-          expenseColor={expenseColor}
-          incomeIconBg={incomeIconBg}
-          expenseIconBg={expenseIconBg}
-          incomeIconBorder={incomeIconBorder}
-          expenseIconBorder={expenseIconBorder}
-        />
-      )}
+      <View style={styles.totalsRow}>
+        <View
+          style={[
+            styles.totalChip,
+            {
+              borderColor: withAlpha(incomeColor, 0.32),
+              backgroundColor: withAlpha(incomeColor, 0.14),
+            },
+          ]}
+        >
+          <ArrowUp size={13} color={incomeColor} strokeWidth={2.3} />
+          <Text style={[styles.totalValue, { color: incomeColor }]}>+{totals.netIncome}</Text>
+        </View>
+        <View
+          style={[
+            styles.totalChip,
+            {
+              borderColor: withAlpha(expenseColor, 0.32),
+              backgroundColor: withAlpha(expenseColor, 0.14),
+            },
+          ]}
+        >
+          <ArrowDown size={13} color={expenseColor} strokeWidth={2.3} />
+          <Text style={[styles.totalValue, { color: expenseColor }]}>-{totals.netExpense}</Text>
+        </View>
+        <View
+          style={[
+            styles.totalChip,
+            {
+              borderColor: withAlpha(whiteColor, 0.4),
+              backgroundColor: withAlpha(whiteColor, 0.2),
+            },
+          ]}
+        >
+          <Equal size={13} color={whiteColor} strokeWidth={2.3} />
+          <Text style={[styles.totalValue, { color: userTokens.textPrimary }]}>{totals.net}</Text>
+        </View>
+      </View>
 
-      {nextProgrammed ? (
-        <NextProgrammed
-          item={nextProgrammed}
-          onViewAll={onViewAllProgrammed}
+      {selectedDay ? (
+        <ContextMovementsPanel
+          day={selectedDay}
+          upcoming={upcomingMovements}
+          past={pastMovements}
           currencySymbol={currencySymbol}
-          userBorder={userTokens.border}
-          userTextPrimary={userTokens.textPrimary}
-          userTextSecondary={userTokens.textSecondary}
-          primaryActionColor={primaryActionColor}
+          onViewAllMovements={onViewAllMovements}
+          onCreateMovement={onCreateMovement}
         />
       ) : null}
     </View>
   );
 }
 
-type DayDetailProps = {
+type ContextMovementsPanelProps = {
   day: DayDetailData;
+  upcoming: ContextMovement[];
+  past: ContextMovement[];
   currencySymbol: string;
-  emptyLabel: string;
-  primaryActionColor: string;
-  userTextPrimary: string;
-  userTextSecondary: string;
-  userBorder: string;
-  incomeColor: string;
-  expenseColor: string;
-  incomeIconBg: string;
-  expenseIconBg: string;
-  incomeIconBorder: string;
-  expenseIconBorder: string;
+  onViewAllMovements?: () => void;
+  onCreateMovement?: () => void;
 };
 
-function DayDetail({
+function ContextMovementsPanel({
   day,
+  upcoming,
+  past,
   currencySymbol,
-  emptyLabel,
-  primaryActionColor,
-  userTextPrimary,
-  userTextSecondary,
-  userBorder,
-  incomeColor,
-  expenseColor,
-  incomeIconBg,
-  expenseIconBg,
-  incomeIconBorder,
-  expenseIconBorder,
-}: DayDetailProps) {
+  onViewAllMovements,
+  onCreateMovement,
+}: ContextMovementsPanelProps) {
+  const { dictionary } = useCopy();
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
+  const noCategoryLabel = t(dictionary, "common.noneOption");
+  const groupedDayMovements = useMemo(
+    () => groupDayMovementsByCategory(day.movements, noCategoryLabel),
+    [day.movements, noCategoryLabel]
+  );
+  const groupedUpcomingMovements = useMemo(
+    () => groupDayMovementsByCategory(upcoming, noCategoryLabel),
+    [upcoming, noCategoryLabel]
+  );
+  const groupedPastMovements = useMemo(
+    () => groupDayMovementsByCategory(past, noCategoryLabel),
+    [past, noCategoryLabel]
+  );
+  const [expandedDayCategoryKey, setExpandedDayCategoryKey] = useState<string | null>(null);
+  const [expandedUpcomingCategoryKey, setExpandedUpcomingCategoryKey] = useState<string | null>(
+    null
+  );
+  const [expandedPastCategoryKey, setExpandedPastCategoryKey] = useState<string | null>(
+    null
+  );
+  const hasDayMovements = groupedDayMovements.length > 0;
+  const contextEmphasis = hasDayMovements ? "secondary" : "primary";
+
+  useEffect(() => {
+    setExpandedDayCategoryKey(null);
+    setExpandedUpcomingCategoryKey(null);
+    setExpandedPastCategoryKey(null);
+  }, [day.dateKey]);
+
   return (
-    <View style={[styles.dayDetail, { borderTopColor: userBorder }]}>
-      <Text style={[styles.dayDetailLabel, { color: userTextSecondary }]}>
-        {day.formattedLabel}
-      </Text>
-      {day.movements.length > 0 ? (
-        day.movements.map((movement) => (
-          <MovementRow
-            key={movement.id}
-            movement={movement}
+    <View style={[styles.dayDetail, { borderTopColor: userTokens.border }]}>
+      <View style={styles.dayHeader}>
+        <Text style={[styles.dayDetailLabel, { color: userTokens.textSecondary }]}>
+          {day.formattedLabel}
+        </Text>
+        {onViewAllMovements ? (
+          <TouchableOpacity onPress={onViewAllMovements}>
+            <Text style={[styles.viewAllLink, { color: primaryActionColor }]}>
+              {t(dictionary, "mobile.home.programmedViewAll")}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      {hasDayMovements ? (
+        groupedDayMovements.map((group, index) => (
+          <DayCategoryGroupRow
+            key={`day-category-${group.key}`}
+            group={group}
+            isExpanded={expandedDayCategoryKey === group.key}
+            onToggle={() =>
+              setExpandedDayCategoryKey((current) =>
+                current === group.key ? null : group.key
+              )
+            }
             currencySymbol={currencySymbol}
+            hasTopBorder={index > 0}
+            userBorder={userTokens.border}
+            userTextPrimary={userTokens.textPrimary}
+            userTextSecondary={userTokens.textSecondary}
             primaryActionColor={primaryActionColor}
-            userTextPrimary={userTextPrimary}
-            userTextSecondary={userTextSecondary}
-            userBorder={userBorder}
-            incomeColor={incomeColor}
-            expenseColor={expenseColor}
-            incomeIconBg={incomeIconBg}
-            expenseIconBg={expenseIconBg}
-            incomeIconBorder={incomeIconBorder}
-            expenseIconBorder={expenseIconBorder}
+            emphasis="primary"
+          />
+        ))
+      ) : onCreateMovement ? (
+        <TouchableOpacity
+          style={[
+            styles.emptyCta,
+            {
+              borderColor: userTokens.border,
+              backgroundColor: userTokens.surfaceAlt,
+            },
+          ]}
+          onPress={onCreateMovement}
+          activeOpacity={0.82}
+        >
+          <View
+            style={[
+              styles.emptySmiley,
+              {
+                borderColor: userTokens.border,
+                backgroundColor: userTokens.surface,
+              },
+            ]}
+          >
+            <Text style={[styles.emptySmileyText, { color: userTokens.textSecondary }]}>
+              :(
+            </Text>
+          </View>
+          <Text style={[styles.emptyCtaText, { color: primaryActionColor }]}>
+            {t(dictionary, "mobile.home.calendarCreateMovementCta")}
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <Text style={[styles.dayDetailEmpty, { color: userTokens.textSecondary }]}>
+          {t(dictionary, "mobile.home.calendarEmptyDay")}
+        </Text>
+      )}
+
+      <SectionTitle
+        title={t(dictionary, "mobile.home.movementsUpcomingTitle")}
+        color={userTokens.textSecondary}
+        withTopSpacing
+      />
+      {groupedUpcomingMovements.length > 0 ? (
+        groupedUpcomingMovements.map((group, index) => (
+          <DayCategoryGroupRow
+            key={`upcoming-category-${group.key}`}
+            group={group}
+            isExpanded={expandedUpcomingCategoryKey === group.key}
+            onToggle={() =>
+              setExpandedUpcomingCategoryKey((current) =>
+                current === group.key ? null : group.key
+              )
+            }
+            currencySymbol={currencySymbol}
+            hasTopBorder={index > 0}
+            userBorder={userTokens.border}
+            userTextPrimary={userTokens.textPrimary}
+            userTextSecondary={userTokens.textSecondary}
+            primaryActionColor={primaryActionColor}
+            emphasis={contextEmphasis}
+            showDateLabelInDetails
           />
         ))
       ) : (
-        <Text style={[styles.dayDetailEmpty, { color: userTextSecondary }]}>
-          {emptyLabel}
+        <Text style={[styles.dayDetailEmpty, { color: userTokens.textSecondary }]}>
+          {t(dictionary, "mobile.home.movementsUpcomingEmpty")}
+        </Text>
+      )}
+
+      <SectionTitle
+        title={t(dictionary, "mobile.home.calendarPastMovementsTitle")}
+        color={userTokens.textSecondary}
+        withTopSpacing
+      />
+      {groupedPastMovements.length > 0 ? (
+        groupedPastMovements.map((group, index) => (
+          <DayCategoryGroupRow
+            key={`past-category-${group.key}`}
+            group={group}
+            isExpanded={expandedPastCategoryKey === group.key}
+            onToggle={() =>
+              setExpandedPastCategoryKey((current) =>
+                current === group.key ? null : group.key
+              )
+            }
+            currencySymbol={currencySymbol}
+            hasTopBorder={index > 0}
+            userBorder={userTokens.border}
+            userTextPrimary={userTokens.textPrimary}
+            userTextSecondary={userTokens.textSecondary}
+            primaryActionColor={primaryActionColor}
+            emphasis={contextEmphasis}
+            showDateLabelInDetails
+          />
+        ))
+      ) : (
+        <Text style={[styles.dayDetailEmpty, { color: userTokens.textSecondary }]}>
+          {t(dictionary, "mobile.home.movementsRecentEmpty")}
         </Text>
       )}
     </View>
   );
 }
 
-type MovementRowProps = {
-  movement: DayMovement;
+type DayCategoryGroupRowProps = {
+  group: DayCategoryGroup;
+  isExpanded: boolean;
+  onToggle: () => void;
   currencySymbol: string;
-  primaryActionColor: string;
+  hasTopBorder: boolean;
+  userBorder: string;
   userTextPrimary: string;
   userTextSecondary: string;
+  primaryActionColor: string;
+  emphasis: "primary" | "secondary";
+  showDateLabelInDetails?: boolean;
+};
+
+function DayCategoryGroupRow({
+  group,
+  isExpanded,
+  onToggle,
+  currencySymbol,
+  hasTopBorder,
+  userBorder,
+  userTextPrimary,
+  userTextSecondary,
+  primaryActionColor,
+  emphasis,
+  showDateLabelInDetails = false,
+}: DayCategoryGroupRowProps) {
+  const absNetMinor = getAbsMinor(group.netMinor);
+  const { integer, decimals } = formatCurrencyParts(absNetMinor, currencySymbol);
+  const amountPrefix = group.netMinor > 0n ? "+" : group.netMinor < 0n ? "-" : "";
+  const isSecondary = emphasis === "secondary";
+  const amountStyle =
+    group.netMinor > 0n
+      ? styles.categoryGroupAmountPositive
+      : group.netMinor < 0n
+        ? styles.categoryGroupAmountNegative
+        : styles.categoryGroupAmountNeutral;
+
+  return (
+    <View
+      style={[
+        hasTopBorder && styles.categoryGroupTopBorder,
+        hasTopBorder && { borderTopColor: userBorder },
+        isSecondary && styles.rowSecondary,
+      ]}
+    >
+      <TouchableOpacity style={styles.categoryGroupHeader} onPress={onToggle} activeOpacity={0.82}>
+        <View style={styles.categoryGroupLeading}>
+          <View
+            style={[
+              styles.categoryGroupIconWrap,
+              { borderColor: userBorder, backgroundColor: withAlpha(userTextSecondary, 0.08) },
+            ]}
+          >
+            <CategoryIcon iconKey={group.categoryIconId ?? "Tag"} size={19} tone="muted" />
+          </View>
+          <View style={styles.categoryGroupMain}>
+            <Text
+              style={[styles.categoryGroupTitle, { color: userTextPrimary }]}
+              numberOfLines={1}
+            >
+              {group.label}
+              <Text style={[styles.categoryGroupCount, { color: userTextSecondary }]}>
+                {" "}
+                x{group.movements.length}
+              </Text>
+            </Text>
+            {group.contributorCount > 0 ? (
+              <ContributorsPreview
+                creators={group.contributorPreviews}
+                totalContributors={group.contributorCount}
+                userBorder={userBorder}
+              />
+            ) : null}
+          </View>
+        </View>
+        <View style={styles.categoryGroupActions}>
+          <Text style={[styles.categoryGroupAmount, amountStyle]}>
+            {amountPrefix}
+            {integer},{decimals}
+          </Text>
+          <ChevronDown
+            size={14}
+            color={userTextSecondary}
+            style={[
+              styles.categoryGroupChevron,
+              isExpanded && styles.categoryGroupChevronExpanded,
+            ]}
+          />
+        </View>
+      </TouchableOpacity>
+
+      {isExpanded ? (
+        <View style={[styles.categoryGroupDetails, { borderColor: userBorder }]}>
+          {group.movements.map((movement, index) => (
+            <MovementRow
+              key={`detail-${group.key}-${movement.id}`}
+              movement={movement}
+              currencySymbol={currencySymbol}
+              hasBorder={index > 0}
+              emphasis={emphasis}
+              showDateLabel={showDateLabelInDetails}
+              userBorder={userBorder}
+              userTextPrimary={userTextPrimary}
+              userTextSecondary={userTextSecondary}
+              primaryActionColor={primaryActionColor}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+type ContributorsPreviewProps = {
+  creators: MovementCreator[];
+  totalContributors: number;
   userBorder: string;
-  incomeColor: string;
-  expenseColor: string;
-  incomeIconBg: string;
-  expenseIconBg: string;
-  incomeIconBorder: string;
-  expenseIconBorder: string;
+};
+
+function ContributorsPreview({
+  creators,
+  totalContributors,
+  userBorder,
+}: ContributorsPreviewProps) {
+  const extra = Math.max(totalContributors - creators.length, 0);
+
+  return (
+    <View style={styles.categoryContributorsWrap}>
+      <View style={styles.categoryContributorsRow}>
+        {creators.map((creator, index) => {
+          const key =
+            creator.userId?.trim() ||
+            creator.email?.trim() ||
+            creator.label?.trim() ||
+            `${index}`;
+          return (
+            <View
+              key={`${key}-${index}`}
+              style={[
+                styles.categoryContributorItem,
+                index > 0 && styles.categoryContributorItemOverlap,
+                { borderColor: userBorder },
+              ]}
+            >
+              <UserAvatar
+                email={creator.email ?? null}
+                displayName={creator.displayName ?? null}
+                userId={creator.userId ?? null}
+                avatarPath={creator.avatarPath ?? null}
+                fallbackText={creator.fallbackText ?? null}
+                fallbackBgToken={creator.fallbackBgToken ?? null}
+                avatarColor={creator.avatarColor ?? null}
+                label={creator.label}
+                size={18}
+              />
+            </View>
+          );
+        })}
+      </View>
+      {extra > 0 ? (
+        <Text style={styles.categoryContributorsOverflow}>+{extra}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+type SectionTitleProps = {
+  title: string;
+  color: string;
+  withTopSpacing?: boolean;
+};
+
+function SectionTitle({ title, color, withTopSpacing = false }: SectionTitleProps) {
+  return (
+    <Text
+      style={[
+        styles.sectionTitle,
+        withTopSpacing && styles.sectionTitleTopSpacing,
+        { color },
+      ]}
+    >
+      {title}
+    </Text>
+  );
+}
+
+type MovementRowProps = {
+  movement: DayMovement | ContextMovement;
+  currencySymbol: string;
+  hasBorder: boolean;
+  emphasis: "primary" | "secondary";
+  showDateLabel?: boolean;
+  userBorder: string;
+  userTextPrimary: string;
+  userTextSecondary: string;
+  primaryActionColor: string;
 };
 
 function MovementRow({
   movement,
   currencySymbol,
-  primaryActionColor,
+  hasBorder,
+  emphasis,
+  showDateLabel = false,
+  userBorder,
   userTextPrimary,
   userTextSecondary,
-  userBorder,
-  incomeColor,
-  expenseColor,
-  incomeIconBg,
-  expenseIconBg,
-  incomeIconBorder,
-  expenseIconBorder,
+  primaryActionColor,
 }: MovementRowProps) {
   const isIncome = movement.type === "income";
-  const { integer, decimals } = formatCurrencyParts(
-    movement.amountMinor,
-    currencySymbol
-  );
+  const isSecondary = emphasis === "secondary";
+  const avatarSize = isSecondary ? 32 : 36;
+  const { integer, decimals } = formatCurrencyParts(movement.amountMinor, currencySymbol);
+  const dateLabel =
+    showDateLabel && "dateLabel" in movement ? movement.dateLabel : null;
+  const metaParts = [dateLabel, movement.category]
+    .filter((part): part is string => Boolean(part && part.trim()));
 
   return (
-    <View style={[styles.movementRow, { borderTopColor: userBorder }]}>
+    <View
+      style={[
+        styles.movementRow,
+        hasBorder && styles.rowBorder,
+        hasBorder && { borderTopColor: userBorder },
+        isSecondary && styles.rowSecondary,
+      ]}
+    >
       <View style={styles.movementInfo}>
-        <View
-          style={[
-            styles.movementIcon,
-            {
-              backgroundColor: isIncome ? incomeIconBg : expenseIconBg,
-              borderColor: isIncome ? incomeIconBorder : expenseIconBorder,
-            },
-          ]}
-        >
+        <View style={styles.movementAvatar}>
+          <UserAvatar
+            email={movement.createdBy?.email ?? null}
+            displayName={movement.createdBy?.displayName ?? null}
+            userId={movement.createdBy?.userId ?? null}
+            avatarPath={movement.createdBy?.avatarPath ?? null}
+            fallbackText={movement.createdBy?.fallbackText ?? null}
+            fallbackBgToken={movement.createdBy?.fallbackBgToken ?? null}
+            avatarColor={movement.createdBy?.avatarColor ?? null}
+            label={movement.createdBy?.label}
+            size={avatarSize}
+          />
+        </View>
+
+        <View style={styles.movementText}>
           <Text
             style={[
-              styles.movementIconText,
-              { color: isIncome ? incomeColor : expenseColor },
+              styles.movementTitle,
+              isSecondary ? { color: userTextSecondary } : { color: userTextPrimary },
             ]}
+            numberOfLines={1}
           >
-            {isIncome ? "↑" : "↓"}
-          </Text>
-        </View>
-        <View style={styles.movementText}>
-          <Text style={[styles.movementTitle, { color: userTextPrimary }]} numberOfLines={1}>
             {movement.name}
             {movement.badge ? (
-              <Text style={[styles.movementBadge, { color: primaryActionColor }]}>
+              <Text
+                style={[
+                  styles.movementBadge,
+                  {
+                    color: isSecondary ? userTextSecondary : primaryActionColor,
+                    backgroundColor: isSecondary ? withAlpha(userTextSecondary, 0.12) : "transparent",
+                  },
+                ]}
+              >
                 {" "}
                 {movement.badge}
               </Text>
             ) : null}
           </Text>
-          <Text style={[styles.movementCategory, { color: userTextSecondary }]} numberOfLines={1}>
-            {movement.category ?? ""}
-          </Text>
+          {metaParts.length > 0 ? (
+            <Text style={[styles.movementCategory, { color: userTextSecondary }]} numberOfLines={1}>
+              {metaParts.join(" · ")}
+            </Text>
+          ) : null}
         </View>
       </View>
-      <Text style={[styles.movementAmount, isIncome ? styles.amountPositive : styles.amountNegative]}>
+
+      <Text
+        style={[
+          styles.movementAmount,
+          isIncome ? styles.amountPositive : styles.amountNegative,
+          isSecondary && styles.amountSecondary,
+        ]}
+      >
         {isIncome ? "+" : "-"}
         {integer},{decimals}
       </Text>
-    </View>
-  );
-}
-
-type NextProgrammedProps = {
-  item: NextProgrammedItem;
-  onViewAll?: () => void;
-  currencySymbol: string;
-  userBorder: string;
-  userTextPrimary: string;
-  userTextSecondary: string;
-  primaryActionColor: string;
-};
-
-function NextProgrammed({
-  item,
-  onViewAll,
-  currencySymbol,
-  userBorder,
-  userTextPrimary,
-  userTextSecondary,
-  primaryActionColor,
-}: NextProgrammedProps) {
-  const { dictionary } = useCopy();
-  const isIncome = item.type === "income";
-  const { integer, decimals } = formatCurrencyParts(item.amountMinor, currencySymbol);
-
-  return (
-    <View style={[styles.nextProgrammed, { borderTopColor: userBorder }]}>
-      <View style={styles.nextProgrammedHeader}>
-        <Text style={[styles.nextProgrammedLabel, { color: userTextSecondary }]}>
-          {t(dictionary, "mobile.home.calendarNextProgrammed")}
-        </Text>
-        <TouchableOpacity onPress={onViewAll}>
-          <Text style={[styles.nextProgrammedLink, { color: primaryActionColor }]}>
-            {t(dictionary, "mobile.home.programmedViewAll")}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.nextProgrammedRow}>
-        <View style={styles.nextProgrammedInfo}>
-          <View style={styles.nextProgrammedIcon}>
-            <Text style={styles.nextProgrammedIconText}>⏱</Text>
-          </View>
-          <View>
-            <Text style={[styles.nextProgrammedTitle, { color: userTextPrimary }]}>
-              {item.name}
-            </Text>
-            <Text style={[styles.nextProgrammedDate, { color: userTextSecondary }]}>
-              {item.dateLabel}
-              {item.category ? ` · ${item.category}` : ""}
-            </Text>
-          </View>
-        </View>
-
-        <Text
-          style={[
-            styles.nextProgrammedAmount,
-            { color: isIncome ? colors.state.positive : userTextSecondary },
-          ]}
-        >
-          {isIncome ? "+" : "-"}
-          {integer},{decimals}
-        </Text>
-      </View>
     </View>
   );
 }
@@ -637,6 +1028,8 @@ const styles = StyleSheet.create({
     marginLeft: "auto",
     flexDirection: "row",
     alignItems: "center",
+    width: 182,
+    justifyContent: "space-between",
   },
   navButton: {
     width: 28,
@@ -653,7 +1046,8 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans-Medium",
   },
   navLabel: {
-    marginHorizontal: tokens.spacing.xs,
+    width: 118,
+    textAlign: "center",
     fontSize: 13,
     fontWeight: tokens.typography.weight.medium,
     color: colors.text.secondary,
@@ -695,26 +1089,27 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     marginRight: 3,
   },
-  dotIncome: {
-    backgroundColor: colors.state.positive,
-  },
-  dotExpense: {
-    backgroundColor: colors.state.negative,
-  },
-  weekSummary: {
+  totalsRow: {
     flexDirection: "row",
-    justifyContent: "center",
     flexWrap: "wrap",
+    justifyContent: "center",
+    gap: tokens.spacing.xs,
     paddingHorizontal: tokens.spacing.lg,
+    paddingTop: 4,
     paddingBottom: tokens.spacing.sm,
   },
-  weekSummaryText: {
-    fontSize: tokens.typography.size.xs,
-    color: colors.text.muted,
-    fontFamily: "DMSans",
-    marginHorizontal: tokens.spacing.sm,
+  totalChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: tokens.radii.pill,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: 5,
   },
-  weekSummaryValue: {
+  totalValue: {
+    fontSize: tokens.typography.size.xs,
+    fontWeight: tokens.typography.weight.semibold,
     fontFamily: "JetBrainsMono-Medium",
   },
   amountPositive: {
@@ -774,6 +1169,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.spacing.lg,
     paddingVertical: tokens.spacing.md,
   },
+  dayHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: tokens.spacing.xs,
+  },
   dayDetailLabel: {
     fontSize: tokens.typography.size.xs,
     fontWeight: tokens.typography.weight.medium,
@@ -781,38 +1182,169 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     color: colors.text.muted,
     fontFamily: "DMSans-Medium",
-    marginBottom: tokens.spacing.sm,
+  },
+  sectionTitle: {
+    marginTop: tokens.spacing.xs,
+    marginBottom: 2,
+    fontSize: 10,
+    fontWeight: tokens.typography.weight.semibold,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    fontFamily: "DMSans-SemiBold",
+  },
+  sectionTitleTopSpacing: {
+    marginTop: tokens.spacing.md,
+  },
+  categoryGroupTopBorder: {
+    borderTopWidth: 1,
+    marginTop: 2,
+    paddingTop: tokens.spacing.xs,
+  },
+  categoryGroupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: tokens.radii.sm,
+    paddingHorizontal: 2,
+    paddingVertical: tokens.spacing.xs,
+  },
+  categoryGroupLeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: tokens.spacing.sm,
+  },
+  categoryGroupIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: tokens.radii.md,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: tokens.spacing.xs,
+  },
+  categoryGroupMain: {
+    flex: 1,
+  },
+  categoryGroupTitle: {
+    flex: 1,
+    fontSize: tokens.typography.size.sm,
+    fontFamily: "DMSans-SemiBold",
+  },
+  categoryGroupCount: {
+    fontSize: 11,
+    fontFamily: "DMSans-SemiBold",
+  },
+  categoryGroupActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  categoryContributorsWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 3,
+  },
+  categoryContributorsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  categoryContributorItem: {
+    borderWidth: 1,
+    borderRadius: 999,
+  },
+  categoryContributorItemOverlap: {
+    marginLeft: -6,
+  },
+  categoryContributorsOverflow: {
+    marginLeft: 3,
+    fontSize: 10,
+    fontFamily: "DMSans-SemiBold",
+    color: colors.text.secondary,
+  },
+  categoryGroupAmount: {
+    marginRight: 4,
+    fontSize: tokens.typography.size.sm,
+    fontFamily: "JetBrainsMono-Medium",
+  },
+  categoryGroupAmountPositive: {
+    color: colors.state.positive,
+  },
+  categoryGroupAmountNegative: {
+    color: colors.state.negative,
+  },
+  categoryGroupAmountNeutral: {
+    color: colors.text.secondary,
+  },
+  categoryGroupChevron: {
+    transform: [{ rotate: "0deg" }],
+  },
+  categoryGroupChevronExpanded: {
+    transform: [{ rotate: "180deg" }],
+  },
+  categoryGroupDetails: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    backgroundColor: withAlpha(colors.bg.secondary, 0.5),
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: 2,
+    marginTop: 2,
   },
   dayDetailEmpty: {
+    paddingVertical: tokens.spacing.sm,
     fontSize: tokens.typography.size.sm,
     color: colors.text.secondary,
     fontFamily: "DMSans",
+  },
+  emptyCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: tokens.radii.md,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: tokens.spacing.sm,
+  },
+  emptySmiley: {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptySmileyText: {
+    fontSize: 15,
+    fontFamily: "JetBrainsMono-Medium",
+  },
+  emptyCtaText: {
+    fontSize: tokens.typography.size.sm,
+    fontFamily: "DMSans-SemiBold",
+  },
+  viewAllLink: {
+    fontSize: tokens.typography.size.xs,
+    fontWeight: tokens.typography.weight.semibold,
+    fontFamily: "DMSans-SemiBold",
   },
   movementRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: tokens.spacing.sm,
+  },
+  rowBorder: {
     borderTopWidth: 1,
-    borderTopColor: colors.state.neutral,
+  },
+  rowSecondary: {
+    opacity: 0.7,
   },
   movementInfo: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
   },
-  movementIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
+  movementAvatar: {
     marginRight: tokens.spacing.sm,
-  },
-  movementIconText: {
-    fontSize: 16,
-    fontFamily: "DMSans-SemiBold",
   },
   movementText: {
     flex: 1,
@@ -825,6 +1357,7 @@ const styles = StyleSheet.create({
   },
   movementBadge: {
     fontSize: 10,
+    paddingHorizontal: 4,
   },
   movementCategory: {
     fontSize: tokens.typography.size.xs,
@@ -837,65 +1370,7 @@ const styles = StyleSheet.create({
     fontFamily: "JetBrainsMono-Medium",
     marginLeft: tokens.spacing.sm,
   },
-  nextProgrammed: {
-    borderTopWidth: 1,
-    paddingHorizontal: tokens.spacing.lg,
-    paddingVertical: tokens.spacing.md,
-  },
-  nextProgrammedHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: tokens.spacing.sm,
-  },
-  nextProgrammedLabel: {
-    fontSize: tokens.typography.size.xs,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    fontFamily: "DMSans-Medium",
-  },
-  nextProgrammedLink: {
-    fontSize: tokens.typography.size.xs,
-    fontWeight: tokens.typography.weight.semibold,
-    fontFamily: "DMSans-SemiBold",
-  },
-  nextProgrammedRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: tokens.spacing.sm,
-  },
-  nextProgrammedInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  nextProgrammedIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: tokens.spacing.sm,
-    backgroundColor: "rgba(255, 183, 77, 0.12)",
-  },
-  nextProgrammedIconText: {
-    fontSize: 16,
-    color: "#FFB74D",
-    fontFamily: "DMSans-SemiBold",
-  },
-  nextProgrammedTitle: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: tokens.typography.weight.medium,
-    fontFamily: "DMSans-Medium",
-  },
-  nextProgrammedDate: {
-    fontSize: tokens.typography.size.xs,
-    fontFamily: "DMSans-Regular",
-  },
-  nextProgrammedAmount: {
-    fontSize: tokens.typography.size.sm,
-    fontWeight: tokens.typography.weight.medium,
-    fontFamily: "JetBrainsMono-Medium",
+  amountSecondary: {
+    opacity: 0.8,
   },
 });

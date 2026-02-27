@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon — Prototipo</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-primary: #111111;
+    --bg-secondary: #1a1a1a;
+    --bg-card: #1e1e1e;
+    --bg-card-hover: #252525;
+    --border: #2a2a2a;
+    --border-light: #333333;
+    --text-primary: #f0f0f0;
+    --text-secondary: #999999;
+    --text-muted: #666666;
+    --accent-green: #4ade80;
+    --accent-green-dim: rgba(74, 222, 128, 0.15);
+    --accent-orange: #fb923c;
+    --accent-orange-dim: rgba(251, 146, 60, 0.15);
+    --accent-blue: #60a5fa;
+    --accent-blue-dim: rgba(96, 165, 250, 0.15);
+    --accent-pink: #f472b6;
+    --accent-pink-dim: rgba(244, 114, 182, 0.15);
+    --font-display: 'Fraunces', serif;
+    --font-body: 'DM Sans', sans-serif;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: var(--font-body);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ============ LAYOUT ============ */
+  .app-container {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    position: relative;
+    background: var(--bg-primary);
+  }
+
+  .screen-toggle {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 20px 8px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg-primary);
+  }
+
+  .screen-toggle button {
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 20px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .screen-toggle button.active {
+    background: var(--text-primary);
+    color: var(--bg-primary);
+    border-color: var(--text-primary);
+  }
+
+  .screen {
+    display: none;
+    padding: 8px 20px 100px;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .screen.active {
+    display: block;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ============ SHARED COMPONENTS ============ */
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 12px;
+    transition: all 0.2s;
+  }
+
+  .card.interactive {
+    cursor: pointer;
+  }
+
+  .card.interactive:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--border-light);
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 20px 0;
+  }
+
+  /* ============ SCREEN: INICIO ============ */
+  .greeting {
+    padding: 20px 0 24px;
+  }
+
+  .greeting h1 {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 400;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .greeting p {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  /* Balance card */
+  .balance-card {
+    text-align: center;
+    padding: 28px 20px;
+  }
+
+  .balance-card .label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+
+  .balance-card .amount {
+    font-family: var(--font-display);
+    font-size: 42px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -1px;
+  }
+
+  .balance-card .change {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--accent-green);
+    margin-top: 8px;
+    padding: 4px 12px;
+    background: var(--accent-green-dim);
+    border-radius: 100px;
+  }
+
+  /* Savings section - entry point */
+  .savings-entry {
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .savings-entry .tap-hint {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: var(--text-muted);
+    transition: transform 0.2s;
+  }
+
+  .savings-entry:hover .tap-hint {
+    transform: translateY(-50%) translateX(3px);
+  }
+
+  .savings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .savings-header .title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .savings-header .month {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .savings-bar-container {
+    position: relative;
+    height: 28px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+
+  .savings-bar-projects {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: var(--accent-green);
+    border-radius: 6px 0 0 6px;
+    transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 2;
+  }
+
+  .savings-bar-hucha {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: var(--accent-green);
+    opacity: 0.35;
+    border-radius: 6px;
+    transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 1;
+  }
+
+  .savings-bar-marker {
+    position: absolute;
+    top: -4px;
+    height: calc(100% + 8px);
+    width: 2px;
+    background: var(--text-primary);
+    z-index: 3;
+    transition: left 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .savings-bar-marker::after {
+    content: attr(data-label);
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  .savings-legend {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .savings-legend .item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .savings-legend .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .savings-legend .dot.projects { background: var(--accent-green); }
+  .savings-legend .dot.hucha { background: var(--accent-green); opacity: 0.4; }
+
+  .savings-message {
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: var(--accent-green-dim);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--accent-green);
+    line-height: 1.4;
+  }
+
+  /* Projects preview in Inicio */
+  .project-preview {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+  }
+
+  .project-preview .icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .project-preview .info {
+    flex: 1;
+  }
+
+  .project-preview .info .name {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+
+  .project-preview .info .detail {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .project-preview .pct {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent-green);
+  }
+
+  /* ============ DRILL-DOWN OVERLAY ============ */
+  .drilldown-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 200;
+    display: none;
+    justify-content: center;
+  }
+
+  .drilldown-overlay.active {
+    display: flex;
+  }
+
+  .drilldown-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px);
+    animation: fadeInBackdrop 0.3s ease;
+  }
+
+  @keyframes fadeInBackdrop {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .drilldown-panel {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 480px;
+    height: 100%;
+    background: var(--bg-primary);
+    overflow-y: auto;
+    animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(40px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .drilldown-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    position: sticky;
+    top: 0;
+    background: var(--bg-primary);
+    z-index: 10;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .drilldown-header .back {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: var(--font-body);
+    transition: color 0.2s;
+  }
+
+  .drilldown-header .back:hover {
+    color: var(--text-primary);
+  }
+
+  .drilldown-header h2 {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 500;
+  }
+
+  .drilldown-header .spacer {
+    width: 60px;
+  }
+
+  .drilldown-content {
+    padding: 20px;
+  }
+
+  /* Drilldown: Main figure */
+  .dd-main-figure {
+    text-align: center;
+    padding: 20px 0 28px;
+  }
+
+  .dd-main-figure .saved {
+    font-family: var(--font-display);
+    font-size: 48px;
+    font-weight: 600;
+    color: var(--accent-green);
+    letter-spacing: -1px;
+  }
+
+  .dd-main-figure .subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+
+  .dd-main-figure .month-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 12px;
+  }
+
+  .dd-main-figure .month-nav button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px 8px;
+    transition: color 0.2s;
+  }
+
+  .dd-main-figure .month-nav button:hover {
+    color: var(--text-primary);
+  }
+
+  .dd-main-figure .month-nav span {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  /* Drilldown: Distribution */
+  .dd-distribution .title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+  }
+
+  .dd-dist-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dd-dist-item:last-child {
+    border-bottom: none;
+  }
+
+  .dd-dist-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .dd-dist-icon.project { background: var(--accent-blue-dim); }
+  .dd-dist-icon.hucha { background: var(--accent-orange-dim); }
+
+  .dd-dist-info {
+    flex: 1;
+  }
+
+  .dd-dist-info .name {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .dd-dist-info .meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .dd-dist-amount {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 600;
+    text-align: right;
+  }
+
+  .dd-dist-amount.green { color: var(--accent-green); }
+  .dd-dist-amount.orange { color: var(--accent-orange); }
+
+  /* Drilldown: Full progress bar */
+  .dd-progress-bar {
+    height: 36px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    margin: 20px 0 8px;
+    position: relative;
+  }
+
+  .dd-progress-segment {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--bg-primary);
+    transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+  }
+
+  .dd-progress-segment.project-seg {
+    background: var(--accent-green);
+    z-index: 2;
+  }
+
+  .dd-progress-segment.hucha-seg {
+    background: var(--accent-orange);
+    opacity: 0.85;
+    z-index: 1;
+  }
+
+  .dd-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+
+  /* Drilldown: Historical progress */
+  .dd-history-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .dd-history-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+  }
+
+  .dd-history-card .label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .dd-history-card .label .icon {
+    font-size: 14px;
+  }
+
+  .dd-history-card .value {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 600;
+  }
+
+  .dd-history-card .value.green { color: var(--accent-green); }
+
+  /* Mini chart */
+  .dd-mini-chart {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .dd-mini-chart .chart-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+
+  .chart-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    height: 100px;
+    padding-bottom: 24px;
+    position: relative;
+  }
+
+  .chart-bars::after {
+    content: '';
+    position: absolute;
+    bottom: 24px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .chart-bar-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+  }
+
+  .chart-bar {
+    width: 100%;
+    max-width: 32px;
+    border-radius: 4px 4px 0 0;
+    position: relative;
+    transition: height 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .chart-bar.achieved {
+    background: var(--accent-green);
+  }
+
+  .chart-bar.partial {
+    background: var(--accent-orange);
+  }
+
+  .chart-bar.current {
+    background: var(--accent-green);
+    box-shadow: 0 0 12px var(--accent-green-dim);
+  }
+
+  .chart-bar-label {
+    position: absolute;
+    bottom: 0;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .chart-bar-goal-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    border-top: 2px dashed var(--text-muted);
+    z-index: 5;
+  }
+
+  .chart-bar-goal-label {
+    position: absolute;
+    right: 0;
+    font-size: 9px;
+    color: var(--text-muted);
+    transform: translateY(-14px);
+  }
+
+  /* Comparison card */
+  .dd-comparison {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+
+  .dd-comparison .comp-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .dd-comparison .comp-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+  }
+
+  .dd-comparison .comp-row:not(:last-child) {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dd-comparison .comp-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .dd-comparison .comp-value {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .dd-comparison .comp-value.green { color: var(--accent-green); }
+  .dd-comparison .comp-value.orange { color: var(--accent-orange); }
+
+  /* ============ SCREEN: PROYECTOS ============ */
+  .proyectos-header {
+    padding: 20px 0;
+  }
+
+  .proyectos-header h1 {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 400;
+    margin-bottom: 4px;
+  }
+
+  .proyectos-header p {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  /* Hucha section */
+  .hucha-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hucha-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent-orange), var(--accent-pink));
+  }
+
+  .hucha-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .hucha-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .hucha-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--accent-orange-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .hucha-title h3 {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .hucha-title p {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .hucha-amount {
+    text-align: right;
+  }
+
+  .hucha-amount .value {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--accent-orange);
+  }
+
+  .hucha-amount .label {
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .hucha-stats {
+    display: flex;
+    gap: 12px;
+  }
+
+  .hucha-stat {
+    flex: 1;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+  }
+
+  .hucha-stat .stat-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .hucha-stat .stat-value {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .hucha-stat .stat-value.green { color: var(--accent-green); }
+
+  /* Projects list */
+  .projects-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .projects-list-header .title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-muted);
+  }
+
+  .add-project-btn {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+  }
+
+  .add-project-btn:hover {
+    border-color: var(--text-primary);
+    color: var(--text-primary);
+  }
+
+  .project-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 10px;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .project-card:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--border-light);
+  }
+
+  .project-card-top {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .project-card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .project-card-info {
+    flex: 1;
+  }
+
+  .project-card-info .name {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .project-card-info .meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .project-card-pct {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--accent-green);
+  }
+
+  .project-card-bar {
+    height: 6px;
+    background: var(--bg-secondary);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+
+  .project-card-bar-fill {
+    height: 100%;
+    background: var(--accent-green);
+    border-radius: 3px;
+    transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .project-card-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  /* Commitment total */
+  .commitment-total {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .commitment-total .label {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .commitment-total .value {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  /* ============ BOTTOM NAV ============ */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 480px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-around;
+    padding: 10px 0 22px;
+    z-index: 50;
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.2s;
+    background: none;
+    border: none;
+    font-family: var(--font-body);
+  }
+
+  .nav-item.active {
+    color: var(--text-primary);
+  }
+
+  .nav-item .nav-icon {
+    font-size: 20px;
+  }
+
+  /* ============ PROTOTYPE LABEL ============ */
+  .proto-label {
+    text-align: center;
+    padding: 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .proto-note {
+    text-align: center;
+    padding: 8px;
+    font-size: 11px;
+    color: var(--accent-blue);
+    background: var(--accent-blue-dim);
+    border-radius: var(--radius-sm);
+    margin-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app-container">
+  <div class="proto-label">Prototipo Finnon — Febrero 2026</div>
+
+  <!-- Screen toggle -->
+  <div class="screen-toggle">
+    <button class="active" onclick="showScreen('inicio')">Inicio</button>
+    <button onclick="showScreen('drilldown')">Drill-down Ahorro</button>
+    <button onclick="showScreen('proyectos')">Proyectos</button>
+  </div>
+
+  <!-- ========== SCREEN: INICIO ========== -->
+  <div id="screen-inicio" class="screen active">
+    <div class="proto-note">Toca la sección de ahorro para ver el drill-down</div>
+
+    <div class="greeting">
+      <h1>Buenas tardes</h1>
+      <p>Febrero de 2026</p>
+    </div>
+
+    <!-- Balance -->
+    <div class="card balance-card">
+      <div class="label">Balance del mes</div>
+      <div class="amount">€1,372.06</div>
+      <div class="change">↑ €234.50 vs mes anterior</div>
+    </div>
+
+    <!-- Savings entry point -->
+    <div class="card interactive savings-entry" onclick="showScreen('drilldown')" style="margin-top: 16px;">
+      <div class="savings-header">
+        <span class="title">Ahorro del mes</span>
+        <span class="month">Febrero 2026</span>
+      </div>
+      
+      <div class="savings-bar-container">
+        <div class="savings-bar-projects" style="width: 7.3%;"></div>
+        <div class="savings-bar-hucha" style="width: 92.7%;"></div>
+        <div class="savings-bar-marker" style="left: 7.3%;" data-label="Proyectos"></div>
+      </div>
+
+      <div class="savings-legend">
+        <div class="item">
+          <span class="dot projects"></span>
+          Proyectos €100
+        </div>
+        <div class="item">
+          <span class="dot hucha"></span>
+          Hucha €1,272
+        </div>
+        <div style="font-size: 13px; font-weight: 600; color: var(--accent-green);">€1,372.06</div>
+      </div>
+
+      <div class="savings-message">
+        ✓ Proyectos financiados · €1,272.06 extra van a tu Hucha este mes
+      </div>
+
+      <span class="tap-hint">→</span>
+    </div>
+
+    <!-- Project preview -->
+    <div class="card interactive project-preview" style="margin-top: 4px;" onclick="showScreen('proyectos')">
+      <div class="icon">💻</div>
+      <div class="info">
+        <div class="name">Macbook</div>
+        <div class="detail">€100.00 de €1,400.00 · marzo 2027</div>
+      </div>
+      <div class="pct">7%</div>
+    </div>
+  </div>
+
+  <!-- ========== SCREEN: DRILL-DOWN ========== -->
+  <div id="screen-drilldown" class="screen">
+    
+    <!-- Main figure -->
+    <div class="dd-main-figure">
+      <div class="saved">€1,372.06</div>
+      <div class="subtitle">ahorrado este mes</div>
+      <div class="month-nav">
+        <button>‹</button>
+        <span>Febrero de 2026</span>
+        <button>›</button>
+      </div>
+    </div>
+
+    <!-- Stacked bar -->
+    <div class="dd-progress-bar">
+      <div class="dd-progress-segment project-seg" style="width: 7.3%;">
+        <span style="font-size:10px;">€100</span>
+      </div>
+      <div class="dd-progress-segment hucha-seg" style="width: 92.7%;">
+        €1,272
+      </div>
+    </div>
+    <div class="dd-bar-labels">
+      <span>Proyectos cubiertos ✓</span>
+      <span>Total: €1,372.06</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Distribution -->
+    <div class="dd-distribution">
+      <div class="title">Distribución del ahorro</div>
+      
+      <div class="dd-dist-item">
+        <div class="dd-dist-icon project">💻</div>
+        <div class="dd-dist-info">
+          <div class="name">Macbook</div>
+          <div class="meta">€100.00/mes · 7% completado</div>
+        </div>
+        <div class="dd-dist-amount green">€100.00</div>
+      </div>
+
+      <div class="dd-dist-item">
+        <div class="dd-dist-icon hucha">🐷</div>
+        <div class="dd-dist-info">
+          <div class="name">Hucha</div>
+          <div class="meta">Excedente del mes</div>
+        </div>
+        <div class="dd-dist-amount orange">€1,272.06</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Historical -->
+    <div class="section-label">Tu progreso</div>
+
+    <div class="dd-history-grid">
+      <div class="dd-history-card">
+        <div class="label"><span class="icon">🏆</span> Meses cumplidos</div>
+        <div class="value green">9 de 12</div>
+      </div>
+      <div class="dd-history-card">
+        <div class="label"><span class="icon">📈</span> Racha actual</div>
+        <div class="value" style="color: var(--text-primary);">3 meses</div>
+      </div>
+    </div>
+
+    <!-- Mini chart -->
+    <div class="dd-mini-chart">
+      <div class="chart-title">Evolución últimos 6 meses</div>
+      <div class="chart-bars">
+        <div class="chart-bar-goal-line" style="bottom: calc(24px + 50px);">
+          <span class="chart-bar-goal-label">Meta €100</span>
+        </div>
+        <div class="chart-bar-group">
+          <div class="chart-bar achieved" style="height: 85px;"></div>
+          <span class="chart-bar-label">Sep</span>
+        </div>
+        <div class="chart-bar-group">
+          <div class="chart-bar achieved" style="height: 62px;"></div>
+          <span class="chart-bar-label">Oct</span>
+        </div>
+        <div class="chart-bar-group">
+          <div class="chart-bar partial" style="height: 35px;"></div>
+          <span class="chart-bar-label">Nov</span>
+        </div>
+        <div class="chart-bar-group">
+          <div class="chart-bar achieved" style="height: 70px;"></div>
+          <span class="chart-bar-label">Dic</span>
+        </div>
+        <div class="chart-bar-group">
+          <div class="chart-bar achieved" style="height: 78px;"></div>
+          <span class="chart-bar-label">Ene</span>
+        </div>
+        <div class="chart-bar-group">
+          <div class="chart-bar current" style="height: 95px;"></div>
+          <span class="chart-bar-label">Feb</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comparison -->
+    <div class="dd-comparison">
+      <div class="comp-title">⚡ Este mes vs tu media</div>
+      <div class="comp-row">
+        <span class="comp-label">Ahorro</span>
+        <span class="comp-value green">+€934.56</span>
+      </div>
+      <div class="comp-row">
+        <span class="comp-label">Velocidad</span>
+        <span class="comp-value orange">4 días después</span>
+      </div>
+      <div class="comp-row">
+        <span class="comp-label">Mejor mes</span>
+        <span class="comp-value" style="color: var(--text-primary);">Sep 2025 · €1,580</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== SCREEN: PROYECTOS ========== -->
+  <div id="screen-proyectos" class="screen">
+    <div class="proyectos-header">
+      <h1>Proyectos</h1>
+      <p>Conecta tu ahorro mensual con metas concretas</p>
+    </div>
+
+    <!-- Hucha -->
+    <div class="hucha-section">
+      <div class="hucha-top">
+        <div class="hucha-title-row">
+          <div class="hucha-icon">🐷</div>
+          <div class="hucha-title">
+            <h3>Hucha</h3>
+            <p>Tu colchón de ahorro libre</p>
+          </div>
+        </div>
+        <div class="hucha-amount">
+          <div class="value">€4,830</div>
+          <div class="label">acumulado</div>
+        </div>
+      </div>
+      <div class="hucha-stats">
+        <div class="hucha-stat">
+          <div class="stat-label">Este mes</div>
+          <div class="stat-value green">+€1,272.06</div>
+        </div>
+        <div class="hucha-stat">
+          <div class="stat-label">Media mensual</div>
+          <div class="stat-value">€537.50</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Projects -->
+    <div class="projects-list-header">
+      <span class="title">Proyectos activos</span>
+      <button class="add-project-btn">+ Nuevo proyecto</button>
+    </div>
+
+    <div class="project-card">
+      <div class="project-card-top">
+        <div class="project-card-icon">💻</div>
+        <div class="project-card-info">
+          <div class="name">Macbook</div>
+          <div class="meta">€100.00/mes · marzo 2027</div>
+        </div>
+        <div class="project-card-pct">7%</div>
+      </div>
+      <div class="project-card-bar">
+        <div class="project-card-bar-fill" style="width: 7%;"></div>
+      </div>
+      <div class="project-card-footer">
+        <span>€100.00 de €1,400.00</span>
+        <span>En 1 año y 1 mes</span>
+      </div>
+    </div>
+
+    <div class="project-card">
+      <div class="project-card-top">
+        <div class="project-card-icon">✈️</div>
+        <div class="project-card-info">
+          <div class="name">Viaje Japón</div>
+          <div class="meta">€200.00/mes · diciembre 2027</div>
+        </div>
+        <div class="project-card-pct">12%</div>
+      </div>
+      <div class="project-card-bar">
+        <div class="project-card-bar-fill" style="width: 12%;"></div>
+      </div>
+      <div class="project-card-footer">
+        <span>€600.00 de €5,000.00</span>
+        <span>En 1 año y 10 meses</span>
+      </div>
+    </div>
+
+    <!-- Total commitment -->
+    <div class="commitment-total">
+      <div class="label">Compromiso mensual total</div>
+      <div class="value">€300.00<span style="font-size: 14px; font-weight: 400; color: var(--text-secondary);">/mes</span></div>
+    </div>
+  </div>
+
+  <!-- Bottom nav -->
+  <div class="bottom-nav">
+    <button class="nav-item active" onclick="showScreen('inicio')">
+      <span class="nav-icon">🏠</span>
+      Inicio
+    </button>
+    <button class="nav-item">
+      <span class="nav-icon">📋</span>
+      Movimientos
+    </button>
+    <button class="nav-item" onclick="showScreen('proyectos')">
+      <span class="nav-icon">🎯</span>
+      Proyectos
+    </button>
+    <button class="nav-item">
+      <span class="nav-icon">👤</span>
+      Tu Cuenta
+    </button>
+  </div>
+</div>
+
+<script>
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + id).classList.add('active');
+    
+    document.querySelectorAll('.screen-toggle button').forEach(b => b.classList.remove('active'));
+    event.target.closest('button')?.classList.add('active');
+    
+    // Update toggle buttons
+    const toggleBtns = document.querySelectorAll('.screen-toggle button');
+    toggleBtns.forEach(b => b.classList.remove('active'));
+    if (id === 'inicio') toggleBtns[0].classList.add('active');
+    if (id === 'drilldown') toggleBtns[1].classList.add('active');
+    if (id === 'proyectos') toggleBtns[2].classList.add('active');
+
+    // Update nav
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(n => n.classList.remove('active'));
+    if (id === 'inicio' || id === 'drilldown') navItems[0].classList.add('active');
+    if (id === 'proyectos') navItems[2].classList.add('active');
+
+    window.scrollTo(0, 0);
+  }
+</script>
+
+</body>
+</html>

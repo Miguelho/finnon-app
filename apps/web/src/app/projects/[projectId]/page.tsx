@@ -94,7 +94,7 @@ export default async function ProjectDetailPage({
 
   return (
     <div className="min-h-screen bg-background">
-      <TopNav containerClassName="max-w-6xl" />
+      <TopNav />
       <ProjectDetailClient
         accountId={activeAccount.id}
         role={role}

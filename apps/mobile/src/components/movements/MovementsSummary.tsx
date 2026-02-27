@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Easing,
@@ -10,7 +10,8 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { formatMinorToMoney } from "@poleursus/shared";
+import { computeMovementBalanceSummary, formatMinorToMoney } from "@poleursus/shared";
+import { formatCurrencyParts } from "../home-redesign/utils";
 import { movementsDesignTokens, type Movement } from "../../types/movements";
 import { useUserTheme } from "../../contexts/UserThemeContext";
 import { useCopy, t } from "../../lib/i18n";
@@ -19,6 +20,7 @@ type MovementsSummaryProps = {
   movements: Movement[];
   currencyCode: string;
   currencySymbol: string;
+  rangeSelector?: ReactNode;
 };
 
 type TooltipAnchor = {
@@ -69,8 +71,10 @@ export function MovementsSummary({
   movements,
   currencyCode,
   currencySymbol,
+  rangeSelector,
 }: MovementsSummaryProps) {
   const { dictionary } = useCopy();
+  const translate = t as any;
   const { tokens: userTokens } = useUserTheme();
   const { width: windowWidth } = useWindowDimensions();
   const infoAnchorRef = useRef<View>(null);
@@ -84,20 +88,11 @@ export function MovementsSummary({
   const expensePendingFlex = useRef(new Animated.Value(0)).current;
 
   const summary = useMemo(() => {
-    let totalIncome = 0n;
-    let totalExpense = 0n;
-    let confirmedIncome = 0n;
-    let confirmedExpense = 0n;
-
-    movements.forEach((movement) => {
-      if (movement.type === "income") {
-        totalIncome += movement.amountMinor;
-        if (movement.status === "confirmed") confirmedIncome += movement.amountMinor;
-      } else {
-        totalExpense += movement.amountMinor;
-        if (movement.status === "confirmed") confirmedExpense += movement.amountMinor;
-      }
-    });
+    const totals = computeMovementBalanceSummary(movements);
+    const totalIncome = totals.totalIncomeMinor;
+    const totalExpense = totals.totalExpenseMinor;
+    const confirmedIncome = totals.confirmedIncomeMinor;
+    const confirmedExpense = totals.confirmedExpenseMinor;
 
     const combinedTotal = totalIncome + totalExpense;
     const incomeRatio = clampPercent(toPercent(totalIncome, combinedTotal));
@@ -114,8 +109,8 @@ export function MovementsSummary({
       totalExpense,
       confirmedIncome,
       confirmedExpense,
-      balance: totalIncome - totalExpense,
-      confirmedBalance: confirmedIncome - confirmedExpense,
+      balance: totals.totalBalanceMinor,
+      confirmedBalance: totals.confirmedBalanceMinor,
       incomeRatio,
       expenseRatio,
       incomeConfirmedRatio,
@@ -123,7 +118,7 @@ export function MovementsSummary({
       hasIncome: totalIncome > 0n,
       hasExpense: totalExpense > 0n,
       isEmpty: movements.length === 0,
-      movementCount: movements.length,
+      movementCount: totals.movementCount,
     };
   }, [movements]);
 
@@ -222,9 +217,10 @@ export function MovementsSummary({
   const hasSingleType =
     !summary.isEmpty && (summary.hasIncome ? !summary.hasExpense : summary.hasExpense);
 
-  const movementCountLabel = t(dictionary, "transactions.ui.sectionMovementCount", {
+  const movementCountLabel = translate(dictionary, "transactions.ui.sectionMovementCount", {
     count: summary.movementCount,
   });
+  const balanceParts = formatCurrencyParts(summary.balance, currencySymbol);
 
   const tooltipTop = (tooltipAnchor?.y ?? 0) + (tooltipAnchor?.height ?? 0) + 8;
   const tooltipLeft = Math.min(
@@ -252,13 +248,18 @@ export function MovementsSummary({
             summary.balance < 0n && { color: colors.expenseRed },
           ]}
         >
-          {formatSignedAmount(summary.balance, currencyCode, currencySymbol)}
+          {balanceParts.integer}
+          <Text style={[styles.heroDecimals, { color: userTokens.textSecondary }]}>
+            ,{balanceParts.decimals}
+          </Text>
         </Text>
         <Text style={[styles.heroSub, { color: userTokens.textSecondary }]}>
           {formatSignedAmount(summary.confirmedBalance, currencyCode, currencySymbol)}{" "}
           {t(dictionary, "transactions.ui.summaryConfirmedOne")}
         </Text>
       </View>
+
+      {rangeSelector ? <View style={styles.rangeSelectorSlot}>{rangeSelector}</View> : null}
 
       {summary.isEmpty ? (
         <Text style={[styles.emptyText, { color: userTokens.textSecondary }]}>
@@ -456,26 +457,35 @@ const styles = StyleSheet.create({
   },
   hero: {
     alignItems: "center",
-    marginBottom: 14,
+    marginBottom: 20,
   },
   heroLabel: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textTertiary,
     fontFamily: "DMSans-Medium",
     letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   heroAmount: {
-    marginTop: 2,
-    fontSize: 30,
+    marginTop: 4,
+    fontSize: 36,
     color: colors.textPrimary,
-    fontFamily: "DMSans-Bold",
-    letterSpacing: -1,
+    fontFamily: "JetBrainsMono-Medium",
+    letterSpacing: -1.5,
+    lineHeight: 40,
+  },
+  heroDecimals: {
+    fontSize: 18,
+    fontFamily: "JetBrainsMono-Medium",
   },
   heroSub: {
     marginTop: 1,
     fontSize: movementsDesignTokens.typography.sizes.sm,
     color: colors.textTertiary,
     fontFamily: "DMSans",
+  },
+  rangeSelectorSlot: {
+    marginBottom: 10,
   },
   emptyText: {
     fontSize: movementsDesignTokens.typography.sizes.sm,

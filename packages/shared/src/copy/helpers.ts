@@ -20,6 +20,56 @@ const interpolate = (template: string, params?: CopyParams) => {
   });
 };
 
+const parseIcuPluralForms = (body: string): Record<string, string> => {
+  const forms: Record<string, string> = {};
+  const selectorRegex = /^(=\d+|zero|one|two|few|many|other)/;
+  let cursor = 0;
+
+  while (cursor < body.length) {
+    while (cursor < body.length && /\s/.test(body.charAt(cursor))) {
+      cursor += 1;
+    }
+
+    const selectorMatch = selectorRegex.exec(body.slice(cursor));
+    if (!selectorMatch) {
+      cursor += 1;
+      continue;
+    }
+
+    const selector = selectorMatch[1];
+    if (!selector) {
+      cursor += 1;
+      continue;
+    }
+    cursor += selectorMatch[0].length;
+
+    while (cursor < body.length && /\s/.test(body.charAt(cursor))) {
+      cursor += 1;
+    }
+
+    if (body.charAt(cursor) !== "{") {
+      continue;
+    }
+
+    cursor += 1;
+    const valueStart = cursor;
+    let depth = 1;
+
+    while (cursor < body.length && depth > 0) {
+      const char = body.charAt(cursor);
+      if (char === "{") depth += 1;
+      if (char === "}") depth -= 1;
+      cursor += 1;
+    }
+
+    if (depth === 0) {
+      forms[selector] = body.slice(valueStart, cursor - 1).trim();
+    }
+  }
+
+  return forms;
+};
+
 const resolveIcuPlural = (template: string, params?: CopyParams) => {
   const match = template.match(
     /^\{\s*(\w+)\s*,\s*plural\s*,([\s\S]+)\}$/
@@ -28,12 +78,8 @@ const resolveIcuPlural = (template: string, params?: CopyParams) => {
 
   const countKey = match[1];
   const body = match[2];
-  const forms: Record<string, string> = {};
-  const tokenRegex = /(=\d+|zero|one|two|few|many|other)\s*\{([^}]*)\}/g;
-  let tokenMatch: RegExpExecArray | null = null;
-  while ((tokenMatch = tokenRegex.exec(body))) {
-    forms[tokenMatch[1]] = tokenMatch[2].trim();
-  }
+  if (!countKey || !body) return null;
+  const forms = parseIcuPluralForms(body);
 
   if (!Object.keys(forms).length) return null;
 

@@ -9,7 +9,7 @@ import {
   CURRENCIES,
   formatMoneyWithSymbol,
   type DefaultCategory,
-  type OnboardingGoalInput,
+  type OnboardingFirstProjectInput,
   type OnboardingRecurrentInput,
 } from "@poleursus/shared";
 import { completeOnboardingAction } from "../actions";
@@ -20,7 +20,7 @@ type DoneStepProps = {
   accountName: string;
   selectedCategories: DefaultCategory[];
   recurrents: OnboardingRecurrentInput[];
-  goal: OnboardingGoalInput | null;
+  firstProject: OnboardingFirstProjectInput | null;
   currency: string;
   onAccountResolved: (accountId: string) => void;
 };
@@ -30,7 +30,7 @@ export function DoneStep({
   accountName,
   selectedCategories,
   recurrents,
-  goal,
+  firstProject,
   currency,
   onAccountResolved,
 }: DoneStepProps) {
@@ -68,7 +68,7 @@ export function DoneStep({
           currency,
           selectedCategories,
           recurrents,
-          goal,
+          firstProject,
         },
         locale === "en" ? "en" : "es"
       );
@@ -165,19 +165,19 @@ export function DoneStep({
         </div>
       </div>
 
-      {goal && (
+      {firstProject && (
         <div className="mx-auto mt-6 w-full max-w-md rounded-lg border border-[#bbf7d0] bg-[#f0fdf4] p-4 text-left">
           <p className="text-xs font-semibold text-[#16a34a]">
-            {t("objective.previewTitle")}
+            {t("project.previewTitle")}
           </p>
           <p className="text-sm text-[#1a1f36]">
-            {t("objective.previewText", {
-              amount: formatMoneyWithSymbol(
-                BigInt(goal.targetAmountMinor) / BigInt(goal.months),
-                currency,
-                currencySymbol
-              ),
-            })}
+            {firstProject.emoji || "🎯"} {firstProject.name} ·{" "}
+            {formatMoneyWithSymbol(
+              BigInt(firstProject.monthlyCommitmentMinor),
+              currency,
+              currencySymbol
+            )}
+            /month
           </p>
         </div>
       )}

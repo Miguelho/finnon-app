@@ -218,5 +218,6 @@ const styles = StyleSheet.create({
   },
   netValue: {
     ...typography.display,
+    fontFamily: "JetBrainsMono-Medium",
   },
 });

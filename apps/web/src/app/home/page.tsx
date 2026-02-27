@@ -7,14 +7,11 @@ import { BottomNavWrapper } from "@/components/navigation/bottom-nav-wrapper";
 import { HomePageClient } from "@/components/home-redesign/HomePageClient";
 import {
   CURRENCIES,
-  computeGoalProgress,
   getDictionary,
   getExpandedMonthRange,
   getGoalTotalsFromTransactions,
-  t,
-  toMonthKey,
 } from "@poleursus/shared";
-import { formatCurrencyParts, toDateKey } from "@/components/home-redesign/utils";
+import { toDateKey } from "@/components/home-redesign/utils";
 import { cn } from "@/lib/utils";
 
 const dmSans = DM_Sans({
@@ -53,8 +50,6 @@ export default async function DashboardPage() {
   const cookieAccountId = cookieStore.get("finnon:activeAccountId")?.value;
   const locale = cookieStore.get("NEXT_LOCALE")?.value === "en" ? "en" : "es";
   const dictionary = getDictionary(locale) as any;
-  const tx = (key: string, params?: Record<string, string | number>) =>
-    (t as any)(dictionary, key, params) as string;
 
   if (!cookieAccountId) {
     redirect("/select-account");
@@ -66,22 +61,10 @@ export default async function DashboardPage() {
     redirect("/select-account");
   }
 
-  const { count: projectParticipantsCount, error: projectParticipantsError } = await supabase
-    .from("account_members")
-    .select("user_id", { count: "exact", head: true })
-    .eq("account_id", mainAccount.id);
-
-  if (projectParticipantsError) {
-    console.warn(
-      "[Home][web] Could not load project participant count:",
-      projectParticipantsError
-    );
-  }
-
-  const projectParticipantCount =
-    typeof projectParticipantsCount === "number" && projectParticipantsCount >= 1
-      ? projectParticipantsCount
-      : 1;
+  const activeRole =
+    mainAccount.account_members?.find((member) => member.user_id === user.id)?.role ??
+    "viewer";
+  const canEdit = activeRole !== "viewer";
 
   const today = new Date();
   const expandedRange = getExpandedMonthRange(today);
@@ -99,7 +82,7 @@ export default async function DashboardPage() {
   const { data: monthlyTransactions } = await supabase
     .from("transactions")
     .select(
-      "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_at, category:categories(id, name, icon_id)"
+      "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id)"
     )
     .eq("account_id", mainAccount.id)
     .gte("date", startDate)
@@ -110,7 +93,7 @@ export default async function DashboardPage() {
   const { data: upcomingTransactions } = await supabase
     .from("transactions")
     .select(
-      "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_at, category:categories(id, name, icon_id)"
+      "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id)"
     )
     .eq("account_id", mainAccount.id)
     .gte("date", upcomingStartDate)
@@ -151,35 +134,28 @@ export default async function DashboardPage() {
 
   const obligations = [...(obligationsRange ?? []), ...(obligationsNoDate ?? [])];
 
-  const monthKey = toMonthKey(today);
-  const { data: goal } = await supabase
-    .from("financial_goals")
-    .select("id, month, type, target_amount_base_minor")
-    .eq("account_id", mainAccount.id)
-    .eq("month", monthKey)
-    .eq("type", "save")
-    .maybeSingle();
-
-  const { data: goalHistory } = await supabase.rpc("get_goal_history", {
-    p_account_id: mainAccount.id,
-    p_limit: 5,
-  });
-
   const { data: projects } = await supabase
     .from("projects")
     .select("*")
     .eq("account_id", mainAccount.id)
-    .in("status", ["active", "completed"])
+    .eq("status", "active")
     .order("priority", { ascending: true });
-
-  const projectIds = (projects ?? []).map((project) => project.id);
-  const { data: projectContributions, error: projectContributionsError } =
-    projectIds.length > 0
+  const creatorUserIds = Array.from(
+    new Set(
+      [...normalizedMonthlyTransactions, ...normalizedUpcomingTransactions]
+        .map((transaction) => transaction.created_by)
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+  const { data: profiles } =
+    creatorUserIds.length > 0
       ? await supabase
-          .from("project_contributions")
-          .select("id, project_id, actual_amount_base_minor, confirmed")
-          .in("project_id", projectIds)
-      : { data: [], error: null };
+          .from("profiles")
+          .select(
+            "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
+          )
+          .in("user_id", creatorUserIds)
+      : { data: [] };
 
   const currencySymbol =
     CURRENCIES.find((currency) => currency.code === mainAccount.base_currency)
@@ -209,66 +185,6 @@ export default async function DashboardPage() {
 
   const monthlyBalanceMinor =
     goalTotals.incomeTotalMinor - goalTotals.expenseTotalMinor;
-  const progress = computeGoalProgress({
-    goal: goal
-      ? {
-          ...goal,
-          account_id: mainAccount.id,
-          created_by: user.id,
-        }
-      : null,
-    totals: goalTotals,
-    now: today,
-  });
-
-  const objective = progress
-    ? (() => {
-        const targetMinor = progress.targetMinor;
-        const currentMinor = progress.savedMinor;
-
-        let status: "on-track" | "at-risk" | "off-track" = "at-risk";
-        if (currentMinor >= targetMinor) {
-          status = "on-track";
-        } else if (progress.forecastEndMinor < targetMinor) {
-          status = "off-track";
-        } else if (currentMinor >= progress.expectedSavedMinor) {
-          status = "on-track";
-        }
-
-        const forecastFormatted = formatCurrencyParts(
-          progress.forecastEndMinor,
-          currencySymbol
-        ).full;
-        const remainingFormatted = formatCurrencyParts(
-          progress.remainingMinor,
-          currencySymbol
-        ).full;
-
-        let message = tx("mobile.home.objectiveForecastMessage", {
-          month: monthLabel,
-          amount: `<strong>${forecastFormatted}</strong>`,
-        });
-        if (progress.forecastEndMinor < targetMinor) {
-          message += ` ${tx("mobile.home.objectiveRemainingMessage", {
-            amount: `<strong>${remainingFormatted}</strong>`,
-          })}`;
-        } else if (currentMinor < progress.expectedSavedMinor) {
-          message += ` ${tx("mobile.home.objectiveCatchUpMessage")}`;
-        } else {
-          message += ` ${tx("mobile.home.objectiveKeepItUpMessage")}`;
-        }
-
-        return {
-          status,
-          currentMinor: currentMinor.toString(),
-          targetMinor: targetMinor.toString(),
-          messageHtml: message,
-          streak: (goalHistory ?? []).map((entry: { completed: boolean | null }) => ({
-            hit: entry.completed === true,
-          })),
-        };
-      })()
-    : null;
 
   return (
     <div
@@ -277,20 +193,18 @@ export default async function DashboardPage() {
       <TopNav />
       <HomePageClient
         account={{
+          id: mainAccount.id,
+          canEdit,
           monthlyBalanceMinor: monthlyBalanceMinor.toString(),
           currentMonth: monthLabelCapitalized,
           currencySymbol,
           baseCurrency: mainAccount.base_currency,
-          projectParticipantCount,
         }}
         monthlyTransactions={normalizedMonthlyTransactions}
         upcomingTransactions={normalizedUpcomingTransactions}
         obligations={obligations ?? []}
-        objective={objective}
+        profiles={profiles ?? []}
         projects={projects ?? []}
-        projectContributions={
-          projectContributionsError ? [] : (projectContributions ?? [])
-        }
         locale={locale}
         monoClassName={jetbrains.className}
       />

@@ -235,7 +235,7 @@ export function BalanceHeroAccordion({
               </View>
               <View style={styles.sectionNetRow}>
                 <Text style={styles.sectionLabel}>{copy.netLabel}</Text>
-                <Text style={{ color: getNetColor(real.netMinor) }}>
+                <Text style={[styles.balanceNetValue, { color: getNetColor(real.netMinor) }]}>
                   {formatSignedBalance(real.netMinor, currency, currencySymbol)}
                 </Text>
               </View>
@@ -267,7 +267,9 @@ export function BalanceHeroAccordion({
               </View>
               <View style={styles.sectionNetRow}>
                 <Text style={styles.sectionLabel}>{copy.netLabel}</Text>
-                <Text style={{ color: getNetColor(scheduledRange.netMinor) }}>
+                <Text
+                  style={[styles.balanceNetValue, { color: getNetColor(scheduledRange.netMinor) }]}
+                >
                   {formatSignedBalance(scheduledRange.netMinor, currency, currencySymbol)}
                 </Text>
               </View>
@@ -323,7 +325,7 @@ export function BalanceHeroAccordion({
               </View>
               <View style={styles.sectionNetRow}>
                 <Text style={styles.sectionLabel}>{copy.netLabel}</Text>
-                <Text style={{ color: getNetColor(noDate.netMinor) }}>
+                <Text style={[styles.balanceNetValue, { color: getNetColor(noDate.netMinor) }]}>
                   {formatSignedBalance(noDate.netMinor, currency, currencySymbol)}
                 </Text>
               </View>
@@ -366,7 +368,12 @@ export function BalanceHeroAccordion({
             <View style={styles.footer}>
               <View style={styles.footerRow}>
                 <Text style={styles.sectionLabel}>{copy.endOfMonthEstimateLabel}</Text>
-                <Text style={{ color: getNetColor(balanceEndOfMonthEstimatedMinor) }}>
+                <Text
+                  style={[
+                    styles.balanceFooterValue,
+                    { color: getNetColor(balanceEndOfMonthEstimatedMinor) },
+                  ]}
+                >
                   {formatSignedBalance(
                     balanceEndOfMonthEstimatedMinor,
                     currency,
@@ -376,7 +383,9 @@ export function BalanceHeroAccordion({
               </View>
               <View style={styles.footerRow}>
                 <Text style={styles.sectionLabel}>{copy.exposureTotalLabel}</Text>
-                <Text style={{ color: getNetColor(exposureTotalMinor) }}>
+                <Text
+                  style={[styles.balanceFooterValue, { color: getNetColor(exposureTotalMinor) }]}
+                >
                   {formatSignedBalance(exposureTotalMinor, currency, currencySymbol)}
                 </Text>
               </View>
@@ -443,6 +452,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.display.fontWeight,
     color: colors.text.primary,
     textAlign: "right",
+    fontFamily: "JetBrainsMono-Medium",
   },
   chipRow: {
     flexDirection: "row",
@@ -467,6 +477,7 @@ const styles = StyleSheet.create({
   chipValue: {
     fontSize: typography.meta.fontSize,
     fontWeight: typography.meta.fontWeight,
+    fontFamily: "JetBrainsMono-Medium",
   },
   chevron: {
     alignSelf: "flex-start",
@@ -554,6 +565,14 @@ const styles = StyleSheet.create({
   footerNote: {
     fontSize: typography.meta.fontSize,
     color: colors.text.muted,
+  },
+  balanceNetValue: {
+    fontSize: typography.body.fontSize,
+    fontFamily: "JetBrainsMono-Medium",
+  },
+  balanceFooterValue: {
+    fontSize: typography.body.fontSize,
+    fontFamily: "JetBrainsMono-Medium",
   },
   amountPositive: {
     fontSize: typography.body.fontSize,

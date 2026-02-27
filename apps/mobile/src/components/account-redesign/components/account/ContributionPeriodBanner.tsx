@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(196,68,26,0.08)",
   },
   balanceBadgeText: {
-    fontFamily: typography.family.sansBold,
+    fontFamily: typography.family.monoMedium,
     fontSize: typography.size.xs,
   },
   bars: {

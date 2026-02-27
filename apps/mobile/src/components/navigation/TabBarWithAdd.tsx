@@ -3,7 +3,6 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import {
   House,
   ClipboardList,
-  Flag,
   Bookmark,
   FolderKanban,
   Plus,
@@ -22,7 +21,6 @@ const tabLabelKeys = {
   home: "navigation.home",
   transactions: "transactions.pageTitle",
   projects: "navigation.projects",
-  goal: "goal.pageTitle",
   account: "navigation.account",
 } as const;
 
@@ -30,7 +28,6 @@ const tabIconMap: Record<keyof typeof tabLabelKeys, LucideIcon> = {
   home: House,
   transactions: ClipboardList,
   projects: FolderKanban,
-  goal: Flag,
   account: Bookmark,
 };
 

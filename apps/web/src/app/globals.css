@@ -150,3 +150,9 @@
     }
   }
 }
+
+@layer utilities {
+  .font-balance {
+    font-family: var(--font-balance, "JetBrains Mono", monospace);
+  }
+}
