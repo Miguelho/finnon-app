@@ -12,9 +12,11 @@ import {
 } from "@/components/ui/card";
 import { useNetworkNotice } from "@/components/network/network-notice";
 import { createClient } from "@/lib/supabase/client";
+import { useWebDataCache } from "@/cache/WebDataCacheProvider";
 import { CategoryFormPanel } from "@/components/categories/category-form-panel";
 import { CategoryIcon } from "@/components/category-icon";
 import { cn } from "@/lib/utils";
+import { clearAddActionDataCache } from "@/lib/add-action-data-cache";
 import {
   normalizeCategoryName,
   resolveCategoryIconKey,
@@ -58,6 +60,7 @@ export function ActiveAccountDetails({
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
+  const { emitMutation } = useWebDataCache();
   const { reportNetworkIssue } = useNetworkNotice();
   const supabase = useMemo(() => createClient(), []);
   const [members, setMembers] = useState<MemberProfile[]>([]);
@@ -191,6 +194,8 @@ export function ActiveAccountDetails({
         setIsCreateOpen(false);
         setFormData({ name: "", icon_id: "Tag", type: "expense" });
         setUserSelectedIcon(false);
+        await emitMutation("categories", "insert");
+        clearAddActionDataCache(account.id);
         router.refresh();
       } else {
         alert(
@@ -237,6 +242,8 @@ export function ActiveAccountDetails({
         setSelectedCategory(null);
         setFormData({ name: "", icon_id: "Tag", type: "expense" });
         setUserSelectedIcon(false);
+        await emitMutation("categories", "update");
+        clearAddActionDataCache(account.id);
         router.refresh();
       } else {
         alert(

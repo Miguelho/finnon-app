@@ -13,10 +13,12 @@ import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useWebDataCache } from "@/cache/WebDataCacheProvider";
 import { CategoryIcon } from "@/components/category-icon";
 import { CategoryFormPanel } from "@/components/categories/category-form-panel";
 import { createCategory, deleteCategory, updateCategory } from "@/app/categories/actions";
 import { cn } from "@/lib/utils";
+import { clearAddActionDataCache } from "@/lib/add-action-data-cache";
 import styles from "../settings-panels.module.css";
 import { JSX } from "react";
 
@@ -41,6 +43,7 @@ export function AccountSettingsCategoriesPanel({
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
+  const { emitMutation } = useWebDataCache();
   const supabase = useMemo(() => createClient(), []);
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -162,6 +165,8 @@ export function AccountSettingsCategoriesPanel({
       toast.success(t("categories.createSuccess"));
       setIsCreateOpen(false);
       resetForm();
+      await emitMutation("categories", "insert");
+      clearAddActionDataCache(accountId);
       await loadCategories();
       router.refresh();
     } finally {
@@ -201,6 +206,8 @@ export function AccountSettingsCategoriesPanel({
       toast.success(t("categories.updateSuccess"));
       setIsEditOpen(false);
       resetForm();
+      await emitMutation("categories", "update");
+      clearAddActionDataCache(accountId);
       await loadCategories();
       router.refresh();
     } finally {
@@ -226,6 +233,8 @@ export function AccountSettingsCategoriesPanel({
     }
 
     toast.success(t("accountSettings.categories.deleteSuccess"));
+    await emitMutation("categories", "delete");
+    clearAddActionDataCache(accountId);
     await loadCategories();
     router.refresh();
   };

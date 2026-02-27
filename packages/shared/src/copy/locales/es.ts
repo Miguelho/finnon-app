@@ -1557,7 +1557,7 @@ export const es = {
       calendarDayMovementsTitle: "Movimientos del día",
       calendarPastMovementsTitle: "Movimientos pasados",
       calendarEmptyDay: "No hay movimientos este día.",
-      calendarCreateMovementCta: "Crear movimiento",
+      calendarCreateMovementCta: "Añadir",
       calendarNextProgrammed: "Próximo programado",
       movementsUpcomingTitle: "Próximos movimientos",
       movementsRecentTitle: "Últimos movimientos",
@@ -1632,6 +1632,7 @@ export const es = {
 
     // Paso 2 - Categoría y Comercio
     categoryLabel: "Categoría",
+    categoryAddLabel: "Añadir categoría",
     categorySeeAll: "Ver todas",
     categoryHide: "Ocultar",
     categoryEmpty: "Elige una categoría para seguir",

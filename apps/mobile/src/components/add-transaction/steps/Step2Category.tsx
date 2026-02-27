@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
+import { Plus } from "lucide-react-native";
 import {
   themeTokens,
   type TransactionDraft,
@@ -33,6 +34,7 @@ interface Step2CategoryProps {
     field: K,
     value: TransactionDraft[K]
   ) => void;
+  onAddCategory?: (type: "income" | "expense") => void;
 }
 
 export function Step2Category({
@@ -42,6 +44,7 @@ export function Step2Category({
   allCategories,
   merchantSuggestions,
   onFieldChange,
+  onAddCategory,
 }: Step2CategoryProps) {
   const { dictionary } = useCopy();
   const { tokens: userTokens, primaryActionColor } = useUserTheme();
@@ -81,9 +84,29 @@ export function Step2Category({
           { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
         ]}
       >
-        <Text style={[styles.label, { color: userTokens.textPrimary }]}>
-          {t(dictionary, "addTransaction.categoryLabel")}
-        </Text>
+        <View style={styles.categoryHeaderRow}>
+          <Text style={[styles.label, { color: userTokens.textPrimary }]}>
+            {t(dictionary, "addTransaction.categoryLabel")}
+          </Text>
+          <Pressable
+            onPress={() => onAddCategory?.(draft.type)}
+            accessibilityRole="button"
+            style={[
+              styles.addCategoryButton,
+              {
+                borderColor: userTokens.border,
+                backgroundColor: userTokens.surface,
+              },
+            ]}
+          >
+            <Plus size={14} color={primaryActionColor} />
+            <Text
+              style={[styles.addCategoryButtonText, { color: primaryActionColor }]}
+            >
+              {t(dictionary, "addTransaction.categoryAddLabel")}
+            </Text>
+          </Pressable>
+        </View>
 
         {/* Top category chips */}
         {topCategories.length > 0 && (
@@ -206,10 +229,28 @@ const styles = StyleSheet.create({
     zIndex: 10,
     gap: tokens.spacing.md,
   },
+  categoryHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: tokens.spacing.sm,
+  },
   label: {
     fontSize: tokens.typography.size.lg,
     fontWeight: tokens.typography.weight.semibold,
-    marginBottom: tokens.spacing.sm,
+  },
+  addCategoryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.xs,
+    borderWidth: 1,
+    borderRadius: tokens.radii.pill,
+    paddingVertical: tokens.spacing.xs,
+    paddingHorizontal: tokens.spacing.md,
+  },
+  addCategoryButtonText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
   },
   allCategoriesGrid: {
     flexDirection: "row",

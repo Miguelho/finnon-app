@@ -663,7 +663,7 @@
 .categoryActions {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s ease;

@@ -130,6 +130,17 @@ export function AddAction({
     setIsTransactionOpen(false);
   };
 
+  const handleRequestAddCategoryFromForm = (type: CategoryType) => {
+    if (!canEdit) return;
+    setCategoryForm({
+      name: "",
+      icon_id: type === "income" ? "Bank" : "Tag",
+      type,
+    });
+    setCategoryIconSelected(false);
+    setIsCategoryOpen(true);
+  };
+
   const resetCategoryForm = () => {
     setCategoryForm({
       name: "",
@@ -308,6 +319,7 @@ export function AddAction({
                   merchantSuggestions={merchantSuggestions}
                   participants={participants}
                   currentUserId={currentUserId}
+                  onRequestAddCategory={handleRequestAddCategoryFromForm}
                   onSuccess={handleTransactionSuccess}
                   onCancel={handleTransactionCancel}
                 />
@@ -388,6 +400,7 @@ export function AddAction({
                   successMessageKey="transactions.repeat.createSuccess"
                   errorMessageKey="transactions.repeat.createError"
                   onSubmitDraft={handleRecurringSubmitDraft}
+                  onRequestAddCategory={handleRequestAddCategoryFromForm}
                   onSuccess={handleRecurringSuccess}
                   onCancel={handleRecurringCancel}
                 />

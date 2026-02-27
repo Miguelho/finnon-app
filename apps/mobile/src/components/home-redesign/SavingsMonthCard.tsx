@@ -2,6 +2,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { ChevronRight } from "lucide-react-native";
 import { formatMoneyWithSymbol, themeTokens } from "@poleursus/shared";
 import { useUserTheme } from "../../contexts/UserThemeContext";
+import { SummaryCardShell } from "./SummaryCardShell";
 
 const tokens = themeTokens.light;
 
@@ -19,7 +20,6 @@ const toMinor = (value: bigint | number | string | null | undefined): bigint => 
 type SavingsMonthCardProps = {
   title: string;
   monthLabel: string;
-  message: string;
   baseCurrency: string;
   currencySymbol: string;
   objectiveMinor: bigint | number | string;
@@ -35,7 +35,6 @@ type SavingsMonthCardProps = {
 export function SavingsMonthCard({
   title,
   monthLabel,
-  message,
   baseCurrency,
   currencySymbol,
   objectiveMinor,
@@ -64,70 +63,58 @@ export function SavingsMonthCard({
     scale > 0 ? Math.max(0, Math.min(100, (Number(objective) / scale) * 100)) : 0;
 
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.82}
-      style={[
-        styles.card,
-        {
-          backgroundColor: userTokens.surface,
-          borderColor: userTokens.border,
-        },
-      ]}
-    >
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: userTokens.textPrimary }]}>{title}</Text>
-        <View style={styles.headerRight}>
-          <Text style={[styles.month, { color: userTokens.textSecondary }]}>{monthLabel}</Text>
-          <ChevronRight size={16} color={userTokens.textSecondary} />
+    <TouchableOpacity onPress={onPress} activeOpacity={0.82}>
+      <SummaryCardShell style={styles.content}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: userTokens.textPrimary }]}>{title}</Text>
+          <View style={styles.headerRight}>
+            <Text style={[styles.month, { color: userTokens.textSecondary }]}>{monthLabel}</Text>
+            <ChevronRight size={16} color={userTokens.textSecondary} />
+          </View>
         </View>
-      </View>
 
-      <View style={[styles.barTrack, { backgroundColor: userTokens.surfaceAlt }]}>
-        {positiveSavings > 0n ? (
-          <>
-            <View style={[styles.projectsFill, { width: `${projectsPercent}%` }]} />
-            <View
-              style={[
-                styles.huchaFill,
-                { width: `${huchaPercent}%`, left: `${projectsPercent}%` },
-              ]}
-            />
-            <View
-              style={[
-                styles.marker,
-                { left: `${markerPercent}%`, backgroundColor: userTokens.textPrimary },
-              ]}
-            />
-          </>
-        ) : null}
-      </View>
+        <View style={[styles.barTrack, { backgroundColor: userTokens.surfaceAlt }]}>
+          {positiveSavings > 0n ? (
+            <>
+              <View style={[styles.projectsFill, { width: `${projectsPercent}%` }]} />
+              <View
+                style={[
+                  styles.huchaFill,
+                  { width: `${huchaPercent}%`, left: `${projectsPercent}%` },
+                ]}
+              />
+              <View
+                style={[
+                  styles.marker,
+                  { left: `${markerPercent}%`, backgroundColor: userTokens.textPrimary },
+                ]}
+              />
+            </>
+          ) : null}
+        </View>
 
-      <View style={styles.legendRow}>
-        <Text style={[styles.legendText, { color: userTokens.textSecondary }]}>
-          {projectsLabel}{" "}
-          {formatMoneyWithSymbol(projects, baseCurrency, currencySymbol)}
-        </Text>
-        <Text style={[styles.legendText, { color: userTokens.textSecondary }]}>
-          {huchaLabel} {formatMoneyWithSymbol(hucha, baseCurrency, currencySymbol)}
-        </Text>
-      </View>
+        <View style={styles.legendRow}>
+          <Text style={[styles.legendText, { color: userTokens.textSecondary }]}>
+            {projectsLabel}{" "}
+            {formatMoneyWithSymbol(projects, baseCurrency, currencySymbol)}
+          </Text>
+          <Text style={[styles.legendText, { color: userTokens.textSecondary }]}>
+            {huchaLabel} {formatMoneyWithSymbol(hucha, baseCurrency, currencySymbol)}
+          </Text>
+        </View>
 
-      <View style={styles.footerRow}>
-        <Text style={[styles.message, { color: userTokens.textSecondary }]}>{message}</Text>
-        <Text style={[styles.total, { color: "#4ade80" }]}>
-          {totalLabel} {formatMoneyWithSymbol(savings, baseCurrency, currencySymbol)}
-        </Text>
-      </View>
+        <View style={styles.footerRow}>
+          <Text style={[styles.total, { color: "#4ade80" }]}>
+            {totalLabel} {formatMoneyWithSymbol(savings, baseCurrency, currencySymbol)}
+          </Text>
+        </View>
+      </SummaryCardShell>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderRadius: tokens.radii.lg,
-    padding: tokens.spacing.md,
+  content: {
     gap: tokens.spacing.sm,
   },
   header: {
@@ -185,19 +172,12 @@ const styles = StyleSheet.create({
   },
   footerRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+    justifyContent: "flex-end",
+    alignItems: "center",
     gap: tokens.spacing.md,
-  },
-  message: {
-    flex: 1,
-    fontSize: tokens.typography.size.xs,
-    lineHeight: 16,
-    fontFamily: "DMSans-Regular",
   },
   total: {
     fontSize: tokens.typography.size.xs,
     fontFamily: "DMSans-SemiBold",
   },
 });
-

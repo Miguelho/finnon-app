@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { useRouter, Redirect } from "expo-router";
-import { Plus, Pencil, X } from "lucide-react-native";
+import { Plus } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { useNetworkNotice } from "../../../../src/contexts/NetworkNoticeContext";
@@ -70,7 +69,6 @@ export default function AccountCategoriesSettingsScreen() {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const canEdit = accountRole !== "viewer";
 
@@ -164,64 +162,6 @@ export default function AccountCategoriesSettingsScreen() {
     (category) => category.type === "income"
   );
 
-  const confirmDelete = (category: CategoryRow) => {
-    if (!canEdit || pendingDeleteId) return;
-
-    Alert.alert(
-      t(dictionary, "categories.deleteConfirmTitle"),
-      t(dictionary, "categories.deleteConfirmDescription", { name: category.name }),
-      [
-        { text: t(dictionary, "common.cancel"), style: "cancel" },
-        {
-          text: t(dictionary, "common.delete"),
-          style: "destructive",
-          onPress: () => {
-            void deleteCategory(category);
-          },
-        },
-      ]
-    );
-  };
-
-  const deleteCategory = async (category: CategoryRow) => {
-    if (!canEdit) return;
-
-    setPendingDeleteId(category.id);
-    try {
-      const { error: deleteError } = await supabase
-        .from("categories")
-        .delete()
-        .eq("id", category.id);
-
-      if (deleteError) {
-        if (deleteError.code === "23503") {
-          Alert.alert(
-            t(dictionary, "common.errorTitle"),
-            t(dictionary, "categories.error.inUse")
-          );
-          return;
-        }
-        throw deleteError;
-      }
-
-      setCategories((current) =>
-        current.filter((currentCategory) => currentCategory.id !== category.id)
-      );
-      Alert.alert(
-        t(dictionary, "common.successTitle"),
-        t(dictionary, "accountSettings.categories.deleteSuccess")
-      );
-    } catch (err: any) {
-      console.error("[AccountCategoriesSettings] Delete error:", err);
-      Alert.alert(
-        t(dictionary, "common.errorTitle"),
-        err?.message ?? t(dictionary, "categories.deleteError")
-      );
-    } finally {
-      setPendingDeleteId(null);
-    }
-  };
-
   const openCreate = (type: CategoryType) => {
     if (!canEdit) return;
     router.push(`/(auth)/(tabs)/account/categories/create?type=${type}`);
@@ -309,87 +249,58 @@ export default function AccountCategoriesSettingsScreen() {
             </Text>
           ) : (
             sectionCategories.map((category, index) => {
-              const isDeleting = pendingDeleteId === category.id;
               const showDivider = canEdit || index < sectionCategories.length - 1;
-              const dangerColor = themeTokens[resolvedMode].colors.state.negative;
-              const dangerBg = withAlpha(
-                dangerColor,
-                resolvedMode === "dark" ? 0.24 : 0.12
-              );
-              const dangerBgPressed = withAlpha(
-                dangerColor,
-                resolvedMode === "dark" ? 0.34 : 0.2
-              );
-              const dangerBorder = withAlpha(
-                dangerColor,
-                resolvedMode === "dark" ? 0.46 : 0.24
+
+              const rowContent = (
+                <View style={styles.categoryMain}>
+                  <View style={[styles.iconBadge, { backgroundColor: toneBg }]}>
+                    <CategoryIcon
+                      iconKey={resolveCategoryIconKey(category.icon_id)}
+                      size={16}
+                      tone={isExpense ? "negative" : "positive"}
+                      accessibilityLabel={category.name}
+                    />
+                  </View>
+                  <Text
+                    style={[styles.categoryName, { color: userThemeTokens.textPrimary }]}
+                    numberOfLines={1}
+                  >
+                    {category.name}
+                  </Text>
+                </View>
               );
 
+              if (!canEdit) {
+                return (
+                  <View
+                    key={category.id}
+                    style={[
+                      styles.categoryRow,
+                      showDivider && { borderBottomColor: userThemeTokens.border },
+                      !showDivider && styles.categoryRowNoDivider,
+                    ]}
+                  >
+                    {rowContent}
+                  </View>
+                );
+              }
+
               return (
-                <View
+                <Pressable
                   key={category.id}
-                  style={[
+                  onPress={() => openEdit(category.id)}
+                  style={({ pressed }) => [
                     styles.categoryRow,
                     showDivider && { borderBottomColor: userThemeTokens.border },
                     !showDivider && styles.categoryRowNoDivider,
+                    pressed && styles.categoryRowPressed,
+                    pressed && { backgroundColor: userThemeTokens.surfaceAlt },
                   ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(dictionary, "common.edit")}
                 >
-                  <View style={styles.categoryMain}>
-                    <View style={[styles.iconBadge, { backgroundColor: toneBg }]}>
-                      <CategoryIcon
-                        iconKey={resolveCategoryIconKey(category.icon_id)}
-                        size={16}
-                        tone={isExpense ? "negative" : "positive"}
-                        accessibilityLabel={category.name}
-                      />
-                    </View>
-                    <Text
-                      style={[styles.categoryName, { color: userThemeTokens.textPrimary }]}
-                      numberOfLines={1}
-                    >
-                      {category.name}
-                    </Text>
-                  </View>
-
-                  {canEdit ? (
-                    <View style={styles.categoryActions}>
-                      <Pressable
-                        onPress={() => openEdit(category.id)}
-                        style={({ pressed }) => [
-                          styles.iconActionButton,
-                          {
-                            backgroundColor: userThemeTokens.surfaceAlt,
-                            borderColor: userThemeTokens.border,
-                          },
-                          pressed && styles.iconActionButtonPressed,
-                          pressed && { backgroundColor: userThemeTokens.surface },
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityLabel={t(dictionary, "common.edit")}
-                      >
-                        <Pencil size={14} color={userThemeTokens.textPrimary} />
-                      </Pressable>
-                      <Pressable
-                        onPress={() => confirmDelete(category)}
-                        disabled={isDeleting}
-                        style={({ pressed }) => [
-                          styles.iconActionButtonDanger,
-                          {
-                            backgroundColor: dangerBg,
-                            borderColor: dangerBorder,
-                          },
-                          pressed && styles.iconActionButtonDangerPressed,
-                          pressed && { backgroundColor: dangerBgPressed },
-                          isDeleting && styles.iconActionButtonDisabled,
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityLabel={t(dictionary, "common.delete")}
-                      >
-                        <X size={14} color={isDeleting ? colors.text.muted : dangerColor} />
-                      </Pressable>
-                    </View>
-                  ) : null}
-                </View>
+                  {rowContent}
+                </Pressable>
               );
             })
           )}
@@ -522,11 +433,14 @@ const styles = StyleSheet.create({
   categoryRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     gap: tokens.spacing.sm,
     paddingHorizontal: tokens.spacing.lg,
     paddingVertical: tokens.spacing.md,
     borderBottomWidth: 1,
+  },
+  categoryRowPressed: {
+    opacity: 0.92,
   },
   categoryRowNoDivider: {
     borderBottomWidth: 0,
@@ -550,38 +464,6 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.medium,
     color: colors.text.primary,
-  },
-  categoryActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: tokens.spacing.xs,
-  },
-  iconActionButton: {
-    width: 30,
-    height: 30,
-    borderRadius: tokens.radii.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  iconActionButtonPressed: {
-    opacity: 0.82,
-  },
-  iconActionButtonDanger: {
-    width: 30,
-    height: 30,
-    borderRadius: tokens.radii.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  iconActionButtonDangerPressed: {
-    opacity: 0.82,
-  },
-  iconActionButtonDisabled: {
-    opacity: 0.6,
   },
   addRow: {
     flexDirection: "row",

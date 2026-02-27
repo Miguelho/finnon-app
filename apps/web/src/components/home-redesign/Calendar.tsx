@@ -536,12 +536,9 @@ function ContextMovementsPanel({
         <button
           type="button"
           onClick={onCreateMovement}
-          className="flex w-full items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-3 text-left transition-colors hover:bg-muted/50"
+          className="flex w-full items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 px-3 py-3 text-center shadow-sm transition-[background-color,box-shadow] hover:bg-muted/50 hover:shadow-md active:bg-muted/60 active:shadow-inner"
         >
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-lg text-muted-foreground">
-            :(
-          </span>
-          <span className="text-sm font-semibold text-primary">
+          <span className="text-sm font-semibold text-primary text-center">
             {t("mobile.home.calendarCreateMovementCta")}
           </span>
         </button>
@@ -633,13 +630,26 @@ function DayCategoryGroupRow({
 }: DayCategoryGroupRowProps) {
   const absNetMinor = getAbsMinor(group.netMinor);
   const { integer, decimals } = formatCurrencyParts(absNetMinor, currencySymbol, locale);
+  const isIncome = group.netMinor > 0n;
+  const isExpense = group.netMinor < 0n;
   const amountPrefix = group.netMinor > 0n ? "+" : group.netMinor < 0n ? "-" : "";
   const amountClass =
-    group.netMinor > 0n
+    isIncome
       ? "text-[var(--account-income)]"
-      : group.netMinor < 0n
+      : isExpense
         ? "text-[var(--account-expense)]"
         : "text-muted-foreground";
+  const iconWrapClass = isIncome
+    ? "border-[var(--account-income-light)] bg-[var(--account-income-bg)]"
+    : isExpense
+      ? "border-[var(--account-expense-light)] bg-[var(--account-expense-bg)]"
+      : "border-border/70 bg-muted/20";
+  const iconTone = isIncome ? "positive" : isExpense ? "negative" : "muted";
+  const rowInteractionClass = isIncome
+    ? "hover:bg-[var(--account-income-bg)] active:bg-[var(--account-income-bg)]"
+    : isExpense
+      ? "hover:bg-[var(--account-expense-bg)] active:bg-[var(--account-expense-bg)]"
+      : "hover:bg-muted/50 active:bg-muted/60";
   const isSecondary = emphasis === "secondary";
 
   return (
@@ -651,27 +661,27 @@ function DayCategoryGroupRow({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between gap-2 rounded-md px-1 py-2 text-left transition-colors hover:bg-muted/40"
+        className={`flex w-full items-center justify-between gap-2 rounded-md px-1 py-2 text-left transition-colors duration-150 ${rowInteractionClass}`}
       >
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/70 bg-muted/20">
-            <CategoryIcon iconId={group.categoryIconId ?? "Tag"} size={15} tone="muted" />
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          <span
+            className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${iconWrapClass}`}
+          >
+            <CategoryIcon iconId={group.categoryIconId ?? "Tag"} size={15} tone={iconTone} />
           </span>
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <p className="truncate text-sm font-semibold text-foreground">{group.label}</p>
-              <span className="shrink-0 text-xs font-semibold text-muted-foreground">
-                x{group.movements.length}
-              </span>
-            </div>
-            {group.contributorCount > 0 ? (
-              <div className="mt-1">
-                <ContributorsPreview
-                  creators={group.contributorPreviews}
-                  totalContributors={group.contributorCount}
-                />
-              </div>
-            ) : null}
+          {group.contributorCount > 0 ? (
+            <ContributorsPreview
+              creators={group.contributorPreviews}
+              totalContributors={group.contributorCount}
+            />
+          ) : null}
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5">
+            <p className="truncate text-center text-sm font-semibold text-foreground">
+              {group.label}
+            </p>
+            <span className="shrink-0 text-xs font-semibold text-muted-foreground">
+              x{group.movements.length}
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-1.5">

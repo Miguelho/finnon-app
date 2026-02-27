@@ -213,7 +213,7 @@ export function AddActionTrigger({
   const label = t("home.addCta");
   const triggerClassName =
     variant === "bottom-nav"
-      ? "relative -mt-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+      ? "group flex flex-1 flex-col items-center gap-1 py-2 text-[10px] font-medium text-primary transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
       : variant === "hidden"
         ? "hidden"
         : "inline-flex items-center gap-2 rounded-full bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70 sm:px-4 sm:py-1.5";
@@ -255,13 +255,20 @@ export function AddActionTrigger({
               aria-busy={isLoading}
               disabled={isLoading}
             >
-              {isLoading ? (
-                <Loader2
-                  className={`${variant === "bottom-nav" ? "h-5 w-5" : "h-4 w-4"} animate-spin`}
-                />
+              {variant === "bottom-nav" ? (
+                <span className="relative -mt-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-colors group-hover:bg-primary/90">
+                  {isLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Plus className="h-5 w-5" />
+                  )}
+                </span>
+              ) : isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Plus className={variant === "bottom-nav" ? "h-5 w-5" : "h-4 w-4"} />
+                <Plus className="h-4 w-4" />
               )}
+              {variant === "bottom-nav" && <span>{label}</span>}
               {variant === "top-nav" && (
                 <span className="hidden sm:inline">{label}</span>
               )}

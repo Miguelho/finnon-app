@@ -41,7 +41,7 @@ export function IconPicker({
       {showSuggestions && (
         <div className="space-y-1">
           <span className="text-xs text-muted-foreground">Sugeridos</span>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2.5">
             {suggestion.suggestions.slice(0, 6).map((iconKey) => (
               <IconButton
                 key={iconKey}
@@ -56,7 +56,7 @@ export function IconPicker({
       )}
 
       {/* Main grid */}
-      <div className="grid grid-cols-6 gap-2 sm:grid-cols-8 md:grid-cols-10">
+      <div className="grid grid-cols-6 gap-3">
         {availableIcons.map((iconKey) => (
           <IconButton
             key={iconKey}
@@ -86,7 +86,7 @@ function IconButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex h-12 w-12 items-center justify-center rounded-md border-2 transition-all hover:scale-110 hover:border-primary",
+        "mx-auto flex aspect-square w-full max-w-12 items-center justify-center rounded-md border-2 p-2 transition-all hover:scale-105 hover:border-primary",
         isSelected
           ? "border-primary bg-primary/10"
           : isSuggested

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,6 +113,7 @@ interface AddTransactionFormProps {
     draft: TransactionDraft,
     extra?: { recurring?: RecurringSubmitData }
   ) => Promise<void>;
+  onRequestAddCategory?: (type: "income" | "expense") => void;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
@@ -134,9 +136,11 @@ export function AddTransactionForm({
   successMessageKey,
   errorMessageKey,
   onSubmitDraft,
+  onRequestAddCategory,
   onSuccess,
   onCancel,
 }: AddTransactionFormProps) {
+  const router = useRouter();
   const t = useTranslations("addTransaction");
   const tTransactions = useTranslations("transactions");
   const tGlobal = useTranslations();
@@ -629,6 +633,17 @@ export function AddTransactionForm({
     status: getStepStatus(index + 1),
   }));
 
+  const handleRequestAddCategory = React.useCallback(
+    (categoryType: "income" | "expense") => {
+      if (onRequestAddCategory) {
+        onRequestAddCategory(categoryType);
+        return;
+      }
+      router.push(`/account/${accountId}/settings/categories`);
+    },
+    [accountId, onRequestAddCategory, router]
+  );
+
   // Render step content
   const renderStepContent = (step: number) => {
     const stepKey = getStepKey(step);
@@ -674,6 +689,7 @@ export function AddTransactionForm({
           allCategories={categories}
           merchantSuggestions={currentMerchantSuggestions}
           onFieldChange={handleFieldChange}
+          onAddCategory={handleRequestAddCategory}
         />
       );
     }

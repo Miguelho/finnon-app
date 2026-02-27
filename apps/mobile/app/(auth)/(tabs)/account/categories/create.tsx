@@ -11,6 +11,7 @@ import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../../../../../src/lib/supabase";
 import { useAuth } from "../../../../../src/contexts/AuthContext";
 import { useUserTheme } from "../../../../../src/contexts/UserThemeContext";
+import { useDataCache } from "../../../../../src/cache/DataCacheProvider";
 import { Button } from "../../../../../src/components/Button";
 import { Input } from "../../../../../src/components/Input";
 import { Card } from "../../../../../src/components/Card";
@@ -31,6 +32,7 @@ export default function CreateCategoryScreen() {
   const router = useRouter();
   const { type: initialTypeParam } = useLocalSearchParams<{ type?: string }>();
   const { selectedAccountId } = useAuth();
+  const { emitMutation } = useDataCache();
   const [name, setName] = useState("");
   const [iconKey, setIconKey] = useState<CategoryIconKey>("Tag");
   const [type, setType] = useState<CategoryType>("expense");
@@ -142,6 +144,8 @@ export default function CreateCategoryScreen() {
         }
         throw error;
       }
+
+      await emitMutation("categories", "insert");
 
       Alert.alert(
         t(dictionary, "common.successTitle"),

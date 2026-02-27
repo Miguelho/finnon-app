@@ -66,7 +66,7 @@ export default function EditTransactionScreen(): React.JSX.Element {
   const { selectedAccountId } = useAuth();
   const { cache, userId, emitMutation } = useDataCache();
   const loadCachedCategoriesAndSuggestions = useCachedCategoriesAndSuggestions();
-  const { tokens: userTokens } = useUserTheme();
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const { dictionary } = useCopy();
 
   const transactionId = useMemo(() => {
@@ -424,14 +424,19 @@ export default function EditTransactionScreen(): React.JSX.Element {
 
   if (isLoading || !initialDraft || !transactionId || !transaction) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: userTokens.background },
+        ]}
+      >
+        <ActivityIndicator size="large" color={primaryActionColor} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: userTokens.background }]}>
       {addedByName ? (
         <View style={styles.addedByContainer}>
           <Text style={[styles.addedByText, { color: userTokens.textSecondary }]}>

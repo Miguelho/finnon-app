@@ -13,7 +13,6 @@ import {
   cacheTags,
   computeMovementBalanceSummary,
   computeSavingsDistribution,
-  formatMoneyWithSymbol,
   getExpandedMonthRange,
   getWeekStrip,
   type Project,
@@ -350,28 +349,6 @@ export function HomePageClient({
     [projects, savingsMinor]
   );
 
-  const savingsMessage = useMemo(() => {
-    if (savingsDistribution.status === "no_savings") {
-      return t("home.savings.noSavings");
-    }
-    if (savingsDistribution.status === "needs_projects") {
-      return t("home.savings.needsProjects", {
-        amount: formatMoneyWithSymbol(
-          savingsDistribution.gapToObjectiveMinor,
-          account.baseCurrency,
-          account.currencySymbol
-        ),
-      });
-    }
-    return t("home.savings.toHucha", {
-      amount: formatMoneyWithSymbol(
-        savingsDistribution.huchaMinor,
-        account.baseCurrency,
-        account.currencySymbol
-      ),
-    });
-  }, [account.baseCurrency, account.currencySymbol, savingsDistribution, t]);
-
   const weekStrip = useMemo(() => {
     return getWeekStrip(
       calendarObligations.map((item) => ({
@@ -684,7 +661,6 @@ export function HomePageClient({
           <SavingsMonthCard
             title={t("home.savings.title")}
             monthLabel={account.currentMonth}
-            message={savingsMessage}
             baseCurrency={account.baseCurrency}
             currencySymbol={account.currencySymbol}
             objectiveMinor={savingsDistribution.objectiveMinor}

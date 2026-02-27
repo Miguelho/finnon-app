@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
+import { Plus } from "lucide-react";
 import { CaretRight, CaretDown } from "@phosphor-icons/react";
 import { Label } from "@/components/ui/label";
 import { MerchantAutocomplete } from "@/components/ui/merchant-autocomplete";
@@ -30,6 +31,7 @@ interface Step2CategoryProps {
     field: K,
     value: TransactionDraft[K]
   ) => void;
+  onAddCategory?: (type: "income" | "expense") => void;
 }
 
 export function Step2Category({
@@ -39,6 +41,7 @@ export function Step2Category({
   allCategories,
   merchantSuggestions,
   onFieldChange,
+  onAddCategory,
 }: Step2CategoryProps) {
   const t = useTranslations("addTransaction");
   const [showAllCategories, setShowAllCategories] = React.useState(false);
@@ -72,7 +75,22 @@ export function Step2Category({
     <div className="space-y-6">
       {/* Category field */}
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
-        <Label className="text-base font-semibold">{t("categoryLabel")}</Label>
+        <div className="flex items-center justify-between gap-3">
+          <Label className="text-base font-semibold">{t("categoryLabel")}</Label>
+          <button
+            type="button"
+            onClick={() => onAddCategory?.(draft.type)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold",
+              "border-border bg-background text-foreground hover:bg-muted",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "transition-colors"
+            )}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>{t("categoryAddLabel")}</span>
+          </button>
+        </div>
 
         {/* Top category chips */}
         {topCategories.length > 0 && (

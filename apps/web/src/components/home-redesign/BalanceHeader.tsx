@@ -1,4 +1,5 @@
 import { formatCurrencyParts } from "./utils";
+import { SummaryCardShell } from "./SummaryCardShell";
 
 type BalanceHeaderProps = {
   amountMinor: bigint;
@@ -22,7 +23,7 @@ export function BalanceHeader({
   );
 
   return (
-    <div className="flex h-full w-full flex-col rounded-xl border bg-card px-4 py-4">
+    <SummaryCardShell className="flex h-full w-full flex-col">
       <p className="text-left text-[12px] font-semibold uppercase tracking-[0.5px] text-foreground">
         Balance
       </p>
@@ -38,6 +39,6 @@ export function BalanceHeader({
           </span>
         </p>
       </div>
-    </div>
+    </SummaryCardShell>
   );
 }

@@ -8,6 +8,7 @@ import {
   themeTokens,
 } from "@poleursus/shared";
 import { CategoryIcon } from "./CategoryIcon";
+import { useUserTheme } from "../contexts/UserThemeContext";
 
 type IconPickerProps = {
   value?: CategoryIconKey;
@@ -22,6 +23,7 @@ export function IconPicker({
   filterType,
   categoryName,
 }: IconPickerProps) {
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const suggestion = categoryName ? suggestCategoryIcon(categoryName) : null;
   const selectedValue = value ? resolveCategoryIconKey(value) : undefined;
 
@@ -39,7 +41,9 @@ export function IconPicker({
       {/* Suggestions row */}
       {showSuggestions && (
         <View style={styles.suggestionsSection}>
-          <Text style={styles.suggestionsLabel}>Sugeridos</Text>
+          <Text style={[styles.suggestionsLabel, { color: userTokens.textSecondary }]}>
+            Sugeridos
+          </Text>
           <View style={styles.suggestionsRow}>
             {suggestion.suggestions.slice(0, 6).map((iconKey) => (
               <IconButton
@@ -48,6 +52,10 @@ export function IconPicker({
                 isSelected={selectedValue === iconKey}
                 isSuggested={iconKey === suggestion.primary}
                 onPress={() => onChange(iconKey)}
+                borderColor={userTokens.border}
+                surfaceColor={userTokens.surface}
+                selectedBorderColor={primaryActionColor}
+                selectedBgColor={userTokens.surfaceAlt}
               />
             ))}
           </View>
@@ -62,6 +70,10 @@ export function IconPicker({
             iconKey={iconKey}
             isSelected={selectedValue === iconKey}
             onPress={() => onChange(iconKey)}
+            borderColor={userTokens.border}
+            surfaceColor={userTokens.surface}
+            selectedBorderColor={primaryActionColor}
+            selectedBgColor={userTokens.surfaceAlt}
           />
         ))}
       </View>
@@ -74,19 +86,38 @@ function IconButton({
   isSelected,
   isSuggested,
   onPress,
+  borderColor,
+  surfaceColor,
+  selectedBorderColor,
+  selectedBgColor,
 }: {
   iconKey: CategoryIconKey;
   isSelected: boolean;
   isSuggested?: boolean;
   onPress: () => void;
+  borderColor: string;
+  surfaceColor: string;
+  selectedBorderColor: string;
+  selectedBgColor: string;
 }) {
+  const suggestedBg = withAlpha(selectedBorderColor, 0.08);
+  const suggestedBorder = withAlpha(selectedBorderColor, 0.5);
+
   return (
     <TouchableOpacity
       onPress={onPress}
       style={[
         styles.iconButton,
-        isSelected && styles.iconButtonSelected,
-        isSuggested && !isSelected && styles.iconButtonSuggested,
+        { borderColor, backgroundColor: surfaceColor },
+        isSelected && {
+          borderColor: selectedBorderColor,
+          backgroundColor: selectedBgColor,
+        },
+        isSuggested &&
+          !isSelected && {
+            borderColor: suggestedBorder,
+            backgroundColor: suggestedBg,
+          },
       ]}
     >
       <CategoryIcon
@@ -100,7 +131,23 @@ function IconButton({
 }
 
 const tokens = themeTokens.light;
-const colors = tokens.colors;
+
+function withAlpha(hexColor: string, alpha: number) {
+  const normalized = hexColor.replace("#", "");
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((chunk) => chunk + chunk)
+          .join("")
+      : normalized;
+  if (expanded.length !== 6) return hexColor;
+  const red = parseInt(expanded.slice(0, 2), 16);
+  const green = parseInt(expanded.slice(2, 4), 16);
+  const blue = parseInt(expanded.slice(4, 6), 16);
+  if ([red, green, blue].some((value) => Number.isNaN(value))) return hexColor;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -111,7 +158,6 @@ const styles = StyleSheet.create({
   },
   suggestionsLabel: {
     fontSize: 12,
-    color: colors.text.muted,
     marginBottom: 8,
   },
   suggestionsRow: {
@@ -129,16 +175,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: colors.state.neutral,
     borderRadius: tokens.radii.md,
-    backgroundColor: colors.bg.surface,
-  },
-  iconButtonSelected: {
-    borderColor: colors.action.primary,
-    backgroundColor: colors.action.secondary,
-  },
-  iconButtonSuggested: {
-    borderColor: `${colors.action.primary}80`,
-    backgroundColor: `${colors.action.primary}10`,
   },
 });

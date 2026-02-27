@@ -11,6 +11,7 @@ import {
   Pressable,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import {
   themeTokens,
@@ -119,6 +120,7 @@ interface AddTransactionFormProps {
     draft: TransactionDraft,
     extra?: { recurring?: RecurringSubmitData }
   ) => Promise<void>;
+  onRequestAddCategory?: (type: "income" | "expense") => void;
   onMutationSuccess?: (
     entity: MutationEntity,
     action: MutationAction
@@ -143,10 +145,12 @@ export function AddTransactionForm({
   successMessageKey,
   errorMessageKey,
   onSubmitDraft,
+  onRequestAddCategory,
   onMutationSuccess,
   onSuccess,
   onCancel,
 }: AddTransactionFormProps) {
+  const router = useRouter();
   const { dictionary } = useCopy();
   const { user } = useAuth();
   const { tokens: userTokens, primaryActionColor, primaryActionTextColor } =
@@ -702,6 +706,14 @@ export function AddTransactionForm({
     status: getStepStatus(index + 1),
   }));
 
+  const handleRequestAddCategory = (categoryType: "income" | "expense") => {
+    if (onRequestAddCategory) {
+      onRequestAddCategory(categoryType);
+      return;
+    }
+    router.push(`/(auth)/(tabs)/account/categories/create?type=${categoryType}`);
+  };
+
   // Panels mode
   if (formMode === "panels") {
     return (
@@ -795,6 +807,7 @@ export function AddTransactionForm({
                   allCategories={categories}
                   merchantSuggestions={currentMerchantSuggestions}
                   onFieldChange={handleFieldChange}
+                  onAddCategory={handleRequestAddCategory}
                 />
               </KeyboardAwareScrollView>
             </View>
@@ -916,6 +929,7 @@ export function AddTransactionForm({
             allCategories={categories}
             merchantSuggestions={currentMerchantSuggestions}
             onFieldChange={handleFieldChange}
+            onAddCategory={handleRequestAddCategory}
           />
         </View>
 

@@ -1556,7 +1556,7 @@ export const en = {
       calendarDayMovementsTitle: "Day movements",
       calendarPastMovementsTitle: "Past movements",
       calendarEmptyDay: "No movements on this day.",
-      calendarCreateMovementCta: "Create movement",
+      calendarCreateMovementCta: "Add",
       calendarNextProgrammed: "Next scheduled",
       movementsUpcomingTitle: "Next movements",
       movementsRecentTitle: "Last movements",
@@ -1629,6 +1629,7 @@ export const en = {
 
     // Step 2 - Category & Merchant
     categoryLabel: "Category",
+    categoryAddLabel: "Add category",
     categorySeeAll: "See all",
     categoryHide: "Hide",
     categoryEmpty: "Pick a category to continue",

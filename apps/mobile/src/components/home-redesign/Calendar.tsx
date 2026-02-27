@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Pressable } from "react-native";
 import { ArrowUp, ArrowDown, Equal, ChevronDown } from "lucide-react-native";
 import {
   themeTokens,
@@ -532,7 +532,10 @@ function ContextMovementsPanel({
   onCreateMovement,
 }: ContextMovementsPanelProps) {
   const { dictionary } = useCopy();
-  const { tokens: userTokens, primaryActionColor } = useUserTheme();
+  const { tokens: userTokens, primaryActionColor, resolvedMode } = useUserTheme();
+  const modeColors = themeTokens[resolvedMode].colors;
+  const incomeColor = modeColors.state.positive;
+  const expenseColor = modeColors.state.negative;
   const noCategoryLabel = t(dictionary, "common.noneOption");
   const groupedDayMovements = useMemo(
     () => groupDayMovementsByCategory(day.movements, noCategoryLabel),
@@ -594,38 +597,30 @@ function ContextMovementsPanel({
             userTextPrimary={userTokens.textPrimary}
             userTextSecondary={userTokens.textSecondary}
             primaryActionColor={primaryActionColor}
+            incomeColor={incomeColor}
+            expenseColor={expenseColor}
             emphasis="primary"
           />
         ))
       ) : onCreateMovement ? (
-        <TouchableOpacity
-          style={[
+        <Pressable
+          onPress={onCreateMovement}
+          style={({ pressed }) => [
             styles.emptyCta,
+            styles.emptyCtaShadow,
             {
               borderColor: userTokens.border,
-              backgroundColor: userTokens.surfaceAlt,
+              backgroundColor: pressed
+                ? withAlpha(userTokens.textPrimary, 0.08)
+                : userTokens.surfaceAlt,
             },
+            pressed && styles.emptyCtaPressed,
           ]}
-          onPress={onCreateMovement}
-          activeOpacity={0.82}
         >
-          <View
-            style={[
-              styles.emptySmiley,
-              {
-                borderColor: userTokens.border,
-                backgroundColor: userTokens.surface,
-              },
-            ]}
-          >
-            <Text style={[styles.emptySmileyText, { color: userTokens.textSecondary }]}>
-              :(
-            </Text>
-          </View>
           <Text style={[styles.emptyCtaText, { color: primaryActionColor }]}>
             {t(dictionary, "mobile.home.calendarCreateMovementCta")}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       ) : (
         <Text style={[styles.dayDetailEmpty, { color: userTokens.textSecondary }]}>
           {t(dictionary, "mobile.home.calendarEmptyDay")}
@@ -654,6 +649,8 @@ function ContextMovementsPanel({
             userTextPrimary={userTokens.textPrimary}
             userTextSecondary={userTokens.textSecondary}
             primaryActionColor={primaryActionColor}
+            incomeColor={incomeColor}
+            expenseColor={expenseColor}
             emphasis={contextEmphasis}
             showDateLabelInDetails
           />
@@ -686,6 +683,8 @@ function ContextMovementsPanel({
             userTextPrimary={userTokens.textPrimary}
             userTextSecondary={userTokens.textSecondary}
             primaryActionColor={primaryActionColor}
+            incomeColor={incomeColor}
+            expenseColor={expenseColor}
             emphasis={contextEmphasis}
             showDateLabelInDetails
           />
@@ -709,6 +708,8 @@ type DayCategoryGroupRowProps = {
   userTextPrimary: string;
   userTextSecondary: string;
   primaryActionColor: string;
+  incomeColor: string;
+  expenseColor: string;
   emphasis: "primary" | "secondary";
   showDateLabelInDetails?: boolean;
 };
@@ -723,19 +724,34 @@ function DayCategoryGroupRow({
   userTextPrimary,
   userTextSecondary,
   primaryActionColor,
+  incomeColor,
+  expenseColor,
   emphasis,
   showDateLabelInDetails = false,
 }: DayCategoryGroupRowProps) {
   const absNetMinor = getAbsMinor(group.netMinor);
   const { integer, decimals } = formatCurrencyParts(absNetMinor, currencySymbol);
+  const isIncome = group.netMinor > 0n;
+  const isExpense = group.netMinor < 0n;
   const amountPrefix = group.netMinor > 0n ? "+" : group.netMinor < 0n ? "-" : "";
   const isSecondary = emphasis === "secondary";
   const amountStyle =
-    group.netMinor > 0n
+    isIncome
       ? styles.categoryGroupAmountPositive
-      : group.netMinor < 0n
+      : isExpense
         ? styles.categoryGroupAmountNegative
         : styles.categoryGroupAmountNeutral;
+  const iconBg = isIncome
+    ? withAlpha(incomeColor, 0.14)
+    : isExpense
+      ? withAlpha(expenseColor, 0.14)
+      : withAlpha(userTextSecondary, 0.08);
+  const iconBorder = isIncome
+    ? withAlpha(incomeColor, 0.32)
+    : isExpense
+      ? withAlpha(expenseColor, 0.32)
+      : userBorder;
+  const iconTone = isIncome ? "positive" : isExpense ? "negative" : "muted";
 
   return (
     <View
@@ -745,16 +761,35 @@ function DayCategoryGroupRow({
         isSecondary && styles.rowSecondary,
       ]}
     >
-      <TouchableOpacity style={styles.categoryGroupHeader} onPress={onToggle} activeOpacity={0.82}>
+      <Pressable
+        style={({ pressed }) => [
+          styles.categoryGroupHeader,
+          pressed && {
+            backgroundColor: isIncome
+              ? withAlpha(incomeColor, 0.08)
+              : isExpense
+                ? withAlpha(expenseColor, 0.08)
+                : withAlpha(userTextSecondary, 0.06),
+          },
+        ]}
+        onPress={onToggle}
+      >
         <View style={styles.categoryGroupLeading}>
           <View
             style={[
               styles.categoryGroupIconWrap,
-              { borderColor: userBorder, backgroundColor: withAlpha(userTextSecondary, 0.08) },
+              { borderColor: iconBorder, backgroundColor: iconBg },
             ]}
           >
-            <CategoryIcon iconKey={group.categoryIconId ?? "Tag"} size={19} tone="muted" />
+            <CategoryIcon iconKey={group.categoryIconId ?? "Tag"} size={19} tone={iconTone} />
           </View>
+          {group.contributorCount > 0 ? (
+            <ContributorsPreview
+              creators={group.contributorPreviews}
+              totalContributors={group.contributorCount}
+              userBorder={userBorder}
+            />
+          ) : null}
           <View style={styles.categoryGroupMain}>
             <Text
               style={[styles.categoryGroupTitle, { color: userTextPrimary }]}
@@ -766,13 +801,6 @@ function DayCategoryGroupRow({
                 x{group.movements.length}
               </Text>
             </Text>
-            {group.contributorCount > 0 ? (
-              <ContributorsPreview
-                creators={group.contributorPreviews}
-                totalContributors={group.contributorCount}
-                userBorder={userBorder}
-              />
-            ) : null}
           </View>
         </View>
         <View style={styles.categoryGroupActions}>
@@ -789,7 +817,7 @@ function DayCategoryGroupRow({
             ]}
           />
         </View>
-      </TouchableOpacity>
+      </Pressable>
 
       {isExpanded ? (
         <View style={[styles.categoryGroupDetails, { borderColor: userBorder }]}>
@@ -1225,11 +1253,12 @@ const styles = StyleSheet.create({
   },
   categoryGroupMain: {
     flex: 1,
+    justifyContent: "center",
   },
   categoryGroupTitle: {
-    flex: 1,
     fontSize: tokens.typography.size.sm,
     fontFamily: "DMSans-SemiBold",
+    textAlign: "center",
   },
   categoryGroupCount: {
     fontSize: 11,
@@ -1242,7 +1271,7 @@ const styles = StyleSheet.create({
   categoryContributorsWrap: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 3,
+    marginRight: tokens.spacing.xs,
   },
   categoryContributorsRow: {
     flexDirection: "row",
@@ -1297,29 +1326,31 @@ const styles = StyleSheet.create({
   },
   emptyCta: {
     flexDirection: "row",
+    justifyContent: "center",
     alignItems: "center",
-    gap: tokens.spacing.sm,
     borderWidth: 1,
     borderStyle: "dashed",
     borderRadius: tokens.radii.md,
     paddingHorizontal: tokens.spacing.sm,
     paddingVertical: tokens.spacing.sm,
   },
-  emptySmiley: {
-    width: 34,
-    height: 34,
-    borderRadius: 999,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
+  emptyCtaShadow: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  emptySmileyText: {
-    fontSize: 15,
-    fontFamily: "JetBrainsMono-Medium",
+  emptyCtaPressed: {
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 1,
+    transform: [{ scale: 0.99 }],
   },
   emptyCtaText: {
     fontSize: tokens.typography.size.sm,
     fontFamily: "DMSans-SemiBold",
+    textAlign: "center",
   },
   viewAllLink: {
     fontSize: tokens.typography.size.xs,

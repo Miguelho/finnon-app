@@ -14,7 +14,6 @@ import {
   CURRENCIES,
   computeMovementBalanceSummary,
   computeSavingsDistribution,
-  formatMoneyWithSymbol,
   getExpandedMonthRange,
   getGoalTotalsFromTransactions,
   getWeekStrip,
@@ -452,28 +451,6 @@ export default function HomeScreen() {
     [monthlyBalanceMinor, projects]
   );
 
-  const savingsMessage = useMemo(() => {
-    if (savingsDistribution.status === "no_savings") {
-      return t(dictionary, "home.savings.noSavings");
-    }
-    if (savingsDistribution.status === "needs_projects") {
-      return t(dictionary, "home.savings.needsProjects", {
-        amount: formatMoneyWithSymbol(
-          savingsDistribution.gapToObjectiveMinor,
-          baseCurrency,
-          currencySymbol
-        ),
-      });
-    }
-    return t(dictionary, "home.savings.toHucha", {
-      amount: formatMoneyWithSymbol(
-        savingsDistribution.huchaMinor,
-        baseCurrency,
-        currencySymbol
-      ),
-    });
-  }, [baseCurrency, currencySymbol, dictionary, savingsDistribution]);
-
   const weekStrip = useMemo(() => {
     const weekObligations = obligations.filter((item) => item.status !== "paid");
     return getWeekStrip(
@@ -793,7 +770,6 @@ export default function HomeScreen() {
     <SavingsMonthCard
       title={t(dictionary, "home.savings.title")}
       monthLabel={monthLabelCapitalized}
-      message={savingsMessage}
       baseCurrency={baseCurrency}
       currencySymbol={currencySymbol}
       objectiveMinor={savingsDistribution.objectiveMinor}

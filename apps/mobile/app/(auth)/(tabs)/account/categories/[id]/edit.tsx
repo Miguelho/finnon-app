@@ -6,6 +6,8 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Modal,
+  Pressable,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
@@ -34,7 +36,6 @@ type Category = {
 };
 
 const tokens = themeTokens.light;
-const colors = tokens.colors;
 
 export default function EditCategoryScreen() {
   const router = useRouter();
@@ -46,7 +47,10 @@ export default function EditCategoryScreen() {
   const [type, setType] = useState<CategoryType>("expense");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { dictionary } = useCopy();
+  const isBusy = isSubmitting || isDeleting;
 
   useEffect(() => {
     loadCategory();
@@ -176,6 +180,49 @@ export default function EditCategoryScreen() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!category) return;
+
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("categories")
+        .delete()
+        .eq("id", category.id);
+
+      if (error) {
+        if (error.code === "23503") {
+          Alert.alert(
+            t(dictionary, "common.errorTitle"),
+            t(dictionary, "categories.error.inUse")
+          );
+          return;
+        }
+        throw error;
+      }
+
+      setIsDeleteDialogOpen(false);
+      Alert.alert(
+        t(dictionary, "common.successTitle"),
+        t(dictionary, "accountSettings.categories.deleteSuccess"),
+        [
+          {
+            text: t(dictionary, "common.ok"),
+            onPress: () => router.back(),
+          },
+        ]
+      );
+    } catch (e: any) {
+      console.error("Error deleting category:", e);
+      Alert.alert(
+        t(dictionary, "common.errorTitle"),
+        e?.message || t(dictionary, "categories.deleteError")
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.loading, { backgroundColor: userThemeTokens.background }]}>
@@ -213,12 +260,22 @@ export default function EditCategoryScreen() {
           />
 
           <View style={styles.field}>
-            <Text style={styles.label}>{t(dictionary, "categories.typeLabel")}</Text>
-            <View style={styles.pickerContainer}>
+            <Text style={[styles.label, { color: userThemeTokens.textPrimary }]}>
+              {t(dictionary, "categories.typeLabel")}
+            </Text>
+            <View
+              style={[
+                styles.pickerContainer,
+                {
+                  borderColor: userThemeTokens.border,
+                  backgroundColor: userThemeTokens.surface,
+                },
+              ]}
+            >
               <Picker
                 selectedValue={type}
                 onValueChange={(value) => setType(value as CategoryType)}
-                style={styles.picker}
+                style={[styles.picker, { color: userThemeTokens.textPrimary }]}
               >
                 <Picker.Item label={t(dictionary, "categories.expenseLabel")} value="expense" />
                 <Picker.Item label={t(dictionary, "categories.incomeLabel")} value="income" />
@@ -227,7 +284,9 @@ export default function EditCategoryScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>{t(dictionary, "categories.iconLabel")}</Text>
+            <Text style={[styles.label, { color: userThemeTokens.textPrimary }]}>
+              {t(dictionary, "categories.iconLabel")}
+            </Text>
             <IconPicker
               value={iconKey}
               onChange={setIconKey}
@@ -242,7 +301,7 @@ export default function EditCategoryScreen() {
                 title={t(dictionary, "common.cancel")}
                 onPress={() => router.back()}
                 variant="secondary"
-                disabled={isSubmitting}
+                disabled={isBusy}
               />
             </View>
             <View style={{ flex: 1 }}>
@@ -253,12 +312,112 @@ export default function EditCategoryScreen() {
                     : t(dictionary, "transactions.saveChanges")
                 }
                 onPress={handleUpdate}
-                disabled={isSubmitting}
+                disabled={isBusy}
               />
             </View>
           </View>
+
+          <Pressable
+            onPress={() => setIsDeleteDialogOpen(true)}
+            disabled={isBusy}
+            style={({ pressed }) => [
+              styles.deleteButton,
+              {
+                borderColor: userThemeTokens.dangerBorder,
+                backgroundColor: pressed
+                  ? userThemeTokens.dangerBackground
+                  : userThemeTokens.surface,
+                opacity: isBusy ? 0.6 : 1,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={t(dictionary, "common.delete")}
+          >
+            <Text style={[styles.deleteButtonText, { color: userThemeTokens.dangerText }]}>
+              {t(dictionary, "common.delete")}
+            </Text>
+          </Pressable>
         </View>
       </Card>
+
+      <Modal
+        transparent
+        visible={isDeleteDialogOpen}
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isDeleting) setIsDeleteDialogOpen(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => {
+              if (!isDeleting) setIsDeleteDialogOpen(false);
+            }}
+            disabled={isDeleting}
+          />
+
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: userThemeTokens.surface,
+                borderColor: userThemeTokens.border,
+              },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: userThemeTokens.textPrimary }]}>
+              {t(dictionary, "categories.deleteConfirmTitle")}
+            </Text>
+            <Text style={[styles.modalDescription, { color: userThemeTokens.textSecondary }]}>
+              {t(dictionary, "categories.deleteConfirmDescription", {
+                name: category?.name ?? "",
+              })}
+            </Text>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => {
+                  if (!isDeleting) setIsDeleteDialogOpen(false);
+                }}
+                disabled={isDeleting}
+                style={styles.modalCancelButton}
+              >
+                <Text
+                  style={[
+                    styles.modalCancelText,
+                    { color: isDeleting ? userThemeTokens.textTertiary : userThemeTokens.textSecondary },
+                  ]}
+                >
+                  {t(dictionary, "common.cancel")}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  void handleDelete();
+                }}
+                disabled={isDeleting}
+                style={[
+                  styles.modalConfirmButton,
+                  {
+                    borderColor: userThemeTokens.dangerText,
+                    opacity: isDeleting ? 0.55 : 1,
+                  },
+                ]}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color={userThemeTokens.dangerText} />
+                ) : (
+                  <Text style={[styles.modalConfirmText, { color: userThemeTokens.dangerText }]}>
+                    {t(dictionary, "common.delete")}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -284,14 +443,11 @@ const styles = StyleSheet.create({
   label: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.semibold,
-    color: colors.text.primary,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: colors.state.neutral,
     borderRadius: tokens.radii.md,
     overflow: "hidden",
-    backgroundColor: colors.bg.surface,
   },
   picker: {
     height: 50,
@@ -300,5 +456,64 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     marginTop: 8,
+  },
+  deleteButton: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+  deleteButtonText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    padding: tokens.spacing.lg,
+    backgroundColor: "rgba(0, 0, 0, 0.32)",
+  },
+  modalCard: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.lg,
+  },
+  modalTitle: {
+    fontSize: tokens.typography.size.lg,
+    fontWeight: tokens.typography.weight.semibold,
+    marginBottom: tokens.spacing.xs,
+  },
+  modalDescription: {
+    fontSize: tokens.typography.size.sm,
+    marginBottom: tokens.spacing.lg,
+  },
+  modalActions: {
+    marginTop: tokens.spacing.xs,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: tokens.spacing.sm,
+  },
+  modalCancelButton: {
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+  },
+  modalCancelText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.medium,
+  },
+  modalConfirmButton: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 134,
+  },
+  modalConfirmText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
   },
 });

@@ -3,6 +3,7 @@ import { themeTokens } from "@poleursus/shared";
 import { formatCurrencyParts } from "./utils";
 import { useCopy, t } from "../../lib/i18n";
 import { useUserTheme } from "../../contexts/UserThemeContext";
+import { SummaryCardShell } from "./SummaryCardShell";
 
 const tokens = themeTokens.light;
 
@@ -22,12 +23,7 @@ export function BalanceHeader({
   const { integer, decimals } = formatCurrencyParts(amountMinor, currencySymbol);
 
   return (
-    <View
-      style={[
-        styles.container,
-        { backgroundColor: userTokens.surface, borderColor: userTokens.border },
-      ]}
-    >
+    <SummaryCardShell style={styles.container}>
       <Text style={[styles.label, { color: userTokens.textPrimary }]}>
         {t(dictionary, "mobile.home.balanceLabel")}
       </Text>
@@ -44,7 +40,7 @@ export function BalanceHeader({
           </Text>
         </Text>
       </View>
-    </View>
+    </SummaryCardShell>
   );
 }
 
@@ -52,10 +48,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     width: "100%",
-    borderWidth: 1,
-    borderRadius: tokens.radii.lg,
-    paddingHorizontal: tokens.spacing.md,
-    paddingVertical: tokens.spacing.md,
     justifyContent: "flex-start",
     alignItems: "stretch",
   },
