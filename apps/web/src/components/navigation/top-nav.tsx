@@ -16,7 +16,6 @@ import {
   type AvatarColorToken,
   type UserAvatarColorId,
 } from "@poleursus/shared";
-import { Plus } from "lucide-react";
 
 export async function TopNav() {
   const supabase = await createClient();
@@ -130,62 +129,54 @@ export async function TopNav() {
   };
 
   return (
-    <div
-      className="sticky top-0 z-10 w-full border-b"
-      style={{
-        backgroundColor: shellBackgroundColor,
-        borderColor: shellBorderColor,
-      }}
-    >
-      <div className={containerClasses}>
-        {/* Logo */}
-        <div className="flex shrink-0 items-center">
-          <Link
-            href="/home"
-            aria-label={homeAriaLabel}
-            className="flex items-center gap-2 rounded-md px-2 py-1"
-            style={{ color: shellTextColor }}
-          >
-            <FinnonMark mode="iconWordmark" size="lg" />
-          </Link>
-        </div>
-
-        {/* Navigation */}
-        <div className="flex items-center gap-3">
-          <TopNavLinks items={navItems} />
-          <div className="hidden sm:flex items-center">
-            {activeAccount ? (
-              <AddActionTrigger
-                canEdit={canEdit}
-                accountId={activeAccount.id}
-                currency={activeAccount.base_currency}
-                locale={locale}
-                variant="top-nav"
-              />
-            ) : (
-              <Link
-                href="/transactions?new=1"
-                className="inline-flex items-center gap-2 rounded-full bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 sm:px-4 sm:py-1.5"
-              >
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">{t(dictionary, "home.addCta")}</span>
-              </Link>
-            )}
+    <>
+      <div
+        className="sticky top-0 z-10 w-full border-b"
+        style={{
+          backgroundColor: shellBackgroundColor,
+          borderColor: shellBorderColor,
+        }}
+      >
+        <div className={containerClasses}>
+          {/* Logo */}
+          <div className="flex shrink-0 items-center">
+            <Link
+              href="/home"
+              aria-label={homeAriaLabel}
+              className="flex items-center gap-2 rounded-md px-2 py-1"
+              style={{ color: shellTextColor }}
+            >
+              <FinnonMark mode="iconWordmark" size="lg" />
+            </Link>
           </div>
-          <NotificationDropdown
-            userId={user.id}
-            accountId={activeAccountId}
-            locale={locale}
-          />
-          <SettingsDrawer
-            settingsLabel={settingsLabel}
-            openLabel={openSettingsLabel}
-            actionsLabel={actionsLabel}
-            profile={profileData}
-            menu={settingsMenu}
-          />
+
+          {/* Navigation */}
+          <div className="flex items-center gap-3">
+            <TopNavLinks items={navItems} />
+            <NotificationDropdown
+              userId={user.id}
+              accountId={activeAccountId}
+              locale={locale}
+            />
+            <SettingsDrawer
+              settingsLabel={settingsLabel}
+              openLabel={openSettingsLabel}
+              actionsLabel={actionsLabel}
+              profile={profileData}
+              menu={settingsMenu}
+            />
+          </div>
         </div>
       </div>
-    </div>
+      {activeAccount ? (
+        <AddActionTrigger
+          canEdit={canEdit}
+          accountId={activeAccount.id}
+          currency={activeAccount.base_currency}
+          locale={locale}
+          variant="footer-center"
+        />
+      ) : null}
+    </>
   );
 }

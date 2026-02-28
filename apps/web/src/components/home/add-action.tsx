@@ -273,7 +273,7 @@ export function AddAction({
 
       {/* Action menu */}
       <SlidePanel open={isOpen} onOpenChange={setIsOpen}>
-        <SlidePanelContent className="h-auto max-h-[80vh] md:h-screen md:max-h-none">
+        <SlidePanelContent desktopBehavior="bottom" className="h-auto max-h-[80vh]">
           <div
             className="mx-auto mt-3 h-1 w-11 rounded-full bg-border"
             aria-hidden
@@ -304,7 +304,7 @@ export function AddAction({
       {/* Add Transaction panel */}
       {canEdit && (
         <SlidePanel open={isTransactionOpen} onOpenChange={setIsTransactionOpen}>
-          <SlidePanelContent>
+          <SlidePanelContent desktopBehavior="bottom">
             <SlidePanelHeader>
               <SlidePanelTitle>{t("addTransaction.entryTitle")}</SlidePanelTitle>
             </SlidePanelHeader>
@@ -338,6 +338,7 @@ export function AddAction({
               resetCategoryForm();
             }
           }}
+          desktopBehavior="bottom"
           title={t("categories.newTitle")}
           description={t("categories.createDescription")}
           nameLabel={t("categories.nameLabel")}
@@ -380,7 +381,7 @@ export function AddAction({
 
       {canEdit && (
         <SlidePanel open={isRecurringOpen} onOpenChange={setIsRecurringOpen}>
-          <SlidePanelContent>
+          <SlidePanelContent desktopBehavior="bottom">
             <SlidePanelHeader>
               <SlidePanelTitle>{recurringTitle}</SlidePanelTitle>
             </SlidePanelHeader>

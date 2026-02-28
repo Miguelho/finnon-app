@@ -253,7 +253,6 @@ export function Calendar({
   const modeColors = themeTokens[resolvedMode].colors;
   const incomeColor = modeColors.state.positive;
   const expenseColor = modeColors.state.negative;
-  const whiteColor = tokens.colors.bg.surface;
   const isWeek = view === "week";
   const selectedKey = selectedDay?.dateKey ?? "";
   const data = isWeek ? weekData : monthData;
@@ -490,12 +489,12 @@ export function Calendar({
           style={[
             styles.totalChip,
             {
-              borderColor: withAlpha(whiteColor, 0.4),
-              backgroundColor: withAlpha(whiteColor, 0.2),
+              borderColor: userTokens.border,
+              backgroundColor: userTokens.surfaceAlt,
             },
           ]}
         >
-          <Equal size={13} color={whiteColor} strokeWidth={2.3} />
+          <Equal size={13} color={userTokens.textSecondary} strokeWidth={2.3} />
           <Text style={[styles.totalValue, { color: userTokens.textPrimary }]}>{totals.net}</Text>
         </View>
       </View>
@@ -599,6 +598,7 @@ function ContextMovementsPanel({
             primaryActionColor={primaryActionColor}
             incomeColor={incomeColor}
             expenseColor={expenseColor}
+            userSurface={userTokens.surface}
             emphasis="primary"
           />
         ))
@@ -651,6 +651,7 @@ function ContextMovementsPanel({
             primaryActionColor={primaryActionColor}
             incomeColor={incomeColor}
             expenseColor={expenseColor}
+            userSurface={userTokens.surface}
             emphasis={contextEmphasis}
             showDateLabelInDetails
           />
@@ -685,6 +686,7 @@ function ContextMovementsPanel({
             primaryActionColor={primaryActionColor}
             incomeColor={incomeColor}
             expenseColor={expenseColor}
+            userSurface={userTokens.surface}
             emphasis={contextEmphasis}
             showDateLabelInDetails
           />
@@ -710,6 +712,7 @@ type DayCategoryGroupRowProps = {
   primaryActionColor: string;
   incomeColor: string;
   expenseColor: string;
+  userSurface: string;
   emphasis: "primary" | "secondary";
   showDateLabelInDetails?: boolean;
 };
@@ -726,6 +729,7 @@ function DayCategoryGroupRow({
   primaryActionColor,
   incomeColor,
   expenseColor,
+  userSurface,
   emphasis,
   showDateLabelInDetails = false,
 }: DayCategoryGroupRowProps) {
@@ -820,19 +824,20 @@ function DayCategoryGroupRow({
       </Pressable>
 
       {isExpanded ? (
-        <View style={[styles.categoryGroupDetails, { borderColor: userBorder }]}>
-          {group.movements.map((movement, index) => (
+        <View style={styles.categoryGroupDetails}>
+          {group.movements.map((movement) => (
             <MovementRow
               key={`detail-${group.key}-${movement.id}`}
               movement={movement}
               currencySymbol={currencySymbol}
-              hasBorder={index > 0}
               emphasis={emphasis}
               showDateLabel={showDateLabelInDetails}
-              userBorder={userBorder}
               userTextPrimary={userTextPrimary}
               userTextSecondary={userTextSecondary}
               primaryActionColor={primaryActionColor}
+              incomeColor={incomeColor}
+              expenseColor={expenseColor}
+              userSurface={userSurface}
             />
           ))}
         </View>
@@ -917,25 +922,27 @@ function SectionTitle({ title, color, withTopSpacing = false }: SectionTitleProp
 type MovementRowProps = {
   movement: DayMovement | ContextMovement;
   currencySymbol: string;
-  hasBorder: boolean;
   emphasis: "primary" | "secondary";
   showDateLabel?: boolean;
-  userBorder: string;
   userTextPrimary: string;
   userTextSecondary: string;
   primaryActionColor: string;
+  incomeColor: string;
+  expenseColor: string;
+  userSurface: string;
 };
 
 function MovementRow({
   movement,
   currencySymbol,
-  hasBorder,
   emphasis,
   showDateLabel = false,
-  userBorder,
   userTextPrimary,
   userTextSecondary,
   primaryActionColor,
+  incomeColor,
+  expenseColor,
+  userSurface,
 }: MovementRowProps) {
   const isIncome = movement.type === "income";
   const isSecondary = emphasis === "secondary";
@@ -945,13 +952,18 @@ function MovementRow({
     showDateLabel && "dateLabel" in movement ? movement.dateLabel : null;
   const metaParts = [dateLabel, movement.category]
     .filter((part): part is string => Boolean(part && part.trim()));
+  const detailBorderColor = isIncome
+    ? withAlpha(incomeColor, 0.48)
+    : withAlpha(expenseColor, 0.48);
 
   return (
     <View
       style={[
         styles.movementRow,
-        hasBorder && styles.rowBorder,
-        hasBorder && { borderTopColor: userBorder },
+        {
+          borderColor: detailBorderColor,
+          backgroundColor: userSurface,
+        },
         isSecondary && styles.rowSecondary,
       ]}
     >
@@ -1311,12 +1323,8 @@ const styles = StyleSheet.create({
     transform: [{ rotate: "180deg" }],
   },
   categoryGroupDetails: {
-    borderWidth: 1,
-    borderRadius: tokens.radii.md,
-    backgroundColor: withAlpha(colors.bg.secondary, 0.5),
-    paddingHorizontal: tokens.spacing.sm,
-    paddingVertical: 2,
     marginTop: 2,
+    gap: tokens.spacing.xs,
   },
   dayDetailEmpty: {
     paddingVertical: tokens.spacing.sm,
@@ -1361,10 +1369,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    paddingHorizontal: tokens.spacing.sm,
     paddingVertical: tokens.spacing.sm,
-  },
-  rowBorder: {
-    borderTopWidth: 1,
   },
   rowSecondary: {
     opacity: 0.7,

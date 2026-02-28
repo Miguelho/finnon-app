@@ -46,6 +46,7 @@ type CategoryFormPanelProps = {
   submitDisabled?: boolean;
   cancelDisabled?: boolean;
   nameInputId?: string;
+  desktopBehavior?: "right" | "bottom";
 };
 
 export function CategoryFormPanel({
@@ -72,10 +73,11 @@ export function CategoryFormPanel({
   submitDisabled,
   cancelDisabled,
   nameInputId = "category-name",
+  desktopBehavior = "right",
 }: CategoryFormPanelProps) {
   return (
     <SlidePanel open={open} onOpenChange={onOpenChange}>
-      <SlidePanelContent>
+      <SlidePanelContent desktopBehavior={desktopBehavior}>
         <SlidePanelHeader>
           <SlidePanelTitle>{title}</SlidePanelTitle>
           {description ? (

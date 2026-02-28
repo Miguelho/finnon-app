@@ -72,7 +72,7 @@ export function SettingsDrawer({
         />
         <DialogPrimitive.Content
           className={cn(
-            "fixed left-0 top-0 z-[100] flex h-full w-[min(360px,86vw)] flex-col border-r bg-background text-foreground shadow-xl outline-none",
+            "fixed left-0 top-0 z-[100] flex h-full w-[86vw] sm:w-[40vw] flex-col border-r bg-background text-foreground shadow-xl outline-none",
             "transition-transform duration-200",
             "data-[state=open]:translate-x-0 data-[state=closed]:-translate-x-full"
           )}

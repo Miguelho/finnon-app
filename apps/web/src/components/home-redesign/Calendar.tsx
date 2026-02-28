@@ -426,8 +426,8 @@ export function Calendar({
             -{totals.netExpense}
           </span>
         </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-white/20 px-2.5 py-1">
-          <Equal className="h-3.5 w-3.5 text-white" />
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/30 px-2.5 py-1">
+          <Equal className="h-3.5 w-3.5 text-muted-foreground" />
           <span className={`text-xs font-semibold text-foreground ${monoClassName ?? ""}`}>
             {totals.net}
           </span>
@@ -698,15 +698,14 @@ function DayCategoryGroupRow({
       </button>
 
       {isExpanded ? (
-        <div className="rounded-lg border border-border/60 bg-muted/20 px-2.5 py-1">
-          {group.movements.map((movement, index) => (
+        <div className="mt-1 space-y-2">
+          {group.movements.map((movement) => (
             <MovementRow
               key={`detail-${group.key}-${movement.id}`}
               movement={movement}
               currencySymbol={currencySymbol}
               locale={locale}
               emphasis={emphasis}
-              hasTopBorder={index > 0}
               showDateLabel={showDateLabelInDetails}
             />
           ))}
@@ -780,7 +779,6 @@ type MovementRowProps = {
   currencySymbol: string;
   locale: string;
   emphasis: "primary" | "secondary";
-  hasTopBorder?: boolean;
   showDateLabel?: boolean;
 };
 
@@ -789,7 +787,6 @@ function MovementRow({
   currencySymbol,
   locale,
   emphasis,
-  hasTopBorder = true,
   showDateLabel = false,
 }: MovementRowProps) {
   const isIncome = movement.type === "income";
@@ -804,12 +801,16 @@ function MovementRow({
     showDateLabel && "dateLabel" in movement ? movement.dateLabel : null;
   const metaParts = [dateLabel, movement.category]
     .filter((part): part is string => Boolean(part && part.trim()));
+  const detailBorderColor = isIncome
+    ? "var(--account-income-light)"
+    : "var(--account-expense-light)";
 
   return (
     <div
-      className={`flex items-center justify-between py-2.5 ${
-        hasTopBorder ? "border-t border-border/50" : ""
-      } ${isSecondary ? "opacity-70" : ""}`}
+      className={`flex items-center justify-between rounded-md border bg-card px-2.5 py-2.5 ${
+        isSecondary ? "opacity-70" : ""
+      }`}
+      style={{ borderColor: detailBorderColor }}
     >
       <div className="flex min-w-0 items-center gap-3">
         <UserAvatar

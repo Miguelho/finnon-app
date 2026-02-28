@@ -15,8 +15,10 @@ const SlidePanelPortal = DialogPrimitive.Portal;
 
 const SlidePanelContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    desktopBehavior?: "right" | "bottom";
+  }
+>(({ className, children, desktopBehavior = "right", ...props }, ref) => {
   const t = useTranslations("common");
 
   return (
@@ -33,15 +35,26 @@ const SlidePanelContent = React.forwardRef<
           // Mobile (default): bottom sheet
           "bottom-0 left-0 right-0 h-[90vh] w-full",
           "border-t rounded-t-xl",
-          // Desktop (md+): right panel - override mobile
-          "md:top-0 md:right-0 md:left-auto md:bottom-auto",
-          "md:h-screen md:w-[480px]",
-          "md:border-t-0 md:border-l md:rounded-none",
           // Animations - Mobile (from bottom)
           "data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom data-[state=open]:fade-in-0",
           "data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=closed]:fade-out-0",
-          // Animations - Desktop (from right) - override
-          "md:data-[state=open]:slide-in-from-right md:data-[state=closed]:slide-out-to-right",
+          desktopBehavior === "right"
+            ? [
+                // Desktop (md+): right panel - override mobile
+                "md:top-0 md:right-0 md:left-auto md:bottom-auto",
+                "md:h-screen md:w-[480px]",
+                "md:border-t-0 md:border-l md:rounded-none",
+                // Animations - Desktop (from right)
+                "md:data-[state=open]:slide-in-from-right md:data-[state=closed]:slide-out-to-right",
+              ]
+            : [
+                // Desktop (md+): keep bottom sheet behavior but constrained width
+                "md:bottom-0 md:left-1/2 md:right-auto md:top-auto md:-translate-x-1/2",
+                "md:h-[90vh] md:w-[min(92vw,760px)]",
+                "md:border-l-0 md:border-t md:rounded-t-xl",
+                // Animations - Desktop (from bottom)
+                "md:data-[state=open]:slide-in-from-bottom md:data-[state=closed]:slide-out-to-bottom",
+              ],
           "duration-300 data-[state=closed]:duration-200",
           className
         )}
