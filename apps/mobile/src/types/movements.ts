@@ -21,6 +21,7 @@ export interface Category {
   id: string;
   name: string;
   icon_id: string | null;
+  color?: string | null;
   type?: MovementType | null;
   account_id: string;
 }

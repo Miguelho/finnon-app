@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon — Calendario Heatmap · Grafito & Océano</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+  /* ============================================
+     THEME SYSTEM
+     ============================================ */
+  :root {
+    /* Shared category palette — works on both themes */
+    --cat-1: #D4943A; /* Alimentación — amber */
+    --cat-2: #CB6E55; /* Transporte — terracotta */
+    --cat-3: #9B85D6; /* Suscripciones — lavender */
+    --cat-4: #52B3A3; /* Suministros — teal */
+    --cat-5: #D47A95; /* Ocio — rose */
+    --cat-6: #6AADDB; /* Salud — sky */
+    --cat-7: #B8A054; /* Educación — olive gold */
+    --cat-8: #A0887A; /* Otros — warm grey */
+
+    /* Income */
+    --income: #6DC9A0;
+    --income-bright: #8EDBB5;
+    --income-bg: rgba(109, 201, 160, 0.10);
+
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 24px;
+  }
+
+  /* ---- GRAFITO ---- */
+  [data-theme="grafito"] {
+    --bg: #141413;
+    --surface: #1C1C1B;
+    --surface-alt: #2A2A28;
+    --border: #31312F;
+    --border-subtle: rgba(255,255,255,0.05);
+
+    --text-primary: #EDEBE8;
+    --text-secondary: #908D88;
+    --text-tertiary: #5E5C58;
+
+    /* Heatmap: warm amber */
+    --heat-1: rgba(212, 148, 58, 0.10);
+    --heat-2: rgba(212, 140, 50, 0.20);
+    --heat-3: rgba(215, 130, 42, 0.34);
+    --heat-4: rgba(218, 118, 35, 0.52);
+    --heat-5: rgba(222, 105, 28, 0.70);
+
+    --expense-text: #E0956A;
+    --expense-bg: rgba(224, 149, 106, 0.10);
+
+    --today-ring: rgba(237, 235, 232, 0.45);
+    --today-bg: rgba(255, 255, 255, 0.06);
+    --today-border: rgba(255, 255, 255, 0.12);
+
+    --heat-text-3: #F5E6D8;
+    --heat-text-4: #FFF4EA;
+    --heat-text-5: #FFFFFF;
+  }
+
+  /* ---- OCÉANO ---- */
+  [data-theme="oceano"] {
+    --bg: #0E1A27;
+    --surface: #152334;
+    --surface-alt: #1F3046;
+    --border: #2A415E;
+    --border-subtle: rgba(140, 180, 230, 0.06);
+
+    --text-primary: #E2EAF2;
+    --text-secondary: #7A90A8;
+    --text-tertiary: #4A6280;
+
+    /* Heatmap: coral-to-orange — warm on cool = striking */
+    --heat-1: rgba(220, 140, 100, 0.10);
+    --heat-2: rgba(218, 125, 85, 0.22);
+    --heat-3: rgba(215, 110, 70, 0.36);
+    --heat-4: rgba(212, 95, 55, 0.54);
+    --heat-5: rgba(210, 80, 42, 0.72);
+
+    --expense-text: #E8A07A;
+    --expense-bg: rgba(232, 160, 122, 0.10);
+
+    --today-ring: rgba(226, 234, 242, 0.40);
+    --today-bg: rgba(140, 180, 230, 0.08);
+    --today-border: rgba(140, 180, 230, 0.15);
+
+    --heat-text-3: #F0DDD0;
+    --heat-text-4: #FFF0E6;
+    --heat-text-5: #FFFFFF;
+  }
+
+  /* ============================================
+     BASE
+     ============================================ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #0A0A0A;
+    color: #EEE;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---- Theme switcher ---- */
+  .theme-switcher {
+    display: flex;
+    gap: 4px;
+    background: #1A1A1A;
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 28px;
+    border: 1px solid #2A2A2A;
+  }
+
+  .theme-btn {
+    border: none;
+    padding: 10px 24px;
+    border-radius: 9px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: transparent;
+    color: #666;
+  }
+
+  .theme-btn.active {
+    color: #FFF;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  .theme-btn[data-target="grafito"].active {
+    background: #2A2A28;
+  }
+
+  .theme-btn[data-target="oceano"].active {
+    background: #1F3046;
+  }
+
+  /* ---- Phones container ---- */
+  .phones-row {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .phone-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .phone-label {
+    font-size: 11px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: #555;
+  }
+
+  /* ---- Phone frame ---- */
+  .phone-frame {
+    width: 375px;
+    background: var(--bg);
+    border-radius: 36px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.05),
+      0 30px 80px rgba(0,0,0,0.5);
+    padding: 14px;
+    transition: background 0.4s ease;
+  }
+
+  /* ---- Header ---- */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 4px 16px;
+  }
+
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 17px;
+    letter-spacing: -0.3px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .logo-dot {
+    width: 24px;
+    height: 24px;
+    background: var(--text-primary);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bg);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  /* ---- Balance ---- */
+  .balance-strip {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .bal-card, .sav-card {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    border: 1px solid var(--border-subtle);
+  }
+
+  .bal-card { flex: 1; }
+  .sav-card { flex: 1.4; }
+
+  .bal-label {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 5px;
+  }
+
+  .bal-amount {
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    font-weight: 400;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+  }
+
+  .bal-amount .dec {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .sav-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 7px;
+  }
+
+  .sav-title { font-size: 12px; font-weight: 500; color: var(--text-primary); }
+  .sav-month { font-size: 10px; color: var(--text-tertiary); }
+
+  .sav-bar {
+    height: 5px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 100px;
+    overflow: hidden;
+    display: flex;
+    margin-bottom: 6px;
+  }
+
+  .sav-bar-p { height: 100%; background: var(--income); width: 12%; border-radius: 100px 0 0 100px; }
+  .sav-bar-h { height: 100%; background: var(--cat-1); width: 85%; }
+
+  .sav-details {
+    display: flex;
+    gap: 10px;
+    font-size: 9px;
+    color: var(--text-secondary);
+  }
+
+  .sav-details span { display: flex; align-items: center; gap: 3px; }
+
+  .dot-sm { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ============================================
+     CALENDAR — SHARED
+     ============================================ */
+  .cal-section {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: 16px 12px 14px;
+    border: 1px solid var(--border-subtle);
+    margin-bottom: 12px;
+  }
+
+  .cal-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .v-toggle {
+    display: flex;
+    background: rgba(255,255,255,0.04);
+    border-radius: 7px;
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .v-toggle button {
+    border: none;
+    background: transparent;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 400;
+    color: var(--text-tertiary);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .v-toggle button.active {
+    background: rgba(255,255,255,0.08);
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .period-sel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .period-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    letter-spacing: -0.2px;
+  }
+
+  .period-sel button {
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px;
+    display: flex;
+    transition: color 0.15s;
+  }
+
+  .period-sel button:hover { color: var(--text-primary); }
+
+  /* ---- Weekday headers ---- */
+  .wkdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 4px;
+  }
+
+  .wkday {
+    text-align: center;
+    font-size: 9px;
+    font-weight: 400;
+    color: var(--text-tertiary);
+    padding: 3px 0;
+    letter-spacing: 0.3px;
+  }
+
+  /* ============================================
+     MONTHLY HEATMAP
+     ============================================ */
+  .m-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+  }
+
+  .m-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.2s;
+  }
+
+  .m-cell:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+  }
+
+  .m-cell.outside { opacity: 0.18; }
+
+  .m-cell .num {
+    font-size: 12px;
+    font-weight: 300;
+    color: var(--text-secondary);
+    z-index: 1;
+    line-height: 1;
+  }
+
+  .m-cell.heat-1 { background: var(--heat-1); }
+  .m-cell.heat-2 { background: var(--heat-2); }
+  .m-cell.heat-3 { background: var(--heat-3); }
+  .m-cell.heat-4 { background: var(--heat-4); }
+  .m-cell.heat-5 { background: var(--heat-5); }
+
+  .m-cell.heat-1 .num, .m-cell.heat-2 .num { color: var(--text-primary); font-weight: 400; }
+  .m-cell.heat-3 .num { color: var(--heat-text-3); font-weight: 400; }
+  .m-cell.heat-4 .num { color: var(--heat-text-4); font-weight: 400; }
+  .m-cell.heat-5 .num { color: var(--heat-text-5); font-weight: 500; }
+
+  .m-cell.heat-4, .m-cell.heat-5 {
+    box-shadow: inset 0 0 10px rgba(200, 120, 40, 0.06);
+  }
+
+  .m-cell.has-inc .num {
+    color: var(--income) !important;
+    font-weight: 500 !important;
+  }
+
+  .m-cell.heat-4.has-inc .num,
+  .m-cell.heat-5.has-inc .num {
+    color: var(--income-bright) !important;
+    text-shadow: 0 0 8px rgba(109, 201, 160, 0.25);
+  }
+
+  .m-cell.is-today {
+    box-shadow: inset 0 0 0 1.5px var(--today-ring);
+  }
+
+  .m-cell.is-today .num { font-weight: 500 !important; }
+
+  /* Tooltip */
+  .tip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface-alt);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 10px;
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4), 0 0 0 1px var(--border-subtle);
+  }
+
+  .tip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--surface-alt);
+  }
+
+  .m-cell:hover .tip { display: block; }
+
+  .tip-row { display: flex; justify-content: space-between; gap: 14px; padding: 1px 0; }
+  .tip-label { color: var(--text-secondary); }
+  .tip-exp { color: var(--expense-text); font-weight: 500; }
+  .tip-inc { color: var(--income); font-weight: 500; }
+  .tip-net { border-top: 1px solid var(--border-subtle); padding-top: 4px; margin-top: 3px; font-weight: 500; }
+
+  /* ---- Legend ---- */
+  .m-legend {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .leg-scale {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .leg-lbl {
+    font-size: 9px;
+    color: var(--text-tertiary);
+  }
+
+  .leg-blocks {
+    display: flex;
+    gap: 2px;
+  }
+
+  .leg-block {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+
+  .leg-inc {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    color: var(--text-tertiary);
+  }
+
+  .leg-inc-num {
+    font-weight: 600;
+    color: var(--income);
+    font-size: 11px;
+  }
+
+  /* ============================================
+     WEEKLY — STACKED BARS
+     ============================================ */
+  .w-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+
+  .w-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 0 8px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .w-day:hover { background: rgba(255,255,255,0.03); }
+
+  .w-day.is-today {
+    background: var(--today-bg);
+    box-shadow: inset 0 0 0 1px var(--today-border);
+  }
+
+  .w-day-lbl {
+    font-size: 8px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  .w-day.is-today .w-day-lbl { color: var(--text-secondary); }
+
+  .w-day-num {
+    font-size: 16px;
+    font-weight: 300;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+
+  .w-day.has-inc .w-day-num {
+    color: var(--income);
+    font-weight: 400;
+  }
+
+  .bar-wrap {
+    width: 100%;
+    padding: 0 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-height: 48px;
+    justify-content: flex-end;
+  }
+
+  .stacked-bar {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .bar-seg {
+    width: 100%;
+    min-height: 2px;
+    transition: opacity 0.15s;
+  }
+
+  .w-day:hover .bar-seg { opacity: 0.8; }
+
+  .inc-bar {
+    width: 100%;
+    border-radius: 3px;
+    min-height: 2px;
+    background: var(--income);
+    opacity: 0.5;
+    margin-top: 2px;
+  }
+
+  .day-net-val {
+    font-size: 8px;
+    font-weight: 500;
+    margin-top: 2px;
+    letter-spacing: -0.1px;
+  }
+
+  .day-net-val.neg { color: var(--expense-text); }
+  .day-net-val.pos { color: var(--income); }
+  .day-net-val.zero { color: var(--text-tertiary); }
+
+  /* Category legend */
+  .cat-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px 8px;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-subtle);
+    justify-content: center;
+  }
+
+  .cat-item {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    color: var(--text-tertiary);
+  }
+
+  .cat-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* ---- Summary pills ---- */
+  .pills {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 12px;
+  }
+
+  .pill {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .pill-inc { background: var(--income-bg); color: var(--income); }
+  .pill-exp { background: var(--expense-bg); color: var(--expense-text); }
+  .pill-net {
+    background: rgba(255,255,255,0.04);
+    color: var(--text-primary);
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 12px;
+  }
+
+  .pill-arr { font-size: 9px; }
+
+  /* ---- Transactions ---- */
+  .txns { padding: 2px 4px; }
+
+  .txns-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+  }
+
+  .txns-date { font-size: 11px; font-weight: 500; color: var(--text-primary); }
+  .txns-link { font-size: 10px; color: var(--text-tertiary); text-decoration: none; cursor: pointer; }
+
+  .txn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .txn:last-child { border-bottom: none; }
+
+  .txn-ico {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    background: rgba(255,255,255,0.04);
+    flex-shrink: 0;
+  }
+
+  .txn-info { flex: 1; }
+  .txn-cat { font-size: 12px; font-weight: 500; color: var(--text-primary); }
+  .txn-meta { font-size: 10px; color: var(--text-tertiary); }
+  .txn-amt { font-size: 13px; font-weight: 500; }
+  .txn-neg { color: var(--expense-text); }
+  .txn-pos { color: var(--income); }
+
+  /* ============================================
+     COLOR PALETTE DISPLAY
+     ============================================ */
+  .palette-section {
+    margin-top: 32px;
+    max-width: 800px;
+    width: 100%;
+  }
+
+  .palette-title {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 400;
+    color: #CCC;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  .palette-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .palette-swatch {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 6px;
+    font-size: 8px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    color: rgba(255,255,255,0.8);
+    gap: 2px;
+  }
+
+  .palette-swatch .swatch-hex {
+    font-size: 7px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.5);
+  }
+
+  .palette-note {
+    font-size: 11px;
+    color: #666;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  /* ============================================
+     ANNOTATIONS
+     ============================================ */
+  .notes-section {
+    margin-top: 32px;
+    max-width: 800px;
+    width: 100%;
+    background: #151515;
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    border: 1px solid #2A2A2A;
+  }
+
+  .notes-title {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-weight: 400;
+    color: #DDD;
+    margin-bottom: 16px;
+  }
+
+  .note {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #888;
+  }
+
+  .note:last-child { margin-bottom: 0; }
+
+  .note-sw {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .note strong { color: #CCC; font-weight: 500; }
+
+  @media (max-width: 820px) {
+    .phones-row { flex-direction: column; align-items: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Theme switcher -->
+<div class="theme-switcher">
+  <button class="theme-btn active" data-target="grafito" onclick="setView('grafito')">Grafito</button>
+  <button class="theme-btn" data-target="oceano" onclick="setView('oceano')">Océano</button>
+  <button class="theme-btn" data-target="both" onclick="setView('both')">Ambos</button>
+</div>
+
+<!-- Phones -->
+<div class="phones-row" id="phonesRow">
+  <!-- Filled by JS -->
+</div>
+
+<!-- Category palette -->
+<div class="palette-section">
+  <div class="palette-title">Paleta de categorías (híbrida)</div>
+  <div class="palette-grid">
+    <div class="palette-swatch" style="background: var(--cat-1)">Aliment.<span class="swatch-hex">#D4943A</span></div>
+    <div class="palette-swatch" style="background: var(--cat-2)">Transp.<span class="swatch-hex">#CB6E55</span></div>
+    <div class="palette-swatch" style="background: var(--cat-3)">Suscr.<span class="swatch-hex">#9B85D6</span></div>
+    <div class="palette-swatch" style="background: var(--cat-4)">Sumin.<span class="swatch-hex">#52B3A3</span></div>
+    <div class="palette-swatch" style="background: var(--cat-5)">Ocio<span class="swatch-hex">#D47A95</span></div>
+    <div class="palette-swatch" style="background: var(--cat-6)">Salud<span class="swatch-hex">#6AADDB</span></div>
+    <div class="palette-swatch" style="background: var(--cat-7)">Educ.<span class="swatch-hex">#B8A054</span></div>
+    <div class="palette-swatch" style="background: var(--cat-8)">Otros<span class="swatch-hex">#A0887A</span></div>
+  </div>
+  <div class="palette-note">
+    8 colores predefinidos · se asignan automáticamente al crear categoría · el usuario puede cambiar el color si quiere<br>
+    Diseñados para funcionar sobre Grafito (#141413) y Océano (#0E1A27) con contraste WCAG AA
+  </div>
+</div>
+
+<!-- Design notes -->
+<div class="notes-section">
+  <div class="notes-title">Notas de diseño</div>
+  <div class="note">
+    <div class="note-sw" style="background: linear-gradient(135deg, #D4943A, #CB6E55)"></div>
+    <div><strong>Heatmap adaptado por tema.</strong> Grafito usa ámbar cálido (coherente con su tono neutro-cálido). Océano usa coral-naranja que crea contraste "fuego sobre agua" — cálido sobre frío, llamativo pero no agresivo.</div>
+  </div>
+  <div class="note">
+    <div class="note-sw" style="background: var(--income)"></div>
+    <div><strong>Mint de ingresos universal.</strong> El #6DC9A0 funciona bien sobre ambos fondos: destaca sin chocar con el ámbar (Grafito) ni perderse en el azul (Océano).</div>
+  </div>
+  <div class="note">
+    <div class="note-sw" style="background: #9B85D6"></div>
+    <div><strong>Paleta de categorías neutral-warm.</strong> Mezcla de cálidos (ámbar, terracotta, rose) y fríos (teal, sky, lavender) para máxima distinguibilidad. Ninguno choca con el heatmap porque son tonos medios, no extremos.</div>
+  </div>
+  <div class="note">
+    <div class="note-sw" style="background: #1F3046; border: 1px solid #2A415E;"></div>
+    <div><strong>Elevación por tema.</strong> Cada tema mantiene su propia escala de profundidad (bg → surface → surfaceAlt) con los valores reales de tu sistema. Los bordes son sutiles pero reales (#31312F en Grafito, #2A415E en Océano).</div>
+  </div>
+  <div class="note">
+    <div class="note-sw" style="background: linear-gradient(to bottom, #D4943A 33%, #CB6E55 33% 66%, #52B3A3 66%)"></div>
+    <div><strong>Semanal = en qué gastas. Mensual = cuánto gastas.</strong> Dos historias complementarias. El toggle entre vistas debería sentirse como cambiar de lente, no como zoom.</div>
+  </div>
+</div>
+
+<script>
+  // ============================================
+  // DATA
+  // ============================================
+  const monthData = [
+    { day: 26, outside: true }, { day: 27, outside: true }, { day: 28, outside: true },
+    { day: 29, outside: true }, { day: 30, outside: true }, { day: 31, outside: true },
+    { day: 1,  heat: 1, exp: 18, inc: 0.5 },
+    { day: 2,  heat: 2, exp: 45, inc: 0 },
+    { day: 3,  heat: 3, exp: 120, inc: 0 },
+    { day: 4,  heat: 1, exp: 12, inc: 0.5 },
+    { day: 5,  heat: 2, exp: 55, inc: 0 },
+    { day: 6,  heat: 1, exp: 8, inc: 0 },
+    { day: 7,  heat: 1, exp: 22, inc: 0 },
+    { day: 8,  heat: 0, exp: 0, inc: 0.5 },
+    { day: 9,  heat: 2, exp: 40, inc: 15 },
+    { day: 10, heat: 4, exp: 230, inc: 0 },
+    { day: 11, heat: 1, exp: 15, inc: 0.5 },
+    { day: 12, heat: 0, exp: 0, inc: 0 },
+    { day: 13, heat: 1, exp: 25, inc: 0 },
+    { day: 14, heat: 3, exp: 95, inc: 0 },
+    { day: 15, heat: 5, exp: 340, inc: 2000 },
+    { day: 16, heat: 0, exp: 0, inc: 0 },
+    { day: 17, heat: 1, exp: 10, inc: 0 },
+    { day: 18, heat: 2, exp: 62, inc: 0 },
+    { day: 19, heat: 0, exp: 0, inc: 0 },
+    { day: 20, heat: 1, exp: 30, inc: 0.5 },
+    { day: 21, heat: 3, exp: 110, inc: 0 },
+    { day: 22, heat: 1, exp: 18, inc: 0 },
+    { day: 23, heat: 0, exp: 0, inc: 0 },
+    { day: 24, heat: 1, exp: 22, inc: 0 },
+    { day: 25, heat: 2, exp: 48, inc: 25 },
+    { day: 26, heat: 1, exp: 17, inc: 0 },
+    { day: 27, heat: 0, exp: 0, inc: 0 },
+    { day: 28, heat: 3, exp: 127, inc: 15, today: true },
+    { day: 1,  outside: true },
+  ];
+
+  const catColors = ['--cat-1','--cat-2','--cat-3','--cat-4','--cat-5','--cat-6','--cat-7','--cat-8'];
+  const catNames = ['Alimentación','Transporte','Suscripciones','Suministros','Ocio','Salud','Educación','Otros'];
+
+  const weekData = [
+    { lbl:'LUN', day:23, inc:0, cats:[], net:0 },
+    { lbl:'MAR', day:24, inc:0.5, cats:[{c:0,a:22}], net:-21.5 },
+    { lbl:'MIÉ', day:25, inc:0, cats:[{c:0,a:15},{c:2,a:17.99},{c:4,a:15}], net:-47.99 },
+    { lbl:'JUE', day:26, inc:0, cats:[{c:1,a:12},{c:0,a:5}], net:-17 },
+    { lbl:'VIE', day:27, inc:0.5, cats:[], net:0.5 },
+    { lbl:'SÁB', day:28, inc:15, cats:[{c:0,a:92},{c:3,a:35}], net:-112, today:true },
+    { lbl:'DOM', day:1, inc:0, cats:[], net:0 },
+  ];
+
+  const maxExp = Math.max(...weekData.map(d => d.cats.reduce((s,c) => s+c.a, 0)), 1);
+  const maxBar = 44;
+
+  // ============================================
+  // BUILD PHONE
+  // ============================================
+  function buildPhone(theme, viewType) {
+    const isMonthly = viewType === 'month';
+
+    let html = `<div class="phone-frame" data-theme="${theme}">`;
+
+    // Header
+    html += `
+      <div class="header">
+        <div class="logo"><div class="logo-dot">F</div> Finnon</div>
+        <div class="avatar">AG</div>
+      </div>`;
+
+    // Balance
+    html += `
+      <div class="balance-strip">
+        <div class="bal-card">
+          <div class="bal-label">Balance</div>
+          <div class="bal-amount">€1.262<span class="dec">,07</span></div>
+        </div>
+        <div class="sav-card">
+          <div class="sav-header">
+            <span class="sav-title">Ahorro</span>
+            <span class="sav-month">Feb 2026 ›</span>
+          </div>
+          <div class="sav-bar"><div class="sav-bar-p"></div><div class="sav-bar-h"></div></div>
+          <div class="sav-details">
+            <span><div class="dot-sm" style="background:var(--income)"></div> Proy. €150</span>
+            <span><div class="dot-sm" style="background:var(--cat-1)"></div> Hucha €1.112</span>
+          </div>
+        </div>
+      </div>`;
+
+    // Calendar section
+    html += `<div class="cal-section">`;
+
+    // Nav
+    html += `
+      <div class="cal-nav">
+        <div class="v-toggle">
+          <button class="${!isMonthly ? 'active' : ''}">Semana</button>
+          <button class="${isMonthly ? 'active' : ''}">Mes</button>
+        </div>
+        <div class="period-sel">
+          <button>‹</button>
+          <span class="period-label">${isMonthly ? 'Febrero 2026' : '23 feb – 1 mar'}</span>
+          <button>›</button>
+        </div>
+      </div>`;
+
+    if (isMonthly) {
+      // Weekday headers
+      html += `<div class="wkdays">`;
+      ['L','M','X','J','V','S','D'].forEach(d => html += `<div class="wkday">${d}</div>`);
+      html += `</div>`;
+
+      // Month grid
+      html += `<div class="m-grid">`;
+      monthData.forEach(d => {
+        let cls = 'm-cell';
+        if (d.outside) { cls += ' outside'; html += `<div class="${cls}"><span class="num">${d.day}</span></div>`; return; }
+        if (d.heat > 0) cls += ` heat-${d.heat}`;
+        if (d.inc > 0) cls += ' has-inc';
+        if (d.today) cls += ' is-today';
+
+        let tip = '';
+        if (d.exp > 0 || d.inc > 0) {
+          const net = (d.inc||0)-(d.exp||0);
+          const ns = net >= 0 ? '+' : '−';
+          tip = `<div class="tip">
+            ${d.exp>0 ? `<div class="tip-row"><span class="tip-label">Gasto</span><span class="tip-exp">−€${d.exp.toFixed(2)}</span></div>` : ''}
+            ${d.inc>0 ? `<div class="tip-row"><span class="tip-label">Ingreso</span><span class="tip-inc">+€${d.inc.toFixed(2)}</span></div>` : ''}
+            <div class="tip-row tip-net"><span class="tip-label">Neto</span><span>${ns}€${Math.abs(net).toFixed(2)}</span></div>
+          </div>`;
+        }
+
+        html += `<div class="${cls}"><span class="num">${d.day}</span>${tip}</div>`;
+      });
+      html += `</div>`;
+
+      // Legend
+      html += `
+        <div class="m-legend">
+          <div class="leg-scale">
+            <span class="leg-lbl">Menos</span>
+            <div class="leg-blocks">
+              <div class="leg-block" style="background:rgba(255,255,255,0.04)"></div>
+              <div class="leg-block" style="background:var(--heat-1)"></div>
+              <div class="leg-block" style="background:var(--heat-2)"></div>
+              <div class="leg-block" style="background:var(--heat-3)"></div>
+              <div class="leg-block" style="background:var(--heat-4)"></div>
+              <div class="leg-block" style="background:var(--heat-5)"></div>
+            </div>
+            <span class="leg-lbl">Más gasto</span>
+          </div>
+          <div class="leg-inc"><span class="leg-inc-num">5</span> = ingreso</div>
+        </div>`;
+
+      // Pills
+      html += `
+        <div class="pills">
+          <div class="pill pill-inc"><span class="pill-arr">↑</span> €4.059</div>
+          <div class="pill pill-exp"><span class="pill-arr">↓</span> €2.787</div>
+          <div class="pill pill-net">= €1.262</div>
+        </div>`;
+
+    } else {
+      // Weekly view
+      html += `<div class="w-grid">`;
+      weekData.forEach(d => {
+        let cls = 'w-day';
+        if (d.today) cls += ' is-today';
+        if (d.inc > 1) cls += ' has-inc';
+
+        html += `<div class="${cls}">`;
+        html += `<div class="w-day-lbl">${d.lbl}</div>`;
+        html += `<div class="w-day-num">${d.day}</div>`;
+
+        html += `<div class="bar-wrap">`;
+        const totalExp = d.cats.reduce((s,c)=>s+c.a,0);
+        if (totalExp > 0) {
+          const bh = (totalExp/maxExp)*maxBar;
+          html += `<div class="stacked-bar" style="height:${bh}px">`;
+          d.cats.forEach(c => {
+            const sh = (c.a/totalExp)*100;
+            html += `<div class="bar-seg" style="height:${sh}%;background:var(${catColors[c.c]})"></div>`;
+          });
+          html += `</div>`;
+        }
+        if (d.inc > 0) {
+          const ih = Math.max((d.inc/maxExp)*maxBar, 3);
+          html += `<div class="inc-bar" style="height:${ih}px"></div>`;
+        }
+        html += `</div>`;
+
+        // Net
+        let ncls = 'day-net-val';
+        let ntext = '—';
+        if (d.net === 0) { ncls += ' zero'; }
+        else if (d.net < 0) { ncls += ' neg'; ntext = `−€${Math.abs(d.net).toFixed(0)}`; }
+        else { ncls += ' pos'; ntext = `+€${d.net.toFixed(0)}`; }
+        html += `<div class="${ncls}">${ntext}</div>`;
+
+        html += `</div>`;
+      });
+      html += `</div>`;
+
+      // Cat legend
+      html += `<div class="cat-legend">`;
+      [0,1,2,3,4].forEach(i => {
+        html += `<div class="cat-item"><div class="cat-dot" style="background:var(${catColors[i]})"></div> ${catNames[i]}</div>`;
+      });
+      html += `<div class="cat-item"><div class="cat-dot" style="background:var(--income)"></div> Ingreso</div>`;
+      html += `</div>`;
+
+      // Pills
+      html += `
+        <div class="pills">
+          <div class="pill pill-inc"><span class="pill-arr">↑</span> €16</div>
+          <div class="pill pill-exp"><span class="pill-arr">↓</span> €197</div>
+          <div class="pill pill-net">= −€181</div>
+        </div>`;
+    }
+
+    html += `</div>`; // cal-section
+
+    // Transactions
+    html += `
+      <div class="txns">
+        <div class="txns-head">
+          <span class="txns-date">Sáb, 28 de febrero</span>
+          <span class="txns-link">Ver todos →</span>
+        </div>
+        <div class="txn">
+          <div class="txn-ico">🛒</div>
+          <div class="txn-info"><div class="txn-cat">Alimentación</div><div class="txn-meta">AG · x1</div></div>
+          <div class="txn-amt txn-neg">−€92</div>
+        </div>
+        <div class="txn">
+          <div class="txn-ico">📸</div>
+          <div class="txn-info"><div class="txn-cat">Venta de fotos</div><div class="txn-meta">AG · x1</div></div>
+          <div class="txn-amt txn-pos">+€15</div>
+        </div>
+      </div>`;
+
+    html += `</div>`; // phone-frame
+    return html;
+  }
+
+  // ============================================
+  // VIEW CONTROL
+  // ============================================
+  function setView(mode) {
+    const row = document.getElementById('phonesRow');
+    document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.theme-btn[data-target="${mode}"]`).classList.add('active');
+
+    if (mode === 'both') {
+      row.innerHTML = `
+        <div class="phone-col">
+          <div class="phone-label">Grafito · Mensual</div>
+          ${buildPhone('grafito','month')}
+        </div>
+        <div class="phone-col">
+          <div class="phone-label">Océano · Mensual</div>
+          ${buildPhone('oceano','month')}
+        </div>
+      `;
+    } else {
+      row.innerHTML = `
+        <div class="phone-col">
+          <div class="phone-label">${mode === 'grafito' ? 'Grafito' : 'Océano'} · Mensual</div>
+          ${buildPhone(mode,'month')}
+        </div>
+        <div class="phone-col">
+          <div class="phone-label">${mode === 'grafito' ? 'Grafito' : 'Océano'} · Semanal</div>
+          ${buildPhone(mode,'week')}
+        </div>
+      `;
+    }
+  }
+
+  // Init
+  setView('grafito');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon — Paleta de Proyectos</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Project palette — cool & optimistic */
+    --proj-0: #5B9FE4; /* Sky blue */
+    --proj-1: #6DC9A0; /* Mint (same as income — default for first project) */
+    --proj-2: #9B85D6; /* Lavender */
+    --proj-3: #52B3B3; /* Teal */
+    --proj-4: #7AB8E0; /* Soft blue */
+    --proj-5: #82C9C0; /* Seafoam */
+    --proj-6: #B094E0; /* Soft purple */
+    --proj-7: #5ECBA1; /* Emerald mint */
+
+    /* Hucha — fixed */
+    --hucha: #6DC9A0;
+
+    /* Category palette (for comparison) */
+    --cat-0: #D4943A;
+    --cat-1: #CB6E55;
+    --cat-2: #9B85D6;
+    --cat-3: #52B3A3;
+    --cat-4: #D47A95;
+    --cat-5: #6AADDB;
+    --cat-6: #B8A054;
+    --cat-7: #A0887A;
+
+    /* Themes */
+    --grafito-bg: #141413;
+    --grafito-surface: #1C1C1B;
+    --grafito-border: #31312F;
+    --grafito-text: #EDEBE8;
+    --grafito-text2: #908D88;
+    --grafito-text3: #5E5C58;
+    --grafito-ring-track: rgba(255,255,255,0.06);
+
+    --oceano-bg: #0E1A27;
+    --oceano-surface: #152334;
+    --oceano-border: #2A415E;
+    --oceano-text: #E2EAF2;
+    --oceano-text2: #7A90A8;
+    --oceano-text3: #4A6280;
+    --oceano-ring-track: rgba(140,180,230,0.08);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #0A0A0A;
+    color: #EEE;
+    padding: 40px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 24px;
+    font-weight: 400;
+    margin-bottom: 8px;
+    color: #FFF;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 40px;
+    text-align: center;
+    max-width: 500px;
+    line-height: 1.6;
+  }
+
+  /* Section */
+  .section {
+    max-width: 800px;
+    width: 100%;
+    margin-bottom: 48px;
+  }
+
+  .section-title {
+    font-size: 11px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 16px;
+  }
+
+  /* Palette grid */
+  .palette-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .swatch {
+    flex: 1;
+    border-radius: 14px;
+    padding: 16px 10px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .swatch-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+  }
+
+  .swatch-name {
+    font-size: 10px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.85);
+    text-align: center;
+  }
+
+  .swatch-hex {
+    font-size: 9px;
+    color: rgba(255,255,255,0.45);
+    font-family: monospace;
+  }
+
+  .swatch-index {
+    font-size: 8px;
+    color: rgba(255,255,255,0.3);
+    font-weight: 600;
+  }
+
+  /* Ring previews */
+  .rings-section {
+    display: flex;
+    gap: 16px;
+  }
+
+  .theme-card {
+    flex: 1;
+    border-radius: 20px;
+    padding: 24px;
+    border: 1px solid;
+  }
+
+  .theme-card.grafito {
+    background: var(--grafito-surface);
+    border-color: var(--grafito-border);
+  }
+
+  .theme-card.oceano {
+    background: var(--oceano-surface);
+    border-color: var(--oceano-border);
+  }
+
+  .theme-label {
+    font-size: 10px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+
+  .theme-card.grafito .theme-label { color: var(--grafito-text3); }
+  .theme-card.oceano .theme-label { color: var(--oceano-text3); }
+
+  /* Project rows inside cards */
+  .proj-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid;
+  }
+
+  .theme-card.grafito .proj-row { border-color: rgba(255,255,255,0.05); }
+  .theme-card.oceano .proj-row { border-color: rgba(140,180,230,0.06); }
+
+  .proj-row:last-child { border-bottom: none; }
+
+  .ring-container {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+  }
+
+  .ring-container svg {
+    width: 40px;
+    height: 40px;
+    transform: rotate(-90deg);
+  }
+
+  .ring-container .emoji {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 14px;
+  }
+
+  .ring-container.done .progress-circle {
+    filter: drop-shadow(0 0 5px var(--glow));
+  }
+
+  .ring-container.done::after {
+    content: '✓';
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 14px;
+    height: 14px;
+    background: var(--hucha);
+    border-radius: 50%;
+    font-size: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  .theme-card.grafito .ring-container.done::after { color: var(--grafito-bg); }
+  .theme-card.oceano .ring-container.done::after { color: var(--oceano-bg); }
+
+  .proj-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .proj-name {
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .theme-card.grafito .proj-name { color: var(--grafito-text); }
+  .theme-card.oceano .proj-name { color: var(--oceano-text); }
+
+  .proj-progress {
+    font-size: 11px;
+  }
+
+  .theme-card.grafito .proj-progress { color: var(--grafito-text2); }
+  .theme-card.oceano .proj-progress { color: var(--oceano-text2); }
+
+  .proj-pct {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  /* Hucha row */
+  .hucha-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid;
+    font-size: 11px;
+  }
+
+  .theme-card.grafito .hucha-row { border-color: rgba(255,255,255,0.05); color: var(--grafito-text2); }
+  .theme-card.oceano .hucha-row { border-color: rgba(140,180,230,0.06); color: var(--oceano-text2); }
+
+  .hucha-amt {
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--hucha);
+  }
+
+  /* Comparison */
+  .comparison-row {
+    display: flex;
+    gap: 16px;
+  }
+
+  .comp-card {
+    flex: 1;
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid #2A2A2A;
+    background: #151515;
+  }
+
+  .comp-title {
+    font-size: 10px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 14px;
+  }
+
+  .comp-dots {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .comp-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 7px;
+    color: rgba(255,255,255,0.6);
+    font-weight: 500;
+  }
+
+  /* Notes */
+  .notes {
+    max-width: 800px;
+    width: 100%;
+    background: #151515;
+    border-radius: 20px;
+    padding: 24px;
+    border: 1px solid #2A2A2A;
+  }
+
+  .notes h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-weight: 400;
+    color: #DDD;
+    margin-bottom: 16px;
+  }
+
+  .nt {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #888;
+  }
+  .nt:last-child { margin-bottom: 0; }
+  .nt strong { color: #CCC; font-weight: 500; }
+  .nt-s { width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0; margin-top: 2px; }
+
+  @media (max-width: 700px) {
+    .rings-section, .comparison-row { flex-direction: column; }
+    .palette-row { flex-wrap: wrap; }
+    .swatch { min-width: 70px; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Paleta de Proyectos</h1>
+<p class="subtitle">Tonos fríos y optimistas para metas de ahorro. Separada de la paleta de categorías (gastos). La Hucha tiene color fijo: mint #6DC9A0.</p>
+
+<!-- Palette swatches -->
+<div class="section">
+  <div class="section-title">Paleta de proyectos — 8 colores</div>
+  <div class="palette-row">
+    <div class="swatch" style="background: var(--proj-0)">
+      <div class="swatch-index">0</div>
+      <div class="swatch-name">Sky Blue</div>
+      <div class="swatch-hex">#5B9FE4</div>
+    </div>
+    <div class="swatch" style="background: var(--proj-1)">
+      <div class="swatch-index">1</div>
+      <div class="swatch-name">Mint</div>
+      <div class="swatch-hex">#6DC9A0</div>
+    </div>
+    <div class="swatch" style="background: var(--proj-2)">
+      <div class="swatch-index">2</div>
+      <div class="swatch-name">Lavender</div>
+      <div class="swatch-hex">#9B85D6</div>
+    </div>
+    <div class="swatch" style="background: var(--proj-3)">
+      <div class="swatch-index">3</div>
+      <div class="swatch-name">Teal</div>
+      <div class="swatch-hex">#52B3B3</div>
+    </div>
+    <div class="swatch" style="background: var(--proj-4)">
+      <div class="swatch-index">4</div>
+      <div class="swatch-name">Soft Blue</div>
+      <div class="swatch-hex">#7AB8E0</div>
+    </div>
+    <div class="swatch" style="background: var(--proj-5)">
+      <div class="swatch-index">5</div>
+      <div class="swatch-name">Seafoam</div>
+      <div class="swatch-hex">#82C9C0</div>
+    </div>
+    <div class="swatch" style="background: var(--proj-6)">
+      <div class="swatch-index">6</div>
+      <div class="swatch-name">Soft Purple</div>
+      <div class="swatch-hex">#B094E0</div>
+    </div>
+    <div class="swatch" style="background: var(--proj-7)">
+      <div class="swatch-index">7</div>
+      <div class="swatch-name">Emerald</div>
+      <div class="swatch-hex">#5ECBA1</div>
+    </div>
+  </div>
+</div>
+
+<!-- Ring previews on both themes -->
+<div class="section">
+  <div class="section-title">Preview en ambos temas</div>
+  <div class="rings-section" id="ringsSection"></div>
+</div>
+
+<!-- Comparison: projects vs categories -->
+<div class="section">
+  <div class="section-title">Proyectos vs Categorías — dos mundos</div>
+  <div class="comparison-row">
+    <div class="comp-card">
+      <div class="comp-title">Proyectos (metas · frío)</div>
+      <div class="comp-dots">
+        <div class="comp-dot" style="background:var(--proj-0)">0</div>
+        <div class="comp-dot" style="background:var(--proj-1)">1</div>
+        <div class="comp-dot" style="background:var(--proj-2)">2</div>
+        <div class="comp-dot" style="background:var(--proj-3)">3</div>
+        <div class="comp-dot" style="background:var(--proj-4)">4</div>
+        <div class="comp-dot" style="background:var(--proj-5)">5</div>
+        <div class="comp-dot" style="background:var(--proj-6)">6</div>
+        <div class="comp-dot" style="background:var(--proj-7)">7</div>
+      </div>
+    </div>
+    <div class="comp-card">
+      <div class="comp-title">Categorías (gastos · cálido)</div>
+      <div class="comp-dots">
+        <div class="comp-dot" style="background:var(--cat-0)">0</div>
+        <div class="comp-dot" style="background:var(--cat-1)">1</div>
+        <div class="comp-dot" style="background:var(--cat-2)">2</div>
+        <div class="comp-dot" style="background:var(--cat-3)">3</div>
+        <div class="comp-dot" style="background:var(--cat-4)">4</div>
+        <div class="comp-dot" style="background:var(--cat-5)">5</div>
+        <div class="comp-dot" style="background:var(--cat-6)">6</div>
+        <div class="comp-dot" style="background:var(--cat-7)">7</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Notes -->
+<div class="notes">
+  <h3>Notas de diseño</h3>
+  <div class="nt">
+    <div class="nt-s" style="background: linear-gradient(135deg, var(--proj-0), var(--proj-3))"></div>
+    <div><strong>Temperatura emocional.</strong> Proyectos = tonos fríos (azules, verdes, lavandas) → aspiración, calma, crecimiento. Categorías = tonos cálidos (ámbar, terracotta, rosa) → gasto, actividad, urgencia. El usuario siente la diferencia sin pensarlo.</div>
+  </div>
+  <div class="nt">
+    <div class="nt-s" style="background: var(--hucha)"></div>
+    <div><strong>Hucha = mint fijo (#6DC9A0).</strong> No cambia, no se asigna. Es el color de "ingreso" y "ahorro positivo" en todo Finnon. La Hucha siempre se distingue de los proyectos porque no tiene anillo — es una línea de texto con 🐷.</div>
+  </div>
+  <div class="nt">
+    <div class="nt-s" style="background: var(--proj-2)"></div>
+    <div><strong>Lavender compartido.</strong> #9B85D6 aparece en ambas paletas (Suscripciones en categorías, Lavender en proyectos). Esto es intencional — el lavanda es neutral (ni frío ni cálido) y funciona en ambos contextos. No habrá confusión porque nunca se muestran juntos en el mismo componente.</div>
+  </div>
+  <div class="nt">
+    <div class="nt-s" style="background: #1C1C1B; border: 1px solid #31312F"></div>
+    <div><strong>Asignación automática.</strong> Misma lógica que categorías: se asigna el siguiente color libre de la paleta por orden de creación. El usuario puede cambiar desde la edición del proyecto. Primer proyecto → Sky Blue (#5B9FE4) por defecto.</div>
+  </div>
+  <div class="nt">
+    <div class="nt-s" style="background: var(--proj-0); border-radius: 50%;"></div>
+    <div><strong>Glow al completar.</strong> Cuando un proyecto llega al 100%, su anillo emite un drop-shadow con el mismo color del proyecto (no mint). El badge ✓ sí es mint — refuerza "meta alcanzada = ingreso psicológico".</div>
+  </div>
+</div>
+
+<script>
+  const projectsDemo = [
+    { emoji: '💻', name: 'Macbook', cur: 300, goal: 1400, colorIdx: 0 },
+    { emoji: '✈️', name: 'Japón', cur: 800, goal: 800, colorIdx: 1 },
+    { emoji: '🏠', name: 'Entrada piso', cur: 2400, goal: 10000, colorIdx: 2 },
+    { emoji: '📚', name: 'Máster', cur: 500, goal: 3000, colorIdx: 3 },
+  ];
+
+  const projColors = ['#5B9FE4','#6DC9A0','#9B85D6','#52B3B3','#7AB8E0','#82C9C0','#B094E0','#5ECBA1'];
+
+  function buildThemeCard(themeClass, trackColor, textColor, text2Color) {
+    let html = `<div class="theme-card ${themeClass}">
+      <div class="theme-label">${themeClass === 'grafito' ? 'Grafito' : 'Océano'}</div>`;
+
+    projectsDemo.forEach(p => {
+      const pct = p.cur / p.goal;
+      const done = pct >= 1;
+      const color = projColors[p.colorIdx];
+      const r = 16;
+      const circ = 2 * Math.PI * r;
+      const offset = circ * (1 - Math.min(pct, 1));
+
+      html += `<div class="proj-row">
+        <div class="ring-container${done ? ' done' : ''}" style="--glow:${color}">
+          <svg>
+            <circle cx="20" cy="20" r="${r}" fill="none" stroke="${trackColor}" stroke-width="3.5"/>
+            <circle class="progress-circle" cx="20" cy="20" r="${r}" fill="none" stroke="${color}" stroke-width="3.5"
+              stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"/>
+          </svg>
+          <div class="emoji">${p.emoji}</div>
+        </div>
+        <div class="proj-info">
+          <div class="proj-name">${p.name}</div>
+          <div class="proj-progress">€${p.cur.toLocaleString('es')} de €${p.goal.toLocaleString('es')}</div>
+        </div>
+        <div class="proj-pct" style="color:${color}">${done ? '✓' : Math.round(pct * 100) + '%'}</div>
+      </div>`;
+    });
+
+    html += `<div class="hucha-row">
+      <span style="font-size:14px">🐷</span>
+      Hucha
+      <span class="hucha-amt" style="margin-left:auto">€3.498,10</span>
+    </div>`;
+
+    html += `</div>`;
+    return html;
+  }
+
+  document.getElementById('ringsSection').innerHTML =
+    buildThemeCard('grafito', 'rgba(255,255,255,0.06)', '#EDEBE8', '#908D88') +
+    buildThemeCard('oceano', 'rgba(140,180,230,0.08)', '#E2EAF2', '#7A90A8');
+</script>
+
+</body>
+</html>

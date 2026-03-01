@@ -4,10 +4,14 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
+  assignProjectColor,
+  buildProjectColorMap,
   formatMonthLabel,
   computeProjectProgress,
   formatMoneyWithSymbol,
+  getProjectColor,
   getHuchaStats,
+  HUCHA_PROJECT_COLOR,
   getMonthlyProjectCommitmentTotal,
   parseMoneyToMinor,
   toMonthKey,
@@ -15,6 +19,7 @@ import {
   type ProjectContribution,
   type UserRole,
 } from "@poleursus/shared";
+import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useWebDataCache } from "@/cache/WebDataCacheProvider";
 import { PageContainer } from "@/components/layout/page-container";
@@ -149,6 +154,7 @@ export function ProjectsClient({
     () => projects.filter((project) => !project.is_hucha),
     [projects]
   );
+  const projectColorMap = useMemo(() => buildProjectColorMap(projects), [projects]);
 
   const huchaStats = useMemo(
     () =>
@@ -204,6 +210,9 @@ export function ProjectsClient({
 
     setIsCreating(true);
     setCreateError(null);
+    const nextColor = assignProjectColor(
+      projects.filter((project) => !project.is_hucha)
+    );
 
     try {
       const { data, error } = await supabase
@@ -212,6 +221,7 @@ export function ProjectsClient({
           account_id: accountId,
           name: trimmedName,
           emoji: emojiInput.trim() || DEFAULT_EMOJI,
+          color: nextColor,
           is_hucha: false,
           target_amount_base_minor: String(parsedTarget),
           priority: safePriority,
@@ -257,9 +267,13 @@ export function ProjectsClient({
       {huchaProject ? (
         <Link
           href={`/projects/${huchaProject.id}`}
-          className="block overflow-hidden rounded-xl border border-orange-500/35 bg-card transition-colors hover:bg-muted/30"
+          className="block overflow-hidden rounded-xl border bg-card transition-colors hover:bg-muted/30"
+          style={{ borderColor: "rgba(109, 201, 160, 0.45)" }}
         >
-          <div className="h-1.5 w-full bg-gradient-to-r from-[#fb923c] to-[#f472b6]" />
+          <div
+            className="h-1.5 w-full"
+            style={{ background: "linear-gradient(90deg, #6DC9A0, #5ECBA1)" }}
+          />
           <div className="space-y-3 p-4">
             <div className="flex min-w-0 items-start justify-between gap-4">
               <div className="min-w-0">
@@ -271,7 +285,10 @@ export function ProjectsClient({
                 </p>
               </div>
               <div className="min-w-0 text-right">
-                <p className="break-all text-base font-semibold leading-tight text-orange-400">
+                <p
+                  className="break-all text-base font-semibold leading-tight"
+                  style={{ color: HUCHA_PROJECT_COLOR }}
+                >
                   {formatMoneyWithSymbol(huchaStats.accumulatedMinor, baseCurrency, currencySymbol)}
                 </p>
                 <p className="text-xs text-muted-foreground">{tProjects("hucha.accumulated")}</p>
@@ -280,7 +297,7 @@ export function ProjectsClient({
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">{tProjects("hucha.thisMonth")}</p>
-                <p className="break-all font-semibold text-emerald-500">
+                <p className="break-all font-semibold" style={{ color: HUCHA_PROJECT_COLOR }}>
                   +
                   {formatMoneyWithSymbol(
                     huchaStats.currentMonthContributionMinor,
@@ -291,7 +308,7 @@ export function ProjectsClient({
               </div>
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">{tProjects("hucha.monthlyAverage")}</p>
-                <p className="break-all font-semibold">
+                <p className="break-all font-semibold" style={{ color: HUCHA_PROJECT_COLOR }}>
                   {formatMoneyWithSymbol(huchaStats.averageMinor, baseCurrency, currencySymbol)}
                 </p>
               </div>
@@ -347,6 +364,7 @@ export function ProjectsClient({
       ) : (
         <div className="grid gap-3">
           {activeProjects.map((project) => {
+            const projectColor = getProjectColor(project, projectColorMap);
             const progress = computeProjectProgress({
               project,
               contributions: contributionsByProject.get(project.id) ?? [],
@@ -364,6 +382,7 @@ export function ProjectsClient({
                       progress={progress.progressRatio}
                       size={78}
                       strokeWidth={7}
+                      progressColor={projectColor}
                       center={
                         <span className="text-2xl leading-none">
                           {project.emoji || DEFAULT_EMOJI}
@@ -388,7 +407,7 @@ export function ProjectsClient({
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold">
+                    <p className="text-sm font-semibold" style={{ color: projectColor }}>
                       {Math.round(progress.progressRatio * 100)}%
                     </p>
                     {progress.monthsLeft !== null && progress.estimatedCompletionDate ? (
@@ -409,8 +428,11 @@ export function ProjectsClient({
         </div>
       )}
 
-      <Card>
-        <CardContent className="flex items-center justify-between gap-2 p-4">
+      <Link
+        href="/savings"
+        className="block rounded-xl border bg-card p-4 transition-colors hover:bg-muted/30"
+      >
+        <div className="flex items-center justify-between gap-2">
           <div>
             <p className="text-sm text-muted-foreground">{tProjects("totalCommitment")}</p>
             <p className="text-2xl font-semibold">
@@ -420,8 +442,9 @@ export function ProjectsClient({
               </span>
             </p>
           </div>
-        </CardContent>
-      </Card>
+          <ChevronRight className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+        </div>
+      </Link>
 
       <SlidePanel open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <SlidePanelContent>

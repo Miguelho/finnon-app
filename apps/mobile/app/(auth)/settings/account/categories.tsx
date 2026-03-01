@@ -17,6 +17,7 @@ import { useCopy, t } from "../../../../src/lib/i18n";
 import { supabase } from "../../../../src/lib/supabase";
 import { CategoryIcon } from "../../../../src/components/CategoryIcon";
 import {
+  normalizeHexColor,
   resolveCategoryIconKey,
   themeTokens,
   type CategoryType,
@@ -27,6 +28,7 @@ type CategoryRow = {
   account_id: string;
   name: string;
   icon_id: string;
+  color?: string | null;
   type: CategoryType;
   created_at: string;
 };
@@ -97,9 +99,9 @@ export default function AccountCategoriesSettingsScreen() {
   };
 
   const loadCategories = async (accountId: string) => {
-    const { data, error: categoryError } = await supabase
+  const { data, error: categoryError } = await supabase
       .from("categories")
-      .select("id, account_id, name, icon_id, type, created_at")
+      .select("id, account_id, name, icon_id, color, type, created_at")
       .eq("account_id", accountId)
       .order("name", { ascending: true });
 
@@ -208,7 +210,6 @@ export default function AccountCategoriesSettingsScreen() {
     const toneColor = isExpense
       ? themeTokens[resolvedMode].colors.state.negative
       : themeTokens[resolvedMode].colors.state.positive;
-    const toneBg = withAlpha(toneColor, resolvedMode === "dark" ? 0.2 : 0.12);
     const emptyCopy = canEdit
       ? isExpense
         ? t(dictionary, "categories.emptyExpense")
@@ -250,10 +251,15 @@ export default function AccountCategoriesSettingsScreen() {
           ) : (
             sectionCategories.map((category, index) => {
               const showDivider = canEdit || index < sectionCategories.length - 1;
+              const categoryToneColor = normalizeHexColor(category.color) ?? toneColor;
+              const categoryToneBg = withAlpha(
+                categoryToneColor,
+                resolvedMode === "dark" ? 0.2 : 0.12
+              );
 
               const rowContent = (
                 <View style={styles.categoryMain}>
-                  <View style={[styles.iconBadge, { backgroundColor: toneBg }]}>
+                  <View style={[styles.iconBadge, { backgroundColor: categoryToneBg }]}>
                     <CategoryIcon
                       iconKey={resolveCategoryIconKey(category.icon_id)}
                       size={16}

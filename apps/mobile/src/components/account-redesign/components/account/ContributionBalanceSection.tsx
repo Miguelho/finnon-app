@@ -14,7 +14,7 @@ import type {
   ContributionCategorySummary,
 } from "../../types/account";
 import { formatCurrency } from "../../utils/currency";
-import { colors, spacing, typography, radii } from "../../theme/tokens";
+import { spacing, typography, radii } from "../../theme/tokens";
 import { CategoryIcon } from "../../../CategoryIcon";
 
 const DEFAULT_VISIBLE_CATEGORIES = 2;
@@ -111,7 +111,7 @@ export function ContributionBalanceSection({
               <CategoryIcon
                 iconKey={(category.iconId ?? "Tag") as any}
                 size={16}
-                tone={type === "expense" ? "negative" : "positive"}
+                tone="primary"
               />
             </View>
 
@@ -129,7 +129,7 @@ export function ContributionBalanceSection({
             <Text
               style={[
                 styles.total,
-                type === "expense" ? styles.totalExpense : styles.totalIncome,
+                { color: userTokens.textPrimary },
               ]}
             >
               {formattedTotal}
@@ -337,12 +337,6 @@ const styles = StyleSheet.create({
   total: {
     fontSize: typography.size.md,
     fontFamily: typography.family.monoMedium,
-  },
-  totalExpense: {
-    color: colors.expense,
-  },
-  totalIncome: {
-    color: colors.income,
   },
   row2: {
     flexDirection: "row",

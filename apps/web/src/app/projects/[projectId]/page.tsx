@@ -58,6 +58,11 @@ export default async function ProjectDetailPage({
     redirect("/projects");
   }
 
+  const { data: accountProjectsForColor } = await supabase
+    .from("projects")
+    .select("id, color, is_hucha, created_at")
+    .eq("account_id", activeAccount.id);
+
   const { data: contributions } = await supabase
     .from("project_contributions")
     .select("*")
@@ -101,6 +106,7 @@ export default async function ProjectDetailPage({
         baseCurrency={activeAccount.base_currency}
         currencySymbol={currencySymbol}
         initialProject={project}
+        accountProjectsForColor={accountProjectsForColor ?? []}
         initialContributions={contributions ?? []}
         recurringExpenses={recurringExpenses ?? []}
         userLabels={userLabels}

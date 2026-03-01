@@ -10,7 +10,10 @@ import {
   getUserAvatarColor,
   getDictionary,
   getMinorUnits,
+  getPeriodEnd,
   getPeriodRange,
+  getRecentMonthKeys,
+  toMonthKey,
   resolveAvatarColor,
   simplifyContributionDebts,
   t,
@@ -110,6 +113,16 @@ const parseISODate = (value: string) => {
     (Number.isFinite(month) ? month : 1) - 1,
     Number.isFinite(day) ? day : 1
   );
+};
+
+const parseMonthKey = (value: string) => {
+  const [yearPart, monthPart] = value.split("-");
+  const year = Number(yearPart);
+  const month = Number(monthPart);
+  return {
+    year: Number.isFinite(year) ? year : 1970,
+    monthIndex: Math.max(0, (Number.isFinite(month) ? month : 1) - 1),
+  };
 };
 
 const isWithinRange = (date: Date, range: { start: Date; end: Date }) =>
@@ -270,6 +283,23 @@ const getPreviousPeriodRange = (
   }
 };
 
+const resolveCurrentRange = (
+  period: AccountRedesignPeriod,
+  referenceDate: Date,
+  selectedMonth?: string
+): DateRange => {
+  if (period === "month" && selectedMonth) {
+    const { year, monthIndex } = parseMonthKey(selectedMonth);
+    const start = new Date(year, monthIndex, 1);
+    return { start, end: endOfDay(endOfMonth(start)) };
+  }
+
+  return {
+    start: getPeriodRange(period, referenceDate).start,
+    end: getPeriodEnd(period, referenceDate),
+  };
+};
+
 const buildBuckets = (
   period: AccountRedesignPeriod,
   range: DateRange,
@@ -350,6 +380,7 @@ function buildAccountRedesignData(params: {
   transactions: TransactionRow[];
   period: AccountRedesignPeriod;
   now: Date;
+  selectedMonth?: string;
   locale: string;
   uncategorizedLabel: string;
   accountLabel: string;
@@ -360,6 +391,7 @@ function buildAccountRedesignData(params: {
     transactions,
     period,
     now,
+    selectedMonth,
     locale,
     uncategorizedLabel,
     accountLabel,
@@ -406,7 +438,7 @@ function buildAccountRedesignData(params: {
     };
   });
 
-  const currentRange = getPeriodRange(period, now);
+  const currentRange = resolveCurrentRange(period, now, selectedMonth);
   const previousRange = getPreviousPeriodRange(period, currentRange);
   const currentTransactions = transactions.filter((tx) =>
     isWithinRange(parseISODate(tx.date), currentRange)
@@ -695,7 +727,7 @@ export default async function AccountPage(): Promise<JSX.Element> {
   const now = new Date();
   const queryStart = new Date(now.getFullYear() - 1, 0, 1);
   const startDate = formatDateISO(queryStart);
-  const endDate = formatDateISO(now);
+  const endDate = formatDateISO(getPeriodEnd("year", now));
 
   const { data: rows, error: rowsError } = await supabase
     .from("transactions")
@@ -731,6 +763,36 @@ export default async function AccountPage(): Promise<JSX.Element> {
     ...row,
     category: normalizeTransactionCategory(row.category),
   }));
+  const monthKeys = getRecentMonthKeys(12);
+  const dataByMonth = monthKeys.reduce<Record<string, AccountRedesignData>>((acc, monthKey) => {
+    acc[monthKey] = buildAccountRedesignData({
+      summary: summaryData as AccountSummaryData,
+      transactions,
+      period: "month",
+      now,
+      selectedMonth: monthKey,
+      locale,
+      uncategorizedLabel: t(dictionary, "transactions.uncategorized"),
+      accountLabel: t(dictionary, "account.labelAccount"),
+      profileColorsByUserId,
+    });
+    return acc;
+  }, {});
+  const currentMonthKey = monthKeys[0] ?? toMonthKey(now);
+  if (!dataByMonth[currentMonthKey]) {
+    dataByMonth[currentMonthKey] = buildAccountRedesignData({
+      summary: summaryData as AccountSummaryData,
+      transactions,
+      period: "month",
+      now,
+      selectedMonth: currentMonthKey,
+      locale,
+      uncategorizedLabel: t(dictionary, "transactions.uncategorized"),
+      accountLabel: t(dictionary, "account.labelAccount"),
+      profileColorsByUserId,
+    });
+  }
+
   const dataByPeriod: Record<AccountRedesignPeriod, AccountRedesignData> = {
     week: buildAccountRedesignData({
       summary: summaryData as AccountSummaryData,
@@ -742,16 +804,7 @@ export default async function AccountPage(): Promise<JSX.Element> {
       accountLabel: t(dictionary, "account.labelAccount"),
       profileColorsByUserId,
     }),
-    month: buildAccountRedesignData({
-      summary: summaryData as AccountSummaryData,
-      transactions,
-      period: "month",
-      now,
-      locale,
-      uncategorizedLabel: t(dictionary, "transactions.uncategorized"),
-      accountLabel: t(dictionary, "account.labelAccount"),
-      profileColorsByUserId,
-    }),
+    month: dataByMonth[currentMonthKey],
     quarter: buildAccountRedesignData({
       summary: summaryData as AccountSummaryData,
       transactions,
@@ -778,7 +831,12 @@ export default async function AccountPage(): Promise<JSX.Element> {
     <div className={cn("min-h-screen bg-background", dmSans.variable, jetbrains.variable)}>
       <TopNav />
       <PageContainer className="space-y-6">
-        <AccountRedesignClient dataByPeriod={dataByPeriod} currentUserId={user.id} />
+        <AccountRedesignClient
+          dataByPeriod={dataByPeriod}
+          dataByMonth={dataByMonth}
+          monthKeys={monthKeys.length > 0 ? monthKeys : [currentMonthKey]}
+          currentUserId={user.id}
+        />
       </PageContainer>
       {/* Bottom padding for mobile nav */}
       <div className="h-16 sm:hidden" />

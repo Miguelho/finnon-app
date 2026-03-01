@@ -245,7 +245,6 @@ export function MovementsSummary({
           style={[
             styles.heroAmount,
             { color: userTokens.textPrimary },
-            summary.balance < 0n && { color: colors.expenseRed },
           ]}
         >
           {balanceParts.integer}
@@ -254,7 +253,9 @@ export function MovementsSummary({
           </Text>
         </Text>
         <Text style={[styles.heroSub, { color: userTokens.textSecondary }]}>
-          {formatSignedAmount(summary.confirmedBalance, currencyCode, currencySymbol)}{" "}
+          <Text style={styles.heroSubAmount}>
+            {formatSignedAmount(summary.confirmedBalance, currencyCode, currencySymbol)}
+          </Text>{" "}
           {t(dictionary, "transactions.ui.summaryConfirmedOne")}
         </Text>
       </View>
@@ -483,6 +484,9 @@ const styles = StyleSheet.create({
     fontSize: movementsDesignTokens.typography.sizes.sm,
     color: colors.textTertiary,
     fontFamily: "DMSans",
+  },
+  heroSubAmount: {
+    fontFamily: "JetBrainsMono-Medium",
   },
   rangeSelectorSlot: {
     marginBottom: 10,

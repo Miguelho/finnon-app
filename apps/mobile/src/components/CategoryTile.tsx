@@ -1,15 +1,22 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { MoreHorizontal } from "lucide-react-native";
 import { useActionSheet } from "@expo/react-native-action-sheet";
-import { themeTokens, type CategoryIconKey } from "@poleursus/shared";
+import {
+  normalizeHexColor,
+  themeTokens,
+  withAlpha,
+  type CategoryIconKey,
+} from "@poleursus/shared";
 import { useCopy, t } from "../lib/i18n";
 import { CategoryIcon } from "./CategoryIcon";
+import { useUserTheme } from "../contexts/UserThemeContext";
 
 type CategoryTileProps = {
   category: {
     id: string;
     name: string;
     icon_id: string;
+    color?: string | null;
     type: "income" | "expense";
   };
   density?: "comfortable" | "compact";
@@ -46,9 +53,11 @@ export function CategoryTile({
   onDelete,
 }: CategoryTileProps) {
   const { dictionary } = useCopy();
+  const { tokens: userTokens } = useUserTheme();
   const { showActionSheetWithOptions } = useActionSheet();
   const styles = densityStyles[density];
   const hasActions = Boolean(onEdit || onDelete);
+  const categoryColor = normalizeHexColor(category.color);
 
   const handleOpenActions = () => {
     if (!hasActions) return;
@@ -89,7 +98,8 @@ export function CategoryTile({
       style={({ pressed }) => [
         stylesText.container,
         styles.container,
-        pressed && onPress ? stylesText.pressed : null,
+        { backgroundColor: userTokens.surface },
+        pressed && onPress ? { backgroundColor: userTokens.surfaceAlt } : null,
       ]}
       accessibilityRole={onPress ? "button" : undefined}
       accessibilityLabel={category.name}
@@ -102,6 +112,12 @@ export function CategoryTile({
               width: styles.badgeSize,
               height: styles.badgeSize,
               borderRadius: styles.badgeRadius,
+              backgroundColor: categoryColor
+                ? withAlpha(categoryColor, 0.2)
+                : userTokens.surfaceAlt,
+              borderColor: categoryColor
+                ? withAlpha(categoryColor, 0.52)
+                : userTokens.border,
             },
           ]}
         >
@@ -115,7 +131,7 @@ export function CategoryTile({
 
         <View style={stylesText.content}>
           <Text
-            style={stylesText.categoryName}
+            style={[stylesText.categoryName, { color: userTokens.textPrimary }]}
             numberOfLines={1}
             ellipsizeMode="tail"
           >
@@ -135,7 +151,7 @@ export function CategoryTile({
           style={stylesText.actionsButton}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <MoreHorizontal size={18} color={colors.text.muted} />
+          <MoreHorizontal size={18} color={userTokens.textTertiary} />
         </Pressable>
       )}
     </Pressable>
@@ -147,10 +163,7 @@ const stylesText = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: colors.bg.primary,
-  },
-  pressed: {
-    backgroundColor: colors.action.secondary,
+    borderRadius: radii.md,
   },
   leading: {
     flex: 1,
@@ -161,7 +174,7 @@ const stylesText = StyleSheet.create({
   badge: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.bg.secondary,
+    borderWidth: 1,
   },
   content: {
     flex: 1,
@@ -171,6 +184,7 @@ const stylesText = StyleSheet.create({
     fontSize: typography.size.md,
     fontWeight: typography.weight.semibold,
     color: colors.text.primary,
+    fontFamily: "DMSans-SemiBold",
   },
   actionsButton: {
     width: 44,

@@ -48,9 +48,22 @@ type TransactionRow = {
     id: string;
     name: string;
     icon_id: string | null;
+    color?: string | null;
     type?: "income" | "expense" | null;
   } | null;
 };
+
+const TRANSACTIONS_SELECT_WITH_CATEGORY_COLOR =
+  "*, category:categories(id, name, icon_id, color, type)";
+const TRANSACTIONS_SELECT_LEGACY = "*, category:categories(id, name, icon_id, type)";
+const CATEGORIES_SELECT_WITH_COLOR = "id, name, icon_id, color, type, account_id";
+const CATEGORIES_SELECT_LEGACY = "id, name, icon_id, type, account_id";
+
+const isMissingCategoryColorError = (error: any) =>
+  error?.code === "42703" &&
+  typeof error?.message === "string" &&
+  error.message.includes("categories") &&
+  error.message.includes("color");
 
 const toBigInt = (value: unknown) => {
   try {
@@ -236,16 +249,23 @@ export function useMovements() {
         end: monthRange.end,
         force: forceReload,
         loader: async () => {
-          const { data, error } = await supabase
-            .from("transactions")
-            .select("*, category:categories(id, name, icon_id, type)")
-            .eq("account_id", selectedAccountId)
-            .gte("date", monthRange.start)
-            .lte("date", monthRange.end)
-            .order("date", { ascending: false })
-            .order("created_at", { ascending: false });
+          const loadTransactions = async (selectClause: string) =>
+            supabase
+              .from("transactions")
+              .select(selectClause)
+              .eq("account_id", selectedAccountId)
+              .gte("date", monthRange.start)
+              .lte("date", monthRange.end)
+              .order("date", { ascending: false })
+              .order("created_at", { ascending: false });
+
+          let { data, error } = await loadTransactions(TRANSACTIONS_SELECT_WITH_CATEGORY_COLOR);
+          if (isMissingCategoryColorError(error)) {
+            ({ data, error } = await loadTransactions(TRANSACTIONS_SELECT_LEGACY));
+          }
+
           if (error) throw error;
-          return (data ?? []) as TransactionRow[];
+          return (data ?? []) as unknown as TransactionRow[];
         },
       });
 
@@ -253,12 +273,19 @@ export function useMovements() {
         ? cache.getOrLoad(
             cacheKeys.categories(selectedAccountId),
             async () => {
-              const { data, error } = await supabase
-                .from("categories")
-                .select("id, name, icon_id, type, account_id")
-                .eq("account_id", selectedAccountId);
+              const loadCategories = async (selectClause: string) =>
+                supabase
+                  .from("categories")
+                  .select(selectClause)
+                  .eq("account_id", selectedAccountId);
+
+              let { data, error } = await loadCategories(CATEGORIES_SELECT_WITH_COLOR);
+              if (isMissingCategoryColorError(error)) {
+                ({ data, error } = await loadCategories(CATEGORIES_SELECT_LEGACY));
+              }
+
               if (error) throw error;
-              return (data ?? []) as Category[];
+              return (data ?? []) as unknown as Category[];
             },
             META_24H,
             {
@@ -269,12 +296,19 @@ export function useMovements() {
             }
           )
         : (async () => {
-            const { data, error } = await supabase
-              .from("categories")
-              .select("id, name, icon_id, type, account_id")
-              .eq("account_id", selectedAccountId);
+            const loadCategories = async (selectClause: string) =>
+              supabase
+                .from("categories")
+                .select(selectClause)
+                .eq("account_id", selectedAccountId);
+
+            let { data, error } = await loadCategories(CATEGORIES_SELECT_WITH_COLOR);
+            if (isMissingCategoryColorError(error)) {
+              ({ data, error } = await loadCategories(CATEGORIES_SELECT_LEGACY));
+            }
+
             if (error) throw error;
-            return (data ?? []) as Category[];
+            return (data ?? []) as unknown as Category[];
           })();
 
       const recurringPromise = loadCachedRecurringRange<RecurringItem[]>({

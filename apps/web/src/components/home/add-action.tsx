@@ -21,6 +21,7 @@ import { createCategory } from "@/app/categories/actions";
 import { createRecurringItem } from "@/app/transactions/actions";
 import {
   ADD_ACTIONS,
+  normalizeHexColor,
   normalizeCategoryName,
   suggestCategoryIcon,
   type AddActionKey,
@@ -86,6 +87,7 @@ export function AddAction({
     name: "",
     icon_id: "Tag" as CategoryIconKey,
     type: "expense" as CategoryType,
+    color: null as string | null,
   });
   const [categoryIconSelected, setCategoryIconSelected] = useState(false);
   const translateDynamic = (key: string, params?: Record<string, unknown>) =>
@@ -136,6 +138,7 @@ export function AddAction({
       name: "",
       icon_id: type === "income" ? "Bank" : "Tag",
       type,
+      color: null,
     });
     setCategoryIconSelected(false);
     setIsCategoryOpen(true);
@@ -146,6 +149,7 @@ export function AddAction({
       name: "",
       icon_id: "Tag",
       type: "expense",
+      color: null,
     });
     setCategoryIconSelected(false);
   };
@@ -170,6 +174,7 @@ export function AddAction({
         name: normalizedCategoryName,
         icon_id: categoryForm.icon_id,
         type: categoryForm.type,
+        color: normalizeHexColor(categoryForm.color),
       });
 
       if (result.success && result.data) {
@@ -347,6 +352,8 @@ export function AddAction({
           expenseLabel={t("categories.expenseLabel")}
           incomeLabel={t("categories.incomeLabel")}
           iconLabel={t("categories.iconLabel")}
+          colorLabel={t("categories.colorLabel")}
+          customColorLabel={t("categories.customColorLabel")}
           nameValue={categoryForm.name}
           onNameChange={(newName) => {
             setCategoryForm((prev) => {
@@ -366,6 +373,10 @@ export function AddAction({
             setCategoryIconSelected(true);
             setCategoryForm((prev) => ({ ...prev, icon_id: iconKey }));
           }}
+          colorValue={categoryForm.color}
+          onColorChange={(color) =>
+            setCategoryForm((prev) => ({ ...prev, color }))
+          }
           onCancel={() => {
             setIsCategoryOpen(false);
             resetCategoryForm();

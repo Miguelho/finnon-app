@@ -16,7 +16,10 @@ import { Button } from "../../../../../src/components/Button";
 import { Input } from "../../../../../src/components/Input";
 import { Card } from "../../../../../src/components/Card";
 import { IconPicker } from "../../../../../src/components/IconPicker";
+import { CategoryColorPicker } from "../../../../../src/components/CategoryColorPicker";
 import {
+  assignCategoryColor,
+  normalizeHexColor,
   normalizeCategoryName,
   suggestCategoryIcon,
   themeTokens,
@@ -26,7 +29,6 @@ import {
 import { useCopy, t } from "../../../../../src/lib/i18n";
 
 const tokens = themeTokens.light;
-const colors = tokens.colors;
 
 export default function CreateCategoryScreen() {
   const router = useRouter();
@@ -36,6 +38,7 @@ export default function CreateCategoryScreen() {
   const [name, setName] = useState("");
   const [iconKey, setIconKey] = useState<CategoryIconKey>("Tag");
   const [type, setType] = useState<CategoryType>("expense");
+  const [color, setColor] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userSelectedIcon, setUserSelectedIcon] = useState(false);
   const { tokens: userThemeTokens } = useUserTheme();
@@ -102,8 +105,9 @@ export default function CreateCategoryScreen() {
     try {
       const { data: existing, error: existingError } = await supabase
         .from("categories")
-        .select("id, name")
-        .eq("account_id", selectedAccountId);
+        .select("id, name, color, created_at")
+        .eq("account_id", selectedAccountId)
+        .order("created_at", { ascending: true });
 
       if (existingError) throw existingError;
 
@@ -121,7 +125,13 @@ export default function CreateCategoryScreen() {
         return;
       }
 
-      const { data, error } = await supabase
+      const nextColor =
+        normalizeHexColor(color) ??
+        assignCategoryColor(
+          ((existing as Array<{ color?: string | null }> | null) ?? []).slice()
+        );
+
+      const { error } = await supabase
         .from("categories")
         .insert([
           {
@@ -129,6 +139,7 @@ export default function CreateCategoryScreen() {
             name: normalizedName,
             icon_id: iconKey,
             type,
+            color: nextColor,
           },
         ])
         .select()
@@ -219,6 +230,13 @@ export default function CreateCategoryScreen() {
               filterType={type}
               categoryName={name}
             />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: userThemeTokens.textPrimary }]}>
+              {t(dictionary, "categories.colorLabel")}
+            </Text>
+            <CategoryColorPicker value={color ?? "#D4943A"} onChange={setColor} />
           </View>
 
           <View style={styles.actions}>

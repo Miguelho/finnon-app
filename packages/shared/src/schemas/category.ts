@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { CATEGORY_ICON_KEYS } from "../icons/category-icons";
 import { resolveCategoryIconKey } from "../icons/category-icons/legacy";
+import { normalizeHexColor } from "../categories/palette";
 
 export const normalizeCategoryName = (value: string) =>
   value.trim().replace(/\s+/g, " ");
@@ -12,6 +13,12 @@ const categoryNameSchema = z
 
 export const categoryTypeSchema = z.enum(["income", "expense"]);
 const categoryIconKeySchema = z.enum(CATEGORY_ICON_KEYS);
+const categoryColorSchema = z
+  .string()
+  .trim()
+  .transform((value) => normalizeHexColor(value))
+  .nullable()
+  .optional();
 const categoryIconKeyCompatSchema = z
   .string()
   .min(1)
@@ -23,6 +30,7 @@ export const categorySchema = z.object({
   name: z.string().min(1).max(255),
   icon_id: categoryIconKeyCompatSchema,
   type: categoryTypeSchema,
+  color: categoryColorSchema,
   created_at: z.union([z.string().datetime(), z.date()]),
 });
 
@@ -31,12 +39,14 @@ export const categoryCreateInputSchema = z.object({
   name: categoryNameSchema,
   icon_id: categoryIconKeySchema,
   type: categoryTypeSchema,
+  color: categoryColorSchema,
 });
 
 export const categoryUpdateInputSchema = z.object({
   name: categoryNameSchema,
   icon_id: categoryIconKeySchema,
   type: categoryTypeSchema,
+  color: categoryColorSchema,
 });
 
 export const createCategorySchema = categoryCreateInputSchema;

@@ -18,6 +18,7 @@ import { CategoryIcon } from "@/components/category-icon";
 import { cn } from "@/lib/utils";
 import { clearAddActionDataCache } from "@/lib/add-action-data-cache";
 import {
+  normalizeHexColor,
   normalizeCategoryName,
   resolveCategoryIconKey,
   suggestCategoryIcon,
@@ -39,6 +40,7 @@ type Category = {
   name: string;
   icon_id: string;
   type: "income" | "expense";
+  color?: string | null;
   created_at: string;
 };
 
@@ -51,6 +53,12 @@ type ActiveAccountDetailsProps = {
   currentUserId: string;
   role: "viewer" | "contributor" | "admin";
 };
+
+const isMissingCategoryColorError = (error: any) =>
+  error?.code === "42703" &&
+  typeof error?.message === "string" &&
+  error.message.includes("categories") &&
+  error.message.includes("color");
 
 export function ActiveAccountDetails({
   account,
@@ -77,6 +85,7 @@ export function ActiveAccountDetails({
     name: "",
     icon_id: "Tag" as CategoryIconKey,
     type: "expense" as CategoryType,
+    color: null as string | null,
   });
   const [userSelectedIcon, setUserSelectedIcon] = useState(false);
   const canEdit = role !== "viewer";
@@ -130,11 +139,24 @@ export function ActiveAccountDetails({
       setCategoriesError(false);
 
       try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from("categories")
-          .select("id, account_id, name, icon_id, type, created_at")
+          .select("id, account_id, name, icon_id, type, color, created_at")
           .eq("account_id", account.id)
           .order("name", { ascending: true });
+
+        if (isMissingCategoryColorError(error)) {
+          console.warn(
+            "[ActiveAccountDetails][web] categories.color missing, retrying without color."
+          );
+          const legacyResult = await supabase
+            .from("categories")
+            .select("id, account_id, name, icon_id, type, created_at")
+            .eq("account_id", account.id)
+            .order("name", { ascending: true });
+          data = (legacyResult.data ?? []).map((item) => ({ ...item, color: null }));
+          error = legacyResult.error;
+        }
 
         if (error) {
           throw error;
@@ -187,12 +209,13 @@ export function ActiveAccountDetails({
         account_id: account.id,
         ...formData,
         name: normalizedName,
+        color: normalizeHexColor(formData.color),
       });
 
       if (result.success && result.data) {
         setCategories((prev) => [...prev, result.data as Category]);
         setIsCreateOpen(false);
-        setFormData({ name: "", icon_id: "Tag", type: "expense" });
+        setFormData({ name: "", icon_id: "Tag", type: "expense", color: null });
         setUserSelectedIcon(false);
         await emitMutation("categories", "insert");
         clearAddActionDataCache(account.id);
@@ -230,6 +253,7 @@ export function ActiveAccountDetails({
         name: normalizedName,
         icon_id: formData.icon_id,
         type: formData.type,
+        color: normalizeHexColor(formData.color),
       });
 
       if (result.success && result.data) {
@@ -240,7 +264,7 @@ export function ActiveAccountDetails({
         );
         setIsEditOpen(false);
         setSelectedCategory(null);
-        setFormData({ name: "", icon_id: "Tag", type: "expense" });
+        setFormData({ name: "", icon_id: "Tag", type: "expense", color: null });
         setUserSelectedIcon(false);
         await emitMutation("categories", "update");
         clearAddActionDataCache(account.id);
@@ -266,6 +290,7 @@ export function ActiveAccountDetails({
       name: category.name,
       icon_id: resolveCategoryIconKey(category.icon_id),
       type: category.type,
+      color: normalizeHexColor(category.color),
     });
     setUserSelectedIcon(true);
     setIsEditOpen(true);
@@ -429,6 +454,8 @@ export function ActiveAccountDetails({
           expenseLabel={t("categories.expenseLabel")}
           incomeLabel={t("categories.incomeLabel")}
           iconLabel={t("categories.iconLabel")}
+          colorLabel={t("categories.colorLabel")}
+          customColorLabel={t("categories.customColorLabel")}
           nameValue={formData.name}
           onNameChange={(newName) => {
             setFormData((prev) => {
@@ -446,10 +473,12 @@ export function ActiveAccountDetails({
             setUserSelectedIcon(true);
             setFormData({ ...formData, icon_id: iconKey });
           }}
+          colorValue={formData.color}
+          onColorChange={(color) => setFormData({ ...formData, color })}
           onCancel={() => {
             setIsCreateOpen(false);
             setUserSelectedIcon(false);
-            setFormData({ name: "", icon_id: "Tag", type: "expense" });
+            setFormData({ name: "", icon_id: "Tag", type: "expense", color: null });
           }}
           onSubmit={handleCreate}
           cancelLabel={t("common.cancel")}
@@ -472,6 +501,8 @@ export function ActiveAccountDetails({
           expenseLabel={t("categories.expenseLabel")}
           incomeLabel={t("categories.incomeLabel")}
           iconLabel={t("categories.iconLabel")}
+          colorLabel={t("categories.colorLabel")}
+          customColorLabel={t("categories.customColorLabel")}
           nameValue={formData.name}
           onNameChange={(newName) =>
             setFormData((prev) => ({ ...prev, name: newName }))
@@ -483,11 +514,13 @@ export function ActiveAccountDetails({
             setUserSelectedIcon(true);
             setFormData({ ...formData, icon_id: iconKey });
           }}
+          colorValue={formData.color}
+          onColorChange={(color) => setFormData({ ...formData, color })}
           onCancel={() => {
             setIsEditOpen(false);
             setSelectedCategory(null);
             setUserSelectedIcon(false);
-            setFormData({ name: "", icon_id: "Tag", type: "expense" });
+            setFormData({ name: "", icon_id: "Tag", type: "expense", color: null });
           }}
           onSubmit={handleEdit}
           cancelLabel={t("common.cancel")}

@@ -19,6 +19,7 @@ export type TransactionCategory = {
   id: string;
   name: string;
   icon_id?: CategoryIconKey | null;
+  color?: string | null;
 };
 
 export type Transaction = {

@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import {
   addMonths,
+  buildProjectColorMap,
   CURRENCIES,
   computeProjectProgress,
   computeSavingsDistribution,
@@ -11,7 +12,9 @@ import {
   computeSavingsMonthFromTransactions,
   formatMoneyWithSymbol,
   formatMonthLabel,
+  getProjectColor,
   getMonthRangeFromKey,
+  HUCHA_PROJECT_COLOR,
   themeTokens,
   toMonthKey,
   type Project,
@@ -196,6 +199,7 @@ export default function SavingsDetailScreen() {
       }),
     [historyContributions, projects]
   );
+  const projectColorMap = useMemo(() => buildProjectColorMap(projects), [projects]);
 
   const progressByProject = useMemo(() => {
     const byProject = new Map<string, ReturnType<typeof computeProjectProgress>>();
@@ -242,6 +246,19 @@ export default function SavingsDetailScreen() {
       isCurrent: period === monthKey,
     }));
   }, [chartPeriods, historyStats.periods, monthlySavings, monthKey]);
+
+  const chartSegmentsByPeriod = useMemo(() => {
+    const byPeriod = new Map<string, Map<string, bigint>>();
+    historyContributions.forEach((entry) => {
+      const period = toPeriodKey(entry.period);
+      if (!period) return;
+      const projectMap = byPeriod.get(period) ?? new Map<string, bigint>();
+      const current = projectMap.get(entry.project_id) ?? 0n;
+      projectMap.set(entry.project_id, current + toMinor(entry.actual_amount_base_minor));
+      byPeriod.set(period, projectMap);
+    });
+    return byPeriod;
+  }, [historyContributions]);
 
   const chartScaleMinor = useMemo(() => {
     let maxMinor = distribution.objectiveMinor > 0n ? distribution.objectiveMinor : 1n;
@@ -402,7 +419,7 @@ export default function SavingsDetailScreen() {
           ) : null}
 
           <Card>
-            <Text style={[styles.heroAmount, { color: "#4ade80" }]}>
+            <Text style={[styles.heroAmount, { color: userTokens.textPrimary }]}>
               {formatMoneyWithSymbol(savingsMinor, baseCurrency, currencySymbol)}
             </Text>
             <Text style={[styles.meta, { color: userTokens.textSecondary }]}>
@@ -444,6 +461,7 @@ export default function SavingsDetailScreen() {
                       {
                         width: `${Math.max(0, Math.min(100, huchaPercent))}%`,
                         left: `${Math.max(0, Math.min(100, projectsPercent))}%`,
+                        backgroundColor: "rgba(109, 201, 160, 0.85)",
                       },
                     ]}
                   />
@@ -486,10 +504,16 @@ export default function SavingsDetailScreen() {
               const actualMinor = actualByProject.get(row.project.id) ?? row.allocatedMinor;
               const progress = progressByProject.get(row.project.id);
               const progressPct = Math.round((progress?.progressRatio ?? 0) * 100);
+              const projectColor = getProjectColor(row.project, projectColorMap);
               return (
                 <View key={row.project.id} style={styles.distRow}>
                   <View style={styles.distRowLeft}>
-                    <View style={styles.distProjectIcon}>
+                    <View
+                      style={[
+                        styles.distProjectIcon,
+                        { backgroundColor: `${projectColor}26` },
+                      ]}
+                    >
                       <Text style={styles.distProjectIconText}>{row.project.emoji}</Text>
                     </View>
                     <View style={styles.distRowCopy}>
@@ -503,7 +527,7 @@ export default function SavingsDetailScreen() {
                       </Text>
                     </View>
                   </View>
-                  <Text style={[styles.rowValue, { color: "#4ade80" }]}>
+                  <Text style={[styles.rowValue, { color: projectColor }]}>
                     {formatMoneyWithSymbol(actualMinor, baseCurrency, currencySymbol)}
                   </Text>
                 </View>
@@ -511,7 +535,12 @@ export default function SavingsDetailScreen() {
             })}
             <View style={styles.distRow}>
               <View style={styles.distRowLeft}>
-                <View style={styles.distHuchaIcon}>
+                <View
+                  style={[
+                    styles.distHuchaIcon,
+                    { backgroundColor: `${HUCHA_PROJECT_COLOR}26` },
+                  ]}
+                >
                   <Text style={styles.distProjectIconText}>🐷</Text>
                 </View>
                 <View style={styles.distRowCopy}>
@@ -521,7 +550,7 @@ export default function SavingsDetailScreen() {
                   </Text>
                 </View>
               </View>
-              <Text style={[styles.rowValue, { color: "#fb923c" }]}>
+              <Text style={[styles.rowValue, { color: HUCHA_PROJECT_COLOR }]}>
                 {formatMoneyWithSymbol(distribution.huchaMinor, baseCurrency, currencySymbol)}
               </Text>
             </View>
@@ -580,6 +609,21 @@ export default function SavingsDetailScreen() {
                     positiveAmount > 0n ? 10 : chartBarMinHeightPx,
                     (Number(positiveAmount) / Number(chartScaleMinor)) * chartBarMaxHeightPx
                   );
+                  const periodContribs = chartSegmentsByPeriod.get(row.period);
+                  const segments: Array<{ color: string; ratio: number }> = [];
+                  if (periodContribs && positiveAmount > 0n) {
+                    projects.forEach((project) => {
+                      const amount = periodContribs.get(project.id) ?? 0n;
+                      if (amount <= 0n) return;
+                      segments.push({
+                        color: project.is_hucha
+                          ? HUCHA_PROJECT_COLOR
+                          : getProjectColor(project, projectColorMap),
+                        ratio: Number(amount) / Number(positiveAmount),
+                      });
+                    });
+                  }
+                  const hasSegments = segments.length > 0;
                   return (
                     <View key={row.period} style={styles.chartGroup}>
                       <View
@@ -587,11 +631,23 @@ export default function SavingsDetailScreen() {
                           styles.chartBar,
                           {
                             height: Math.min(chartBarMaxHeightPx, heightPx),
-                            backgroundColor: row.achieved ? "#4ade80" : "#fb923c",
+                            backgroundColor: "transparent",
                             borderColor: row.isCurrent ? "rgba(74, 222, 128, 0.35)" : "transparent",
+                            overflow: "hidden",
                           },
                         ]}
-                      />
+                      >
+                        {hasSegments
+                          ? segments.map((seg, index) => (
+                              <View
+                                key={index}
+                                style={{ backgroundColor: seg.color, flex: seg.ratio }}
+                              />
+                            ))
+                          : (
+                              <View style={{ backgroundColor: HUCHA_PROJECT_COLOR, flex: 1 }} />
+                            )}
+                      </View>
                       <Text style={[styles.chartMonthLabel, { color: userTokens.textSecondary }]}>
                         {new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
                           month: "short",

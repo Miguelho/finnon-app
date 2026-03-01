@@ -541,7 +541,7 @@ export async function confirmRecurringTransaction(input: {
         ignoreDuplicates: true,
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (insertError) {
       console.error("Error confirming recurring transaction:", insertError);

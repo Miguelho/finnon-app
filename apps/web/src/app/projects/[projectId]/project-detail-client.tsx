@@ -4,10 +4,14 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
+  buildProjectColorMap,
   computeProjectProgress,
   formatMoneyWithSymbol,
+  getProjectColor,
   getHuchaStats,
+  HUCHA_PROJECT_COLOR,
   getMinorUnits,
+  PROJECT_PALETTE,
   toMonthKey,
   type Project,
   type ProjectContribution,
@@ -38,6 +42,12 @@ type ProjectDetailClientProps = {
   baseCurrency: string;
   currencySymbol: string;
   initialProject: Project;
+  accountProjectsForColor: Array<{
+    id: string;
+    color?: string | null;
+    is_hucha?: boolean | null;
+    created_at?: string | Date | null;
+  }>;
   initialContributions: ProjectContribution[];
   recurringExpenses: RecurringExpense[];
   userLabels: Record<string, string>;
@@ -108,6 +118,7 @@ export function ProjectDetailClient({
   baseCurrency,
   currencySymbol,
   initialProject,
+  accountProjectsForColor,
   initialContributions,
   recurringExpenses,
   userLabels,
@@ -137,6 +148,32 @@ export function ProjectDetailClient({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingColor, setIsSavingColor] = useState(false);
+
+  const projectColorMap = useMemo(() => {
+    const hasCurrentProject = accountProjectsForColor.some(
+      (entry) => entry.id === project.id
+    );
+    const projectsForColor = hasCurrentProject
+      ? accountProjectsForColor.map((entry) =>
+          entry.id === project.id ? { ...entry, color: project.color } : entry
+        )
+      : [
+          ...accountProjectsForColor,
+          {
+            id: project.id,
+            color: project.color,
+            is_hucha: project.is_hucha,
+            created_at: project.created_at,
+          },
+        ];
+    return buildProjectColorMap(projectsForColor);
+  }, [accountProjectsForColor, project]);
+
+  const resolvedProjectColor = useMemo(
+    () => getProjectColor(project, projectColorMap),
+    [project, projectColorMap]
+  );
 
   const heroProgress = useMemo(
     () => computeProjectProgress({ project, contributions }),
@@ -316,6 +353,39 @@ export function ProjectDetailClient({
     }
   };
 
+  const handleSetColor = async (color: string) => {
+    if (!canEdit || project.is_hucha || isSavingColor) return;
+    if (resolvedProjectColor === color && project.color) return;
+
+    setIsSavingColor(true);
+    setSaveError(null);
+    setSaveMessage(null);
+
+    try {
+      const { data, error } = await supabase
+        .from("projects")
+        .update({
+          color,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", project.id)
+        .eq("account_id", accountId)
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      setProject(data as Project);
+      await emitMutation("projects", "update");
+      setSaveMessage(tProjects("colorSaved"));
+    } catch (error) {
+      console.error("[Projects] Color update error", error);
+      setSaveError(tGlobal("errors.internalServer"));
+    } finally {
+      setIsSavingColor(false);
+    }
+  };
+
   if (project.is_hucha && huchaStats) {
     return (
       <PageContainer className="space-y-6">
@@ -345,7 +415,10 @@ export function ProjectDetailClient({
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="font-balance text-4xl font-bold text-orange-400">
+              <p
+                className="font-balance text-4xl font-bold"
+                style={{ color: HUCHA_PROJECT_COLOR }}
+              >
                 {formatMoneyWithSymbol(huchaStats.accumulatedMinor, baseCurrency, currencySymbol)}
               </p>
               <p className="text-sm text-muted-foreground">{tProjects("hucha.accumulated")}</p>
@@ -353,7 +426,7 @@ export function ProjectDetailClient({
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">{tProjects("hucha.thisMonth")}</p>
-                <p className="text-lg font-semibold text-emerald-500">
+                <p className="text-lg font-semibold" style={{ color: HUCHA_PROJECT_COLOR }}>
                   +
                   {formatMoneyWithSymbol(
                     huchaStats.currentMonthContributionMinor,
@@ -366,13 +439,13 @@ export function ProjectDetailClient({
                 <p className="text-xs text-muted-foreground">
                   {tProjects("hucha.monthlyAverage")}
                 </p>
-                <p className="text-lg font-semibold">
+                <p className="text-lg font-semibold" style={{ color: HUCHA_PROJECT_COLOR }}>
                   {formatMoneyWithSymbol(huchaStats.averageMinor, baseCurrency, currencySymbol)}
                 </p>
               </div>
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">{tProjects("hucha.bestMonth")}</p>
-                <p className="text-lg font-semibold">
+                <p className="text-lg font-semibold" style={{ color: HUCHA_PROJECT_COLOR }}>
                   {huchaStats.bestMonth
                     ? formatMoneyWithSymbol(
                         huchaStats.bestMonth.amountMinor,
@@ -415,7 +488,7 @@ export function ProjectDetailClient({
                   <p className="text-sm text-muted-foreground">
                     {formatMonthLabel(String(entry.period).slice(0, 10), locale)}
                   </p>
-                  <p className="text-sm font-semibold text-emerald-500">
+                  <p className="text-sm font-semibold" style={{ color: HUCHA_PROJECT_COLOR }}>
                     +
                     {formatMoneyWithSymbol(
                       toMinor(entry.actual_amount_base_minor),
@@ -471,9 +544,10 @@ export function ProjectDetailClient({
                 progress={heroProgress.progressRatio}
                 size={148}
                 strokeWidth={10}
+                progressColor={resolvedProjectColor}
                 center={
                   <div className="text-center">
-                    <p className="text-xl font-semibold">
+                    <p className="text-xl font-semibold" style={{ color: resolvedProjectColor }}>
                       {Math.round(heroProgress.progressRatio * 100)}%
                     </p>
                   </div>
@@ -521,6 +595,37 @@ export function ProjectDetailClient({
               </p>
             ) : null}
           </div>
+
+          {canEdit ? (
+            <div className="space-y-2 rounded-lg border p-3">
+              <p className="text-sm text-muted-foreground">{tProjects("colorLabel")}</p>
+              <div className="flex flex-wrap gap-2">
+                {PROJECT_PALETTE.map((color) => {
+                  const isSelected = resolvedProjectColor === color;
+                  return (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => void handleSetColor(color)}
+                      disabled={isSavingColor}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full transition-transform hover:scale-[1.05] disabled:cursor-not-allowed disabled:opacity-60"
+                      style={{
+                        backgroundColor: color,
+                        border: isSelected
+                          ? "2px solid rgba(255, 255, 255, 0.5)"
+                          : "1px solid hsl(var(--border))",
+                      }}
+                      aria-label={`${tProjects("colorLabel")} ${color}`}
+                    >
+                      {isSelected ? (
+                        <span className="h-3 w-3 rounded-full border border-white/85" />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

@@ -533,19 +533,16 @@ function MovementsSummary({
           {t("transactions.ui.summaryBalanceTitle")}
         </div>
         <div className="mt-1 text-center">
-          <div
-            className="font-balance text-[44px] font-semibold leading-none tracking-[-0.04em] text-foreground"
-            style={{
-              color: summary.balance < 0n ? design.colors.expenseRed : undefined,
-            }}
-          >
+          <div className="font-balance text-[44px] font-semibold leading-none tracking-[-0.04em] text-foreground">
             {balanceParts.integer}
             <span className="text-[22px] font-normal text-muted-foreground">
               ,{balanceParts.decimals}
             </span>
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
-            {formatSignedAmount(summary.confirmedBalance, currencyCode, currencySymbol)}{" "}
+            <span className="font-balance">
+              {formatSignedAmount(summary.confirmedBalance, currencyCode, currencySymbol)}
+            </span>{" "}
             {t("transactions.ui.summaryConfirmedOne")}
           </div>
         </div>

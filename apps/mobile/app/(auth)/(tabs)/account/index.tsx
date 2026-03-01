@@ -16,7 +16,9 @@ import {
   formatDateISO,
   getAvatarInitials,
   getMinorUnits,
+  getPeriodEnd,
   getPeriodRange,
+  toMonthKey,
   getUserAvatarColor,
   resolveAvatarColor,
   simplifyContributionDebts,
@@ -80,6 +82,16 @@ const parseISODate = (value: string) => {
     (Number.isFinite(month) ? month : 1) - 1,
     Number.isFinite(day) ? day : 1
   );
+};
+
+const parseMonthKey = (value: string) => {
+  const [yearPart, monthPart] = value.split("-");
+  const year = Number(yearPart);
+  const month = Number(monthPart);
+  return {
+    year: Number.isFinite(year) ? year : 1970,
+    monthIndex: Math.max(0, (Number.isFinite(month) ? month : 1) - 1),
+  };
 };
 
 const isWithinRange = (date: Date, range: { start: Date; end: Date }) =>
@@ -309,6 +321,23 @@ const getPreviousPeriodRange = (period: Period, currentRange: DateRange): DateRa
   }
 };
 
+const resolveCurrentRange = (
+  period: Period,
+  referenceDate: Date,
+  selectedMonth?: string
+): DateRange => {
+  if (period === "month" && selectedMonth) {
+    const { year, monthIndex } = parseMonthKey(selectedMonth);
+    const start = new Date(year, monthIndex, 1);
+    return { start, end: endOfDay(endOfMonth(start)) };
+  }
+
+  return {
+    start: getPeriodRange(period, referenceDate).start,
+    end: getPeriodEnd(period, referenceDate),
+  };
+};
+
 const buildBuckets = (period: Period, range: DateRange, locale: string, now: Date): Bucket[] => {
   const buckets: Bucket[] = [];
   const current = now;
@@ -382,6 +411,7 @@ function buildAccountScreenData(params: {
   summary: AccountSummaryData;
   transactions: NormalizedTransactionRow[];
   period: Period;
+  selectedMonth?: string;
   locale: string;
   accountLabel: string;
   uncategorizedLabel: string;
@@ -391,6 +421,7 @@ function buildAccountScreenData(params: {
     summary,
     transactions,
     period,
+    selectedMonth,
     locale,
     accountLabel,
     uncategorizedLabel,
@@ -445,7 +476,7 @@ function buildAccountScreenData(params: {
   const contributorByUserId = new Map(contributors.map((contributor) => [contributor.userId, contributor]));
 
   const now = new Date();
-  const currentRange = getPeriodRange(period, now);
+  const currentRange = resolveCurrentRange(period, now, selectedMonth);
   const previousRange = getPreviousPeriodRange(period, currentRange);
 
   const currentTransactions = transactions.filter((tx) =>
@@ -721,6 +752,7 @@ export default function AccountTabScreen() {
   const { dictionary, locale } = useCopy();
 
   const [period, setPeriod] = useState<Period>("month");
+  const [selectedMonth, setSelectedMonth] = useState<string>(toMonthKey(new Date()));
   const [summaryData, setSummaryData] = useState<AccountSummaryData | null>(null);
   const [transactions, setTransactions] = useState<NormalizedTransactionRow[]>([]);
   const [profileColorRows, setProfileColorRows] = useState<ProfileColorRow[]>([]);
@@ -739,12 +771,13 @@ export default function AccountTabScreen() {
       summary: summaryData,
       transactions,
       period,
+      selectedMonth,
       locale,
       accountLabel: t(dictionary, "account.labelAccount"),
       uncategorizedLabel: t(dictionary, "transactions.uncategorized"),
       profileColorsByUserId,
     });
-  }, [summaryData, transactions, period, locale, dictionary, profileColorRows]);
+  }, [summaryData, transactions, period, selectedMonth, locale, dictionary, profileColorRows]);
 
   const screenData = computed?.data ?? null;
   const currencyDecimals = computed?.currencyDecimals ?? 2;
@@ -787,7 +820,7 @@ export default function AccountTabScreen() {
       const now = new Date();
       const queryStart = new Date(now.getFullYear() - 1, 0, 1);
       const startDate = formatDateISO(queryStart);
-      const endDate = formatDateISO(now);
+      const endDate = formatDateISO(getPeriodEnd("year", now));
 
       const { data: rows, error: rowsError } = await supabase
         .from("transactions")
@@ -892,20 +925,26 @@ export default function AccountTabScreen() {
         <AccountScreen
           data={screenData}
           period={period}
+          selectedMonth={selectedMonth}
           onPeriodChange={setPeriod}
+          onMonthChange={setSelectedMonth}
           currencySymbol={currencySymbol}
           currencyDecimals={currencyDecimals}
           onSettingsPress={() => router.push("/(auth)/settings/account/general")}
-          onSearchPress={() =>
-            router.push(`/(auth)/(tabs)/transactions?period=${period}`)
-          }
+          onSearchPress={() => {
+            const monthParam =
+              period === "month" ? `&month=${encodeURIComponent(selectedMonth)}` : "";
+            router.push(`/(auth)/(tabs)/transactions?period=${period}${monthParam}`);
+          }}
           onContributionCategoryPress={(categoryId, type) => {
+            const monthParam =
+              period === "month" ? `&month=${encodeURIComponent(selectedMonth)}` : "";
             const categoryParam =
               categoryId !== "uncategorized"
                 ? `&category=${encodeURIComponent(categoryId)}`
                 : "";
             router.push(
-              `/(auth)/(tabs)/transactions?period=${period}&type=${type}${categoryParam}`
+              `/(auth)/(tabs)/transactions?period=${period}${monthParam}&type=${type}${categoryParam}`
             );
           }}
         />

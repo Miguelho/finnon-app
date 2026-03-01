@@ -4,13 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   addMonths,
+  buildProjectColorMap,
   computeProjectProgress,
   computeSavingsDistribution,
   computeSavingsHistoryStats,
   computeSavingsMonthFromTransactions,
   formatMoneyWithSymbol,
   formatMonthLabel,
+  getProjectColor,
   getMonthRangeFromKey,
+  HUCHA_PROJECT_COLOR,
   toMonthKey,
   type Project,
   type ProjectContribution,
@@ -180,6 +183,7 @@ export function SavingsClient({
       }),
     [historyContributions, projects]
   );
+  const projectColorMap = useMemo(() => buildProjectColorMap(projects), [projects]);
 
   const progressByProject = useMemo(() => {
     const byProject = new Map<string, ReturnType<typeof computeProjectProgress>>();
@@ -228,6 +232,19 @@ export function SavingsClient({
       isCurrent: period === monthKey,
     }));
   }, [chartPeriods, historyStats.periods, monthlySavings, monthKey]);
+
+  const chartSegmentsByPeriod = useMemo(() => {
+    const byPeriod = new Map<string, Map<string, bigint>>();
+    historyContributions.forEach((entry) => {
+      const period = toPeriodKey(entry.period);
+      if (!period) return;
+      const projectMap = byPeriod.get(period) ?? new Map<string, bigint>();
+      const current = projectMap.get(entry.project_id) ?? 0n;
+      projectMap.set(entry.project_id, current + toMinor(entry.actual_amount_base_minor));
+      byPeriod.set(period, projectMap);
+    });
+    return byPeriod;
+  }, [historyContributions]);
 
   const chartScaleMinor = useMemo(() => {
     let maxMinor = distribution.objectiveMinor > 0n ? distribution.objectiveMinor : 1n;
@@ -413,7 +430,7 @@ export function SavingsClient({
 
       <Card>
         <CardHeader>
-          <h1 className="text-4xl font-semibold text-emerald-500">
+          <h1 className="text-4xl font-semibold">
             {formatMoneyWithSymbol(savingsMinor, baseCurrency, currencySymbol)}
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -441,6 +458,7 @@ export function SavingsClient({
                   style={{
                     width: `${Math.max(0, Math.min(100, huchaPercent))}%`,
                     left: `${Math.max(0, Math.min(100, projectsPercent))}%`,
+                    backgroundColor: "rgba(109, 201, 160, 0.85)",
                   }}
                 >
                   {huchaPercent > 14
@@ -492,13 +510,17 @@ export function SavingsClient({
             const actualMinor = actualByProject.get(row.project.id) ?? row.allocatedMinor;
             const progress = progressByProject.get(row.project.id);
             const progressPct = Math.round((progress?.progressRatio ?? 0) * 100);
+            const projectColor = getProjectColor(row.project, projectColorMap);
             return (
               <div
                 key={row.project.id}
                 className="flex items-center justify-between gap-3 border-b pb-3 last:border-b-0"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-blue-500/15 text-sm">
+                  <div
+                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-sm"
+                    style={{ backgroundColor: `${projectColor}26` }}
+                  >
                     {row.project.emoji}
                   </div>
                   <div className="min-w-0">
@@ -510,7 +532,7 @@ export function SavingsClient({
                     </p>
                   </div>
                 </div>
-                <p className="text-sm font-semibold text-emerald-500">
+                <p className="text-sm font-semibold" style={{ color: projectColor }}>
                   {formatMoneyWithSymbol(actualMinor, baseCurrency, currencySymbol)}
                 </p>
               </div>
@@ -518,7 +540,10 @@ export function SavingsClient({
           })}
           <div className="flex items-center justify-between gap-3 pt-2">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500/15 text-sm">
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-sm"
+                style={{ backgroundColor: `${HUCHA_PROJECT_COLOR}26` }}
+              >
                 🐷
               </div>
               <div>
@@ -528,7 +553,7 @@ export function SavingsClient({
                 </p>
               </div>
             </div>
-            <p className="text-sm font-semibold text-orange-400">
+            <p className="text-sm font-semibold" style={{ color: HUCHA_PROJECT_COLOR }}>
               {formatMoneyWithSymbol(distribution.huchaMinor, baseCurrency, currencySymbol)}
             </p>
           </div>
@@ -588,14 +613,46 @@ export function SavingsClient({
                   positiveAmount > 0n ? 10 : chartBarMinHeightPx,
                   (Number(positiveAmount) / Number(chartScaleMinor)) * chartBarMaxHeightPx
                 );
+                const periodContribs = chartSegmentsByPeriod.get(row.period);
+                const segments: Array<{ color: string; ratio: number }> = [];
+                if (periodContribs && positiveAmount > 0n) {
+                  projects.forEach((project) => {
+                    const amount = periodContribs.get(project.id) ?? 0n;
+                    if (amount <= 0n) return;
+                    segments.push({
+                      color: project.is_hucha
+                        ? HUCHA_PROJECT_COLOR
+                        : getProjectColor(project, projectColorMap),
+                      ratio: Number(amount) / Number(positiveAmount),
+                    });
+                  });
+                }
+                const hasSegments = segments.length > 0;
                 return (
                   <div key={row.period} className="flex flex-1 flex-col items-center gap-2">
                     <div
-                      className={`w-full max-w-8 rounded-t-sm ${
-                        row.achieved ? "bg-[#4ade80]" : "bg-[#fb923c]"
-                      } ${row.isCurrent ? "shadow-[0_0_14px_rgba(74,222,128,0.35)]" : ""}`}
+                      className={`flex w-full max-w-8 flex-col-reverse overflow-hidden rounded-t-sm ${
+                        row.isCurrent ? "shadow-[0_0_14px_rgba(74,222,128,0.35)]" : ""
+                      }`}
                       style={{ height: `${Math.min(chartBarMaxHeightPx, heightPx)}px` }}
-                    />
+                    >
+                      {hasSegments
+                        ? segments.map((seg, index) => (
+                            <div
+                              key={index}
+                              style={{
+                                backgroundColor: seg.color,
+                                flex: seg.ratio,
+                              }}
+                            />
+                          ))
+                        : (
+                            <div
+                              className="h-full w-full"
+                              style={{ backgroundColor: HUCHA_PROJECT_COLOR }}
+                            />
+                          )}
+                    </div>
                     <span className="text-[10px] text-muted-foreground">
                       {new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
                         month: "short",

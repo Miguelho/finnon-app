@@ -12,11 +12,15 @@ import { Stack, useLocalSearchParams } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
+  buildProjectColorMap,
   CURRENCIES,
   computeProjectProgress,
   formatMoneyWithSymbol,
+  getProjectColor,
   getHuchaStats,
+  HUCHA_PROJECT_COLOR,
   getMinorUnits,
+  PROJECT_PALETTE,
   themeTokens,
   toMonthKey,
   type Project,
@@ -129,6 +133,9 @@ export default function ProjectDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [project, setProject] = useState<Project | null>(null);
+  const [accountProjectsForColor, setAccountProjectsForColor] = useState<
+    Array<{ id: string; color?: string | null; is_hucha?: boolean | null; created_at?: string | Date | null }>
+  >([]);
   const [contributions, setContributions] = useState<ProjectContribution[]>([]);
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
   const [userLabels, setUserLabels] = useState<Record<string, string>>({});
@@ -144,6 +151,7 @@ export default function ProjectDetailScreen() {
   const [sliderMinor, setSliderMinor] = useState(0);
   const [sliderTrackWidth, setSliderTrackWidth] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingColor, setIsSavingColor] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
@@ -186,6 +194,12 @@ export default function ProjectDetailScreen() {
       if (projectError || !projectRow) {
         throw projectError ?? new Error("project-not-found");
       }
+
+      const { data: projectColorsRows, error: projectColorsError } = await supabase
+        .from("projects")
+        .select("id, color, is_hucha, created_at")
+        .eq("account_id", selectedAccountId);
+      if (projectColorsError) throw projectColorsError;
 
       const { data: contributionRows, error: contributionsError } = await supabase
         .from("project_contributions")
@@ -235,6 +249,14 @@ export default function ProjectDetailScreen() {
 
       const nextProject = projectRow as Project;
       setProject(nextProject);
+      setAccountProjectsForColor(
+        (projectColorsRows as Array<{
+          id: string;
+          color?: string | null;
+          is_hucha?: boolean | null;
+          created_at?: string | Date | null;
+        }>) ?? []
+      );
       setContributions((contributionRows ?? []) as ProjectContribution[]);
       setRecurringExpenses((recurringRows ?? []) as RecurringExpense[]);
       setUserLabels(labels);
@@ -246,6 +268,7 @@ export default function ProjectDetailScreen() {
     } catch (loadError) {
       console.error("[Projects][mobile] detail load error", loadError);
       setError(t(dictionary, "errors.internalServer"));
+      setAccountProjectsForColor([]);
     } finally {
       setLoading(false);
     }
@@ -284,6 +307,31 @@ export default function ProjectDetailScreen() {
     () => BigInt(Math.max(sliderMinor, 0)) + releasedFromRecurringMinor,
     [releasedFromRecurringMinor, sliderMinor]
   );
+
+  const projectColorMap = useMemo(() => {
+    if (!project) return new Map<string, string>();
+    const hasCurrentProject = accountProjectsForColor.some((entry) => entry.id === project.id);
+    const projectsForColor = hasCurrentProject
+      ? accountProjectsForColor.map((entry) =>
+          entry.id === project.id ? { ...entry, color: project.color } : entry
+        )
+      : [
+          ...accountProjectsForColor,
+          {
+            id: project.id,
+            color: project.color,
+            is_hucha: project.is_hucha,
+            created_at: project.created_at,
+          },
+        ];
+
+    return buildProjectColorMap(projectsForColor);
+  }, [accountProjectsForColor, project]);
+
+  const resolvedProjectColor = useMemo(() => {
+    if (!project) return PROJECT_PALETTE[0];
+    return getProjectColor(project, projectColorMap);
+  }, [project, projectColorMap]);
 
   const heroProgress = useMemo(() => {
     if (!project) return null;
@@ -430,6 +478,37 @@ export default function ProjectDetailScreen() {
     }
   };
 
+  const handleSetProjectColor = async (color: string) => {
+    if (!canEdit || !project || project.is_hucha || !selectedAccountId || isSavingColor) return;
+    if (resolvedProjectColor === color && project.color) return;
+
+    setIsSavingColor(true);
+    setSaveError(null);
+    setSaveMessage(null);
+    try {
+      const { data, error: updateError } = await supabase
+        .from("projects")
+        .update({
+          color,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", project.id)
+        .eq("account_id", selectedAccountId)
+        .select("*")
+        .single();
+
+      if (updateError) throw updateError;
+
+      setProject(data as Project);
+      setSaveMessage(t(dictionary, "projects.colorSaved"));
+    } catch (updateError) {
+      console.error("[Projects][mobile] color update error", updateError);
+      setSaveError(t(dictionary, "errors.internalServer"));
+    } finally {
+      setIsSavingColor(false);
+    }
+  };
+
   if (loading) {
     return (
       <>
@@ -483,7 +562,7 @@ export default function ProjectDetailScreen() {
               </View>
 
               <View style={styles.huchaHero}>
-                <Text style={[styles.huchaAmount, { color: "#fb923c" }]}>
+                <Text style={[styles.huchaAmount, { color: HUCHA_PROJECT_COLOR }]}>
                   {formatMoneyWithSymbol(
                     huchaStats.accumulatedMinor,
                     baseCurrency,
@@ -500,7 +579,7 @@ export default function ProjectDetailScreen() {
                   <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
                     {t(dictionary, "projects.hucha.thisMonth")}
                   </Text>
-                  <Text style={[styles.huchaStatValue, { color: "#4ade80" }]}>
+                  <Text style={[styles.huchaStatValue, { color: HUCHA_PROJECT_COLOR }]}>
                     +
                     {formatMoneyWithSymbol(
                       huchaStats.currentMonthContributionMinor,
@@ -513,7 +592,7 @@ export default function ProjectDetailScreen() {
                   <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
                     {t(dictionary, "projects.hucha.monthlyAverage")}
                   </Text>
-                  <Text style={[styles.huchaStatValue, { color: userTokens.textPrimary }]}>
+                  <Text style={[styles.huchaStatValue, { color: HUCHA_PROJECT_COLOR }]}>
                     {formatMoneyWithSymbol(huchaStats.averageMinor, baseCurrency, currencySymbol)}
                   </Text>
                 </View>
@@ -521,7 +600,7 @@ export default function ProjectDetailScreen() {
                   <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
                     {t(dictionary, "projects.hucha.bestMonth")}
                   </Text>
-                  <Text style={[styles.huchaStatValue, { color: userTokens.textPrimary }]}>
+                  <Text style={[styles.huchaStatValue, { color: HUCHA_PROJECT_COLOR }]}>
                     {huchaStats.bestMonth
                       ? formatMoneyWithSymbol(
                           huchaStats.bestMonth.amountMinor,
@@ -564,7 +643,7 @@ export default function ProjectDetailScreen() {
                         <Text style={[styles.historyPeriod, { color: userTokens.textSecondary }]}>
                           {periodLabel}
                         </Text>
-                        <Text style={[styles.historyAmount, { color: "#4ade80" }]}>
+                        <Text style={[styles.historyAmount, { color: HUCHA_PROJECT_COLOR }]}>
                           +
                           {formatMoneyWithSymbol(
                             toMinor(entry.actual_amount_base_minor),
@@ -625,10 +704,10 @@ export default function ProjectDetailScreen() {
                 size={148}
                 strokeWidth={10}
                 trackColor={userTokens.surfaceAlt}
-                progressColor={primaryActionColor}
+                progressColor={resolvedProjectColor}
                 center={
                   <View>
-                    <Text style={[styles.heroPercent, { color: userTokens.textPrimary }]}>
+                    <Text style={[styles.heroPercent, { color: resolvedProjectColor }]}>
                       {Math.round(heroProgress.progressRatio * 100)}%
                     </Text>
                   </View>
@@ -685,6 +764,35 @@ export default function ProjectDetailScreen() {
                 </Text>
               ) : null}
             </View>
+
+            {canEdit ? (
+              <View style={[styles.colorPickerCard, { borderColor: userTokens.border }]}>
+                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                  {t(dictionary, "projects.colorLabel")}
+                </Text>
+                <View style={styles.colorSwatches}>
+                  {PROJECT_PALETTE.map((color) => {
+                    const isSelected = resolvedProjectColor === color;
+                    return (
+                      <TouchableOpacity
+                        key={color}
+                        onPress={() => void handleSetProjectColor(color)}
+                        disabled={isSavingColor}
+                        activeOpacity={0.85}
+                        style={[
+                          styles.colorSwatch,
+                          { backgroundColor: color, borderColor: userTokens.border },
+                          isSelected && styles.colorSwatchSelected,
+                          isSavingColor && styles.colorSwatchDisabled,
+                        ]}
+                      >
+                        {isSelected ? <View style={styles.colorSwatchInner} /> : null}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
           </Card>
 
           <View style={[styles.tabs, { borderColor: userTokens.border }]}>
@@ -1176,6 +1284,40 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: tokens.typography.size.xs,
     fontFamily: "DMSans-Regular",
+  },
+  colorPickerCard: {
+    marginTop: tokens.spacing.md,
+    borderRadius: tokens.radii.md,
+    borderWidth: 1,
+    padding: tokens.spacing.sm,
+    gap: tokens.spacing.sm,
+  },
+  colorSwatches: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  colorSwatch: {
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  colorSwatchSelected: {
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.5)",
+  },
+  colorSwatchInner: {
+    width: 11,
+    height: 11,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.85)",
+  },
+  colorSwatchDisabled: {
+    opacity: 0.55,
   },
   tabs: {
     flexDirection: "row",

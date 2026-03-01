@@ -14,12 +14,16 @@ import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   addMonths,
+  assignProjectColor,
+  buildProjectColorMap,
   CURRENCIES,
   computePendingMonthCloseKeys,
   computeProjectProgress,
   formatMoneyWithSymbol,
   formatMonthLabel,
+  getProjectColor,
   getHuchaStats,
+  HUCHA_PROJECT_COLOR,
   getMonthlyProjectCommitmentTotal,
   parseMoneyToMinor,
   themeTokens,
@@ -229,6 +233,7 @@ export default function ProjectsScreen() {
     () => projects.filter((project) => !project.is_hucha),
     [projects]
   );
+  const projectColorMap = useMemo(() => buildProjectColorMap(projects), [projects]);
 
   const huchaStats = useMemo(
     () =>
@@ -284,6 +289,9 @@ export default function ProjectsScreen() {
 
     setIsCreating(true);
     setCreateError(null);
+    const nextColor = assignProjectColor(
+      projects.filter((project) => !project.is_hucha)
+    );
     try {
       const { data, error: insertError } = await supabase
         .from("projects")
@@ -291,6 +299,7 @@ export default function ProjectsScreen() {
           account_id: selectedAccountId,
           name: trimmedName,
           emoji: emojiInput.trim() || DEFAULT_EMOJI,
+          color: nextColor,
           is_hucha: false,
           target_amount_base_minor: String(parsedTarget),
           priority: safePriority,
@@ -356,7 +365,7 @@ export default function ProjectsScreen() {
                   styles.huchaCard,
                   {
                     backgroundColor: userTokens.surface,
-                    borderColor: "rgba(251, 146, 60, 0.45)",
+                    borderColor: "rgba(109, 201, 160, 0.45)",
                   },
                 ]}
                 activeOpacity={0.82}
@@ -384,7 +393,7 @@ export default function ProjectsScreen() {
                         numberOfLines={1}
                         adjustsFontSizeToFit
                         minimumFontScale={0.75}
-                        style={[styles.huchaAmount, { color: "#fb923c" }]}
+                        style={[styles.huchaAmount, { color: HUCHA_PROJECT_COLOR }]}
                       >
                         {formatMoneyWithSymbol(
                           huchaStats.accumulatedMinor,
@@ -409,7 +418,7 @@ export default function ProjectsScreen() {
                         numberOfLines={1}
                         adjustsFontSizeToFit
                         minimumFontScale={0.8}
-                        style={[styles.huchaStatValue, { color: "#4ade80" }]}
+                        style={[styles.huchaStatValue, { color: HUCHA_PROJECT_COLOR }]}
                       >
                         +{formatMoneyWithSymbol(
                           huchaStats.currentMonthContributionMinor,
@@ -426,7 +435,7 @@ export default function ProjectsScreen() {
                         numberOfLines={1}
                         adjustsFontSizeToFit
                         minimumFontScale={0.8}
-                        style={[styles.huchaStatValue, { color: userTokens.textPrimary }]}
+                        style={[styles.huchaStatValue, { color: HUCHA_PROJECT_COLOR }]}
                       >
                         {formatMoneyWithSymbol(
                           huchaStats.averageMinor,
@@ -503,6 +512,7 @@ export default function ProjectsScreen() {
             ) : (
               <View style={styles.projectsList}>
                 {activeProjects.map((project) => {
+                  const projectColor = getProjectColor(project, projectColorMap);
                   const progress = computeProjectProgress({
                     project,
                     contributions: contributionsByProject.get(project.id) ?? [],
@@ -528,7 +538,7 @@ export default function ProjectsScreen() {
                           size={78}
                           strokeWidth={7}
                           trackColor={userTokens.surfaceAlt}
-                          progressColor={primaryActionColor}
+                          progressColor={projectColor}
                           center={<Text style={styles.projectEmoji}>{project.emoji || DEFAULT_EMOJI}</Text>}
                         />
                         <View style={styles.projectCopy}>
@@ -547,7 +557,7 @@ export default function ProjectsScreen() {
                       </View>
 
                       <View style={styles.projectRight}>
-                        <Text style={[styles.projectPercent, { color: userTokens.textPrimary }]}>
+                        <Text style={[styles.projectPercent, { color: projectColor }]}>
                           {progressPercent}%
                         </Text>
                         {progress.monthsLeft !== null && progress.estimatedCompletionDate ? (
@@ -569,18 +579,35 @@ export default function ProjectsScreen() {
               </View>
             )}
 
-            <Card>
-              <Text style={[styles.commitmentLabel, { color: userTokens.textSecondary }]}>
-                {t(dictionary, "projects.totalCommitment")}
-              </Text>
-              <Text style={[styles.commitmentValue, { color: userTokens.textPrimary }]}>
-                {formatMoneyWithSymbol(totalCommitmentMinor, baseCurrency, currencySymbol)}
-                <Text style={[styles.commitmentSuffix, { color: userTokens.textSecondary }]}>
-                  {" "}
-                  {t(dictionary, "projects.perMonth")}
+            <TouchableOpacity
+              style={[
+                styles.commitmentCard,
+                {
+                  backgroundColor: userTokens.surface,
+                  borderColor: userTokens.border,
+                },
+              ]}
+              activeOpacity={0.82}
+              onPress={() => router.push("/(auth)/(tabs)/home/savings")}
+            >
+              <View style={styles.commitmentContent}>
+                <View style={styles.commitmentLeft}>
+                  <Text style={[styles.commitmentLabel, { color: userTokens.textSecondary }]}>
+                    {t(dictionary, "projects.totalCommitment")}
+                  </Text>
+                  <Text style={[styles.commitmentValue, { color: userTokens.textPrimary }]}>
+                    {formatMoneyWithSymbol(totalCommitmentMinor, baseCurrency, currencySymbol)}
+                    <Text style={[styles.commitmentSuffix, { color: userTokens.textSecondary }]}>
+                      {" "}
+                      {t(dictionary, "projects.perMonth")}
+                    </Text>
+                  </Text>
+                </View>
+                <Text style={[styles.commitmentChevron, { color: userTokens.textSecondary }]}>
+                  ›
                 </Text>
-              </Text>
-            </Card>
+              </View>
+            </TouchableOpacity>
           </ScrollView>
         )}
 
@@ -763,11 +790,11 @@ const styles = StyleSheet.create({
   },
   huchaFrameTopLeft: {
     flex: 1,
-    backgroundColor: "#fb923c",
+    backgroundColor: HUCHA_PROJECT_COLOR,
   },
   huchaFrameTopRight: {
     flex: 1,
-    backgroundColor: "#f472b6",
+    backgroundColor: "#5ECBA1",
   },
   huchaBody: {
     padding: tokens.spacing.md,
@@ -829,6 +856,21 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans-SemiBold",
     flexShrink: 1,
   },
+  commitmentCard: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.md,
+  },
+  commitmentContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: tokens.spacing.sm,
+  },
+  commitmentLeft: {
+    flex: 1,
+    minWidth: 0,
+  },
   commitmentLabel: {
     fontSize: tokens.typography.size.sm,
     fontFamily: "DMSans-Regular",
@@ -843,6 +885,10 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.md,
     fontWeight: tokens.typography.weight.medium,
     fontFamily: "DMSans-Medium",
+  },
+  commitmentChevron: {
+    fontSize: 24,
+    fontFamily: "DMSans-Regular",
   },
   pendingTitle: {
     fontSize: tokens.typography.size.md,

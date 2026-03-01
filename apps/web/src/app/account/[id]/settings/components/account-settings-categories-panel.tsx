@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, X } from "lucide-react";
 import {
+  normalizeHexColor,
   normalizeCategoryName,
   resolveCategoryIconKey,
   suggestCategoryIcon,
@@ -28,6 +29,7 @@ type Category = {
   name: string;
   icon_id: string;
   type: CategoryType;
+  color?: string | null;
   created_at: string;
 };
 
@@ -35,6 +37,12 @@ type AccountSettingsCategoriesPanelProps = {
   accountId: string;
   canEdit: boolean;
 };
+
+const isMissingCategoryColorError = (error: any) =>
+  error?.code === "42703" &&
+  typeof error?.message === "string" &&
+  error.message.includes("categories") &&
+  error.message.includes("color");
 
 export function AccountSettingsCategoriesPanel({
   accountId,
@@ -59,6 +67,7 @@ export function AccountSettingsCategoriesPanel({
     name: "",
     icon_id: "Tag" as CategoryIconKey,
     type: "expense" as CategoryType,
+    color: null as string | null,
   });
 
   const loadCategories = async () => {
@@ -66,11 +75,24 @@ export function AccountSettingsCategoriesPanel({
     setHasError(false);
 
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("categories")
-        .select("id, account_id, name, icon_id, type, created_at")
+        .select("id, account_id, name, icon_id, type, color, created_at")
         .eq("account_id", accountId)
         .order("name", { ascending: true });
+
+      if (isMissingCategoryColorError(error)) {
+        console.warn(
+          "[AccountSettingsCategoriesPanel][web] categories.color missing, retrying without color."
+        );
+        const legacyResult = await supabase
+          .from("categories")
+          .select("id, account_id, name, icon_id, type, created_at")
+          .eq("account_id", accountId)
+          .order("name", { ascending: true });
+        data = (legacyResult.data ?? []).map((item) => ({ ...item, color: null }));
+        error = legacyResult.error;
+      }
 
       if (error) {
         throw error;
@@ -104,6 +126,7 @@ export function AccountSettingsCategoriesPanel({
       name: "",
       icon_id: "Tag",
       type: "expense",
+      color: null,
     });
     setSelectedCategory(null);
     setUserSelectedIcon(false);
@@ -115,6 +138,7 @@ export function AccountSettingsCategoriesPanel({
       name: "",
       icon_id: type === "expense" ? "Tag" : "Bank",
       type,
+      color: null,
     });
     setUserSelectedIcon(false);
     setIsCreateOpen(true);
@@ -127,6 +151,7 @@ export function AccountSettingsCategoriesPanel({
       name: category.name,
       icon_id: resolveCategoryIconKey(category.icon_id),
       type: category.type,
+      color: normalizeHexColor(category.color),
     });
     setUserSelectedIcon(true);
     setIsEditOpen(true);
@@ -153,6 +178,7 @@ export function AccountSettingsCategoriesPanel({
         name: normalizedName,
         icon_id: formData.icon_id,
         type: formData.type,
+        color: normalizeHexColor(formData.color),
       });
 
       if (!result.success || !result.data) {
@@ -194,6 +220,7 @@ export function AccountSettingsCategoriesPanel({
         name: normalizedName,
         icon_id: formData.icon_id,
         type: formData.type,
+        color: normalizeHexColor(formData.color),
       });
 
       if (!result.success || !result.data) {
@@ -360,6 +387,8 @@ export function AccountSettingsCategoriesPanel({
         expenseLabel={t("categories.expenseLabel")}
         incomeLabel={t("categories.incomeLabel")}
         iconLabel={t("categories.iconLabel")}
+        colorLabel={t("categories.colorLabel")}
+        customColorLabel={t("categories.customColorLabel")}
         nameValue={formData.name}
         onNameChange={(newName) => {
           setFormData((prev) => {
@@ -377,6 +406,8 @@ export function AccountSettingsCategoriesPanel({
           setUserSelectedIcon(true);
           setFormData((prev) => ({ ...prev, icon_id: iconKey }));
         }}
+        colorValue={formData.color}
+        onColorChange={(color) => setFormData((prev) => ({ ...prev, color }))}
         onCancel={() => {
           setIsCreateOpen(false);
           resetForm();
@@ -400,6 +431,8 @@ export function AccountSettingsCategoriesPanel({
         expenseLabel={t("categories.expenseLabel")}
         incomeLabel={t("categories.incomeLabel")}
         iconLabel={t("categories.iconLabel")}
+        colorLabel={t("categories.colorLabel")}
+        customColorLabel={t("categories.customColorLabel")}
         nameValue={formData.name}
         onNameChange={(newName) => {
           setFormData((prev) => ({ ...prev, name: newName }));
@@ -411,6 +444,8 @@ export function AccountSettingsCategoriesPanel({
           setUserSelectedIcon(true);
           setFormData((prev) => ({ ...prev, icon_id: iconKey }));
         }}
+        colorValue={formData.color}
+        onColorChange={(color) => setFormData((prev) => ({ ...prev, color }))}
         onCancel={() => {
           setIsEditOpen(false);
           resetForm();

@@ -14,7 +14,9 @@ import type {
 interface AccountScreenProps {
   data: AccountScreenData;
   period: Period;
+  selectedMonth: string;
   onPeriodChange: (period: Period) => void;
+  onMonthChange: (monthKey: string) => void;
   currencySymbol?: string;
   currencyDecimals?: number;
   onSettingsPress?: () => void;
@@ -27,7 +29,9 @@ interface AccountScreenProps {
 export function AccountScreen({
   data,
   period,
+  selectedMonth,
   onPeriodChange,
+  onMonthChange,
   currencySymbol = '€',
   currencyDecimals = 2,
   onSettingsPress,
@@ -59,7 +63,12 @@ export function AccountScreen({
         decimals={currencyDecimals}
       />
 
-      <PeriodSelector selected={period} onSelect={onPeriodChange} />
+      <PeriodSelector
+        selectedPeriod={period}
+        selectedMonth={selectedMonth}
+        onSelectPeriod={onPeriodChange}
+        onSelectMonth={onMonthChange}
+      />
 
       <FlowCards
         flow={data.flow}

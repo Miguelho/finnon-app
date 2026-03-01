@@ -5,6 +5,7 @@ export type Project = {
   account_id: string;
   name: string;
   emoji: string;
+  color?: string | null;
   is_hucha?: boolean;
   target_amount_base_minor?: bigint | number | string | null;
   monthly_commitment_base_minor?: bigint | number | string | null;

@@ -3,6 +3,12 @@ import { createAuthenticatedClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+const isMissingCategoryColorError = (error: any) =>
+  error?.code === "42703" &&
+  typeof error?.message === "string" &&
+  error.message.includes("categories") &&
+  error.message.includes("color");
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -17,6 +23,32 @@ export async function GET(request: Request) {
 
     const { client: supabase, user } = await createAuthenticatedClient();
 
+    const loadCategories = async () => {
+      let categoriesResult = await supabase
+        .from("categories")
+        .select("id, name, icon_id, type, color")
+        .eq("account_id", accountId)
+        .order("name", { ascending: true });
+
+      if (isMissingCategoryColorError(categoriesResult.error)) {
+        console.warn(
+          "[add-action-data][web] categories.color missing, retrying without color."
+        );
+        const legacyResult = await supabase
+          .from("categories")
+          .select("id, name, icon_id, type")
+          .eq("account_id", accountId)
+          .order("name", { ascending: true });
+
+        return {
+          data: (legacyResult.data ?? []).map((item) => ({ ...item, color: null })),
+          error: legacyResult.error,
+        };
+      }
+
+      return categoriesResult;
+    };
+
     const [
       categoriesResult,
       topExpenseResult,
@@ -25,11 +57,7 @@ export async function GET(request: Request) {
       merchantIncomeResult,
       membersResult,
     ] = await Promise.all([
-      supabase
-        .from("categories")
-        .select("id, name, icon_id, type")
-        .eq("account_id", accountId)
-        .order("name", { ascending: true }),
+      loadCategories(),
       supabase.rpc("get_top_categories", {
         p_account_id: accountId,
         p_tx_type: "expense",

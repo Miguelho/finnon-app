@@ -1,16 +1,20 @@
 "use client";
 
-import { useMemo, useRef, useState, type TouchEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import Link from "next/link";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { ChevronDown, ChevronUp, Info, Search, Settings, TrendingUp, X } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { CURRENCIES, getMinorUnits, type Period } from "@poleursus/shared";
+import { Check, ChevronDown, ChevronUp, Info, Search, Settings, TrendingUp, X } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { CURRENCIES, PERIODS, formatMonthLabel, getRecentMonthKeys, getMinorUnits, type Period } from "@poleursus/shared";
 import { CategoryIcon } from "@/components/category-icon";
 import type { AccountRedesignData, AccountRedesignPeriod } from "@/components/account/account-redesign-types";
 import { formatCurrency, formatDelta } from "@/components/account/account-redesign-utils";
-import { PeriodSelector } from "@/components/shared/PeriodSelector";
 import { useWebUserTheme } from "@/components/theme/web-user-theme-provider";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import styles from "@/components/account/account-redesign.module.css";
 
 type ChartMode = "both" | "income" | "expenses" | "net";
@@ -18,17 +22,132 @@ type ChartMode = "both" | "income" | "expenses" | "net";
 const CHART_HEIGHT = 200;
 const DEFAULT_VISIBLE_CONTRIBUTION_CATEGORIES = 2;
 
+const periodLabelKey: Record<Period, string> = {
+  week: "common.periodWeek",
+  month: "common.periodMonth",
+  quarter: "common.periodQuarter",
+  year: "common.periodYear",
+};
+
 type AccountRedesignClientProps = {
   dataByPeriod: Record<AccountRedesignPeriod, AccountRedesignData>;
+  dataByMonth: Record<string, AccountRedesignData>;
+  monthKeys: string[];
   currentUserId?: string | null;
 };
 
-export function AccountRedesignClient({ dataByPeriod, currentUserId = null }: AccountRedesignClientProps) {
+function PeriodMonthSelector({
+  selectedPeriod,
+  selectedMonth,
+  onPeriodChange,
+  onMonthChange,
+  locale,
+  monthKeys,
+}: {
+  selectedPeriod: Period;
+  selectedMonth: string;
+  onPeriodChange: (period: Period) => void;
+  onMonthChange: (monthKey: string) => void;
+  locale: string;
+  monthKeys: string[];
+}) {
   const t = useTranslations();
+  const [open, setOpen] = useState(false);
+  const months = monthKeys.length > 0 ? monthKeys : getRecentMonthKeys(12);
+  const selectedMonthLabel = useMemo(
+    () => formatMonthLabel(selectedMonth, locale),
+    [selectedMonth, locale]
+  );
+
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-1">
+      {PERIODS.map(({ key }) => {
+        if (key === "month") {
+          const isActive = selectedPeriod === "month";
+          return (
+            <DropdownMenu key={key} open={open} onOpenChange={setOpen}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-primary"
+                  }`}
+                  onClick={() => {
+                    if (!isActive) {
+                      onPeriodChange("month");
+                    }
+                  }}
+                >
+                  <span className="capitalize">{selectedMonthLabel}</span>
+                  <ChevronDown size={12} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="max-h-64 w-52 overflow-auto p-2" align="center">
+                {months.map((monthKey) => {
+                  const isSelected = monthKey === selectedMonth;
+                  return (
+                    <button
+                      key={monthKey}
+                      type="button"
+                      className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-sm capitalize transition ${
+                        isSelected
+                          ? "bg-primary/10 font-semibold text-primary"
+                          : "text-foreground hover:bg-muted/60"
+                      }`}
+                      onClick={() => {
+                        onMonthChange(monthKey);
+                        onPeriodChange("month");
+                        setOpen(false);
+                      }}
+                    >
+                      <span>{formatMonthLabel(monthKey, locale)}</span>
+                      {isSelected ? <Check size={14} /> : null}
+                    </button>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        }
+
+        const isActive = selectedPeriod === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onPeriodChange(key)}
+            className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+              isActive
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-primary"
+            }`}
+          >
+            {t(periodLabelKey[key] as any)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function AccountRedesignClient({
+  dataByPeriod,
+  dataByMonth,
+  monthKeys,
+  currentUserId = null,
+}: AccountRedesignClientProps) {
+  const t = useTranslations();
+  const locale = useLocale();
   const { resolvedMode } = useWebUserTheme();
   const [selectedPeriod, setSelectedPeriod] = useState<Period>("month");
+  const [selectedMonth, setSelectedMonth] = useState(
+    monthKeys[0] ?? getRecentMonthKeys(12)[0] ?? ""
+  );
   const [chartMode, setChartMode] = useState<ChartMode>("both");
   const [isChartExpanded, setIsChartExpanded] = useState(false);
+  const [isBalanceTooltipOpen, setIsBalanceTooltipOpen] = useState(false);
   const [expandedContributionSections, setExpandedContributionSections] = useState<{
     expense: boolean;
     income: boolean;
@@ -40,8 +159,13 @@ export function AccountRedesignClient({ dataByPeriod, currentUserId = null }: Ac
   const swipeStartYRef = useRef<number | null>(null);
   const swipeCurrentYRef = useRef<number | null>(null);
   const contributionDetailScrollRef = useRef<HTMLDivElement | null>(null);
+  const balanceTooltipButtonRef = useRef<HTMLButtonElement | null>(null);
+  const balanceTooltipRef = useRef<HTMLDivElement | null>(null);
 
-  const data = dataByPeriod[selectedPeriod];
+  const data =
+    selectedPeriod === "month"
+      ? dataByMonth[selectedMonth] ?? dataByPeriod.month
+      : dataByPeriod[selectedPeriod];
   const contributionData = data.contributionBalance;
   const contributors = data.contributors;
   const isCollaborative =
@@ -172,6 +296,43 @@ export function AccountRedesignClient({ dataByPeriod, currentUserId = null }: Ac
     return { members, maxValue };
   }, [contributionData, isCollaborative]);
 
+  const transactionsHref = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("period", selectedPeriod);
+    if (selectedPeriod === "month" && selectedMonth) {
+      params.set("month", selectedMonth);
+    }
+    return `/transactions?${params.toString()}`;
+  }, [selectedMonth, selectedPeriod]);
+
+  useEffect(() => {
+    if (!isBalanceTooltipOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        balanceTooltipRef.current?.contains(target) ||
+        balanceTooltipButtonRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setIsBalanceTooltipOpen(false);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsBalanceTooltipOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isBalanceTooltipOpen]);
+
   const handleContributionDetailTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     const firstTouch = event.touches[0];
     if (!firstTouch) return;
@@ -273,6 +434,9 @@ export function AccountRedesignClient({ dataByPeriod, currentUserId = null }: Ac
     const getCategoryHref = (categoryId: string) => {
       const params = new URLSearchParams();
       params.set("period", selectedPeriod);
+      if (selectedPeriod === "month" && selectedMonth) {
+        params.set("month", selectedMonth);
+      }
       params.set("type", type);
       if (categoryId !== "uncategorized") {
         params.set("category", categoryId);
@@ -477,7 +641,7 @@ export function AccountRedesignClient({ dataByPeriod, currentUserId = null }: Ac
 
             <div className={styles.headerActions}>
               <Link
-                href="/transactions"
+                href={transactionsHref}
                 className={styles.iconBtn}
                 aria-label={t("account.redesign.searchAriaLabel")}
               >
@@ -498,14 +662,28 @@ export function AccountRedesignClient({ dataByPeriod, currentUserId = null }: Ac
           <div className={styles.balanceHero}>
             <div className={styles.balanceLabelRow}>
               <div className={styles.balanceLabel}>{t("account.redesign.balanceTotalLabel")}</div>
-              <button
-                type="button"
-                className={styles.balanceTooltipButton}
-                title={t("account.redesign.balanceTotalTooltip")}
-                aria-label={t("account.redesign.balanceTotalTooltip")}
-              >
-                <Info size={14} />
-              </button>
+              <div className="relative">
+                <button
+                  ref={balanceTooltipButtonRef}
+                  type="button"
+                  className={styles.balanceTooltipButton}
+                  aria-label={t("account.redesign.balanceTotalTooltip")}
+                  aria-expanded={isBalanceTooltipOpen}
+                  onClick={() => setIsBalanceTooltipOpen((prev) => !prev)}
+                  onMouseEnter={() => setIsBalanceTooltipOpen(true)}
+                  onFocus={() => setIsBalanceTooltipOpen(true)}
+                >
+                  <Info size={14} />
+                </button>
+                {isBalanceTooltipOpen ? (
+                  <div
+                    ref={balanceTooltipRef}
+                    className="absolute right-0 top-full z-20 mt-2 w-64 rounded-lg border border-border bg-background p-3 text-xs text-foreground shadow-sm"
+                  >
+                    {t("account.redesign.balanceTotalTooltip")}
+                  </div>
+                ) : null}
+              </div>
             </div>
             <div className={styles.balanceAmount}>
               {currencySymbol}
@@ -696,7 +874,16 @@ export function AccountRedesignClient({ dataByPeriod, currentUserId = null }: Ac
           ) : null}
         </div>
 
-        <PeriodSelector selected={selectedPeriod} onChange={setSelectedPeriod} className={styles.periodSelector} />
+        <div className={styles.periodSelector}>
+          <PeriodMonthSelector
+            selectedPeriod={selectedPeriod}
+            selectedMonth={selectedMonth}
+            onPeriodChange={setSelectedPeriod}
+            onMonthChange={setSelectedMonth}
+            locale={locale}
+            monthKeys={monthKeys}
+          />
+        </div>
 
         <div className={styles.flowRow}>
           <div className={`${styles.flowCard} ${styles.flowCardIncome}`}>

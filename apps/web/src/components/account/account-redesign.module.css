@@ -301,11 +301,11 @@
 }
 
 .flowArrowUp {
-  background: var(--income);
+  background: var(--text-secondary);
 }
 
 .flowArrowDown {
-  background: var(--expense);
+  background: var(--text-secondary);
 }
 
 .flowLabel {
@@ -316,11 +316,11 @@
 }
 
 .flowLabelIncome {
-  color: var(--income);
+  color: var(--text-secondary);
 }
 
 .flowLabelExpense {
-  color: var(--expense);
+  color: var(--text-secondary);
 }
 
 .flowAmount {
@@ -331,11 +331,11 @@
 }
 
 .flowAmountIncome {
-  color: var(--income);
+  color: var(--text-primary);
 }
 
 .flowAmountExpense {
-  color: var(--expense);
+  color: var(--text-primary);
 }
 
 .flowDelta {
@@ -799,11 +799,11 @@
 }
 
 .contributionTotalExpense {
-  color: var(--expense);
+  color: var(--text-primary);
 }
 
 .contributionTotalIncome {
-  color: var(--income);
+  color: var(--text-primary);
 }
 
 .contributionCategoryRow2 {

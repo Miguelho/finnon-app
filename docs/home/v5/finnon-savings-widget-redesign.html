@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon — Widget Ahorro Rediseñado</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cat-1: #D4943A;
+    --cat-2: #CB6E55;
+    --cat-3: #9B85D6;
+    --cat-4: #52B3A3;
+    --cat-5: #D47A95;
+
+    --income: #6DC9A0;
+    --income-bright: #8EDBB5;
+    --income-bg: rgba(109, 201, 160, 0.10);
+
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 24px;
+  }
+
+  [data-theme="grafito"] {
+    --bg: #141413;
+    --surface: #1C1C1B;
+    --surface-alt: #2A2A28;
+    --border: #31312F;
+    --border-subtle: rgba(255,255,255,0.05);
+    --text-primary: #EDEBE8;
+    --text-secondary: #908D88;
+    --text-tertiary: #5E5C58;
+    --heat-1: rgba(212, 148, 58, 0.10);
+    --heat-2: rgba(212, 140, 50, 0.20);
+    --heat-3: rgba(215, 130, 42, 0.34);
+    --heat-4: rgba(218, 118, 35, 0.52);
+    --heat-5: rgba(222, 105, 28, 0.70);
+    --expense-text: #E0956A;
+    --expense-bg: rgba(224, 149, 106, 0.10);
+    --today-ring: rgba(237, 235, 232, 0.45);
+    --heat-text-3: #F5E6D8;
+    --heat-text-4: #FFF4EA;
+    --heat-text-5: #FFFFFF;
+    --ring-track: rgba(255,255,255,0.06);
+    --hucha-bg: rgba(109, 201, 160, 0.06);
+  }
+
+  [data-theme="oceano"] {
+    --bg: #0E1A27;
+    --surface: #152334;
+    --surface-alt: #1F3046;
+    --border: #2A415E;
+    --border-subtle: rgba(140, 180, 230, 0.06);
+    --text-primary: #E2EAF2;
+    --text-secondary: #7A90A8;
+    --text-tertiary: #4A6280;
+    --heat-1: rgba(220, 140, 100, 0.10);
+    --heat-2: rgba(218, 125, 85, 0.22);
+    --heat-3: rgba(215, 110, 70, 0.36);
+    --heat-4: rgba(212, 95, 55, 0.54);
+    --heat-5: rgba(210, 80, 42, 0.72);
+    --expense-text: #E8A07A;
+    --expense-bg: rgba(232, 160, 122, 0.10);
+    --today-ring: rgba(226, 234, 242, 0.40);
+    --heat-text-3: #F0DDD0;
+    --heat-text-4: #FFF0E6;
+    --heat-text-5: #FFFFFF;
+    --ring-track: rgba(140, 180, 230, 0.08);
+    --hucha-bg: rgba(109, 201, 160, 0.06);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #0A0A0A;
+    color: #EEE;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Theme switcher */
+  .theme-sw {
+    display: flex;
+    gap: 4px;
+    background: #1A1A1A;
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 12px;
+    border: 1px solid #2A2A2A;
+  }
+
+  .t-btn {
+    border: none;
+    padding: 10px 24px;
+    border-radius: 9px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: transparent;
+    color: #666;
+  }
+
+  .t-btn.active { color: #FFF; }
+  .t-btn[data-t="grafito"].active { background: #2A2A28; }
+  .t-btn[data-t="oceano"].active { background: #1F3046; }
+
+  /* Variant switcher */
+  .variant-sw {
+    display: flex;
+    gap: 4px;
+    background: #1A1A1A;
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 28px;
+    border: 1px solid #2A2A2A;
+  }
+
+  .v-btn {
+    border: none;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: transparent;
+    color: #555;
+  }
+
+  .v-btn.active { background: #2A2A2A; color: #CCC; font-weight: 500; }
+
+  /* Phones row */
+  .phones-row {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .phone-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .phone-lbl {
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: #555;
+  }
+
+  /* Phone */
+  .phone {
+    width: 375px;
+    max-width: 100%;
+    background: var(--bg);
+    border-radius: 36px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 30px 80px rgba(0,0,0,0.5);
+    padding: 14px;
+  }
+
+  /* Header */
+  .hdr {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 4px 16px;
+  }
+
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 17px;
+    letter-spacing: -0.3px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .logo-d {
+    width: 24px;
+    height: 24px;
+    background: var(--text-primary);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bg);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .ava {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  /* ============================================
+     TOP ROW: Balance + Savings
+     ============================================ */
+  .top-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .bal-card {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    border: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .bal-lbl {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 4px;
+  }
+
+  .bal-amt {
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    font-weight: 400;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+  }
+
+  .bal-amt .dec { font-size: 13px; color: var(--text-secondary); }
+
+  /* ============================================
+     SAVINGS WIDGET — REDESIGNED
+     ============================================ */
+  .sav-widget {
+    flex: 1;
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    border: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .sav-widget:hover {
+    background: var(--surface-alt);
+  }
+
+  /* Project rings area */
+  .rings-area {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  /* Single ring */
+  .ring-wrap {
+    position: relative;
+    width: 42px;
+    height: 42px;
+  }
+
+  .ring-wrap svg {
+    width: 42px;
+    height: 42px;
+    transform: rotate(-90deg);
+  }
+
+  .ring-track {
+    fill: none;
+    stroke: var(--ring-track);
+    stroke-width: 3.5;
+  }
+
+  .ring-progress {
+    fill: none;
+    stroke-width: 3.5;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .ring-emoji {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  /* Overflow glow for completed rings */
+  .ring-wrap.completed .ring-progress {
+    filter: drop-shadow(0 0 4px var(--income));
+  }
+
+  .ring-wrap.completed::after {
+    content: '✓';
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 14px;
+    height: 14px;
+    background: var(--income);
+    border-radius: 50%;
+    font-size: 8px;
+    color: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+
+  /* Info text */
+  .sav-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sav-top-line {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    margin-bottom: 2px;
+  }
+
+  .sav-label {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  .sav-month {
+    font-size: 9px;
+    color: var(--text-tertiary);
+    margin-left: auto;
+  }
+
+  .sav-total {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--income);
+    letter-spacing: -0.3px;
+    margin-bottom: 4px;
+  }
+
+  .sav-total .sav-total-dec {
+    font-size: 12px;
+    opacity: 0.7;
+  }
+
+  /* Hucha line */
+  .hucha-line {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--text-secondary);
+  }
+
+  .hucha-icon {
+    font-size: 11px;
+  }
+
+  .hucha-amt {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  /* Chevron */
+  .sav-chevron {
+    color: var(--text-tertiary);
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-left: -4px;
+  }
+
+  /* ============================================
+     VARIANT B — Compact (3+ projects)
+     ============================================ */
+  .sav-widget-compact .rings-area {
+    gap: 4px;
+  }
+
+  .sav-widget-compact .ring-wrap {
+    width: 34px;
+    height: 34px;
+  }
+
+  .sav-widget-compact .ring-wrap svg {
+    width: 34px;
+    height: 34px;
+  }
+
+  .sav-widget-compact .ring-emoji {
+    font-size: 11px;
+  }
+
+  .sav-widget-compact .ring-wrap.completed::after {
+    width: 12px;
+    height: 12px;
+    font-size: 7px;
+    bottom: -1px;
+    right: -1px;
+  }
+
+  /* ============================================
+     VARIANT C — Single project, more emotional
+     ============================================ */
+  .sav-widget-hero {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .hero-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .hero-ring {
+    position: relative;
+    width: 50px;
+    height: 50px;
+    flex-shrink: 0;
+  }
+
+  .hero-ring svg {
+    width: 50px;
+    height: 50px;
+    transform: rotate(-90deg);
+  }
+
+  .hero-ring .ring-track { stroke-width: 3; }
+  .hero-ring .ring-progress { stroke-width: 3; }
+
+  .hero-ring .ring-emoji {
+    font-size: 18px;
+  }
+
+  .hero-ring.completed .ring-progress {
+    filter: drop-shadow(0 0 6px var(--income));
+  }
+
+  .hero-ring.completed::after {
+    content: '✓';
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    width: 16px;
+    height: 16px;
+    background: var(--income);
+    border-radius: 50%;
+    font-size: 9px;
+    color: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+
+  .hero-info { flex: 1; }
+
+  .hero-project-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+
+  .hero-progress-text {
+    font-size: 10px;
+    color: var(--text-secondary);
+  }
+
+  .hero-progress-text strong {
+    color: var(--income);
+    font-weight: 600;
+  }
+
+  .hero-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .hero-hucha {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .hero-hucha-label {
+    font-size: 10px;
+    color: var(--text-tertiary);
+  }
+
+  .hero-hucha-amt {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--text-primary);
+  }
+
+  .hero-total {
+    text-align: right;
+  }
+
+  .hero-total-label {
+    font-size: 9px;
+    color: var(--text-tertiary);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .hero-total-amt {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--income);
+  }
+
+  /* ============================================
+     CALENDAR (same as before)
+     ============================================ */
+  .cal {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: 16px 12px 14px;
+    border: 1px solid var(--border-subtle);
+    margin-bottom: 12px;
+  }
+
+  .cal-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .tog { display: flex; background: rgba(255,255,255,0.04); border-radius: 7px; padding: 2px; gap: 2px; }
+  .tog button { border:none; background:transparent; padding:4px 10px; font-size:11px; font-family:'DM Sans',sans-serif; font-weight:400; color:var(--text-tertiary); border-radius:5px; cursor:pointer; }
+  .tog button.active { background:rgba(255,255,255,0.08); color:var(--text-primary); font-weight:500; }
+
+  .psel { display:flex; align-items:center; gap:8px; }
+  .psel span { font-size:13px; font-weight:500; color:var(--text-primary); }
+  .psel button { border:none; background:transparent; color:var(--text-tertiary); cursor:pointer; font-size:14px; padding:2px; }
+
+  .wkd { display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:4px; }
+  .wkd div { text-align:center; font-size:9px; color:var(--text-tertiary); padding:3px 0; }
+
+  .mg { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+
+  .mc {
+    aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+    border-radius:7px; position:relative; cursor:pointer; transition:transform 0.15s;
+  }
+  .mc:hover { transform:scale(1.1); }
+  .mc.out { opacity:0.18; }
+  .mc .n { font-size:12px; font-weight:300; color:var(--text-secondary); z-index:1; }
+
+  .mc.h1{background:var(--heat-1)} .mc.h2{background:var(--heat-2)} .mc.h3{background:var(--heat-3)}
+  .mc.h4{background:var(--heat-4)} .mc.h5{background:var(--heat-5)}
+
+  .mc.h1 .n,.mc.h2 .n{color:var(--text-primary);font-weight:400}
+  .mc.h3 .n{color:var(--heat-text-3);font-weight:400}
+  .mc.h4 .n{color:var(--heat-text-4);font-weight:400}
+  .mc.h5 .n{color:var(--heat-text-5);font-weight:500}
+
+  .mc.hi .n{color:var(--income)!important;font-weight:500!important}
+  .mc.h4.hi .n,.mc.h5.hi .n{color:var(--income-bright)!important;text-shadow:0 0 8px rgba(109,201,160,0.25)}
+  .mc.td{box-shadow:inset 0 0 0 1.5px var(--today-ring)} .mc.td .n{font-weight:500!important}
+
+  .mleg { display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-top:10px; border-top:1px solid var(--border-subtle); }
+  .ls { display:flex; align-items:center; gap:5px; }
+  .ll { font-size:9px; color:var(--text-tertiary); }
+  .lb { display:flex; gap:2px; }
+  .lb div { width:10px; height:10px; border-radius:3px; }
+  .li { display:flex; align-items:center; gap:4px; font-size:9px; color:var(--text-tertiary); }
+  .li span { font-weight:600; color:var(--income); font-size:11px; }
+
+  .pills { display:flex; gap:6px; justify-content:center; margin-top:12px; }
+  .pill { display:flex; align-items:center; gap:4px; padding:5px 10px; border-radius:100px; font-size:11px; font-weight:500; }
+  .pi { background:var(--income-bg); color:var(--income); }
+  .pe { background:var(--expense-bg); color:var(--expense-text); }
+  .pn { background:rgba(255,255,255,0.04); color:var(--text-primary); font-family:'Fraunces',serif; font-weight:400; font-size:12px; }
+
+  /* Txns */
+  .txns { padding:2px 4px; }
+  .txns-h { display:flex; justify-content:space-between; margin-bottom:10px; }
+  .txns-h span:first-child { font-size:11px; font-weight:500; color:var(--text-primary); }
+  .txns-h span:last-child { font-size:10px; color:var(--text-tertiary); cursor:pointer; }
+  .tx { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border-subtle); }
+  .tx:last-child { border-bottom:none; }
+  .tx-i { width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; background:rgba(255,255,255,0.04); }
+  .tx-info { flex:1; }
+  .tx-c { font-size:12px; font-weight:500; color:var(--text-primary); }
+  .tx-m { font-size:10px; color:var(--text-tertiary); }
+  .tx-a { font-size:13px; font-weight:500; }
+  .tx-neg { color:var(--expense-text); }
+  .tx-pos { color:var(--income); }
+
+  /* Notes */
+  .notes {
+    margin-top: 32px;
+    max-width: 820px;
+    width: 100%;
+    background: #151515;
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    border: 1px solid #2A2A2A;
+  }
+
+  .notes h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-weight: 400;
+    color: #DDD;
+    margin-bottom: 16px;
+  }
+
+  .nt {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #888;
+  }
+  .nt:last-child { margin-bottom: 0; }
+  .nt strong { color: #CCC; font-weight: 500; }
+  .nt-s { width:18px; height:18px; border-radius:5px; flex-shrink:0; margin-top:2px; }
+
+  @media (max-width: 820px) {
+    .phones-row { flex-direction: column; align-items: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="theme-sw">
+  <button class="t-btn active" data-t="grafito" onclick="setTheme('grafito')">Grafito</button>
+  <button class="t-btn" data-t="oceano" onclick="setTheme('oceano')">Océano</button>
+</div>
+
+<div class="variant-sw">
+  <button class="v-btn active" data-v="2proj" onclick="setVariant('2proj')">2 proyectos</button>
+  <button class="v-btn" data-v="4proj" onclick="setVariant('4proj')">4 proyectos</button>
+  <button class="v-btn" data-v="1proj" onclick="setVariant('1proj')">1 proyecto (hero)</button>
+</div>
+
+<div class="phones-row" id="phonesRow"></div>
+
+<!-- Notes -->
+<div class="notes">
+  <h3>Notas — Widget de Ahorro</h3>
+  <div class="nt">
+    <div class="nt-s" style="background: var(--income); border-radius:50%;"></div>
+    <div><strong>Anillos de progreso por proyecto.</strong> Cada proyecto tiene su propio mini-anillo con el emoji que el usuario le asignó. Completado = glow verde + check. El usuario ve de un vistazo "2 de 2 al día" sin leer números.</div>
+  </div>
+  <div class="nt">
+    <div class="nt-s" style="background: #2A2A28; display:flex; align-items:center; justify-content:center; font-size:9px;">🐷</div>
+    <div><strong>Hucha como "excedente tranquilo".</strong> No compite con los proyectos — es una línea secundaria que dice "además, tienes €1.112 de colchón". El cerdo 🐷 le da personalidad sin necesitar texto explicativo.</div>
+  </div>
+  <div class="nt">
+    <div class="nt-s" style="background: linear-gradient(135deg, var(--income), rgba(109,201,160,0.3))"></div>
+    <div><strong>Total en verde mint.</strong> El importe total de ahorro está en verde — es un número positivo, refuerza la emoción de "vas bien". Contrasta con el balance que está en color neutro (texto primario).</div>
+  </div>
+  <div class="nt">
+    <div class="nt-s" style="background: #1C1C1B; border: 1px solid #31312F;"></div>
+    <div><strong>Escala a 4-5 proyectos.</strong> Con 3+ proyectos, los anillos se reducen a 34px y se aprietan. A partir de 5-6, habría que colapsar a un anillo agregado tipo "4/5 al día". Pero para 1-4 funciona bien individual.</div>
+  </div>
+  <div class="nt">
+    <div class="nt-s" style="background: var(--income); opacity: 0.3;"></div>
+    <div><strong>Variante "hero" para 1 proyecto.</strong> Si el usuario solo tiene un proyecto activo, aprovechamos todo el ancho para darle más protagonismo: anillo más grande, nombre del proyecto visible, y barra de progreso textual. Más emocional.</div>
+  </div>
+  <div class="nt">
+    <div class="nt-s" style="display:flex; align-items:center; justify-content:center; font-size:10px; background:#2A2A28;">›</div>
+    <div><strong>Tap → pestaña Proyectos.</strong> Todo el widget es tappeable. El chevron (›) indica que hay más detalle en otro sitio. El home es el resumen emocional; el detalle vive en Proyectos.</div>
+  </div>
+</div>
+
+<script>
+  let currentTheme = 'grafito';
+  let currentVariant = '2proj';
+
+  // Ring SVG generator
+  function ringSVG(size, pct, color, emoji, completed) {
+    const r = (size - 8) / 2;
+    const circ = 2 * Math.PI * r;
+    const offset = circ * (1 - Math.min(pct, 1));
+    const cls = completed ? 'completed' : '';
+
+    return `
+      <div class="ring-wrap ${cls}" style="width:${size}px;height:${size}px">
+        <svg style="width:${size}px;height:${size}px">
+          <circle class="ring-track" cx="${size/2}" cy="${size/2}" r="${r}" />
+          <circle class="ring-progress" cx="${size/2}" cy="${size/2}" r="${r}"
+            stroke="${color}" stroke-dasharray="${circ}" stroke-dashoffset="${offset}" />
+        </svg>
+        <div class="ring-emoji">${emoji}</div>
+      </div>`;
+  }
+
+  // Projects data per variant
+  const variants = {
+    '2proj': {
+      projects: [
+        { emoji: '✈️', name: 'Vacaciones', current: 150, goal: 150, color: 'var(--income)' },
+        { emoji: '💻', name: 'Portátil', current: 320, goal: 800, color: '#6AADDB' },
+      ],
+      hucha: 1112.07,
+      total: 1582.07
+    },
+    '4proj': {
+      projects: [
+        { emoji: '✈️', name: 'Vacaciones', current: 150, goal: 150, color: 'var(--income)' },
+        { emoji: '💻', name: 'Portátil', current: 320, goal: 800, color: '#6AADDB' },
+        { emoji: '🏠', name: 'Entrada piso', current: 2400, goal: 10000, color: '#D47A95' },
+        { emoji: '📚', name: 'Máster', current: 500, goal: 3000, color: '#9B85D6' },
+      ],
+      hucha: 892.07,
+      total: 4262.07
+    },
+    '1proj': {
+      projects: [
+        { emoji: '✈️', name: 'Vacaciones Japón', current: 150, goal: 150, color: 'var(--income)' },
+      ],
+      hucha: 1112.07,
+      total: 1262.07
+    }
+  };
+
+  // Month data
+  const md = [
+    {d:26,o:1},{d:27,o:1},{d:28,o:1},{d:29,o:1},{d:30,o:1},{d:31,o:1},
+    {d:1,h:1,e:18,i:.5},{d:2,h:2,e:45},{d:3,h:3,e:120},{d:4,h:1,e:12,i:.5},
+    {d:5,h:2,e:55},{d:6,h:1,e:8},{d:7,h:1,e:22},{d:8,h:0,e:0,i:.5},
+    {d:9,h:2,e:40,i:15},{d:10,h:4,e:230},{d:11,h:1,e:15,i:.5},{d:12,h:0},
+    {d:13,h:1,e:25},{d:14,h:3,e:95},{d:15,h:5,e:340,i:2000},
+    {d:16,h:0},{d:17,h:1,e:10},{d:18,h:2,e:62},{d:19,h:0},
+    {d:20,h:1,e:30,i:.5},{d:21,h:3,e:110},{d:22,h:1,e:18},
+    {d:23,h:0},{d:24,h:1,e:22},{d:25,h:2,e:48,i:25},{d:26,h:1,e:17},
+    {d:27,h:0},{d:28,h:3,e:127,i:15,t:1},{d:1,o:1},
+  ];
+
+  function buildSavWidget(variant, isCompact) {
+    const v = variants[variant];
+
+    if (variant === '1proj') {
+      const p = v.projects[0];
+      const pct = p.current / p.goal;
+      const completed = pct >= 1;
+      return `
+        <div class="sav-widget sav-widget-hero">
+          <div class="hero-top">
+            <div class="hero-ring ${completed ? 'completed' : ''}">
+              <svg style="width:50px;height:50px;transform:rotate(-90deg)">
+                <circle class="ring-track" cx="25" cy="25" r="21" />
+                <circle class="ring-progress" cx="25" cy="25" r="21"
+                  stroke="${p.color}" stroke-dasharray="${2*Math.PI*21}" stroke-dashoffset="${2*Math.PI*21*(1-Math.min(pct,1))}"
+                  stroke-width="3" stroke-linecap="round" fill="none" />
+              </svg>
+              <div class="ring-emoji" style="font-size:18px">${p.emoji}</div>
+            </div>
+            <div class="hero-info">
+              <div class="hero-project-name">${p.name}</div>
+              <div class="hero-progress-text"><strong>€${p.current}</strong> de €${p.goal} · ${completed ? '¡Completado! 🎉' : Math.round(pct*100)+'%'}</div>
+            </div>
+            <div class="sav-chevron">›</div>
+          </div>
+          <div class="hero-bottom">
+            <div class="hero-hucha">
+              <span style="font-size:14px">🐷</span>
+              <div>
+                <div class="hero-hucha-label">Hucha</div>
+                <div class="hero-hucha-amt">€${v.hucha.toLocaleString('es')}</div>
+              </div>
+            </div>
+            <div class="hero-total">
+              <div class="hero-total-label">Total ahorrado</div>
+              <div class="hero-total-amt">€${v.total.toLocaleString('es')}</div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    const compact = v.projects.length > 2;
+    const ringSize = compact ? 34 : 42;
+    const wClass = compact ? 'sav-widget sav-widget-compact' : 'sav-widget';
+
+    let rings = '<div class="rings-area">';
+    v.projects.forEach(p => {
+      const pct = p.current / p.goal;
+      rings += ringSVG(ringSize, pct, p.color, p.emoji, pct >= 1);
+    });
+    rings += '</div>';
+
+    return `
+      <div class="${wClass}">
+        ${rings}
+        <div class="sav-info">
+          <div class="sav-top-line">
+            <span class="sav-label">Ahorro</span>
+            <span class="sav-month">Feb ›</span>
+          </div>
+          <div class="sav-total">€${v.total.toLocaleString('es')}</div>
+          <div class="hucha-line">
+            <span class="hucha-icon">🐷</span>
+            Hucha: <span class="hucha-amt">€${v.hucha.toLocaleString('es')}</span>
+          </div>
+        </div>
+        <div class="sav-chevron">›</div>
+      </div>`;
+  }
+
+  function buildPhone(theme, variant) {
+    let h = `<div class="phone" data-theme="${theme}">`;
+
+    h += `<div class="hdr"><div class="logo"><div class="logo-d">F</div> Finnon</div><div class="ava">AG</div></div>`;
+
+    // Top row
+    h += `<div class="top-row">
+      <div class="bal-card">
+        <div class="bal-lbl">Balance</div>
+        <div class="bal-amt">€1.262<span class="dec">,07</span></div>
+      </div>
+      ${buildSavWidget(variant)}
+    </div>`;
+
+    // Calendar
+    h += `<div class="cal"><div class="cal-nav">
+      <div class="tog"><button>Semana</button><button class="active">Mes</button></div>
+      <div class="psel"><button>‹</button><span>Febrero 2026</span><button>›</button></div>
+    </div>`;
+
+    h += `<div class="wkd">`;
+    ['L','M','X','J','V','S','D'].forEach(x => h+=`<div>${x}</div>`);
+    h += `</div><div class="mg">`;
+
+    md.forEach(d => {
+      if (d.o) { h+=`<div class="mc out"><span class="n">${d.d}</span></div>`; return; }
+      let c='mc';
+      if(d.h>0) c+=` h${d.h}`;
+      if(d.i>0) c+=' hi';
+      if(d.t) c+=' td';
+      h+=`<div class="${c}"><span class="n">${d.d}</span></div>`;
+    });
+
+    h += `</div>`;
+    h += `<div class="mleg"><div class="ls"><span class="ll">Menos</span><div class="lb">
+      <div style="background:rgba(255,255,255,0.04)"></div>
+      <div style="background:var(--heat-1)"></div><div style="background:var(--heat-2)"></div>
+      <div style="background:var(--heat-3)"></div><div style="background:var(--heat-4)"></div>
+      <div style="background:var(--heat-5)"></div></div><span class="ll">Más gasto</span></div>
+      <div class="li"><span>5</span> = ingreso</div></div>`;
+
+    h += `<div class="pills">
+      <div class="pill pi"><span style="font-size:9px">↑</span> €4.059</div>
+      <div class="pill pe"><span style="font-size:9px">↓</span> €2.787</div>
+      <div class="pill pn">= €1.262</div>
+    </div></div>`;
+
+    // Txns
+    h += `<div class="txns"><div class="txns-h"><span>Sáb, 28 de febrero</span><span>Ver todos →</span></div>
+      <div class="tx"><div class="tx-i">🛒</div><div class="tx-info"><div class="tx-c">Alimentación</div><div class="tx-m">AG · x1</div></div><div class="tx-a tx-neg">−€92</div></div>
+      <div class="tx"><div class="tx-i">📸</div><div class="tx-info"><div class="tx-c">Venta de fotos</div><div class="tx-m">AG · x1</div></div><div class="tx-a tx-pos">+€15</div></div>
+    </div>`;
+
+    h += `</div>`;
+    return h;
+  }
+
+  function render() {
+    const row = document.getElementById('phonesRow');
+    row.innerHTML = `
+      <div class="phone-col">
+        <div class="phone-lbl">${currentTheme === 'grafito' ? 'Grafito' : 'Océano'}</div>
+        ${buildPhone(currentTheme, currentVariant)}
+      </div>`;
+  }
+
+  function setTheme(t) {
+    currentTheme = t;
+    document.querySelectorAll('.t-btn').forEach(b => b.classList.toggle('active', b.dataset.t === t));
+    render();
+  }
+
+  function setVariant(v) {
+    currentVariant = v;
+    document.querySelectorAll('.v-btn').forEach(b => b.classList.toggle('active', b.dataset.v === v));
+    render();
+  }
+
+  render();
+</script>
+
+</body>
+</html>

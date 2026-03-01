@@ -180,14 +180,16 @@ export function formatMinorToMoney(
     return amountMinor.toString();
   }
 
+  const isNegative = amountMinor < 0n;
+  const absolute = isNegative ? -amountMinor : amountMinor;
   const divisor = BigInt(10 ** minorUnits);
-  const integerPart = amountMinor / divisor;
-  const decimalPart = amountMinor % divisor;
+  const integerPart = absolute / divisor;
+  const decimalPart = absolute % divisor;
 
   // Pad decimal part with leading zeros
   const decimalStr = decimalPart.toString().padStart(minorUnits, "0");
 
-  return `${integerPart}.${decimalStr}`;
+  return `${isNegative ? "-" : ""}${integerPart}.${decimalStr}`;
 }
 
 /**

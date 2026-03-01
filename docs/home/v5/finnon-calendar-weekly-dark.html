@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon — Vista Semanal</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0E0C0A;
+    --bg-card: #1C1916;
+    --bg-elevated: #242019;
+    --text-primary: #EDE8E2;
+    --text-secondary: #8A8279;
+    --text-tertiary: #5C554D;
+    --border: rgba(237, 232, 226, 0.06);
+    --border-strong: rgba(237, 232, 226, 0.10);
+
+    /* Category colors */
+    --cat-food: #D4893A;
+    --cat-transport: #C4704B;
+    --cat-subscriptions: #8B7EC8;
+    --cat-supplies: #5BA3A3;
+    --cat-leisure: #CB7898;
+    --cat-other: #7A7268;
+
+    /* Income */
+    --income-color: #6DC9A0;
+    --income-bg: rgba(109, 201, 160, 0.08);
+
+    /* Expense */
+    --expense-text: #E0956A;
+    --expense-bg: rgba(224, 149, 106, 0.08);
+
+    /* Today */
+    --today-accent: rgba(237, 232, 226, 0.12);
+    --today-border: rgba(237, 232, 226, 0.20);
+
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 24px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper { max-width: 500px; width: 100%; }
+
+  .phone-frame {
+    width: 390px;
+    max-width: 100%;
+    background: var(--bg);
+    border-radius: 40px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.04),
+      0 30px 100px rgba(0,0,0,0.5);
+    padding: 16px;
+  }
+
+  /* ---- Header ---- */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 4px 20px;
+  }
+
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 18px;
+    letter-spacing: -0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo-dot {
+    width: 26px;
+    height: 26px;
+    background: var(--text-primary);
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bg);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  /* ---- Balance strip ---- */
+  .balance-strip {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .balance-card, .savings-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+  }
+  .balance-card { flex: 1; }
+  .savings-card { flex: 1.4; }
+
+  .balance-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 6px;
+  }
+
+  .balance-amount {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: -0.5px;
+  }
+
+  .balance-amount .decimals {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  .savings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .savings-title { font-size: 13px; font-weight: 500; }
+  .savings-month { font-size: 11px; color: var(--text-tertiary); }
+
+  .savings-bar-track {
+    height: 6px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 100px;
+    overflow: hidden;
+    display: flex;
+    margin-bottom: 8px;
+  }
+
+  .savings-bar-projects {
+    height: 100%;
+    background: var(--income-color);
+    border-radius: 100px 0 0 100px;
+    width: 12%;
+  }
+
+  .savings-bar-hucha {
+    height: 100%;
+    background: #D4893A;
+    width: 85%;
+  }
+
+  .savings-details {
+    display: flex;
+    gap: 12px;
+    font-size: 10px;
+    color: var(--text-secondary);
+  }
+
+  .savings-details span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .dot-sm {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ---- Calendar Section ---- */
+  .calendar-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 20px 14px 16px;
+    border: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+
+  .calendar-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .view-toggle {
+    display: flex;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .view-toggle button {
+    border: none;
+    background: transparent;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 400;
+    color: var(--text-tertiary);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .view-toggle button.active {
+    background: rgba(255,255,255,0.08);
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .week-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .week-label {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.2px;
+  }
+
+  .week-selector button {
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px;
+    display: flex;
+    transition: color 0.15s;
+  }
+
+  .week-selector button:hover { color: var(--text-primary); }
+
+  /* ---- Weekly Grid ---- */
+  .week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+  }
+
+  .week-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0 10px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+    position: relative;
+  }
+
+  .week-day:hover {
+    background: rgba(255,255,255,0.03);
+  }
+
+  .week-day.is-today {
+    background: var(--today-accent);
+    box-shadow: inset 0 0 0 1px var(--today-border);
+  }
+
+  .week-day-label {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  .week-day.is-today .week-day-label {
+    color: var(--text-secondary);
+  }
+
+  .week-day-number {
+    font-size: 18px;
+    font-weight: 300;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+
+  .week-day.has-income .week-day-number {
+    color: var(--income-color);
+    font-weight: 400;
+  }
+
+  /* ---- Stacked bar ---- */
+  .day-bar-container {
+    width: 100%;
+    padding: 0 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    min-height: 52px;
+    justify-content: flex-end;
+  }
+
+  .stacked-bar {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .bar-segment {
+    width: 100%;
+    min-height: 2px;
+    border-radius: 1px;
+    transition: opacity 0.15s;
+  }
+
+  .week-day:hover .bar-segment {
+    opacity: 0.85;
+  }
+
+  /* Income bar (separate, below expense stack) */
+  .income-bar {
+    width: 100%;
+    border-radius: 3px;
+    min-height: 2px;
+    background: var(--income-color);
+    opacity: 0.6;
+    margin-top: 2px;
+  }
+
+  /* ---- Day net amount ---- */
+  .day-net {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: -0.1px;
+    margin-top: 2px;
+  }
+
+  .day-net.negative { color: var(--expense-text); }
+  .day-net.positive { color: var(--income-color); }
+  .day-net.zero { color: var(--text-tertiary); }
+
+  /* ---- Category legend ---- */
+  .category-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    justify-content: center;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--text-tertiary);
+  }
+
+  .legend-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* ---- Summary pills ---- */
+  .summary-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 12px;
+  }
+
+  .summary-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .pill-income { background: var(--income-bg); color: var(--income-color); }
+  .pill-expense { background: var(--expense-bg); color: var(--expense-text); }
+  .pill-net {
+    background: rgba(255,255,255,0.04);
+    color: var(--text-primary);
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 13px;
+  }
+
+  .pill-arrow { font-size: 10px; }
+
+  /* ---- Transactions ---- */
+  .transactions-section { padding: 4px 4px; }
+
+  .transactions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+  }
+
+  .transactions-date {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: -0.1px;
+  }
+
+  .transactions-link {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .transaction-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .transaction-item:last-child { border-bottom: none; }
+
+  .transaction-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    background: rgba(255,255,255,0.04);
+    flex-shrink: 0;
+  }
+
+  .transaction-info { flex: 1; }
+
+  .transaction-category {
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .transaction-meta {
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+
+  .transaction-amount {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .amount-negative { color: var(--expense-text); }
+  .amount-positive { color: var(--income-color); }
+
+  /* ---- Annotations ---- */
+  .annotations {
+    margin-top: 24px;
+    padding: 24px;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+  }
+
+  .annotations-title {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-weight: 400;
+    margin-bottom: 18px;
+  }
+
+  .annotation {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+
+  .annotation:last-child { margin-bottom: 0; }
+
+  .annotation-swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .annotation strong {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  /* ---- Side-by-side comparison ---- */
+  .comparison {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .comp-card {
+    padding: 16px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+  }
+
+  .comp-card.before {
+    background: #FDFAF7;
+    border-color: rgba(0,0,0,0.06);
+  }
+
+  .comp-card.after {
+    background: var(--bg-card);
+  }
+
+  .comp-label {
+    font-size: 10px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  .comp-card.before .comp-label { color: #AAA; }
+  .comp-card.after .comp-label { color: var(--text-tertiary); }
+
+  /* Before: current dots style mock */
+  .before-week {
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+  }
+
+  .before-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .before-day-abbr {
+    font-size: 7px;
+    color: #999;
+    text-transform: uppercase;
+  }
+
+  .before-day-num {
+    font-size: 12px;
+    font-weight: 500;
+    color: #333;
+  }
+
+  .before-day-num.today-before {
+    background: #333;
+    color: #FFF;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+  }
+
+  .before-dots {
+    display: flex;
+    gap: 2px;
+  }
+
+  .before-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+  }
+
+  @media (max-width: 420px) {
+    .phone-frame { border-radius: 0; box-shadow: none; }
+    body { padding: 0; }
+    .comparison { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+  <div class="phone-frame">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <div class="logo-dot">F</div>
+        Finnon
+      </div>
+      <div class="avatar">AG</div>
+    </div>
+
+    <!-- Balance strip -->
+    <div class="balance-strip">
+      <div class="balance-card">
+        <div class="balance-label">Balance</div>
+        <div class="balance-amount">€1.262<span class="decimals">,07</span></div>
+      </div>
+      <div class="savings-card">
+        <div class="savings-header">
+          <span class="savings-title">Ahorro</span>
+          <span class="savings-month">Feb 2026 ›</span>
+        </div>
+        <div class="savings-bar-track">
+          <div class="savings-bar-projects"></div>
+          <div class="savings-bar-hucha"></div>
+        </div>
+        <div class="savings-details">
+          <span><div class="dot-sm" style="background: var(--income-color)"></div> Proyectos €150</span>
+          <span><div class="dot-sm" style="background: #D4893A"></div> Hucha €1.112</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calendar — Weekly -->
+    <div class="calendar-section">
+      <div class="calendar-nav">
+        <div class="view-toggle">
+          <button class="active">Semana</button>
+          <button>Mes</button>
+        </div>
+        <div class="week-selector">
+          <button>‹</button>
+          <span class="week-label">23 feb – 1 mar</span>
+          <button>›</button>
+        </div>
+      </div>
+
+      <div class="week-grid" id="weekGrid"></div>
+
+      <!-- Category legend -->
+      <div class="category-legend">
+        <div class="legend-item"><div class="legend-dot" style="background: var(--cat-food)"></div> Alimentación</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--cat-transport)"></div> Transporte</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--cat-subscriptions)"></div> Suscripciones</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--cat-supplies)"></div> Suministros</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--cat-leisure)"></div> Ocio</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--income-color)"></div> Ingreso</div>
+      </div>
+
+      <!-- Summary -->
+      <div class="summary-row">
+        <div class="summary-pill pill-income">
+          <span class="pill-arrow">↑</span> €8,00
+        </div>
+        <div class="summary-pill pill-expense">
+          <span class="pill-arrow">↓</span> €154,99
+        </div>
+        <div class="summary-pill pill-net">
+          = −€146,99
+        </div>
+      </div>
+    </div>
+
+    <!-- Transactions -->
+    <div class="transactions-section">
+      <div class="transactions-header">
+        <span class="transactions-date">Sábado, 28 de febrero</span>
+        <span class="transactions-link">Ver todos →</span>
+      </div>
+      <div class="transaction-item">
+        <div class="transaction-icon">🛒</div>
+        <div class="transaction-info">
+          <div class="transaction-category">Alimentación</div>
+          <div class="transaction-meta">AG · x1</div>
+        </div>
+        <div class="transaction-amount amount-negative">−€92,00</div>
+      </div>
+      <div class="transaction-item">
+        <div class="transaction-icon">📸</div>
+        <div class="transaction-info">
+          <div class="transaction-category">Venta de fotos</div>
+          <div class="transaction-meta">AG · x1</div>
+        </div>
+        <div class="transaction-amount amount-positive">+€15,00</div>
+      </div>
+      <div class="transaction-item">
+        <div class="transaction-icon">⚡</div>
+        <div class="transaction-info">
+          <div class="transaction-category">Suministros</div>
+          <div class="transaction-meta">AG · x1</div>
+        </div>
+        <div class="transaction-amount amount-negative">−€35,00</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Annotations -->
+  <div class="annotations">
+    <div class="annotations-title">Notas — Vista semanal</div>
+    <div class="annotation">
+      <div class="annotation-swatch" style="background: linear-gradient(to bottom, var(--cat-food), var(--cat-transport), var(--cat-supplies))"></div>
+      <div><strong>Barras apiladas por categoría.</strong> Cada día muestra un mini stacked bar donde la altura total = gasto total y cada segmento de color = una categoría. De un vistazo ves no solo cuánto, sino en qué.</div>
+    </div>
+    <div class="annotation">
+      <div class="annotation-swatch" style="background: var(--income-color); opacity: 0.6"></div>
+      <div><strong>Barra de ingreso separada.</strong> Debajo del stack de gastos, una barra verde mint independiente. Visualmente distinta para que no se confunda con una categoría de gasto.</div>
+    </div>
+    <div class="annotation">
+      <div class="annotation-swatch" style="background: var(--today-accent); border: 1px solid var(--today-border)"></div>
+      <div><strong>Hoy como columna destacada.</strong> Fondo sutil + borde translúcido en toda la columna del día, no solo en el número. Se siente como "estás aquí".</div>
+    </div>
+    <div class="annotation">
+      <div class="annotation-swatch" style="display: flex; align-items: center; justify-content: center; font-size: 8px; color: var(--expense-text); background: var(--expense-bg)">−€</div>
+      <div><strong>Neto diario debajo de cada barra.</strong> Número pequeño que cierra la historia: "gastaste esto, te entró esto, resultado X". Color dinámico (ámbar si negativo, mint si positivo).</div>
+    </div>
+    <div class="annotation">
+      <div class="annotation-swatch" style="background: var(--bg-card); border: 1px solid var(--border-strong); display: flex; align-items: center; justify-content: center; font-size: 7px; color: var(--text-tertiary);">M↔S</div>
+      <div><strong>Historias complementarias.</strong> Mensual = patrón general (heatmap, "¿cómo fue el mes?"). Semanal = detalle operativo (barras, "¿en qué estoy gastando esta semana?"). No son zoom del mismo dato — son perspectivas diferentes.</div>
+    </div>
+  </div>
+
+  <!-- Before/After -->
+  <div class="comparison">
+    <div class="comp-card before">
+      <div class="comp-label">Antes</div>
+      <div class="before-week">
+        <div class="before-day">
+          <span class="before-day-abbr">Lun</span>
+          <span class="before-day-num">23</span>
+          <div class="before-dots"></div>
+        </div>
+        <div class="before-day">
+          <span class="before-day-abbr">Mar</span>
+          <span class="before-day-num">24</span>
+          <div class="before-dots"></div>
+        </div>
+        <div class="before-day">
+          <span class="before-day-abbr">Mié</span>
+          <span class="before-day-num">25</span>
+          <div class="before-dots">
+            <div class="before-dot" style="background:#E05A5A"></div>
+          </div>
+        </div>
+        <div class="before-day">
+          <span class="before-day-abbr">Jue</span>
+          <span class="before-day-num">26</span>
+          <div class="before-dots">
+            <div class="before-dot" style="background:#E05A5A"></div>
+          </div>
+        </div>
+        <div class="before-day">
+          <span class="before-day-abbr">Vie</span>
+          <span class="before-day-num">27</span>
+          <div class="before-dots">
+            <div class="before-dot" style="background:#E05A5A"></div>
+          </div>
+        </div>
+        <div class="before-day">
+          <span class="before-day-abbr">Sáb</span>
+          <span class="before-day-num today-before">28</span>
+          <div class="before-dots">
+            <div class="before-dot" style="background:#E05A5A"></div>
+          </div>
+        </div>
+        <div class="before-day">
+          <span class="before-day-abbr">Dom</span>
+          <span class="before-day-num">1</span>
+          <div class="before-dots"></div>
+        </div>
+      </div>
+    </div>
+    <div class="comp-card after">
+      <div class="comp-label">Después</div>
+      <div id="miniAfter" style="display:flex; justify-content:space-between; gap:3px; align-items:flex-end; height: 60px;"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Weekly data with category breakdowns
+  const weekData = [
+    {
+      label: 'LUN', day: 23, income: 0,
+      categories: [],
+      net: 0
+    },
+    {
+      label: 'MAR', day: 24, income: 0.50,
+      categories: [
+        { cat: 'food', amount: 22 }
+      ],
+      net: -21.50
+    },
+    {
+      label: 'MIÉ', day: 25, income: 0,
+      categories: [
+        { cat: 'food', amount: 15 },
+        { cat: 'subscriptions', amount: 17.99 },
+        { cat: 'leisure', amount: 15 }
+      ],
+      net: -47.99
+    },
+    {
+      label: 'JUE', day: 26, income: 0,
+      categories: [
+        { cat: 'transport', amount: 12 },
+        { cat: 'food', amount: 5 }
+      ],
+      net: -17
+    },
+    {
+      label: 'VIE', day: 27, income: 0.50,
+      categories: [],
+      net: 0.50
+    },
+    {
+      label: 'SÁB', day: 28, income: 15, today: true,
+      categories: [
+        { cat: 'food', amount: 92 },
+        { cat: 'supplies', amount: 35 }
+      ],
+      net: -112
+    },
+    {
+      label: 'DOM', day: 1, income: 0,
+      categories: [],
+      net: 0,
+      nextMonth: true
+    }
+  ];
+
+  const catColors = {
+    food: 'var(--cat-food)',
+    transport: 'var(--cat-transport)',
+    subscriptions: 'var(--cat-subscriptions)',
+    supplies: 'var(--cat-supplies)',
+    leisure: 'var(--cat-leisure)',
+    other: 'var(--cat-other)'
+  };
+
+  // Find max daily total for scaling bars
+  const maxExpense = Math.max(...weekData.map(d =>
+    d.categories.reduce((sum, c) => sum + c.amount, 0)
+  ), 1);
+
+  const maxIncome = Math.max(...weekData.map(d => d.income), 1);
+  const maxTotal = Math.max(maxExpense, maxIncome);
+  const maxBarHeight = 48; // px
+
+  const grid = document.getElementById('weekGrid');
+
+  weekData.forEach(d => {
+    const col = document.createElement('div');
+    col.className = 'week-day';
+    if (d.today) col.classList.add('is-today');
+    if (d.income > 1) col.classList.add('has-income');
+
+    // Day label + number
+    const labelEl = document.createElement('div');
+    labelEl.className = 'week-day-label';
+    labelEl.textContent = d.label;
+
+    const numEl = document.createElement('div');
+    numEl.className = 'week-day-number';
+    numEl.textContent = d.day;
+
+    // Bar container
+    const barContainer = document.createElement('div');
+    barContainer.className = 'day-bar-container';
+
+    const totalExpense = d.categories.reduce((s, c) => s + c.amount, 0);
+
+    if (totalExpense > 0 || d.income > 0) {
+      // Expense stacked bar
+      if (totalExpense > 0) {
+        const stack = document.createElement('div');
+        stack.className = 'stacked-bar';
+        const barHeight = (totalExpense / maxTotal) * maxBarHeight;
+        stack.style.height = barHeight + 'px';
+
+        d.categories.forEach(c => {
+          const seg = document.createElement('div');
+          seg.className = 'bar-segment';
+          const segHeight = (c.amount / totalExpense) * 100;
+          seg.style.height = segHeight + '%';
+          seg.style.background = catColors[c.cat] || catColors.other;
+          stack.appendChild(seg);
+        });
+
+        barContainer.appendChild(stack);
+      }
+
+      // Income bar
+      if (d.income > 0) {
+        const incBar = document.createElement('div');
+        incBar.className = 'income-bar';
+        const incHeight = Math.max((d.income / maxTotal) * maxBarHeight, 3);
+        incBar.style.height = incHeight + 'px';
+        barContainer.appendChild(incBar);
+      }
+    }
+
+    // Net amount
+    const netEl = document.createElement('div');
+    netEl.className = 'day-net';
+    if (d.net === 0) {
+      netEl.classList.add('zero');
+      netEl.textContent = '—';
+    } else if (d.net < 0) {
+      netEl.classList.add('negative');
+      netEl.textContent = `−€${Math.abs(d.net).toFixed(0)}`;
+    } else {
+      netEl.classList.add('positive');
+      netEl.textContent = `+€${d.net.toFixed(0)}`;
+    }
+
+    col.appendChild(labelEl);
+    col.appendChild(numEl);
+    col.appendChild(barContainer);
+    col.appendChild(netEl);
+
+    grid.appendChild(col);
+  });
+
+  // Mini after comparison
+  const miniAfter = document.getElementById('miniAfter');
+  weekData.forEach(d => {
+    const col = document.createElement('div');
+    col.style.cssText = 'flex:1; display:flex; flex-direction:column; align-items:center; gap:1px; justify-content:flex-end;';
+
+    const totalExpense = d.categories.reduce((s, c) => s + c.amount, 0);
+
+    if (totalExpense > 0) {
+      const bar = document.createElement('div');
+      const h = Math.max((totalExpense / maxTotal) * 35, 2);
+      bar.style.cssText = `width:100%; height:${h}px; border-radius:2px; background: linear-gradient(to bottom, var(--cat-food), var(--cat-transport));`;
+      col.appendChild(bar);
+    }
+
+    if (d.income > 0) {
+      const inc = document.createElement('div');
+      const h = Math.max((d.income / maxTotal) * 35, 2);
+      inc.style.cssText = `width:100%; height:${h}px; border-radius:2px; background:var(--income-color); opacity:0.5; margin-top:1px;`;
+      col.appendChild(inc);
+    }
+
+    const num = document.createElement('div');
+    num.style.cssText = `font-size:7px; color:var(--text-tertiary); margin-top:3px;`;
+    num.textContent = d.day;
+    col.appendChild(num);
+
+    miniAfter.appendChild(col);
+  });
+</script>
+
+</body>
+</html>

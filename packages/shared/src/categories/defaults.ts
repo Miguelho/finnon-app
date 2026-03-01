@@ -1,5 +1,6 @@
 import { type CategoryIconKey } from "../icons/category-icons";
 import { normalizeCategoryName, type CategoryType } from "../schemas/category";
+import { assignCategoryColor } from "./palette";
 
 export type DefaultCategory = {
   name: string;
@@ -106,7 +107,7 @@ export async function seedDefaultCategories(
 ): Promise<{ inserted: number; skipped: number }> {
   const { data: existing, error: existingError } = await client
     .from("categories")
-    .select("id, name")
+    .select("id, name, color, created_at")
     .eq("account_id", accountId);
 
   if (existingError) {
@@ -128,14 +129,20 @@ export async function seedDefaultCategories(
     return { inserted: 0, skipped: DEFAULT_CATEGORIES.length };
   }
 
-  const { error: insertError } = await client.from("categories").insert(
-    toInsert.map((category) => ({
+  const existingForColor = ((existing ?? []) as Array<{ color?: string | null }>).slice();
+  const payload = toInsert.map((category) => {
+    const color = assignCategoryColor(existingForColor);
+    existingForColor.push({ color });
+    return {
       account_id: accountId,
       name: locale === "en" ? category.name_en : category.name,
       icon_id: category.icon_id,
       type: category.type,
-    }))
-  );
+      color,
+    };
+  });
+
+  const { error: insertError } = await client.from("categories").insert(payload);
 
   if (insertError) {
     throw insertError;

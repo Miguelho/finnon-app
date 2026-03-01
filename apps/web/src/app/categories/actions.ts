@@ -3,9 +3,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import {
+  assignCategoryColor,
   categoryCreateInputSchema,
   categoryUpdateInputSchema,
   normalizeCategoryName,
+  normalizeHexColor,
   type CategoryType,
 } from "@poleursus/shared";
 
@@ -15,11 +17,18 @@ type ActionResult<T = any> = {
   error?: { key: string; params?: Record<string, string | number> };
 };
 
+const isMissingCategoryColorError = (error: any) =>
+  error?.code === "42703" &&
+  typeof error?.message === "string" &&
+  error.message.includes("categories") &&
+  error.message.includes("color");
+
 export async function createCategory(input: {
   account_id: string;
   name: string;
   icon_id: string;
   type: CategoryType;
+  color?: string | null;
 }): Promise<ActionResult> {
   try {
     const supabase = await createClient();
@@ -48,10 +57,34 @@ export async function createCategory(input: {
     // Validate input
     const validated = categoryCreateInputSchema.parse(input);
 
-    const { data: existingCategories, error: existingError } = await supabase
-      .from("categories")
-      .select("id, name")
-      .eq("account_id", validated.account_id);
+    let supportsColor = true;
+    let existingCategories: Array<{ id: string; name: string; color?: string | null }> = [];
+    let existingError: any = null;
+
+    {
+      const result = await supabase
+        .from("categories")
+        .select("id, name, color")
+        .eq("account_id", validated.account_id);
+      existingCategories = (result.data ?? []) as Array<{
+        id: string;
+        name: string;
+        color?: string | null;
+      }>;
+      existingError = result.error;
+    }
+
+    if (isMissingCategoryColorError(existingError)) {
+      supportsColor = false;
+      const legacyResult = await supabase
+        .from("categories")
+        .select("id, name")
+        .eq("account_id", validated.account_id);
+      existingCategories = ((legacyResult.data ?? []) as Array<{ id: string; name: string }>).map(
+        (category) => ({ ...category, color: null })
+      );
+      existingError = legacyResult.error;
+    }
 
     if (existingError) {
       console.error("Error checking duplicate categories:", existingError);
@@ -68,12 +101,30 @@ export async function createCategory(input: {
       return { success: false, error: { key: "categories.error.duplicateName" } };
     }
 
+    const autoColor = supportsColor
+      ? assignCategoryColor((existingCategories ?? []) as Array<{ color?: string | null }>)
+      : null;
+    const nextColor = normalizeHexColor(validated.color) ?? autoColor;
+    const { color: _ignoredColor, ...validatedWithoutColor } = validated;
+
+    const insertPayload = supportsColor
+      ? { ...validatedWithoutColor, color: nextColor }
+      : validatedWithoutColor;
+
     // Insert category
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("categories")
-      .insert([validated])
+      .insert([insertPayload])
       .select()
       .single();
+
+    if (isMissingCategoryColorError(error)) {
+      ({ data, error } = await supabase
+        .from("categories")
+        .insert([validatedWithoutColor])
+        .select()
+        .single());
+    }
 
     if (error) {
       console.error("Error creating category:", error);
@@ -106,6 +157,7 @@ export async function updateCategory(
     name: string;
     icon_id: string;
     type: CategoryType;
+    color?: string | null;
   }
 ): Promise<ActionResult> {
   try {
@@ -166,17 +218,41 @@ export async function updateCategory(
       return { success: false, error: { key: "categories.error.duplicateName" } };
     }
 
+    const updatePayload: {
+      name: string;
+      icon_id: string;
+      type: CategoryType;
+      color?: string | null;
+    } = {
+      name: validated.name,
+      icon_id: validated.icon_id,
+      type: validated.type,
+    };
+
+    if (validated.color !== undefined) {
+      updatePayload.color = normalizeHexColor(validated.color);
+    }
+
     // Update category
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("categories")
-      .update({
-        name: validated.name,
-        icon_id: validated.icon_id,
-        type: validated.type,
-      })
+      .update(updatePayload)
       .eq("id", categoryId)
       .select()
       .single();
+
+    if (isMissingCategoryColorError(error)) {
+      ({ data, error } = await supabase
+        .from("categories")
+        .update({
+          name: validated.name,
+          icon_id: validated.icon_id,
+          type: validated.type,
+        })
+        .eq("id", categoryId)
+        .select()
+        .single());
+    }
 
     if (error) {
       console.error("Error updating category:", error);

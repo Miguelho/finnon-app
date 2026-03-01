@@ -1,4 +1,6 @@
 import { normalizeCategoryName } from "../schemas/category";
+import { assignCategoryColor } from "../categories/palette";
+import { assignProjectColor } from "../projects/palette";
 import {
   getOccurrencesBetween,
   type RecurringItem,
@@ -49,12 +51,28 @@ export async function persistOnboarding(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // 1. Insertar categorías
-    const categoryRows = payload.selectedCategories.map((cat) => ({
-      account_id: payload.accountId,
-      name: locale === "en" ? cat.name_en : cat.name,
-      icon_id: cat.icon_id,
-      type: cat.type,
-    }));
+    const { data: existingCategories, error: existingCategoriesError } = await client
+      .from("categories")
+      .select("id, color, created_at")
+      .eq("account_id", payload.accountId)
+      .order("created_at", { ascending: true });
+
+    if (existingCategoriesError) throw existingCategoriesError;
+
+    const existingForColor = (
+      (existingCategories as Array<{ color?: string | null }> | null) ?? []
+    ).slice();
+    const categoryRows = payload.selectedCategories.map((cat) => {
+      const color = assignCategoryColor(existingForColor);
+      existingForColor.push({ color });
+      return {
+        account_id: payload.accountId,
+        name: locale === "en" ? cat.name_en : cat.name,
+        icon_id: cat.icon_id,
+        type: cat.type,
+        color,
+      };
+    });
 
     let insertedCategories: Array<{ id: string; name: string }> = [];
 
@@ -180,7 +198,7 @@ export async function persistOnboarding(
       if (targetMinor > 0 && commitmentMinor > 0) {
         const { data: existingProjects, error: existingProjectsError } = await client
           .from("projects")
-          .select("priority, is_hucha")
+          .select("priority, is_hucha, color")
           .eq("account_id", payload.accountId)
           .order("priority", { ascending: true });
 
@@ -189,10 +207,16 @@ export async function persistOnboarding(
         const usedPriorities = (existingProjects ?? [])
           .filter((project: { is_hucha?: boolean }) => !project.is_hucha)
           .map((project: { priority?: number }) => Number(project.priority ?? 0))
-          .filter((value) => Number.isFinite(value) && value > 0);
+          .filter((value: number) => Number.isFinite(value) && value > 0);
 
         const nextPriority =
           usedPriorities.length > 0 ? Math.max(...usedPriorities) + 1 : 1;
+        const nextColor = assignProjectColor(
+          ((existingProjects ?? []) as Array<{
+            color?: string | null;
+            is_hucha?: boolean;
+          }>).filter((project) => !project.is_hucha)
+        );
 
         const { error: firstProjectError } = await client
           .from("projects")
@@ -200,6 +224,7 @@ export async function persistOnboarding(
             account_id: payload.accountId,
             name: nextProject.name.trim(),
             emoji: nextProject.emoji?.trim() || "🎯",
+            color: nextColor,
             target_amount_base_minor: targetMinor,
             monthly_commitment_base_minor: commitmentMinor,
             priority: nextPriority,

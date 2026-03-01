@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { ArrowUp, ArrowDown } from "lucide-react-native";
-import { colors, typography, spacing, radii } from '../../theme/tokens';
+import { typography, spacing, radii } from '../../theme/tokens';
 import { formatCurrency, formatDelta } from '../../utils/currency';
 import type { AccountContributor, FlowSummary } from '../../types/account';
 import { useUserTheme } from '../../../../contexts/UserThemeContext';
@@ -133,20 +133,25 @@ export function FlowCards({
         onPress={onIncomePress}
       >
         <View style={styles.cardHeader}>
-          <View style={[styles.arrow, styles.arrowUp]}>
+          <View
+            style={[
+              styles.arrow,
+              { backgroundColor: hexToRgba(userTokens.textSecondary, 0.9) },
+            ]}
+          >
             <ArrowUp size={10} color="#FFFFFF" />
           </View>
-          <Text style={[styles.label, styles.incomeText]}>
+          <Text style={[styles.label, { color: userTokens.textSecondary }]}>
             {t(dictionary, "account.redesign.incomeLabel").toUpperCase()}
           </Text>
         </View>
-        <Text style={[styles.amount, styles.incomeText]}>
+        <Text style={[styles.amount, { color: userTokens.textPrimary }]}>
           {currency}
           {income.whole}
         </Text>
         <View style={styles.deltaSlot}>
           {incomeDelta ? (
-            <Text style={[styles.delta, styles.incomeText]} numberOfLines={1}>
+            <Text style={[styles.delta, { color: userTokens.textSecondary }]} numberOfLines={1}>
               {t(dictionary, "account.redesign.vsPreviousMonth", {
                 value: incomeDelta,
               })}
@@ -165,20 +170,25 @@ export function FlowCards({
         onPress={onExpensePress}
       >
         <View style={styles.cardHeader}>
-          <View style={[styles.arrow, styles.arrowDown]}>
+          <View
+            style={[
+              styles.arrow,
+              { backgroundColor: hexToRgba(userTokens.textSecondary, 0.9) },
+            ]}
+          >
             <ArrowDown size={10} color="#FFFFFF" />
           </View>
-          <Text style={[styles.label, styles.expenseText]}>
+          <Text style={[styles.label, { color: userTokens.textSecondary }]}>
             {t(dictionary, "account.redesign.expenseLabel").toUpperCase()}
           </Text>
         </View>
-        <Text style={[styles.amount, styles.expenseText]}>
+        <Text style={[styles.amount, { color: userTokens.textPrimary }]}>
           {currency}
           {expense.whole}
         </Text>
         <View style={styles.deltaSlot}>
           {expenseDelta ? (
-            <Text style={[styles.delta, styles.expenseText]} numberOfLines={1}>
+            <Text style={[styles.delta, { color: userTokens.textSecondary }]} numberOfLines={1}>
               {t(dictionary, "account.redesign.vsPreviousMonth", {
                 value: expenseDelta,
               })}
@@ -222,22 +232,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  arrowUp: {
-    backgroundColor: colors.income,
-  },
-  arrowDown: {
-    backgroundColor: colors.expense,
-  },
   label: {
     fontFamily: typography.family.sansSemiBold,
     fontSize: typography.size.sm,
     letterSpacing: 0.5,
-  },
-  incomeText: {
-    color: colors.income,
-  },
-  expenseText: {
-    color: colors.expense,
   },
   amount: {
     fontFamily: typography.family.monoMedium,

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   SlidePanel,
@@ -20,7 +21,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IconPicker } from "@/components/icon-picker";
-import type { CategoryIconKey, CategoryType } from "@poleursus/shared";
+import {
+  CATEGORY_PALETTE,
+  normalizeHexColor,
+  type CategoryIconKey,
+  type CategoryType,
+} from "@poleursus/shared";
 
 type CategoryFormPanelProps = {
   open: boolean;
@@ -33,12 +39,16 @@ type CategoryFormPanelProps = {
   expenseLabel: string;
   incomeLabel: string;
   iconLabel: string;
+  colorLabel: string;
+  customColorLabel: string;
   nameValue: string;
   onNameChange: (value: string) => void;
   typeValue: CategoryType;
   onTypeChange: (value: CategoryType) => void;
   iconValue: CategoryIconKey;
   onIconChange: (value: CategoryIconKey) => void;
+  colorValue: string | null | undefined;
+  onColorChange: (value: string) => void;
   onCancel: () => void;
   onSubmit: () => void;
   cancelLabel: string;
@@ -60,12 +70,16 @@ export function CategoryFormPanel({
   expenseLabel,
   incomeLabel,
   iconLabel,
+  colorLabel,
+  customColorLabel,
   nameValue,
   onNameChange,
   typeValue,
   onTypeChange,
   iconValue,
   onIconChange,
+  colorValue,
+  onColorChange,
   onCancel,
   onSubmit,
   cancelLabel,
@@ -75,6 +89,25 @@ export function CategoryFormPanel({
   nameInputId = "category-name",
   desktopBehavior = "right",
 }: CategoryFormPanelProps) {
+  const [customColorInput, setCustomColorInput] = useState("");
+  const normalizedColor = normalizeHexColor(colorValue);
+  const isPresetColor = useMemo(
+    () =>
+      Boolean(
+        normalizedColor &&
+          CATEGORY_PALETTE.includes(normalizedColor as (typeof CATEGORY_PALETTE)[number])
+      ),
+    [normalizedColor]
+  );
+
+  useEffect(() => {
+    if (normalizedColor && !isPresetColor) {
+      setCustomColorInput(normalizedColor);
+      return;
+    }
+    setCustomColorInput("");
+  }, [isPresetColor, normalizedColor]);
+
   return (
     <SlidePanel open={open} onOpenChange={onOpenChange}>
       <SlidePanelContent desktopBehavior={desktopBehavior}>
@@ -116,6 +149,58 @@ export function CategoryFormPanel({
                 filterType={typeValue}
                 categoryName={nameValue}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>{colorLabel}</Label>
+              <div className="flex flex-wrap gap-2">
+                {CATEGORY_PALETTE.map((color) => {
+                  const isSelected = normalizedColor === color;
+                  return (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => onColorChange(color)}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border transition-transform hover:scale-[1.05]"
+                      style={{
+                        backgroundColor: color,
+                        borderColor: isSelected
+                          ? "hsl(var(--ring))"
+                          : "hsl(var(--border))",
+                      }}
+                      aria-label={`${colorLabel} ${color}`}
+                    >
+                      {isSelected ? (
+                        <span className="h-2.5 w-2.5 rounded-full border border-white/85" />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="space-y-1">
+                <Label
+                  htmlFor={`${nameInputId}-custom-color`}
+                  className="text-xs text-muted-foreground"
+                >
+                  {customColorLabel}
+                </Label>
+                <Input
+                  id={`${nameInputId}-custom-color`}
+                  value={customColorInput}
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    setCustomColorInput(nextValue);
+                    const normalized = normalizeHexColor(nextValue);
+                    if (normalized) {
+                      onColorChange(normalized);
+                    }
+                  }}
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  maxLength={7}
+                  placeholder="#D4943A"
+                  className="font-mono uppercase"
+                />
+              </div>
             </div>
           </div>
         </SlidePanelBody>

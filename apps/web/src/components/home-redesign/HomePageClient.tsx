@@ -1,34 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
-import { createClient } from "@/lib/supabase/client";
-import { useWebDataCache } from "@/cache/WebDataCacheProvider";
-import { useCachedObligationsRange, useCachedTransactionsRange } from "@/cache/hooks";
 import {
-  CORE_5M,
-  type AvatarColorToken,
-  cacheKeys,
-  cacheTags,
-  computeMovementBalanceSummary,
+  CATEGORY_PALETTE,
+  buildCalendarDayData,
+  buildProjectColorMap,
+  computeProjectProgress,
   computeSavingsDistribution,
-  getExpandedMonthRange,
-  getWeekStrip,
+  getProjectColor,
+  getMonthCalendarDisplayDays,
+  getWeekCalendarDisplayDays,
+  getWeekStartMonday,
+  type AvatarColorToken,
   type Project,
+  type ProjectContribution,
   type UserAvatarColorId,
 } from "@poleursus/shared";
-import {
-  Calendar,
-  type ContextMovement,
-  type DayDetailData,
-  type DayMovement,
-} from "./Calendar";
-import { BalanceHeader } from "./BalanceHeader";
-import { SavingsMonthCard } from "./SavingsMonthCard";
 import { PageContainer } from "@/components/layout/page-container";
 import { AddActionTrigger } from "@/components/navigation/add-action-trigger";
-import { formatCurrencyParts, formatFullDate, formatShortDate, toDateKey, toMinor } from "./utils";
+import { UserAvatar } from "@/components/user-avatar";
+import { CategoryIcon } from "@/components/category-icon";
+import { createClient } from "@/lib/supabase/client";
+import { BalanceRow } from "./BalanceHeader";
+import { Calendar } from "./Calendar";
+import { ProjectsRow } from "./SavingsMonthCard";
+import { formatCurrencyParts, formatFullDate, toDateKey, toMinor } from "./utils";
 
 type TransactionRow = {
   id: string;
@@ -44,7 +41,17 @@ type TransactionRow = {
     id: string;
     name: string;
     icon_id: string | null;
+    color?: string | null;
   } | null;
+};
+
+type ObligationRow = {
+  id: string;
+  name: string;
+  amount_minor: string | number | null;
+  amount_base_minor: string | number | null;
+  due_date: string | null;
+  status: "pending" | "paid" | null;
 };
 
 type ProfileRow = {
@@ -57,134 +64,144 @@ type ProfileRow = {
   avatar_color: UserAvatarColorId | null;
 };
 
-type ObligationRow = {
+type HomeMovement = {
   id: string;
   name: string;
-  amount_minor: string | number | null;
-  amount_base_minor: string | number | null;
-  due_date: string | null;
-  status: "pending" | "paid" | null;
+  categoryId: string | null;
+  iconId: string | null;
+  categoryName: string | null;
+  createdByUserId?: string | null;
+  type: "income" | "expense";
+  amountMinor: bigint;
+  isProgrammed?: boolean;
+};
+
+type HomeMovementGroup = {
+  id: string;
+  name: string;
+  iconId: string | null;
+  totalMinor: bigint;
+  items: HomeMovement[];
 };
 
 type HomePageClientProps = {
   account: {
     id: string;
     canEdit: boolean;
-    monthlyBalanceMinor: string;
-    currentMonth: string;
     currencySymbol: string;
     baseCurrency: string;
+    locale: "es" | "en";
   };
+  accounts: Array<{
+    id: string;
+    name: string;
+    balanceMinor: string;
+    color: string;
+  }>;
   monthlyTransactions: TransactionRow[];
   upcomingTransactions: TransactionRow[];
   obligations: ObligationRow[];
   profiles: ProfileRow[];
   projects: Project[];
-  locale?: string;
-  monoClassName?: string;
+  projectContributions: ProjectContribution[];
 };
+
+const plusDays = (date: Date, days: number) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+const absMinor = (value: bigint) => (value < 0n ? -value : value);
+
+const toSignedMinor = (amountMinor: bigint, type: "income" | "expense") => {
+  const absoluteAmount = absMinor(amountMinor);
+  return type === "income" ? absoluteAmount : -absoluteAmount;
+};
+
+const WEEKDAY_LABELS = {
+  es: ["L", "M", "X", "J", "V", "S", "D"],
+  en: ["M", "T", "W", "T", "F", "S", "S"],
+};
+
+const MONTHS_SHORT = {
+  es: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
+  en: ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"],
+};
+
+const MONTHS_LONG = {
+  es: [
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
+  ],
+  en: [
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
+  ],
+};
+
+const TRANSACTIONS_SELECT_WITH_CATEGORY_COLOR =
+  "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id, color)";
+const TRANSACTIONS_SELECT_LEGACY =
+  "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id)";
+
+const isMissingCategoryColorError = (error: any) =>
+  error?.code === "42703" &&
+  typeof error?.message === "string" &&
+  error.message.includes("categories") &&
+  error.message.includes("color");
 
 export function HomePageClient({
   account,
+  accounts,
   monthlyTransactions,
   upcomingTransactions,
   obligations,
   profiles,
   projects,
-  locale = "es",
-  monoClassName,
+  projectContributions,
 }: HomePageClientProps) {
   const router = useRouter();
-  const t = useTranslations();
   const supabase = useMemo(() => createClient(), []);
-  const { cache, userId } = useWebDataCache();
-  const loadCachedTransactionsRange = useCachedTransactionsRange();
-  const loadCachedObligationsRange = useCachedObligationsRange();
-  const openAddActionRef = useRef<(() => void) | null>(null);
-  const skipInitialFetchRef = useRef(true);
+  const locale = account.locale;
+  const weekdayLabels = WEEKDAY_LABELS[locale];
+  const monthsShort = MONTHS_SHORT[locale];
+  const monthsLong = MONTHS_LONG[locale];
   const today = useMemo(() => new Date(), []);
-  const [monthTransactions, setMonthTransactions] = useState<TransactionRow[]>(
-    monthlyTransactions
-  );
-  const [futureTransactions, setFutureTransactions] = useState<TransactionRow[]>(
-    upcomingTransactions
-  );
-  const [calendarObligations, setCalendarObligations] = useState<ObligationRow[]>(
-    obligations
-  );
+  const [transactions, setTransactions] = useState<TransactionRow[]>(monthlyTransactions);
+  const [futureTransactions, setFutureTransactions] = useState<TransactionRow[]>(upcomingTransactions);
+  const [creatorProfiles, setCreatorProfiles] = useState<ProfileRow[]>(profiles);
+  const [calendarObligations, setCalendarObligations] = useState<ObligationRow[]>(obligations);
   const [calendarView, setCalendarView] = useState<"week" | "month">("week");
   const [weekReference, setWeekReference] = useState<Date>(today);
   const [monthReference, setMonthReference] = useState<Date>(today);
-  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(toDateKey(today));
-  const todayKey = toDateKey(today);
+  const [selectedDayKey, setSelectedDayKey] = useState<string>(toDateKey(today));
 
   useEffect(() => {
-    if (!userId) return;
-
-    const expandedRange = getExpandedMonthRange(today);
-    const startDate = expandedRange.start.toISOString().slice(0, 10);
-    const endDate = expandedRange.end.toISOString().slice(0, 10);
-    const upcomingEnd = new Date(today);
-    upcomingEnd.setDate(upcomingEnd.getDate() + 30);
-    const upcomingStartDate = today.toISOString().slice(0, 10);
-    const upcomingEndDate = upcomingEnd.toISOString().slice(0, 10);
-    const obligationsEnd =
-      upcomingEnd > expandedRange.end ? upcomingEnd : expandedRange.end;
-    const obligationsEndDate = obligationsEnd.toISOString().slice(0, 10);
-    const now = Date.now();
-
-    void cache.prime({
-      version: 1,
-      userId,
-      accountId: account.id,
-      key: cacheKeys.transactionsRange(account.id, startDate, endDate),
-      data: monthlyTransactions,
-      updatedAt: now,
-      staleAt: now + CORE_5M.staleMs,
-      expiresAt: now + CORE_5M.expireMs,
-      tags: [cacheTags.transactions, cacheTags.homeCalendar],
-    });
-
-    void cache.prime({
-      version: 1,
-      userId,
-      accountId: account.id,
-      key: cacheKeys.transactionsRange(account.id, upcomingStartDate, upcomingEndDate),
-      data: upcomingTransactions,
-      updatedAt: now,
-      staleAt: now + CORE_5M.staleMs,
-      expiresAt: now + CORE_5M.expireMs,
-      tags: [cacheTags.transactions, cacheTags.homeCalendar],
-    });
-
-    void cache.prime({
-      version: 1,
-      userId,
-      accountId: account.id,
-      key: cacheKeys.obligationsRange(account.id, startDate, obligationsEndDate),
-      data: obligations.filter((item) => Boolean(item.due_date)),
-      updatedAt: now,
-      staleAt: now + CORE_5M.staleMs,
-      expiresAt: now + CORE_5M.expireMs,
-      tags: [cacheTags.obligations, cacheTags.homeCalendar],
-    });
-  }, [
-    account.id,
-    cache,
-    obligations,
-    monthlyTransactions,
-    upcomingTransactions,
-    today,
-    userId,
-  ]);
+    setCreatorProfiles(profiles);
+  }, [profiles]);
 
   useEffect(() => {
-    // Initial month data already comes from SSR props.
-    if (skipInitialFetchRef.current) {
-      skipInitialFetchRef.current = false;
-      return;
-    }
-
     let cancelled = false;
 
     const normalizeCategory = <T extends { category?: unknown }>(row: T) => ({
@@ -194,436 +211,361 @@ export function HomePageClient({
         : (row.category ?? null),
     });
 
-    async function loadCalendarData() {
-      const expandedRange = getExpandedMonthRange(monthReference);
-      const startDate = expandedRange.start.toISOString().slice(0, 10);
-      const endDate = expandedRange.end.toISOString().slice(0, 10);
-      const now = new Date();
-      const upcomingEnd = new Date(now);
-      upcomingEnd.setDate(upcomingEnd.getDate() + 30);
-      const obligationsEnd =
-        upcomingEnd > expandedRange.end ? upcomingEnd : expandedRange.end;
-      const obligationsEndDate = obligationsEnd.toISOString().slice(0, 10);
-      const upcomingStartDate = now.toISOString().slice(0, 10);
-      const upcomingEndDate = upcomingEnd.toISOString().slice(0, 10);
+    const loadCalendarData = async () => {
+      const monthStart = new Date(monthReference.getFullYear(), monthReference.getMonth(), 1);
+      const monthEnd = new Date(monthReference.getFullYear(), monthReference.getMonth() + 1, 0);
+      const monthGridStart = getWeekStartMonday(monthStart);
+      const monthGridEnd = plusDays(getWeekStartMonday(plusDays(monthEnd, 1)), 6);
+      const weekStart = getWeekStartMonday(weekReference);
+      const weekEnd = plusDays(weekStart, 6);
+
+      const queryStart = monthGridStart < weekStart ? monthGridStart : weekStart;
+      const queryEnd = monthGridEnd > weekEnd ? monthGridEnd : weekEnd;
+      const startDate = toDateKey(queryStart);
+      const endDate = toDateKey(queryEnd);
+      const upcomingStartDate = toDateKey(today);
+      const upcomingEndDate = toDateKey(plusDays(today, 30));
 
       try {
-        const [monthData, upcomingData, obligationsRange] = await Promise.all([
-          loadCachedTransactionsRange<TransactionRow[]>({
-            accountId: account.id,
+        const loadTransactions = async ({
+          start,
+          end,
+          ascending,
+        }: {
+          start: string;
+          end: string;
+          ascending: boolean;
+        }) => {
+          const runQuery = (selectClause: string) => {
+            let query = supabase
+              .from("transactions")
+              .select(selectClause)
+              .eq("account_id", account.id)
+              .gte("date", start)
+              .lte("date", end)
+              .order("date", { ascending });
+
+            if (!ascending) {
+              query = query.order("created_at", { ascending: false });
+            }
+
+            return query;
+          };
+
+          let { data, error } = await runQuery(TRANSACTIONS_SELECT_WITH_CATEGORY_COLOR);
+
+          if (isMissingCategoryColorError(error)) {
+            console.warn(
+              "[HomePageClient][web] categories.color missing, retrying transactions query without color."
+            );
+            ({ data, error } = await runQuery(TRANSACTIONS_SELECT_LEGACY));
+          }
+
+          if (error) throw error;
+
+          const rows = (data ?? []) as Array<TransactionRow & { category?: unknown }>;
+          return rows.map(normalizeCategory) as TransactionRow[];
+        };
+
+        const [monthData, upcomingData, obligationsData] = await Promise.all([
+          loadTransactions({
             start: startDate,
             end: endDate,
-            loader: async () => {
-              const { data, error } = await supabase
-                .from("transactions")
-                .select(
-                  "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id)"
-                )
-                .eq("account_id", account.id)
-                .gte("date", startDate)
-                .lte("date", endDate)
-                .order("date", { ascending: false })
-                .order("created_at", { ascending: false });
-              if (error) throw error;
-              return (data ?? []).map(normalizeCategory) as TransactionRow[];
-            },
+            ascending: false,
           }),
-          loadCachedTransactionsRange<TransactionRow[]>({
-            accountId: account.id,
+          loadTransactions({
             start: upcomingStartDate,
             end: upcomingEndDate,
-            loader: async () => {
-              const { data, error } = await supabase
-                .from("transactions")
-                .select(
-                  "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id)"
-                )
-                .eq("account_id", account.id)
-                .gte("date", upcomingStartDate)
-                .lte("date", upcomingEndDate)
-                .order("date", { ascending: true });
-              if (error) throw error;
-              return (data ?? []).map(normalizeCategory) as TransactionRow[];
-            },
+            ascending: true,
           }),
-          loadCachedObligationsRange<ObligationRow[]>({
-            accountId: account.id,
-            start: startDate,
-            end: obligationsEndDate,
-            loader: async () => {
-              const { data, error } = await supabase
-                .from("obligations")
-                .select(
-                  "id, account_id, name, amount_minor, amount_base_minor, currency, due_date, status, paid_at"
-                )
-                .eq("account_id", account.id)
-                .gte("due_date", startDate)
-                .lte("due_date", obligationsEndDate)
-                .order("due_date", { ascending: true });
-              if (error) throw error;
-              return (data ?? []) as ObligationRow[];
-            },
-          }),
+          supabase
+            .from("obligations")
+            .select(
+              "id, account_id, name, amount_minor, amount_base_minor, currency, due_date, status, paid_at"
+            )
+            .eq("account_id", account.id)
+            .gte("due_date", startDate)
+            .lte("due_date", endDate)
+            .order("due_date", { ascending: true }),
         ]);
 
+        const creatorUserIds = Array.from(
+          new Set(
+            [...monthData, ...upcomingData]
+              .map((transaction) => transaction.created_by)
+              .filter((value): value is string => Boolean(value))
+          )
+        );
+        const { data: profileRows, error: profilesError } =
+          creatorUserIds.length > 0
+            ? await supabase
+                .from("profiles")
+                .select(
+                  "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
+                )
+                .in("user_id", creatorUserIds)
+            : { data: [], error: null };
+        if (profilesError) {
+          console.warn("[HomePageClient][web] load profiles error:", profilesError);
+        }
+
         if (cancelled) return;
-        setMonthTransactions(monthData ?? []);
-        setFutureTransactions(upcomingData ?? []);
-        setCalendarObligations(obligationsRange ?? []);
+        setTransactions(monthData);
+        setFutureTransactions(upcomingData);
+        setCreatorProfiles((profileRows ?? []) as ProfileRow[]);
+        setCalendarObligations((obligationsData.data ?? []) as ObligationRow[]);
       } catch (error) {
-        console.error("[HomePageClient] Error loading calendar data:", error);
+        console.error("[HomePageClient][web] load calendar error:", error);
       }
-    }
+    };
 
     void loadCalendarData();
 
     return () => {
       cancelled = true;
     };
-  }, [
-    account.id,
-    monthReference,
-    supabase,
-    loadCachedTransactionsRange,
-    loadCachedObligationsRange,
-  ]);
+  }, [account.id, monthReference, weekReference, supabase, today]);
 
   const allTransactions = useMemo(() => {
     const map = new Map<string, TransactionRow>();
-    monthTransactions.forEach((item) => map.set(item.id, item));
+    transactions.forEach((item) => map.set(item.id, item));
     futureTransactions.forEach((item) => map.set(item.id, item));
     return Array.from(map.values());
-  }, [monthTransactions, futureTransactions]);
-  const profilesByUserId = useMemo(
-    () =>
-      profiles.reduce<Record<string, ProfileRow>>((acc, profile) => {
-        acc[profile.user_id] = profile;
-        return acc;
-      }, {}),
-    [profiles]
-  );
+  }, [transactions, futureTransactions]);
 
-  const resolveMovementCreator = useMemo(
-    () => (createdBy?: string | null) => {
-      if (!createdBy) return undefined;
-      const profile = profilesByUserId[createdBy];
-      const fallbackName =
-        profile?.display_name?.trim() ||
-        profile?.email?.trim() ||
-        createdBy.slice(0, 6);
-      return {
-        userId: createdBy,
-        email: profile?.email ?? null,
-        displayName: profile?.display_name ?? fallbackName,
-        avatarPath: profile?.avatar_path ?? null,
-        fallbackText: profile?.avatar_fallback_text ?? null,
-        fallbackBgToken: profile?.avatar_fallback_bg_token ?? null,
-        avatarColor: profile?.avatar_color ?? null,
-        label: fallbackName,
-      };
-    },
-    [profilesByUserId]
-  );
-
-  const selectedMonthReference = calendarView === "month" ? monthReference : weekReference;
-  const selectedMonthKey = useMemo(() => {
-    const year = selectedMonthReference.getFullYear();
-    const month = String(selectedMonthReference.getMonth() + 1).padStart(2, "0");
-    return `${year}-${month}`;
-  }, [selectedMonthReference]);
-  const selectedMonthBalanceMinor = useMemo(() => {
-    const selectedMonthTransactions = allTransactions.filter((tx) => {
-      const dateKey = toDateKey(tx.date);
-      return Boolean(dateKey) && dateKey.startsWith(selectedMonthKey);
+  const todayKey = toDateKey(today);
+  const monthTransactionsToDate = useMemo(() => {
+    const monthPrefix = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+    return transactions.filter((tx) => {
+      const key = toDateKey(tx.date);
+      return Boolean(key) && key.startsWith(monthPrefix) && key <= todayKey;
     });
-    return computeMovementBalanceSummary(selectedMonthTransactions).totalBalanceMinor;
-  }, [allTransactions, selectedMonthKey]);
+  }, [transactions, today, todayKey]);
 
-  const savingsMinor = toMinor(account.monthlyBalanceMinor);
+  const monthlyBalanceMinor = useMemo(
+    () =>
+      monthTransactionsToDate.reduce((total, tx) => {
+        const amount = toMinor(tx.amount_base_minor ?? tx.amount_minor);
+        return tx.type === "income" ? total + amount : total - amount;
+      }, 0n),
+    [monthTransactionsToDate]
+  );
+
   const savingsDistribution = useMemo(
     () =>
       computeSavingsDistribution({
         projects,
-        savingsMinor,
+        savingsMinor: monthlyBalanceMinor,
       }),
-    [projects, savingsMinor]
+    [projects, monthlyBalanceMinor]
   );
 
-  const weekStrip = useMemo(() => {
-    return getWeekStrip(
-      calendarObligations.map((item) => ({
-        id: item.id,
-        due_date: item.due_date,
-        status: item.status ?? "pending",
-      })) as any,
-      allTransactions.map((item) => ({
-        id: item.id,
-        type: item.type,
-        amount_minor: item.amount_minor,
-        amount_base_minor: item.amount_base_minor,
-        date: item.date,
-      })) as any,
-      today,
-      weekReference
-    );
-  }, [allTransactions, calendarObligations, today, weekReference]);
+  const calendarMap = useMemo(() => {
+    const entries = [
+      ...allTransactions.map((tx) => ({
+        date: tx.date,
+        type: tx.type,
+        amount_minor: tx.amount_minor,
+        amount_base_minor: tx.amount_base_minor,
+        category_id: tx.category?.id ?? null,
+        category_name: tx.category?.name ?? null,
+        category_color: tx.category?.color ?? null,
+      })),
+      ...calendarObligations
+        .filter((obligation) => obligation.status !== "paid" && Boolean(obligation.due_date))
+        .map((obligation) => ({
+          date: obligation.due_date as string,
+          type: "expense" as const,
+          amount_minor: obligation.amount_minor,
+          amount_base_minor: obligation.amount_base_minor,
+          category_id: "obligation",
+          category_name: locale === "en" ? "Scheduled" : "Programado",
+          category_color: "#CB6E55",
+        })),
+    ];
 
-  const weekTotals = useMemo(() => {
-    let income = 0n;
-    let expense = 0n;
-    const start = weekStrip.weekRange.start;
-    const end = weekStrip.weekRange.end;
-    allTransactions.forEach((tx) => {
-      const date = new Date(tx.date);
-      if (Number.isNaN(date.getTime())) return;
-      if (date < start || date > end) return;
-      const amount = toMinor(tx.amount_base_minor ?? tx.amount_minor);
-      if (tx.type === "income") {
-        income += amount;
-      } else {
-        expense += amount;
-      }
-    });
-    return { income, expense, net: income - expense };
-  }, [allTransactions, weekStrip.weekRange]);
+    return buildCalendarDayData(entries);
+  }, [allTransactions, calendarObligations, locale]);
+
+  const monthDays = useMemo(() => {
+    return getMonthCalendarDisplayDays(
+      calendarMap,
+      monthReference.getFullYear(),
+      monthReference.getMonth(),
+      todayKey,
+      weekdayLabels
+    );
+  }, [calendarMap, monthReference, todayKey, weekdayLabels]);
+
+  const weekDays = useMemo(() => {
+    return getWeekCalendarDisplayDays(
+      calendarMap,
+      weekReference,
+      todayKey,
+      weekdayLabels
+    );
+  }, [calendarMap, weekReference, todayKey, weekdayLabels]);
 
   const weekPeriodLabel = useMemo(() => {
-    const start = weekStrip.weekRange.start;
-    const end = weekStrip.weekRange.end;
-    const monthShortFormatter = new Intl.DateTimeFormat(locale, { month: "short" });
-    const startMonth = monthShortFormatter.format(start).replace(".", "");
-    const endMonth = monthShortFormatter.format(end).replace(".", "");
-    if (start.getMonth() === end.getMonth()) {
-      return `${start.getDate()} – ${end.getDate()} ${endMonth}`;
+    const monday = getWeekStartMonday(weekReference);
+    const sunday = plusDays(monday, 6);
+    const startMonth = monthsShort[monday.getMonth()] ?? "";
+    const endMonth = monthsShort[sunday.getMonth()] ?? "";
+    if (monday.getMonth() === sunday.getMonth()) {
+      return `${monday.getDate()}–${sunday.getDate()} ${endMonth}`;
     }
-    return `${start.getDate()} ${startMonth} – ${end.getDate()} ${endMonth}`;
-  }, [weekStrip.weekRange, locale]);
+    return `${monday.getDate()} ${startMonth} – ${sunday.getDate()} ${endMonth}`;
+  }, [weekReference, monthsShort]);
 
-  const weekData = useMemo(() => {
-    const netIncome = formatCurrencyParts(weekTotals.income, account.currencySymbol).full;
-    const netExpense = formatCurrencyParts(weekTotals.expense, account.currencySymbol).full;
-    const net = formatCurrencyParts(weekTotals.net, account.currencySymbol).full;
+  const monthPeriodLabel = useMemo(() => {
+    const monthName = monthsLong[monthReference.getMonth()] ?? "";
+    return `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} ${monthReference.getFullYear()}`;
+  }, [monthReference, monthsLong]);
 
-    return {
-      days: weekStrip.days.map((day) => ({
-        date: day.dayKey,
-        dayLabel: new Intl.DateTimeFormat(locale, { weekday: "short" })
-          .format(new Date(`${day.dayKey}T00:00:00`))
-          .replace(".", ""),
-        dayNumber: day.dayOfMonth,
-        isToday: day.isToday,
-        dots: day.dots.map((dot): { type: "income" | "expense" } => ({
-          type: dot.type === "income" ? "income" : "expense",
-        })),
-      })),
-      period: weekPeriodLabel,
-      netIncome,
-      netExpense,
-      net,
-    };
-  }, [weekStrip.days, weekTotals, account.currencySymbol, weekPeriodLabel, locale]);
+  const selectedDayMovementGroups = useMemo<HomeMovementGroup[]>(() => {
+    const dayTx = allTransactions
+      .filter((tx) => toDateKey(tx.date) === selectedDayKey)
+      .map((tx) => ({
+        id: tx.id,
+        name: tx.merchant?.trim() || tx.category?.name || (locale === "en" ? "Movement" : "Movimiento"),
+        categoryId: tx.category?.id ?? null,
+        iconId: tx.category?.icon_id ?? null,
+        categoryName: tx.category?.name ?? null,
+        createdByUserId: tx.created_by ?? null,
+        type: tx.type,
+        amountMinor: absMinor(toMinor(tx.amount_base_minor ?? tx.amount_minor)),
+      }));
 
-  const monthData = useMemo(() => {
-    const monthRange = getExpandedMonthRange(monthReference);
-    const dotsMap = new Map<string, Array<{ type: "income" | "expense" }>>();
-    const monthKey = `${monthReference.getFullYear()}-${String(
-      monthReference.getMonth() + 1
-    ).padStart(2, "0")}`;
-    let monthIncome = 0n;
-    let monthExpense = 0n;
+    const dayObligations = calendarObligations
+      .filter((obligation) => obligation.status !== "paid")
+      .filter((obligation) => toDateKey(obligation.due_date as string) === selectedDayKey)
+      .map((obligation) => ({
+        id: `obligation-${obligation.id}`,
+        name: obligation.name,
+        categoryId: "obligation",
+        iconId: null,
+        categoryName: locale === "en" ? "Scheduled" : "Programado",
+        createdByUserId: null,
+        type: "expense" as const,
+        amountMinor: absMinor(toMinor(obligation.amount_base_minor ?? obligation.amount_minor)),
+        isProgrammed: true,
+      }));
 
-    const addDot = (dateKey: string, type: "income" | "expense") => {
-      const existing = dotsMap.get(dateKey) ?? [];
-      existing.push({ type });
-      dotsMap.set(dateKey, existing);
-    };
-
-    allTransactions.forEach((tx) => {
-      const key = toDateKey(tx.date);
-      if (!key) return;
-      addDot(key, tx.type === "income" ? "income" : "expense");
-      if (!key.startsWith(monthKey)) return;
-      const amount = toMinor(tx.amount_base_minor ?? tx.amount_minor);
-      if (tx.type === "income") {
-        monthIncome += amount;
-      } else {
-        monthExpense += amount;
+    const grouped = new Map<string, HomeMovementGroup>();
+    [...dayTx, ...dayObligations].forEach((movement) => {
+      const groupKey = movement.categoryId ?? "uncategorized";
+      const groupName =
+        movement.categoryName ??
+        (locale === "en" ? "Uncategorized" : "Sin categoría");
+      const existing = grouped.get(groupKey);
+      if (!existing) {
+        grouped.set(groupKey, {
+          id: groupKey,
+          name: groupName,
+          iconId: movement.iconId,
+          totalMinor: toSignedMinor(movement.amountMinor, movement.type),
+          items: [movement],
+        });
+        return;
+      }
+      existing.items.push(movement);
+      existing.totalMinor += toSignedMinor(movement.amountMinor, movement.type);
+      if (!existing.iconId && movement.iconId) {
+        existing.iconId = movement.iconId;
       }
     });
 
-    calendarObligations.forEach((obligation) => {
-      if (!obligation.due_date || obligation.status === "paid") return;
-      const key = toDateKey(obligation.due_date);
-      if (!key) return;
-      addDot(key, "expense");
+    return Array.from(grouped.values());
+  }, [allTransactions, calendarObligations, selectedDayKey, locale]);
+
+  const selectedDayLabel = useMemo(
+    () => formatFullDate(selectedDayKey, locale),
+    [selectedDayKey, locale]
+  );
+  const profileByUserId = useMemo(
+    () => new Map(creatorProfiles.map((profile) => [profile.user_id, profile])),
+    [creatorProfiles]
+  );
+
+  const contributionsByProject = useMemo(() => {
+    const byProject = new Map<string, ProjectContribution[]>();
+    projectContributions.forEach((entry) => {
+      const list = byProject.get(entry.project_id) ?? [];
+      list.push(entry);
+      byProject.set(entry.project_id, list);
     });
+    return byProject;
+  }, [projectContributions]);
 
-    const days = [] as {
-      date: string;
-      dayNumber: number;
-      isToday: boolean;
-      isOtherMonth: boolean;
-      dots: Array<{ type: "income" | "expense" }>;
-    }[];
+  const activeProjects = useMemo(
+    () => projects.filter((project) => !project.is_hucha && (project.status === "active" || project.status === "completed")),
+    [projects]
+  );
+  const projectColorMap = useMemo(() => buildProjectColorMap(projects), [projects]);
 
-    const cursor = new Date(monthRange.start);
-    while (cursor <= monthRange.end) {
-      const key = toDateKey(cursor);
-      const isOtherMonth = cursor.getMonth() !== monthReference.getMonth();
-      days.push({
-        date: key,
-        dayNumber: cursor.getDate(),
-        isToday: toDateKey(cursor) === toDateKey(today),
-        isOtherMonth,
-        dots: dotsMap.get(key) ?? [],
-      });
-      cursor.setDate(cursor.getDate() + 1);
-    }
+  const projectsRowData = useMemo(
+    () =>
+      activeProjects.map((project) => {
+        const progress = computeProjectProgress({
+          project,
+          contributions: contributionsByProject.get(project.id) ?? [],
+        });
+        return {
+          id: project.id,
+          name: project.name,
+          emoji: project.emoji || "🎯",
+          currentAmountMinor: progress.savedMinor,
+          goalAmountMinor: progress.targetMinor > 0n ? progress.targetMinor : 1n,
+          color: getProjectColor(project, projectColorMap),
+        };
+      }),
+    [activeProjects, contributionsByProject, projectColorMap]
+  );
 
-    const monthLabel = new Intl.DateTimeFormat(locale, {
-      month: "long",
-      year: "numeric",
-    }).format(monthReference);
-    const netIncome = formatCurrencyParts(monthIncome, account.currencySymbol).full;
-    const netExpense = formatCurrencyParts(monthExpense, account.currencySymbol).full;
-    const net = formatCurrencyParts(monthIncome - monthExpense, account.currencySymbol).full;
+  const huchaProject = useMemo(
+    () => projects.find((project) => project.is_hucha) ?? null,
+    [projects]
+  );
 
-    return {
-      days,
-      period: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1),
-      netIncome,
-      netExpense,
-      net,
-    };
-  }, [allTransactions, calendarObligations, monthReference, today, locale, account.currencySymbol]);
+  const huchaAmountMinor = useMemo(() => {
+    if (!huchaProject) return savingsDistribution.huchaMinor;
+    const rows = contributionsByProject.get(huchaProject.id) ?? [];
+    return rows.reduce((total, row) => {
+      if (!(row.confirmed ?? false)) return total;
+      return total + toMinor(row.actual_amount_base_minor);
+    }, 0n);
+  }, [huchaProject, contributionsByProject, savingsDistribution.huchaMinor]);
 
-  const selectedDay = useMemo<DayDetailData | null>(() => {
-    if (!selectedDayKey) return null;
-    const dayDate = new Date(selectedDayKey);
-    if (Number.isNaN(dayDate.getTime())) return null;
+  const accountItems = useMemo(
+    () =>
+      accounts.map((item) => ({
+        id: item.id,
+        name: item.name,
+        balanceMinor: toMinor(item.balanceMinor),
+        color: item.color,
+      })),
+    [accounts]
+  );
 
-    const movements: DayMovement[] = [];
-
-    allTransactions.forEach((tx) => {
-      if (toDateKey(tx.date) !== selectedDayKey) return;
-      movements.push({
-        id: tx.id,
-        name: tx.merchant ?? tx.category?.name ?? t("mobile.home.movementFallback"),
-        amountMinor: toMinor(tx.amount_base_minor ?? tx.amount_minor),
-        type: tx.type,
-        category: tx.category?.name ?? null,
-        categoryIconId: tx.category?.icon_id ?? null,
-        badge: null,
-        createdBy: resolveMovementCreator(tx.created_by),
-      });
-    });
-
-    calendarObligations.forEach((obligation) => {
-      if (!obligation.due_date || obligation.status === "paid") return;
-      if (toDateKey(obligation.due_date) !== selectedDayKey) return;
-      movements.push({
-        id: `obligation-${obligation.id}`,
-        name: obligation.name,
-        amountMinor: toMinor(obligation.amount_base_minor ?? obligation.amount_minor),
-        type: "expense",
-        category: t("mobile.home.programmedBadge"),
-        categoryIconId: null,
-        badge: t("mobile.home.programmedBadge"),
-      });
-    });
-
-    return {
-      dateKey: selectedDayKey,
-      formattedLabel: formatFullDate(dayDate, locale),
-      movements,
-    };
-  }, [
-    selectedDayKey,
-    allTransactions,
-    calendarObligations,
-    locale,
-    t,
-    resolveMovementCreator,
-  ]);
-
-  const contextMovements = useMemo(() => {
-    const items: Array<ContextMovement & { dateKey: string; sortKey: string }> = [];
-
-    allTransactions.forEach((tx) => {
-      const dateKey = toDateKey(tx.date);
-      if (!dateKey) return;
-      items.push({
-        id: tx.id,
-        name: tx.merchant ?? tx.category?.name ?? t("mobile.home.movementFallback"),
-        amountMinor: toMinor(tx.amount_base_minor ?? tx.amount_minor),
-        type: tx.type,
-        dateLabel: formatShortDate(dateKey, locale),
-        category: tx.category?.name ?? null,
-        categoryIconId: tx.category?.icon_id ?? null,
-        badge: null,
-        createdBy: resolveMovementCreator(tx.created_by),
-        dateKey,
-        sortKey: tx.created_at ?? "",
-      });
-    });
-
-    calendarObligations.forEach((obligation) => {
-      if (!obligation.due_date || obligation.status === "paid") return;
-      const dateKey = toDateKey(obligation.due_date);
-      if (!dateKey) return;
-      items.push({
-        id: `obligation-${obligation.id}`,
-        name: obligation.name,
-        amountMinor: toMinor(obligation.amount_base_minor ?? obligation.amount_minor),
-        type: "expense",
-        dateLabel: formatShortDate(dateKey, locale),
-        category: t("mobile.home.programmedBadge"),
-        categoryIconId: null,
-        badge: t("mobile.home.programmedBadge"),
-        dateKey,
-        sortKey: "",
-      });
-    });
-
-    return items;
-  }, [allTransactions, calendarObligations, locale, t, resolveMovementCreator]);
-
-  const selectedReferenceDayKey = selectedDayKey ?? todayKey;
-
-  const contextUpcomingMovements = useMemo(() => {
-    return contextMovements
-      .filter((movement) => movement.dateKey > selectedReferenceDayKey)
-      .sort((left, right) => {
-        if (left.dateKey !== right.dateKey) return left.dateKey > right.dateKey ? 1 : -1;
-        if (left.sortKey === right.sortKey) return 0;
-        return left.sortKey > right.sortKey ? 1 : -1;
-      })
-      .slice(0, 3)
-      .map(({ dateKey: _dateKey, sortKey: _sortKey, ...movement }) => movement);
-  }, [contextMovements, selectedReferenceDayKey]);
-
-  const contextPastMovements = useMemo(() => {
-    return contextMovements
-      .filter((movement) => movement.dateKey < selectedReferenceDayKey)
-      .sort((left, right) => {
-        if (left.dateKey !== right.dateKey) return left.dateKey > right.dateKey ? -1 : 1;
-        if (left.sortKey === right.sortKey) return 0;
-        return left.sortKey > right.sortKey ? -1 : 1;
-      })
-      .slice(0, 3)
-      .map(({ dateKey: _dateKey, sortKey: _sortKey, ...movement }) => movement);
-  }, [contextMovements, selectedReferenceDayKey]);
+  const selectedBalanceMinor =
+    accountItems.find((item) => item.id === account.id)?.balanceMinor ?? 0n;
 
   const handlePrevPeriod = () => {
     if (calendarView === "week") {
       const next = new Date(weekReference);
       next.setDate(next.getDate() - 7);
       setWeekReference(next);
-    } else {
-      const next = new Date(monthReference);
-      next.setMonth(next.getMonth() - 1);
-      setMonthReference(next);
+      setSelectedDayKey((current) => {
+        const currentDate = new Date(current);
+        if (Number.isNaN(currentDate.getTime())) return toDateKey(next);
+        currentDate.setDate(currentDate.getDate() - 7);
+        return toDateKey(currentDate);
+      });
+      return;
     }
+    const next = new Date(monthReference);
+    next.setMonth(next.getMonth() - 1);
+    setMonthReference(next);
   };
 
   const handleNextPeriod = () => {
@@ -631,81 +573,155 @@ export function HomePageClient({
       const next = new Date(weekReference);
       next.setDate(next.getDate() + 7);
       setWeekReference(next);
-    } else {
-      const next = new Date(monthReference);
-      next.setMonth(next.getMonth() + 1);
-      setMonthReference(next);
+      setSelectedDayKey((current) => {
+        const currentDate = new Date(current);
+        if (Number.isNaN(currentDate.getTime())) return toDateKey(next);
+        currentDate.setDate(currentDate.getDate() + 7);
+        return toDateKey(currentDate);
+      });
+      return;
     }
+    const next = new Date(monthReference);
+    next.setMonth(next.getMonth() + 1);
+    setMonthReference(next);
   };
 
   return (
-    <PageContainer className="pt-8 pb-20">
-      <div className="grid grid-cols-3 items-stretch gap-3 sm:gap-6">
-        <div className="col-span-1 min-h-full">
-          <button
-            type="button"
-            onClick={() => router.push("/transactions")}
-            className="h-full w-full text-left"
-          >
-            <BalanceHeader
-              amountMinor={selectedMonthBalanceMinor}
-              monthLabel={account.currentMonth}
-              currencySymbol={account.currencySymbol}
-              locale={locale}
-              monoClassName={monoClassName}
-            />
-          </button>
-        </div>
+    <PageContainer className="pb-20 pt-7">
+      <div className="space-y-3">
+        <BalanceRow
+          totalBalanceMinor={selectedBalanceMinor}
+          currencySymbol={account.currencySymbol}
+          accounts={accountItems}
+          locale={locale}
+          onPress={() => router.push("/account")}
+        />
 
-        <div className="col-span-2">
-          <SavingsMonthCard
-            title={t("home.savings.title")}
-            monthLabel={account.currentMonth}
-            baseCurrency={account.baseCurrency}
-            currencySymbol={account.currencySymbol}
-            objectiveMinor={savingsDistribution.objectiveMinor}
-            savingsMinor={savingsDistribution.savingsMinor}
-            projectsMinor={savingsDistribution.projectCoveredMinor}
-            huchaMinor={savingsDistribution.huchaMinor}
-            onPress={() => router.push("/savings")}
-            projectsLabel={t("home.savings.projects")}
-            huchaLabel={t("home.savings.hucha")}
-            totalLabel={t("home.savings.total")}
-            monoClassName={monoClassName}
-          />
-        </div>
-      </div>
+        <ProjectsRow
+          projects={projectsRowData}
+          huchaAmountMinor={huchaAmountMinor}
+          totalSavingsMinor={savingsDistribution.savingsMinor}
+          currentMonth={monthPeriodLabel}
+          currencySymbol={account.currencySymbol}
+          locale={locale}
+          onPress={() => router.push("/projects")}
+        />
 
-      <div className="mt-6 grid grid-cols-1 items-start gap-6">
         <Calendar
           view={calendarView}
           onViewChange={setCalendarView}
-          weekData={weekData}
-          monthData={monthData}
-          selectedDay={selectedDay}
+          periodLabel={calendarView === "week" ? weekPeriodLabel : monthPeriodLabel}
+          monthDays={monthDays}
+          weekDays={weekDays}
+          selectedDayKey={selectedDayKey}
           onSelectDay={setSelectedDayKey}
           onPrevPeriod={handlePrevPeriod}
           onNextPeriod={handleNextPeriod}
           currencySymbol={account.currencySymbol}
-          upcomingMovements={contextUpcomingMovements}
-          pastMovements={contextPastMovements}
-          onViewAllMovements={() => router.push("/transactions")}
-          onCreateMovement={() => {
-            openAddActionRef.current?.();
-          }}
-          locale={locale}
-          monoClassName={monoClassName}
         />
+
+        <div className="rounded-[14px] border border-border bg-card p-3">
+          <p className="text-[13px] font-semibold text-[var(--account-text-primary)]">
+            {locale === "en" ? "Day movements" : "Transacciones del día"}
+          </p>
+          <p className="mt-[2px] text-[11px] text-[var(--account-text-secondary)]">
+            {selectedDayLabel}
+          </p>
+
+          {selectedDayMovementGroups.length === 0 ? (
+            <p className="mt-2 text-[12px] text-[var(--account-text-tertiary)]">
+              {locale === "en" ? "No movements for this day." : "No hay movimientos para este día."}
+            </p>
+          ) : (
+            <div className="mt-2 space-y-0">
+              {selectedDayMovementGroups.map((group) => {
+                const isGroupIncome = group.totalMinor > 0n;
+                const isGroupExpense = group.totalMinor < 0n;
+                const groupParts = formatCurrencyParts(absMinor(group.totalMinor), account.currencySymbol, locale);
+                return (
+                  <div key={group.id} className="border-b border-border py-2 last:border-b-0">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-[8px] bg-[var(--account-surface-alt)]">
+                          <CategoryIcon iconKey={group.iconId ?? "Tag"} size={14} tone="muted" />
+                        </div>
+                        <p className="truncate text-[13px] font-medium text-[var(--account-text-primary)]">
+                          {group.name}
+                        </p>
+                      </div>
+                      <p
+                        className="text-[12px] font-semibold"
+                        style={{
+                          color: isGroupIncome ? "#6DC9A0" : isGroupExpense ? "#E0956A" : "var(--account-text-secondary)",
+                        }}
+                      >
+                        {isGroupIncome ? "+" : isGroupExpense ? "−" : ""}
+                        {groupParts.full}
+                      </p>
+                    </div>
+
+                    <div className="ml-[38px] mt-1.5 space-y-1.5">
+                      {group.items.map((movement) => {
+                        const parts = formatCurrencyParts(movement.amountMinor, account.currencySymbol, locale);
+                        const authorProfile = movement.createdByUserId
+                          ? profileByUserId.get(movement.createdByUserId) ?? null
+                          : null;
+                        const authorName =
+                          authorProfile?.display_name?.trim() ||
+                          authorProfile?.avatar_fallback_text?.trim() ||
+                          authorProfile?.email?.trim() ||
+                          (movement.isProgrammed
+                            ? (locale === "en" ? "Scheduled" : "Programado")
+                            : (locale === "en" ? "Unknown" : "Desconocido"));
+                        return (
+                          <div key={movement.id} className="flex items-center justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[12px] text-[var(--account-text-primary)]">
+                                {movement.name}
+                              </p>
+                              <div className="mt-0.5 flex items-center gap-1.5">
+                                {authorProfile ? (
+                                  <UserAvatar
+                                    userId={authorProfile.user_id}
+                                    email={authorProfile.email ?? null}
+                                    displayName={authorProfile.display_name ?? null}
+                                    avatarPath={authorProfile.avatar_path ?? null}
+                                    fallbackText={authorProfile.avatar_fallback_text ?? null}
+                                    fallbackBgToken={authorProfile.avatar_fallback_bg_token ?? null}
+                                    avatarColor={authorProfile.avatar_color ?? null}
+                                    size={16}
+                                  />
+                                ) : null}
+                                <p className="truncate text-[10px] text-[var(--account-text-secondary)]">
+                                  {authorName}
+                                </p>
+                              </div>
+                            </div>
+                            <p
+                              className="text-[11px] font-semibold"
+                              style={{ color: movement.type === "income" ? "#6DC9A0" : "#E0956A" }}
+                            >
+                              {movement.type === "income" ? "+" : "−"}
+                              {parts.full}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
+
       <AddActionTrigger
         canEdit={account.canEdit}
         accountId={account.id}
         currency={account.baseCurrency}
         locale={locale}
         variant="hidden"
-        registerExternalOpen={(open) => {
-          openAddActionRef.current = open;
-        }}
       />
     </PageContainer>
   );

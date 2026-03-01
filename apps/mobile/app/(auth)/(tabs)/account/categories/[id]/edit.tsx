@@ -17,7 +17,9 @@ import { Button } from "../../../../../../src/components/Button";
 import { Input } from "../../../../../../src/components/Input";
 import { Card } from "../../../../../../src/components/Card";
 import { IconPicker } from "../../../../../../src/components/IconPicker";
+import { CategoryColorPicker } from "../../../../../../src/components/CategoryColorPicker";
 import {
+  normalizeHexColor,
   normalizeCategoryName,
   resolveCategoryIconKey,
   themeTokens,
@@ -31,6 +33,7 @@ type Category = {
   account_id: string;
   name: string;
   icon_id: string;
+  color?: string | null;
   type: "income" | "expense";
   created_at: string;
 };
@@ -45,6 +48,7 @@ export default function EditCategoryScreen() {
   const [name, setName] = useState("");
   const [iconKey, setIconKey] = useState<CategoryIconKey>("Tag");
   const [type, setType] = useState<CategoryType>("expense");
+  const [color, setColor] = useState<string>("#D4943A");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -75,6 +79,7 @@ export default function EditCategoryScreen() {
         setName(data.name);
         setIconKey(resolveCategoryIconKey(data.icon_id));
         setType(data.type);
+        setColor(normalizeHexColor(data.color) ?? "#D4943A");
       }
     } catch (e: any) {
       console.error("Error loading category:", e);
@@ -145,6 +150,7 @@ export default function EditCategoryScreen() {
           name: normalizedName,
           icon_id: iconKey,
           type,
+          color: normalizeHexColor(color),
         })
         .eq("id", category.id);
 
@@ -293,6 +299,13 @@ export default function EditCategoryScreen() {
               filterType={type}
               categoryName={name}
             />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: userThemeTokens.textPrimary }]}>
+              {t(dictionary, "categories.colorLabel")}
+            </Text>
+            <CategoryColorPicker value={color} onChange={setColor} />
           </View>
 
           <View style={styles.actions}>

@@ -1,109 +1,268 @@
 import { ChevronRight } from "lucide-react";
-import { formatMoneyWithSymbol } from "@poleursus/shared";
+import { HUCHA_PROJECT_COLOR, PROJECT_PALETTE } from "@poleursus/shared";
+import { formatCurrencyParts, toMinor } from "./utils";
 import { SummaryCardShell } from "./SummaryCardShell";
 
-const toMinor = (value: bigint | number | string | null | undefined): bigint => {
-  if (value === null || value === undefined) return 0n;
-  if (typeof value === "bigint") return value;
-  if (typeof value === "number") return BigInt(Math.round(value));
-  try {
-    return BigInt(value);
-  } catch {
-    return 0n;
-  }
+type ProjectRowItem = {
+  id: string;
+  name: string;
+  emoji: string;
+  currentAmountMinor: bigint;
+  goalAmountMinor: bigint;
+  color: string;
 };
 
-type SavingsMonthCardProps = {
-  title: string;
-  monthLabel: string;
-  baseCurrency: string;
+type ProjectsRowProps = {
+  projects: ProjectRowItem[];
+  huchaAmountMinor: bigint;
+  totalSavingsMinor: bigint;
+  currentMonth: string;
   currencySymbol: string;
-  objectiveMinor: bigint | number | string;
-  savingsMinor: bigint | number | string;
-  projectsMinor: bigint | number | string;
-  huchaMinor: bigint | number | string;
   onPress: () => void;
-  projectsLabel: string;
-  huchaLabel: string;
-  totalLabel: string;
-  monoClassName?: string;
+  locale?: string;
 };
 
-export function SavingsMonthCard({
-  title,
-  monthLabel,
-  baseCurrency,
-  currencySymbol,
-  objectiveMinor,
-  savingsMinor,
-  projectsMinor,
-  huchaMinor,
-  onPress,
-  projectsLabel,
-  huchaLabel,
-  totalLabel,
-  monoClassName,
-}: SavingsMonthCardProps) {
-  const objective = toMinor(objectiveMinor);
-  const savings = toMinor(savingsMinor);
-  const projects = toMinor(projectsMinor);
-  const hucha = toMinor(huchaMinor);
-  const positiveSavings = savings > 0n ? savings : 0n;
-  const scale = Number(
-    positiveSavings > objective ? positiveSavings : objective > 0n ? objective : 1n
-  );
-  const projectsPercent =
-    scale > 0 ? Math.max(0, Math.min(100, (Number(projects) / scale) * 100)) : 0;
-  const huchaPercent =
-    scale > 0 ? Math.max(0, Math.min(100, (Number(hucha) / scale) * 100)) : 0;
-  const markerPercent =
-    scale > 0 ? Math.max(0, Math.min(100, (Number(objective) / scale) * 100)) : 0;
+const clampProgress = (value: number) => {
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  if (value >= 1) return 1;
+  return value;
+};
+
+function ProjectRing({
+  progress,
+  size,
+  color,
+  trackColor,
+  emoji,
+  completed,
+}: {
+  progress: number;
+  size: number;
+  color: string;
+  trackColor: string;
+  emoji: string;
+  completed: boolean;
+}) {
+  const normalized = clampProgress(progress);
+  const strokeWidth = 3.5;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference - normalized * circumference;
 
   return (
-    <button type="button" onClick={onPress} className="group w-full text-left">
-      <SummaryCardShell className="transition-colors group-hover:bg-muted/30">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-base font-semibold text-foreground">{title}</p>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <span>{monthLabel}</span>
-            <ChevronRight className="h-4 w-4" />
-          </div>
-        </div>
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={trackColor}
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+          style={
+            completed
+              ? { filter: `drop-shadow(0 0 5px ${color})` }
+              : undefined
+          }
+        />
+      </svg>
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[15px]">
+        {emoji}
+      </div>
+      {completed ? (
+        <span className="absolute -bottom-[2px] -right-[2px] inline-flex h-[14px] w-[14px] items-center justify-center rounded-full bg-[#6DC9A0] text-[9px] font-bold text-black">
+          ✓
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
-        <div className="relative mt-3 h-2.5 rounded-full bg-secondary">
-          {positiveSavings > 0n ? (
-            <>
-              <div
-                className="absolute inset-y-0 left-0 rounded-full bg-[#4ade80]"
-                style={{ width: `${projectsPercent}%` }}
-              />
-              <div
-                className="absolute inset-y-0 rounded-full bg-[#fb923c]"
-                style={{ width: `${huchaPercent}%`, left: `${projectsPercent}%` }}
-              />
-              <div
-                className="absolute -top-1 h-4 w-[2px] rounded bg-white"
-                style={{ left: `${markerPercent}%` }}
-              />
-            </>
-          ) : null}
-        </div>
+export function ProjectsRow({
+  projects,
+  huchaAmountMinor,
+  totalSavingsMinor,
+  currentMonth,
+  currencySymbol,
+  onPress,
+  locale = "es-ES",
+}: ProjectsRowProps) {
+  const isHero = projects.length === 1;
+  const ringTrack = "rgba(255,255,255,0.06)";
+  const totalParts = formatCurrencyParts(totalSavingsMinor, currencySymbol, locale);
+  const huchaParts = formatCurrencyParts(huchaAmountMinor, currencySymbol, locale);
+  const hero = projects[0] ?? null;
+  const heroCurrentParts = hero
+    ? formatCurrencyParts(hero.currentAmountMinor, currencySymbol, locale)
+    : null;
+  const heroGoalParts = hero
+    ? formatCurrencyParts(hero.goalAmountMinor, currencySymbol, locale)
+    : null;
 
-        <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-          <p className={monoClassName ?? ""}>
-            {projectsLabel} {formatMoneyWithSymbol(projects, baseCurrency, currencySymbol)}
-          </p>
-          <p className={monoClassName ?? ""}>
-            {huchaLabel} {formatMoneyWithSymbol(hucha, baseCurrency, currencySymbol)}
-          </p>
-        </div>
+  return (
+    <button type="button" onClick={onPress} className="w-full text-left">
+      <SummaryCardShell className="w-full rounded-[14px] border-[color:rgba(255,255,255,0.12)] px-[13px] py-[12px] transition-opacity hover:opacity-[0.96]">
+        {isHero && hero ? (
+          <>
+            <div className="flex items-center gap-3">
+              <ProjectRing
+                progress={Number(hero.currentAmountMinor) / Number(hero.goalAmountMinor || 1n)}
+                size={50}
+                color={hero.color}
+                trackColor={ringTrack}
+                emoji={hero.emoji}
+                completed={hero.currentAmountMinor >= hero.goalAmountMinor}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-semibold text-[var(--account-text-primary)]">
+                  {hero.name}
+                </p>
+                <p className="mt-[2px] text-[11px] text-[var(--account-text-secondary)]">
+                  <span className="font-balance">{heroCurrentParts?.full}</span> de{" "}
+                  <span className="font-balance">{heroGoalParts?.full}</span>
+                  {hero.currentAmountMinor >= hero.goalAmountMinor ? " · ¡Completado! 🎉" : ""}
+                </p>
+              </div>
+              <p
+                className="font-balance text-[12px] font-semibold"
+                style={{ color: hero.color }}
+              >
+                {hero.currentAmountMinor >= hero.goalAmountMinor
+                  ? "✓"
+                  : `${Math.round(
+                      (Number(hero.currentAmountMinor) /
+                        Number(hero.goalAmountMinor || 1n)) *
+                        100
+                    )}%`}
+              </p>
+              <ChevronRight className="h-4 w-4 text-[var(--account-text-tertiary)]" />
+            </div>
 
-        <div className="mt-3 flex items-center justify-end">
-          <p className={`text-xs font-semibold text-[#4ade80] ${monoClassName ?? ""}`}>
-            {totalLabel} {formatMoneyWithSymbol(savings, baseCurrency, currencySymbol)}
-          </p>
-        </div>
+            <div className="mt-2 flex items-center justify-between gap-4 border-t border-[color:rgba(255,255,255,0.12)] pt-[10px]">
+              <p className="text-[10px] text-[var(--account-text-secondary)]">
+                🐷 Hucha{" "}
+                <span
+                  className="font-balance text-[11px] font-semibold"
+                  style={{ color: HUCHA_PROJECT_COLOR }}
+                >
+                  {huchaParts.full}
+                </span>
+              </p>
+              <p className="text-[10px] text-[var(--account-text-secondary)]">
+                Total{" "}
+                <span className="font-balance text-[11px] font-semibold text-[var(--account-text-primary)]">
+                  {totalParts.full}
+                </span>
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-start gap-2">
+              <div className="flex max-w-[58%] items-start gap-2">
+                {projects.slice(0, 4).map((project) => {
+                  const size = projects.length <= 2 ? 43 : 35;
+                  return (
+                    <div key={project.id} className="flex w-[50px] flex-col items-center gap-[2px]">
+                      <ProjectRing
+                        progress={
+                          Number(project.currentAmountMinor) / Number(project.goalAmountMinor || 1n)
+                        }
+                        size={size}
+                        color={project.color}
+                        trackColor={ringTrack}
+                        emoji={project.emoji}
+                        completed={project.currentAmountMinor >= project.goalAmountMinor}
+                      />
+                      <span
+                        className="line-clamp-1 text-center text-[8px] leading-[10px]"
+                        style={{ color: project.color }}
+                      >
+                        {project.name}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="ml-auto min-w-0 text-right">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.7px] text-[var(--account-text-tertiary)]">
+                  AHORRO
+                </p>
+                <p className="font-balance text-[19px] font-normal leading-[1.1] tracking-[-0.4px] text-[#6DC9A0]">
+                  {totalParts.integer}
+                  <span className="font-balance text-[13px]">,{totalParts.decimals}</span>
+                </p>
+                <p className="mt-[2px] text-[10px] text-[var(--account-text-secondary)]">{currentMonth}</p>
+              </div>
+
+              <ChevronRight className="mt-1 h-4 w-4 text-[var(--account-text-tertiary)]" />
+            </div>
+
+            <p className="mt-[6px] text-[10px] text-[var(--account-text-secondary)]">
+              🐷 Hucha:{" "}
+              <span
+                className="font-balance text-[11px] font-semibold"
+                style={{ color: HUCHA_PROJECT_COLOR }}
+              >
+                {huchaParts.full}
+              </span>
+            </p>
+          </>
+        )}
       </SummaryCardShell>
     </button>
   );
 }
+
+// Compatibility export for existing imports.
+export const SavingsMonthCard = ({
+  projectsMinor,
+  huchaMinor,
+  savingsMinor,
+  onPress,
+  monthLabel,
+  currencySymbol,
+  locale = "es-ES",
+}: {
+  projectsMinor: bigint | number | string;
+  huchaMinor: bigint | number | string;
+  savingsMinor: bigint | number | string;
+  onPress: () => void;
+  monthLabel: string;
+  currencySymbol: string;
+  locale?: string;
+}) => {
+  const projectsValue = toMinor(projectsMinor);
+  return (
+    <ProjectsRow
+      projects={[
+        {
+          id: "fallback",
+          name: "Proyecto",
+          emoji: "🎯",
+          currentAmountMinor: projectsValue,
+          goalAmountMinor: projectsValue > 0n ? projectsValue : 1n,
+          color: PROJECT_PALETTE[0],
+        },
+      ]}
+      huchaAmountMinor={toMinor(huchaMinor)}
+      totalSavingsMinor={toMinor(savingsMinor)}
+      currentMonth={monthLabel}
+      currencySymbol={currencySymbol}
+      onPress={onPress}
+      locale={locale}
+    />
+  );
+};

@@ -26,6 +26,7 @@ type Category = {
   account_id: string;
   name: string;
   icon_id: string;
+  color?: string | null;
   type: "income" | "expense";
   created_at: string;
 };

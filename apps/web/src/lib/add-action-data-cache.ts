@@ -12,6 +12,7 @@ export type AddActionCategory = {
   name: string;
   icon_id: string;
   type: "income" | "expense";
+  color?: string | null;
 };
 
 export type AddActionDataPayload = {

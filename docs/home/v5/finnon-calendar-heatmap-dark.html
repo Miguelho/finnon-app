@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon — Calendar Heatmap Dark Mode</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0E0C0A;
+    --bg-elevated: #171412;
+    --bg-card: #1C1916;
+    --bg-card-hover: #231F1B;
+    --text-primary: #EDE8E2;
+    --text-secondary: #8A8279;
+    --text-tertiary: #5C554D;
+    --border: rgba(237, 232, 226, 0.06);
+    --border-strong: rgba(237, 232, 226, 0.10);
+
+    /* Heatmap — warm amber that glows on dark */
+    --heat-0: transparent;
+    --heat-1: rgba(216, 160, 80, 0.10);
+    --heat-2: rgba(216, 145, 60, 0.20);
+    --heat-3: rgba(218, 130, 45, 0.34);
+    --heat-4: rgba(220, 115, 35, 0.52);
+    --heat-5: rgba(225, 100, 25, 0.72);
+
+    /* Income accent — soft mint */
+    --income-color: #6DC9A0;
+    --income-color-bright: #8EDDBA;
+
+    /* Today */
+    --today-ring: rgba(237, 232, 226, 0.5);
+
+    /* Accent colors */
+    --expense-text: #E0956A;
+    --expense-bg: rgba(224, 149, 106, 0.08);
+    --income-bg: rgba(109, 201, 160, 0.08);
+
+    --radius-sm: 8px;
+    --radius-md: 16px;
+    --radius-lg: 24px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 24px 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    max-width: 500px;
+    width: 100%;
+  }
+
+  /* ---- Phone frame ---- */
+  .phone-frame {
+    width: 390px;
+    max-width: 100%;
+    background: var(--bg);
+    border-radius: 40px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.04),
+      0 30px 100px rgba(0,0,0,0.5),
+      0 8px 32px rgba(0,0,0,0.3);
+    padding: 16px;
+  }
+
+  /* ---- Header ---- */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 4px 20px;
+  }
+
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 18px;
+    letter-spacing: -0.3px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo-dot {
+    width: 26px;
+    height: 26px;
+    background: var(--text-primary);
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bg);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  /* ---- Balance strip ---- */
+  .balance-strip {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .balance-card, .savings-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+  }
+
+  .balance-card { flex: 1; }
+  .savings-card { flex: 1.4; }
+
+  .balance-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 6px;
+  }
+
+  .balance-amount {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: -0.5px;
+    color: var(--text-primary);
+  }
+
+  .balance-amount .decimals {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  .savings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .savings-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .savings-month {
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+
+  .savings-bar-track {
+    height: 6px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 100px;
+    overflow: hidden;
+    display: flex;
+    margin-bottom: 8px;
+  }
+
+  .savings-bar-projects {
+    height: 100%;
+    background: var(--income-color);
+    border-radius: 100px 0 0 100px;
+    width: 12%;
+  }
+
+  .savings-bar-hucha {
+    height: 100%;
+    background: #D4893A;
+    width: 85%;
+  }
+
+  .savings-details {
+    display: flex;
+    gap: 12px;
+    font-size: 10px;
+    color: var(--text-secondary);
+  }
+
+  .savings-details span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .dot-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ---- Calendar ---- */
+  .calendar-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 20px 14px 16px;
+    border: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+
+  .calendar-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+
+  .view-toggle {
+    display: flex;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .view-toggle button {
+    border: none;
+    background: transparent;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 400;
+    color: var(--text-tertiary);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .view-toggle button.active {
+    background: rgba(255,255,255,0.08);
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .month-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .month-label {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.2px;
+    color: var(--text-primary);
+  }
+
+  .month-selector button {
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    transition: color 0.15s;
+  }
+
+  .month-selector button:hover { color: var(--text-primary); }
+
+  /* Weekdays */
+  .weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 6px;
+  }
+
+  .weekday {
+    text-align: center;
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--text-tertiary);
+    padding: 4px 0;
+    letter-spacing: 0.3px;
+  }
+
+  /* Days grid */
+  .days-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+
+  .day-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+  }
+
+  .day-cell:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+
+  .day-cell.outside { opacity: 0.2; }
+
+  .day-cell .day-number {
+    font-size: 13px;
+    font-weight: 300;
+    color: var(--text-secondary);
+    z-index: 1;
+    line-height: 1;
+    transition: color 0.15s;
+  }
+
+  /* Heatmap backgrounds — amber glow */
+  .day-cell.heat-1 { background: var(--heat-1); }
+  .day-cell.heat-2 { background: var(--heat-2); }
+  .day-cell.heat-3 { background: var(--heat-3); }
+  .day-cell.heat-4 { background: var(--heat-4); }
+  .day-cell.heat-5 { background: var(--heat-5); }
+
+  .day-cell.heat-1 .day-number,
+  .day-cell.heat-2 .day-number { color: var(--text-primary); font-weight: 400; }
+  .day-cell.heat-3 .day-number { color: #F5E6D8; font-weight: 400; }
+  .day-cell.heat-4 .day-number { color: #FFF4EA; font-weight: 400; }
+  .day-cell.heat-5 .day-number { color: #FFFFFF; font-weight: 500; }
+
+  /* Subtle inner glow for high heat */
+  .day-cell.heat-4,
+  .day-cell.heat-5 {
+    box-shadow: inset 0 0 12px rgba(225, 140, 50, 0.08);
+  }
+
+  .day-cell.heat-4:hover,
+  .day-cell.heat-5:hover {
+    box-shadow: inset 0 0 12px rgba(225, 140, 50, 0.08), 0 4px 16px rgba(0,0,0,0.3);
+  }
+
+  /* Income: green number */
+  .day-cell.has-income .day-number {
+    color: var(--income-color) !important;
+    font-weight: 500 !important;
+  }
+
+  .day-cell.heat-4.has-income .day-number,
+  .day-cell.heat-5.has-income .day-number {
+    color: var(--income-color-bright) !important;
+    text-shadow: 0 0 10px rgba(109, 201, 160, 0.3);
+  }
+
+  /* Today */
+  .day-cell.is-today {
+    box-shadow: inset 0 0 0 1.5px var(--today-ring);
+  }
+
+  .day-cell.is-today.heat-4,
+  .day-cell.is-today.heat-5 {
+    box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.35), inset 0 0 12px rgba(225, 140, 50, 0.08);
+  }
+
+  .day-cell.is-today .day-number { font-weight: 500 !important; }
+
+  /* ---- Legend ---- */
+  .calendar-legend {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .legend-scale {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-label {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    font-weight: 400;
+  }
+
+  .legend-blocks {
+    display: flex;
+    gap: 3px;
+  }
+
+  .legend-block {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+  }
+
+  .legend-income {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    color: var(--text-tertiary);
+  }
+
+  .legend-income-number {
+    font-weight: 600;
+    color: var(--income-color);
+    font-size: 12px;
+  }
+
+  /* ---- Summary pills ---- */
+  .summary-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 14px;
+  }
+
+  .summary-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .pill-income {
+    background: var(--income-bg);
+    color: var(--income-color);
+  }
+
+  .pill-expense {
+    background: var(--expense-bg);
+    color: var(--expense-text);
+  }
+
+  .pill-net {
+    background: rgba(255,255,255,0.04);
+    color: var(--text-primary);
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 13px;
+  }
+
+  .pill-arrow { font-size: 10px; }
+
+  /* ---- Transactions ---- */
+  .transactions-section { padding: 4px 4px; }
+
+  .transactions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+  }
+
+  .transactions-date {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    letter-spacing: -0.1px;
+  }
+
+  .transactions-link {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+
+  .transactions-link:hover { color: var(--text-secondary); }
+
+  .transaction-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .transaction-item:last-child { border-bottom: none; }
+
+  .transaction-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    background: rgba(255,255,255,0.04);
+    flex-shrink: 0;
+  }
+
+  .transaction-info { flex: 1; }
+
+  .transaction-category {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .transaction-meta {
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+
+  .transaction-amount {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .amount-negative { color: var(--expense-text); }
+  .amount-positive { color: var(--income-color); }
+
+  /* ---- Tooltip ---- */
+  .tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2A2520;
+    color: var(--text-primary);
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06);
+    backdrop-filter: blur(10px);
+  }
+
+  .tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #2A2520;
+  }
+
+  .day-cell:hover .tooltip { display: block; }
+
+  .tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 1px 0;
+  }
+
+  .tooltip-row-label { color: var(--text-secondary); }
+
+  .tooltip-expense { color: var(--expense-text); font-weight: 500; }
+  .tooltip-income { color: var(--income-color); font-weight: 500; }
+
+  .tooltip-net {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-top: 5px;
+    margin-top: 4px;
+    font-weight: 500;
+  }
+
+  /* ---- Annotations ---- */
+  .annotations {
+    margin-top: 24px;
+    padding: 24px;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+  }
+
+  .annotations-title {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-weight: 400;
+    margin-bottom: 18px;
+    color: var(--text-primary);
+  }
+
+  .annotation {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+
+  .annotation:last-child { margin-bottom: 0; }
+
+  .annotation-swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .annotation strong {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  /* ---- Comparison section ---- */
+  .comparison {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .comparison-card {
+    padding: 20px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+  }
+
+  .comparison-card.before {
+    background: #FDFAF7;
+    border-color: rgba(0,0,0,0.06);
+  }
+
+  .comparison-card.after {
+    background: var(--bg-card);
+  }
+
+  .comparison-label {
+    font-size: 10px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  .comparison-card.before .comparison-label { color: #B8B2AB; }
+  .comparison-card.after .comparison-label { color: var(--text-tertiary); }
+
+  .mini-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+
+  .mini-cell {
+    aspect-ratio: 1;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 7px;
+    font-weight: 400;
+  }
+
+  /* Before: dots style */
+  .comparison-card.before .mini-cell {
+    color: #999;
+    position: relative;
+  }
+
+  .comparison-card.before .mini-cell.has-dot::after {
+    content: '';
+    position: absolute;
+    bottom: 1px;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #E05A5A;
+  }
+
+  .comparison-card.before .mini-cell.has-dot-green::after {
+    background: #4CAF50;
+  }
+
+  /* After: heatmap style */
+  .comparison-card.after .mini-cell {
+    color: var(--text-secondary);
+  }
+
+  .comparison-card.after .mini-cell.h1 { background: var(--heat-1); }
+  .comparison-card.after .mini-cell.h2 { background: var(--heat-2); }
+  .comparison-card.after .mini-cell.h3 { background: var(--heat-3); }
+  .comparison-card.after .mini-cell.h4 { background: var(--heat-4); color: #FFF; }
+  .comparison-card.after .mini-cell.h5 { background: var(--heat-5); color: #FFF; }
+  .comparison-card.after .mini-cell.inc { color: var(--income-color); font-weight: 600; }
+
+  @media (max-width: 420px) {
+    .phone-frame {
+      border-radius: 0;
+      box-shadow: none;
+    }
+    body { padding: 0; }
+    .comparison { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+  <div class="phone-frame">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <div class="logo-dot">F</div>
+        Finnon
+      </div>
+      <div class="avatar">AG</div>
+    </div>
+
+    <!-- Balance strip -->
+    <div class="balance-strip">
+      <div class="balance-card">
+        <div class="balance-label">Balance</div>
+        <div class="balance-amount">€1.262<span class="decimals">,07</span></div>
+      </div>
+      <div class="savings-card">
+        <div class="savings-header">
+          <span class="savings-title">Ahorro</span>
+          <span class="savings-month">Feb 2026 ›</span>
+        </div>
+        <div class="savings-bar-track">
+          <div class="savings-bar-projects"></div>
+          <div class="savings-bar-hucha"></div>
+        </div>
+        <div class="savings-details">
+          <span><div class="dot-indicator" style="background: var(--income-color)"></div> Proyectos €150</span>
+          <span><div class="dot-indicator" style="background: #D4893A"></div> Hucha €1.112</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calendar -->
+    <div class="calendar-section">
+      <div class="calendar-nav">
+        <div class="view-toggle">
+          <button>Semana</button>
+          <button class="active">Mes</button>
+        </div>
+        <div class="month-selector">
+          <button>‹</button>
+          <span class="month-label">Febrero 2026</span>
+          <button>›</button>
+        </div>
+      </div>
+
+      <div class="weekdays">
+        <div class="weekday">L</div>
+        <div class="weekday">M</div>
+        <div class="weekday">X</div>
+        <div class="weekday">J</div>
+        <div class="weekday">V</div>
+        <div class="weekday">S</div>
+        <div class="weekday">D</div>
+      </div>
+
+      <div class="days-grid" id="calendarGrid"></div>
+
+      <!-- Legend -->
+      <div class="calendar-legend">
+        <div class="legend-scale">
+          <span class="legend-label">Menos</span>
+          <div class="legend-blocks">
+            <div class="legend-block" style="background: rgba(255,255,255,0.04)"></div>
+            <div class="legend-block" style="background: var(--heat-1)"></div>
+            <div class="legend-block" style="background: var(--heat-2)"></div>
+            <div class="legend-block" style="background: var(--heat-3)"></div>
+            <div class="legend-block" style="background: var(--heat-4)"></div>
+            <div class="legend-block" style="background: var(--heat-5)"></div>
+          </div>
+          <span class="legend-label">Más gasto</span>
+        </div>
+        <div class="legend-income">
+          <span class="legend-income-number">5</span> = ingreso
+        </div>
+      </div>
+
+      <!-- Summary pills -->
+      <div class="summary-row">
+        <div class="summary-pill pill-income">
+          <span class="pill-arrow">↑</span> €4.059
+        </div>
+        <div class="summary-pill pill-expense">
+          <span class="pill-arrow">↓</span> €2.787
+        </div>
+        <div class="summary-pill pill-net">
+          = €1.262,07
+        </div>
+      </div>
+    </div>
+
+    <!-- Transactions -->
+    <div class="transactions-section">
+      <div class="transactions-header">
+        <span class="transactions-date">Sábado, 28 de febrero</span>
+        <span class="transactions-link">Ver todos →</span>
+      </div>
+      <div class="transaction-item">
+        <div class="transaction-icon">🛒</div>
+        <div class="transaction-info">
+          <div class="transaction-category">Alimentación</div>
+          <div class="transaction-meta">AG · x1</div>
+        </div>
+        <div class="transaction-amount amount-negative">−€92,00</div>
+      </div>
+      <div class="transaction-item">
+        <div class="transaction-icon">📸</div>
+        <div class="transaction-info">
+          <div class="transaction-category">Venta de fotos</div>
+          <div class="transaction-meta">AG · x1</div>
+        </div>
+        <div class="transaction-amount amount-positive">+€15,00</div>
+      </div>
+      <div class="transaction-item">
+        <div class="transaction-icon">⚡</div>
+        <div class="transaction-info">
+          <div class="transaction-category">Suministros</div>
+          <div class="transaction-meta">AG · x1</div>
+        </div>
+        <div class="transaction-amount amount-negative">−€35,00</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Annotations -->
+  <div class="annotations">
+    <div class="annotations-title">Notas de diseño — Dark Mode</div>
+    <div class="annotation">
+      <div class="annotation-swatch" style="background: var(--heat-3)"></div>
+      <div><strong>Ámbar cálido en vez de terracota.</strong> El ámbar/dorado "brilla" sobre fondos oscuros de forma natural — evoca calidez sin agresividad. La escala va de casi invisible a un naranja dorado intenso.</div>
+    </div>
+    <div class="annotation">
+      <div class="annotation-swatch" style="background: var(--income-color)"></div>
+      <div><strong>Mint para ingresos.</strong> Verde menta en lugar de verde puro — más premium, mejor contraste sobre ámbar. En celdas heat-4/5, el verde se ilumina con text-shadow sutil.</div>
+    </div>
+    <div class="annotation">
+      <div class="annotation-swatch" style="background: var(--bg-card); border: 1px solid var(--border-strong)"></div>
+      <div><strong>Capas de elevación.</strong> bg → bg-card → tooltip, cada nivel ligeramente más claro. Sin bordes duros — solo diferencia de luminosidad que crea profundidad.</div>
+    </div>
+    <div class="annotation">
+      <div class="annotation-swatch" style="background: var(--today-ring); border-radius: 50%;"></div>
+      <div><strong>Hoy con anillo translúcido</strong> al 50% de opacidad — presente sin competir con el heatmap. Se adapta bien tanto sobre celdas vacías como sobre heat intenso.</div>
+    </div>
+    <div class="annotation">
+      <div class="annotation-swatch" style="background: linear-gradient(135deg, var(--heat-4), var(--heat-5))"></div>
+      <div><strong>Inner glow en celdas intensas.</strong> Las celdas heat-4 y heat-5 tienen un box-shadow interior sutil que les da profundidad — como si el color emanara de dentro.</div>
+    </div>
+  </div>
+
+  <!-- Before / After comparison -->
+  <div class="comparison">
+    <div class="comparison-card before">
+      <div class="comparison-label" style="color: #999">Antes — dots</div>
+      <div class="mini-grid" id="miniGridBefore"></div>
+    </div>
+    <div class="comparison-card after">
+      <div class="comparison-label">Después — heatmap</div>
+      <div class="mini-grid" id="miniGridAfter"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Calendar data
+  const daysData = [
+    { day: 26, outside: true }, { day: 27, outside: true }, { day: 28, outside: true },
+    { day: 29, outside: true }, { day: 30, outside: true }, { day: 31, outside: true },
+    { day: 1,  heat: 1, expense: 18, income: 0.50 },
+    { day: 2,  heat: 2, expense: 45, income: 0 },
+    { day: 3,  heat: 3, expense: 120, income: 0 },
+    { day: 4,  heat: 1, expense: 12, income: 0.50 },
+    { day: 5,  heat: 2, expense: 55, income: 0 },
+    { day: 6,  heat: 1, expense: 8, income: 0 },
+    { day: 7,  heat: 1, expense: 22, income: 0 },
+    { day: 8,  heat: 0, expense: 0, income: 0.50 },
+    { day: 9,  heat: 2, expense: 40, income: 15 },
+    { day: 10, heat: 4, expense: 230, income: 0 },
+    { day: 11, heat: 1, expense: 15, income: 0.50 },
+    { day: 12, heat: 0, expense: 0, income: 0 },
+    { day: 13, heat: 1, expense: 25, income: 0 },
+    { day: 14, heat: 3, expense: 95, income: 0 },
+    { day: 15, heat: 5, expense: 340, income: 2000 },
+    { day: 16, heat: 0, expense: 0, income: 0 },
+    { day: 17, heat: 1, expense: 10, income: 0 },
+    { day: 18, heat: 2, expense: 62, income: 0 },
+    { day: 19, heat: 0, expense: 0, income: 0 },
+    { day: 20, heat: 1, expense: 30, income: 0.50 },
+    { day: 21, heat: 3, expense: 110, income: 0 },
+    { day: 22, heat: 1, expense: 18, income: 0 },
+    { day: 23, heat: 0, expense: 0, income: 0 },
+    { day: 24, heat: 1, expense: 22, income: 0 },
+    { day: 25, heat: 2, expense: 48, income: 25 },
+    { day: 26, heat: 1, expense: 17, income: 0 },
+    { day: 27, heat: 0, expense: 0, income: 0 },
+    { day: 28, heat: 3, expense: 127, income: 15, today: true },
+    { day: 1,  outside: true },
+  ];
+
+  // Main calendar
+  const grid = document.getElementById('calendarGrid');
+  daysData.forEach(d => {
+    const cell = document.createElement('div');
+    cell.className = 'day-cell';
+
+    if (d.outside) {
+      cell.classList.add('outside');
+      cell.innerHTML = `<span class="day-number">${d.day}</span>`;
+      grid.appendChild(cell);
+      return;
+    }
+
+    if (d.heat > 0) cell.classList.add(`heat-${d.heat}`);
+    if (d.income > 0) cell.classList.add('has-income');
+    if (d.today) cell.classList.add('is-today');
+
+    const net = (d.income || 0) - (d.expense || 0);
+    const netSign = net >= 0 ? '+' : '−';
+    const netFormatted = `${netSign}€${Math.abs(net).toFixed(2)}`;
+
+    let tooltip = '';
+    if (d.expense > 0 || d.income > 0) {
+      tooltip = `<div class="tooltip">
+        ${d.expense > 0 ? `<div class="tooltip-row"><span class="tooltip-row-label">Gasto</span><span class="tooltip-expense">−€${d.expense.toFixed(2)}</span></div>` : ''}
+        ${d.income > 0 ? `<div class="tooltip-row"><span class="tooltip-row-label">Ingreso</span><span class="tooltip-income">+€${d.income.toFixed(2)}</span></div>` : ''}
+        <div class="tooltip-row tooltip-net"><span class="tooltip-row-label">Neto</span><span>${netFormatted}</span></div>
+      </div>`;
+    }
+
+    cell.innerHTML = `<span class="day-number">${d.day}</span>${tooltip}`;
+    grid.appendChild(cell);
+  });
+
+  // Mini comparison grids
+  const activeDays = daysData.filter(d => !d.outside);
+
+  // Before grid (dots)
+  const beforeGrid = document.getElementById('miniGridBefore');
+  activeDays.forEach(d => {
+    const cell = document.createElement('div');
+    cell.className = 'mini-cell';
+    cell.style.color = '#999';
+    cell.textContent = d.day;
+    if (d.expense > 0) cell.classList.add('has-dot');
+    if (d.income > 0 && d.expense === 0) cell.classList.add('has-dot-green');
+    beforeGrid.appendChild(cell);
+  });
+
+  // After grid (heatmap)
+  const afterGrid = document.getElementById('miniGridAfter');
+  activeDays.forEach(d => {
+    const cell = document.createElement('div');
+    cell.className = 'mini-cell';
+    cell.textContent = d.day;
+    if (d.heat > 0) cell.classList.add(`h${d.heat}`);
+    if (d.income > 0) cell.classList.add('inc');
+    afterGrid.appendChild(cell);
+  });
+</script>
+
+</body>
+</html>

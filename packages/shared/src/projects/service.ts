@@ -1,4 +1,6 @@
 import type { Project, ProjectContribution, ProjectStatus } from "./types";
+import { normalizeHexColor } from "../categories/palette";
+import { assignProjectColor } from "./palette";
 
 export type ProjectSupabaseLikeClient = {
   from: (table: string) => any;
@@ -50,6 +52,7 @@ export async function createProject(params: {
   createdBy: string;
   name: string;
   emoji: string;
+  color?: string | null;
   targetAmountBaseMinor: bigint | number | string;
   priority: number;
   status?: ProjectStatus;
@@ -60,16 +63,35 @@ export async function createProject(params: {
     createdBy,
     name,
     emoji,
+    color,
     targetAmountBaseMinor,
     priority,
     status = "active",
   } = params;
+
+  let nextColor = normalizeHexColor(color);
+  if (!nextColor) {
+    const { data: existingProjects, error: existingProjectsError } = await client
+      .from("projects")
+      .select("color, is_hucha")
+      .eq("account_id", accountId);
+
+    if (existingProjectsError) throw existingProjectsError;
+
+    const projectsForColor = ((existingProjects ?? []) as Array<{
+      color?: string | null;
+      is_hucha?: boolean;
+    }>).filter((project) => !project.is_hucha);
+
+    nextColor = assignProjectColor(projectsForColor);
+  }
 
   const payload = {
     account_id: accountId,
     created_by: createdBy,
     name,
     emoji,
+    color: nextColor,
     target_amount_base_minor: String(targetAmountBaseMinor),
     priority,
     status,
