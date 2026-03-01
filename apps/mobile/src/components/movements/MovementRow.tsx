@@ -57,7 +57,6 @@ export function MovementRow({
           borderColor: userTokens.border,
         },
         variant === "pending" && {
-          backgroundColor: withAlpha(movementColors.pendingAmber, 0.14),
           borderColor: withAlpha(movementColors.pendingAmber, 0.34),
         },
         pressed && onPress ? styles.rowPressed : null,

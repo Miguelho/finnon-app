@@ -744,7 +744,7 @@ function MovementRow({
       type="button"
       className={cn(
         "flex w-full items-center justify-between gap-4 rounded-xl border border-border bg-card px-3 py-2 text-left transition hover:bg-muted/50",
-        variant === "pending" && "bg-amber-500/15 border-amber-500/35"
+        variant === "pending" && "border-amber-500/35"
       )}
       onClick={() => onClick?.(movement.id)}
     >
