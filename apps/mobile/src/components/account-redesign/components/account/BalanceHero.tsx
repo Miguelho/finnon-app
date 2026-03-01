@@ -1,5 +1,7 @@
-import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
+import { useState } from "react";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { Info } from "lucide-react-native";
+import { ConfirmationModal } from "@poleursus/shared";
 import { typography, spacing } from "../../theme/tokens";
 import { formatCurrency } from "../../utils/currency";
 import { useUserTheme } from "../../../../contexts/UserThemeContext";
@@ -20,12 +22,7 @@ export function BalanceHero({
   const { tokens: userTokens } = useUserTheme();
   const formatted = formatCurrency(balance, { currency, decimals });
   const translate = t as any;
-  const handleBalanceInfoPress = () => {
-    Alert.alert(
-      translate(dictionary, "account.redesign.balanceTotalLabel"),
-      translate(dictionary, "account.redesign.balanceTotalTooltip")
-    );
-  };
+  const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
 
   return (
     <View style={styles.container}>
@@ -34,7 +31,7 @@ export function BalanceHero({
           {translate(dictionary, "account.redesign.balanceTotalLabel")}
         </Text>
         <Pressable
-          onPress={handleBalanceInfoPress}
+          onPress={() => setIsBalanceModalOpen(true)}
           hitSlop={8}
           style={[
             styles.tooltipButton,
@@ -52,6 +49,15 @@ export function BalanceHero({
           {formatted.cents}
         </Text>
       </Text>
+
+      <ConfirmationModal
+        open={isBalanceModalOpen}
+        title={translate(dictionary, "account.redesign.balanceTotalLabel")}
+        description={translate(dictionary, "account.redesign.balanceTotalTooltip")}
+        confirmLabel={translate(dictionary, "common.ok")}
+        onConfirm={() => setIsBalanceModalOpen(false)}
+        onCancel={() => setIsBalanceModalOpen(false)}
+      />
     </View>
   );
 }

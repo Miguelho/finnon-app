@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Stack } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
+import { Info } from "lucide-react-native";
 import {
   addMonths,
   buildProjectColorMap,
+  ConfirmationModal,
   CURRENCIES,
   computeProjectProgress,
   computeSavingsDistribution,
@@ -86,6 +88,7 @@ export default function SavingsDetailScreen() {
   const [historyTransactions, setHistoryTransactions] = useState<TxRow[]>([]);
   const [savingsMinor, setSavingsMinor] = useState(0n);
   const [error, setError] = useState<string | null>(null);
+  const [isSpeedTooltipOpen, setIsSpeedTooltipOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!selectedAccountId || !isFocused) {
@@ -164,7 +167,7 @@ export default function SavingsDetailScreen() {
       setHistoryTransactions((txRows ?? []) as TxRow[]);
     } catch (loadError) {
       console.error("[Savings][mobile] load error", loadError);
-      setError(t(dictionary, "errors.internalServer"));
+      setError(t(dictionary, "home.savings.loadError"));
     } finally {
       setLoading(false);
     }
@@ -334,24 +337,22 @@ export default function SavingsDetailScreen() {
         ? Math.round(previousDays.reduce((sum, day) => sum + day, 0) / previousDays.length)
         : null;
 
-    let velocityLabel = locale === "en" ? "Pending" : "Pendiente";
+    let velocityLabel = t(dictionary, "home.savings.velocityPending");
     let velocityPositive = false;
     if (currentDay !== null && averageReachedDay !== null) {
       const delta = currentDay - averageReachedDay;
       if (delta === 0) {
-        velocityLabel = locale === "en" ? "On average" : "En la media";
+        velocityLabel = t(dictionary, "home.savings.velocityAverage");
       } else if (delta < 0) {
         velocityPositive = true;
-        velocityLabel =
-          locale === "en"
-            ? `${Math.abs(delta)} days earlier`
-            : `${Math.abs(delta)} días antes`;
+        velocityLabel = t(dictionary, "home.savings.velocityEarlier", {
+          days: Math.abs(delta),
+        });
       } else {
-        velocityLabel =
-          locale === "en" ? `${delta} days later` : `${delta} días después`;
+        velocityLabel = t(dictionary, "home.savings.velocityLater", { days: delta });
       }
     } else if (currentDay !== null && averageReachedDay === null) {
-      velocityLabel = locale === "en" ? `Day ${currentDay}` : `Día ${currentDay}`;
+      velocityLabel = t(dictionary, "home.savings.velocityDay", { day: currentDay });
     }
 
     let bestMonth: { period: string; amountMinor: bigint } | null = null;
@@ -368,7 +369,7 @@ export default function SavingsDetailScreen() {
       velocityPositive,
       bestMonth,
     };
-  }, [evolutionRows, locale, monthKey, monthlySavings, reachedDayByPeriod, savingsMinor]);
+  }, [dictionary, evolutionRows, monthKey, monthlySavings, reachedDayByPeriod, savingsMinor]);
 
   const monthDate = new Date(`${monthKey}-01T00:00:00`);
   const monthLabel = new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
@@ -423,7 +424,7 @@ export default function SavingsDetailScreen() {
               {formatMoneyWithSymbol(savingsMinor, baseCurrency, currencySymbol)}
             </Text>
             <Text style={[styles.meta, { color: userTokens.textSecondary }]}>
-              {locale === "en" ? "Saved this month" : "Ahorrado este mes"}
+              {t(dictionary, "home.savings.savedThisMonth")}
             </Text>
 
             <View style={styles.monthNav}>
@@ -449,12 +450,31 @@ export default function SavingsDetailScreen() {
             <View style={[styles.progressTrack, { backgroundColor: userTokens.surfaceAlt }]}>
               {positiveSavings > 0n ? (
                 <>
-                  <View
-                    style={[
-                      styles.progressProjects,
-                      { width: `${Math.max(0, Math.min(100, projectsPercent))}%` },
-                    ]}
-                  />
+                  {(() => {
+                    let cumulativePercent = 0;
+                    return distribution.allocations.map((row) => {
+                      const actualMinor = actualByProject.get(row.project.id) ?? row.allocatedMinor;
+                      const segmentPercent = progressScaleMinor > 0n
+                        ? (Number(actualMinor) / Number(progressScaleMinor)) * 100
+                        : 0;
+                      const projectColor = getProjectColor(row.project, projectColorMap);
+                      const leftPercent = cumulativePercent;
+                      cumulativePercent += segmentPercent;
+                      return (
+                        <View
+                          key={row.project.id}
+                          style={{
+                            position: "absolute",
+                            left: `${Math.max(0, Math.min(100, leftPercent))}%`,
+                            width: `${Math.max(0, Math.min(100, segmentPercent))}%`,
+                            top: 0,
+                            bottom: 0,
+                            backgroundColor: projectColor,
+                          }}
+                        />
+                      );
+                    });
+                  })()}
                   <View
                     style={[
                       styles.progressHucha,
@@ -482,15 +502,11 @@ export default function SavingsDetailScreen() {
               <Text style={[styles.meta, { color: userTokens.textSecondary }]}>
                 {distribution.projectCoveredMinor >= distribution.objectiveMinor &&
                 distribution.objectiveMinor > 0n
-                  ? locale === "en"
-                    ? "Projects covered ✓"
-                    : "Proyectos cubiertos ✓"
-                  : locale === "en"
-                  ? "Pending"
-                  : "Pendiente"}
+                  ? t(dictionary, "home.savings.statusCovered")
+                  : t(dictionary, "home.savings.statusPending")}
               </Text>
               <Text style={[styles.meta, { color: userTokens.textSecondary }]}>
-                {locale === "en" ? "Total" : "Total"}:{" "}
+                {t(dictionary, "home.savings.total")}:{" "}
                 {formatMoneyWithSymbol(savingsMinor, baseCurrency, currencySymbol)}
               </Text>
             </View>
@@ -498,7 +514,7 @@ export default function SavingsDetailScreen() {
 
           <Card>
             <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
-              {locale === "en" ? "Savings distribution" : "Distribución del ahorro"}
+              {t(dictionary, "home.savings.distributionTitle")}
             </Text>
             {distribution.allocations.map((row) => {
               const actualMinor = actualByProject.get(row.project.id) ?? row.allocatedMinor;
@@ -521,9 +537,14 @@ export default function SavingsDetailScreen() {
                         {row.project.name}
                       </Text>
                       <Text style={[styles.rowMeta, { color: userTokens.textSecondary }]}>
-                        {formatMoneyWithSymbol(row.commitmentMinor, baseCurrency, currencySymbol)}
-                        {locale === "en" ? "/month" : "/mes"} · {progressPct}%
-                        {locale === "en" ? " completed" : " completado"}
+                        {t(dictionary, "home.savings.commitmentProgress", {
+                          commitment: formatMoneyWithSymbol(
+                            row.commitmentMinor,
+                            baseCurrency,
+                            currencySymbol
+                          ),
+                          progress: progressPct,
+                        })}
                       </Text>
                     </View>
                   </View>
@@ -544,9 +565,11 @@ export default function SavingsDetailScreen() {
                   <Text style={styles.distProjectIconText}>🐷</Text>
                 </View>
                 <View style={styles.distRowCopy}>
-                  <Text style={[styles.rowLabel, { color: userTokens.textPrimary }]}>Hucha</Text>
+                  <Text style={[styles.rowLabel, { color: userTokens.textPrimary }]}>
+                    {t(dictionary, "home.savings.hucha")}
+                  </Text>
                   <Text style={[styles.rowMeta, { color: userTokens.textSecondary }]}>
-                    {locale === "en" ? "Monthly surplus" : "Excedente del mes"}
+                    {t(dictionary, "home.savings.monthlySurplus")}
                   </Text>
                 </View>
               </View>
@@ -558,24 +581,28 @@ export default function SavingsDetailScreen() {
 
           <Card>
             <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
-              {locale === "en" ? "Your progress" : "Tu progreso"}
+              {t(dictionary, "home.savings.progressTitle")}
             </Text>
             <View style={styles.historyGrid}>
               <View style={[styles.historyCard, { backgroundColor: userTokens.surfaceAlt }]}>
                 <Text style={[styles.historyLabel, { color: userTokens.textSecondary }]}>
-                  {locale === "en" ? "🏆 Months completed" : "🏆 Meses cumplidos"}
+                  {t(dictionary, "home.savings.monthsCompletedLabel")}
                 </Text>
                 <Text style={[styles.historyValueGreen, { color: "#4ade80" }]}>
-                  {historyStats.achievedMonths} {locale === "en" ? "of" : "de"}{" "}
-                  {historyStats.totalMonths}
+                  {t(dictionary, "home.savings.monthsCompletedValue", {
+                    completed: historyStats.achievedMonths,
+                    total: historyStats.totalMonths,
+                  })}
                 </Text>
               </View>
               <View style={[styles.historyCard, { backgroundColor: userTokens.surfaceAlt }]}>
                 <Text style={[styles.historyLabel, { color: userTokens.textSecondary }]}>
-                  {locale === "en" ? "📈 Current streak" : "📈 Racha actual"}
+                  {t(dictionary, "home.savings.currentStreakLabel")}
                 </Text>
                 <Text style={[styles.historyValue, { color: userTokens.textPrimary }]}>
-                  {historyStats.currentStreak} {locale === "en" ? "months" : "meses"}
+                  {t(dictionary, "home.savings.currentStreakValue", {
+                    count: historyStats.currentStreak,
+                  })}
                 </Text>
               </View>
             </View>
@@ -583,7 +610,7 @@ export default function SavingsDetailScreen() {
 
           <Card>
             <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
-              {locale === "en" ? "Last 6 months evolution" : "Evolución últimos 6 meses"}
+              {t(dictionary, "home.savings.evolutionTitle")}
             </Text>
             <View style={styles.chartWrap}>
               {distribution.objectiveMinor > 0n ? (
@@ -597,7 +624,7 @@ export default function SavingsDetailScreen() {
                   ]}
                 >
                   <Text style={[styles.chartGoalLabel, { color: userTokens.textSecondary }]}>
-                    {locale === "en" ? "Goal" : "Meta"}{" "}
+                    {t(dictionary, "home.savings.goalLabel")}{" "}
                     {formatMoneyWithSymbol(distribution.objectiveMinor, baseCurrency, currencySymbol)}
                   </Text>
                 </View>
@@ -632,8 +659,6 @@ export default function SavingsDetailScreen() {
                           {
                             height: Math.min(chartBarMaxHeightPx, heightPx),
                             backgroundColor: "transparent",
-                            borderColor: row.isCurrent ? "rgba(74, 222, 128, 0.35)" : "transparent",
-                            overflow: "hidden",
                           },
                         ]}
                       >
@@ -664,27 +689,36 @@ export default function SavingsDetailScreen() {
 
           <Card>
             <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
-              {locale === "en" ? "⚡ This month vs your average" : "⚡ Este mes vs tu media"}
+              {t(dictionary, "home.savings.comparisonTitle")}
             </Text>
             <View style={styles.compRow}>
               <Text style={[styles.compLabel, { color: userTokens.textSecondary }]}>
-                {locale === "en" ? "Savings" : "Ahorro"}
+                {t(dictionary, "home.savings.comparisonSavings")}
               </Text>
               <Text style={[styles.compValue, { color: comparison.savingsDiffMinor >= 0n ? "#4ade80" : "#fb923c" }]}>
                 {formatSignedMoney(comparison.savingsDiffMinor, baseCurrency, currencySymbol)}
               </Text>
             </View>
             <View style={styles.compRow}>
-              <Text style={[styles.compLabel, { color: userTokens.textSecondary }]}>
-                {locale === "en" ? "Speed" : "Velocidad"}
-              </Text>
+              <View style={styles.compLabelWithInfo}>
+                <Text style={[styles.compLabel, { color: userTokens.textSecondary }]}>
+                  {t(dictionary, "home.savings.comparisonSpeed")}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setIsSpeedTooltipOpen(true)}
+                  style={styles.infoButton}
+                  accessibilityLabel={t(dictionary, "home.savings.comparisonSpeedTooltip")}
+                >
+                  <Info size={14} color={userTokens.textSecondary} opacity={0.6} />
+                </TouchableOpacity>
+              </View>
               <Text style={[styles.compValue, { color: comparison.velocityPositive ? "#4ade80" : "#fb923c" }]}>
                 {comparison.velocityLabel}
               </Text>
             </View>
             <View style={[styles.compRow, styles.compLastRow]}>
               <Text style={[styles.compLabel, { color: userTokens.textSecondary }]}>
-                {locale === "en" ? "Best month" : "Mejor mes"}
+                {t(dictionary, "home.savings.comparisonBestMonth")}
               </Text>
               <Text style={[styles.compValue, { color: userTokens.textPrimary }]}>
                 {comparison.bestMonth
@@ -693,13 +727,20 @@ export default function SavingsDetailScreen() {
                       baseCurrency,
                       currencySymbol
                     )}`
-                  : locale === "en"
-                  ? "No data"
-                  : "Sin datos"}
+                  : t(dictionary, "home.savings.noData")}
               </Text>
             </View>
           </Card>
         </ScrollView>
+
+        <ConfirmationModal
+          open={isSpeedTooltipOpen}
+          title={t(dictionary, "home.savings.comparisonSpeed")}
+          description={t(dictionary, "home.savings.comparisonSpeedTooltip")}
+          confirmLabel={t(dictionary, "common.ok")}
+          onConfirm={() => setIsSpeedTooltipOpen(false)}
+          onCancel={() => setIsSpeedTooltipOpen(false)}
+        />
       </View>
     </>
   );
@@ -862,7 +903,7 @@ const styles = StyleSheet.create({
   },
   chartWrap: {
     marginTop: tokens.spacing.sm,
-    height: 140,
+    height: 144,
     position: "relative",
   },
   chartGoalLine: {
@@ -893,14 +934,15 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: 6,
+    gap: 8,
   },
   chartBar: {
     width: "100%",
-    maxWidth: 26,
+    maxWidth: 32,
     borderTopLeftRadius: 4,
     borderTopRightRadius: 4,
-    borderWidth: 2,
+    flexDirection: "column-reverse",
+    overflow: "hidden",
   },
   chartMonthLabel: {
     fontSize: 10,
@@ -918,9 +960,18 @@ const styles = StyleSheet.create({
   compLastRow: {
     borderBottomWidth: 0,
   },
+  compLabelWithInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   compLabel: {
     fontSize: tokens.typography.size.sm,
     fontFamily: "DMSans-Regular",
+  },
+  infoButton: {
+    padding: 2,
+    borderRadius: 4,
   },
   compValue: {
     fontSize: tokens.typography.size.sm,

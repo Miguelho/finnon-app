@@ -5,7 +5,7 @@ import Link from "next/link";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Check, ChevronDown, ChevronUp, Info, Search, Settings, TrendingUp, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { CURRENCIES, PERIODS, formatMonthLabel, getRecentMonthKeys, getMinorUnits, type Period } from "@poleursus/shared";
+import { ConfirmationModal, CURRENCIES, PERIODS, formatMonthLabel, getRecentMonthKeys, getMinorUnits, type Period } from "@poleursus/shared";
 import { CategoryIcon } from "@/components/category-icon";
 import type { AccountRedesignData, AccountRedesignPeriod } from "@/components/account/account-redesign-types";
 import { formatCurrency, formatDelta } from "@/components/account/account-redesign-utils";
@@ -147,7 +147,7 @@ export function AccountRedesignClient({
   );
   const [chartMode, setChartMode] = useState<ChartMode>("both");
   const [isChartExpanded, setIsChartExpanded] = useState(false);
-  const [isBalanceTooltipOpen, setIsBalanceTooltipOpen] = useState(false);
+  const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
   const [expandedContributionSections, setExpandedContributionSections] = useState<{
     expense: boolean;
     income: boolean;
@@ -159,8 +159,6 @@ export function AccountRedesignClient({
   const swipeStartYRef = useRef<number | null>(null);
   const swipeCurrentYRef = useRef<number | null>(null);
   const contributionDetailScrollRef = useRef<HTMLDivElement | null>(null);
-  const balanceTooltipButtonRef = useRef<HTMLButtonElement | null>(null);
-  const balanceTooltipRef = useRef<HTMLDivElement | null>(null);
 
   const data =
     selectedPeriod === "month"
@@ -304,34 +302,6 @@ export function AccountRedesignClient({
     }
     return `/transactions?${params.toString()}`;
   }, [selectedMonth, selectedPeriod]);
-
-  useEffect(() => {
-    if (!isBalanceTooltipOpen) return;
-
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (
-        balanceTooltipRef.current?.contains(target) ||
-        balanceTooltipButtonRef.current?.contains(target)
-      ) {
-        return;
-      }
-      setIsBalanceTooltipOpen(false);
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsBalanceTooltipOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [isBalanceTooltipOpen]);
 
   const handleContributionDetailTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     const firstTouch = event.touches[0];
@@ -662,28 +632,14 @@ export function AccountRedesignClient({
           <div className={styles.balanceHero}>
             <div className={styles.balanceLabelRow}>
               <div className={styles.balanceLabel}>{t("account.redesign.balanceTotalLabel")}</div>
-              <div className="relative">
-                <button
-                  ref={balanceTooltipButtonRef}
-                  type="button"
-                  className={styles.balanceTooltipButton}
-                  aria-label={t("account.redesign.balanceTotalTooltip")}
-                  aria-expanded={isBalanceTooltipOpen}
-                  onClick={() => setIsBalanceTooltipOpen((prev) => !prev)}
-                  onMouseEnter={() => setIsBalanceTooltipOpen(true)}
-                  onFocus={() => setIsBalanceTooltipOpen(true)}
-                >
-                  <Info size={14} />
-                </button>
-                {isBalanceTooltipOpen ? (
-                  <div
-                    ref={balanceTooltipRef}
-                    className="absolute right-0 top-full z-20 mt-2 w-64 rounded-lg border border-border bg-background p-3 text-xs text-foreground shadow-sm"
-                  >
-                    {t("account.redesign.balanceTotalTooltip")}
-                  </div>
-                ) : null}
-              </div>
+              <button
+                type="button"
+                className={styles.balanceTooltipButton}
+                aria-label={t("account.redesign.balanceTotalTooltip")}
+                onClick={() => setIsBalanceModalOpen(true)}
+              >
+                <Info size={14} />
+              </button>
             </div>
             <div className={styles.balanceAmount}>
               {currencySymbol}
@@ -691,6 +647,15 @@ export function AccountRedesignClient({
               <span className={styles.balanceCents}>{balance.cents}</span>
             </div>
           </div>
+
+          <ConfirmationModal
+            open={isBalanceModalOpen}
+            title={t("account.redesign.balanceTotalLabel")}
+            description={t("account.redesign.balanceTotalTooltip")}
+            confirmLabel={t("common.ok")}
+            onConfirm={() => setIsBalanceModalOpen(false)}
+            onCancel={() => setIsBalanceModalOpen(false)}
+          />
 
           {contributionBanner && contributionDetail ? (
             <div className={styles.contributionBannerSection}>

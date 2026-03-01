@@ -278,7 +278,7 @@ export function ProjectsClient({
             <div className="flex min-w-0 items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-base font-semibold">
-                  {huchaProject.emoji || "🐷"} Hucha
+                  {huchaProject.emoji || "🐷"} {tGlobal("home.savings.hucha")}
                 </p>
                 <p className="break-words text-sm text-muted-foreground">
                   {tProjects("hucha.subtitle")}

@@ -17,6 +17,10 @@ export default function ProjectsStackLayout() {
         options={{ title: t(dictionary, "projects.monthClose.title") }}
       />
       <Stack.Screen
+        name="savings"
+        options={{ title: t(dictionary, "home.savings.title") }}
+      />
+      <Stack.Screen
         name="[projectId]"
         options={{ title: t(dictionary, "navigation.projects") }}
       />

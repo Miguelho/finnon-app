@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
+  addMonths,
   computeProjectMonthlyAllocation,
   distributeProjectSurplusProportionally,
   formatMinorToMoney,
@@ -15,7 +16,7 @@ import {
   type ProjectContribution,
   type UserRole,
 } from "@poleursus/shared";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useWebDataCache } from "@/cache/WebDataCacheProvider";
 import { PageContainer } from "@/components/layout/page-container";
@@ -419,7 +420,11 @@ export function MonthCloseClient({
       setConfirmedRows((data as ProjectContribution[]) ?? []);
       await emitMutation("project_contributions", "upsert");
       setSuccessMessage(tProjects("monthClose.confirmed"));
-      router.refresh();
+
+      // Redirigir a la pantalla de proyectos después de confirmar
+      setTimeout(() => {
+        router.push("/projects");
+      }, 1000);
     } catch (error) {
       console.error("[Projects] Month close confirm error", error);
       setErrorMessage(tGlobal("errors.internalServer"));
@@ -427,6 +432,9 @@ export function MonthCloseClient({
       setIsSaving(false);
     }
   };
+
+  const previousMonth = addMonths(monthKey, -1);
+  const nextMonth = addMonths(monthKey, 1);
 
   return (
     <PageContainer className="space-y-6">
@@ -440,32 +448,71 @@ export function MonthCloseClient({
         </Link>
       </div>
 
-      {pendingMonthKeys.length > 0 ? (
-        <Card>
-          <CardContent className="space-y-3 p-4">
-            <p className="text-sm font-medium">
-              {tProjects("monthClose.pendingMonthsListTitle")}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {tProjects("monthClose.pendingMonthsListHint")}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {pendingMonthKeys.map((pendingKey) => (
-                <Button
-                  key={pendingKey}
-                  asChild
-                  size="sm"
-                  variant={pendingKey === monthKey ? "default" : "outline"}
-                >
-                  <Link href={`/projects/month-close?month=${pendingKey}`}>
-                    {formatMonthLabel(pendingKey, locale)}
-                  </Link>
-                </Button>
-              ))}
+      {/* Month Navigation - Always visible */}
+      <Card>
+        <CardContent className="space-y-3 p-4">
+          <p className="text-sm font-medium">
+            {tProjects("monthClose.selectMonth")}
+          </p>
+
+          {/* Month navigation buttons */}
+          <div className="flex items-center justify-center gap-3">
+            <Button
+              asChild
+              size="icon"
+              variant="outline"
+              className="h-8 w-8"
+            >
+              <Link href={`/projects/month-close?month=${previousMonth}`}>
+                <ChevronLeft className="h-4 w-4" />
+              </Link>
+            </Button>
+
+            <div className="text-center flex-shrink-0 px-2">
+              <p className="text-base sm:text-lg font-semibold whitespace-nowrap">
+                {formatMonthLabel(monthKey, locale)}
+              </p>
+              <p className="text-xs text-muted-foreground whitespace-nowrap">
+                {tProjects("monthClose.currentMonth")}
+              </p>
             </div>
-          </CardContent>
-        </Card>
-      ) : null}
+
+            <Button
+              asChild
+              size="icon"
+              variant="outline"
+              className="h-8 w-8"
+            >
+              <Link href={`/projects/month-close?month=${nextMonth}`}>
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+
+          {/* Pending months list */}
+          {pendingMonthKeys.length > 1 ? (
+            <div className="pt-3 border-t">
+              <p className="text-xs text-muted-foreground mb-2">
+                {tProjects("monthClose.pendingMonthsListHint")}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {pendingMonthKeys.map((pendingKey) => (
+                  <Button
+                    key={pendingKey}
+                    asChild
+                    size="sm"
+                    variant={pendingKey === monthKey ? "default" : "outline"}
+                  >
+                    <Link href={`/projects/month-close?month=${pendingKey}`}>
+                      {formatMonthLabel(pendingKey, locale)}
+                    </Link>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -653,13 +700,6 @@ export function MonthCloseClient({
           </Card>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => router.push("/projects")}
-              disabled={isSaving}
-            >
-              {tCommon("cancel")}
-            </Button>
             <Button
               onClick={handleConfirm}
               disabled={

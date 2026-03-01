@@ -96,7 +96,7 @@ export function WeekStrip({
           onClick={onPrevWeek}
           className="p-1 hover:opacity-70"
           style={{ color: colors.text.secondary }}
-          aria-label="Semana anterior"
+          aria-label="Previous week"
         >
           <ChevronLeft size={18} />
         </button>
@@ -111,7 +111,7 @@ export function WeekStrip({
           onClick={onNextWeek}
           className="p-1 hover:opacity-70"
           style={{ color: colors.text.secondary }}
-          aria-label="Semana siguiente"
+          aria-label="Next week"
         >
           <ChevronRight size={18} />
         </button>

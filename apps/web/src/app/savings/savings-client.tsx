@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   addMonths,
   buildProjectColorMap,
@@ -9,6 +10,7 @@ import {
   computeSavingsDistribution,
   computeSavingsHistoryStats,
   computeSavingsMonthFromTransactions,
+  ConfirmationModal,
   formatMoneyWithSymbol,
   formatMonthLabel,
   getProjectColor,
@@ -18,7 +20,7 @@ import {
   type Project,
   type ProjectContribution,
 } from "@poleursus/shared";
-import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -80,6 +82,7 @@ export function SavingsClient({
   locale,
 }: SavingsClientProps) {
   const supabase = useMemo(() => createClient(), []);
+  const t = useTranslations();
   const [monthKey, setMonthKey] = useState(toMonthKey(new Date()));
   const [projects, setProjects] = useState<Project[]>([]);
   const [periodContributions, setPeriodContributions] = useState<ProjectContribution[]>([]);
@@ -88,6 +91,7 @@ export function SavingsClient({
   const [savingsMinor, setSavingsMinor] = useState(0n);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSpeedTooltipOpen, setIsSpeedTooltipOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -148,11 +152,11 @@ export function SavingsClient({
       setHistoryTransactions((txRows ?? []) as TxRow[]);
     } catch (loadError) {
       console.error("[Savings][web] load error", loadError);
-      setError(locale === "en" ? "Could not load savings data." : "No se pudo cargar el ahorro.");
+      setError(t("home.savings.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [accountId, locale, monthKey, supabase]);
+  }, [accountId, monthKey, supabase, t]);
 
   useEffect(() => {
     void loadData();
@@ -320,24 +324,22 @@ export function SavingsClient({
         ? Math.round(previousDays.reduce((sum, day) => sum + day, 0) / previousDays.length)
         : null;
 
-    let velocityLabel = locale === "en" ? "Pending" : "Pendiente";
+    let velocityLabel = t("home.savings.velocityPending");
     let velocityPositive = false;
     if (currentDay !== null && averageReachedDay !== null) {
       const delta = currentDay - averageReachedDay;
       if (delta === 0) {
-        velocityLabel = locale === "en" ? "On average" : "En la media";
+        velocityLabel = t("home.savings.velocityAverage");
       } else if (delta < 0) {
         velocityPositive = true;
-        velocityLabel =
-          locale === "en"
-            ? `${Math.abs(delta)} days earlier`
-            : `${Math.abs(delta)} días antes`;
+        velocityLabel = t("home.savings.velocityEarlier", {
+          days: Math.abs(delta),
+        });
       } else {
-        velocityLabel =
-          locale === "en" ? `${delta} days later` : `${delta} días después`;
+        velocityLabel = t("home.savings.velocityLater", { days: delta });
       }
     } else if (currentDay !== null && averageReachedDay === null) {
-      velocityLabel = locale === "en" ? `Day ${currentDay}` : `Día ${currentDay}`;
+      velocityLabel = t("home.savings.velocityDay", { day: currentDay });
     }
 
     let bestMonth: { period: string; amountMinor: bigint } | null = null;
@@ -354,7 +356,7 @@ export function SavingsClient({
       velocityPositive,
       bestMonth,
     };
-  }, [evolutionRows, locale, monthKey, monthlySavings, reachedDayByPeriod, savingsMinor]);
+  }, [evolutionRows, monthKey, monthlySavings, reachedDayByPeriod, savingsMinor, t]);
 
   const monthDate = new Date(`${monthKey}-01T00:00:00`);
   const monthLabel = new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
@@ -382,11 +384,11 @@ export function SavingsClient({
     <PageContainer className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <Link
-          href="/home"
+          href="/projects"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          {locale === "en" ? "Home" : "Inicio"}
+          {t("navigation.projects")}
         </Link>
         <div className="inline-flex items-center gap-2 rounded-lg border p-1">
           <Button
@@ -418,7 +420,7 @@ export function SavingsClient({
       {loading ? (
         <Card>
           <CardContent className="p-6 text-sm text-muted-foreground">
-            {locale === "en" ? "Loading..." : "Cargando..."}
+            {t("common.loading")}
           </CardContent>
         </Card>
       ) : null}
@@ -434,25 +436,47 @@ export function SavingsClient({
             {formatMoneyWithSymbol(savingsMinor, baseCurrency, currencySymbol)}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {locale === "en" ? "Saved this month" : "Ahorrado este mes"}
+            {t("home.savings.savedThisMonth")}
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="relative h-9 overflow-hidden rounded-lg bg-secondary">
             {positiveSavings > 0n ? (
               <>
-                <div
-                  className="absolute inset-y-0 left-0 flex items-center bg-[#4ade80] px-2 text-[11px] font-semibold text-black"
-                  style={{ width: `${Math.max(0, Math.min(100, projectsPercent))}%` }}
-                >
-                  {projectsPercent > 14
-                    ? formatMoneyWithSymbol(
-                        distribution.projectCoveredMinor,
-                        baseCurrency,
-                        currencySymbol
-                      )
-                    : null}
-                </div>
+                {(() => {
+                  let cumulativePercent = 0;
+                  const segments = distribution.allocations.map((row) => {
+                    const actualMinor = actualByProject.get(row.project.id) ?? row.allocatedMinor;
+                    const segmentPercent = progressScaleMinor > 0n
+                      ? (Number(actualMinor) / Number(progressScaleMinor)) * 100
+                      : 0;
+                    const projectColor = getProjectColor(row.project, projectColorMap);
+                    const leftPercent = cumulativePercent;
+                    cumulativePercent += segmentPercent;
+                    return {
+                      leftPercent,
+                      widthPercent: segmentPercent,
+                      color: projectColor,
+                      amount: actualMinor,
+                    };
+                  });
+
+                  return (
+                    <>
+                      {segments.map((segment, index) => (
+                        <div
+                          key={index}
+                          className="absolute inset-y-0 flex items-center px-2 text-[11px] font-semibold text-black"
+                          style={{
+                            left: `${Math.max(0, Math.min(100, segment.leftPercent))}%`,
+                            width: `${Math.max(0, Math.min(100, segment.widthPercent))}%`,
+                            backgroundColor: segment.color,
+                          }}
+                        />
+                      ))}
+                    </>
+                  );
+                })()}
                 <div
                   className="absolute inset-y-0 flex items-center justify-end bg-[#fb923c]/85 px-2 text-[11px] font-semibold text-black"
                   style={{
@@ -484,15 +508,11 @@ export function SavingsClient({
             <p>
               {distribution.projectCoveredMinor >= distribution.objectiveMinor &&
               distribution.objectiveMinor > 0n
-                ? locale === "en"
-                  ? "Projects covered ✓"
-                  : "Proyectos cubiertos ✓"
-                : locale === "en"
-                ? "Pending"
-                : "Pendiente"}
+                  ? t("home.savings.statusCovered")
+                : t("home.savings.statusPending")}
             </p>
             <p>
-              {locale === "en" ? "Total" : "Total"}:{" "}
+              {t("home.savings.total")}:{" "}
               {formatMoneyWithSymbol(savingsMinor, baseCurrency, currencySymbol)}
             </p>
           </div>
@@ -502,7 +522,7 @@ export function SavingsClient({
       <Card>
         <CardHeader>
           <h2 className="text-lg font-semibold">
-            {locale === "en" ? "Savings distribution" : "Distribución del ahorro"}
+            {t("home.savings.distributionTitle")}
           </h2>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -526,9 +546,14 @@ export function SavingsClient({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{row.project.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatMoneyWithSymbol(row.commitmentMinor, baseCurrency, currencySymbol)}
-                      {locale === "en" ? "/month" : "/mes"} · {progressPct}%
-                      {locale === "en" ? " completed" : " completado"}
+                      {t("home.savings.commitmentProgress", {
+                        commitment: formatMoneyWithSymbol(
+                          row.commitmentMinor,
+                          baseCurrency,
+                          currencySymbol
+                        ),
+                        progress: progressPct,
+                      })}
                     </p>
                   </div>
                 </div>
@@ -547,9 +572,9 @@ export function SavingsClient({
                 🐷
               </div>
               <div>
-                <p className="text-sm font-medium">Hucha</p>
+                <p className="text-sm font-medium">{t("home.savings.hucha")}</p>
                 <p className="text-xs text-muted-foreground">
-                  {locale === "en" ? "Monthly surplus" : "Excedente del mes"}
+                  {t("home.savings.monthlySurplus")}
                 </p>
               </div>
             </div>
@@ -563,25 +588,29 @@ export function SavingsClient({
       <Card>
         <CardHeader>
           <h2 className="text-lg font-semibold">
-            {locale === "en" ? "Your progress" : "Tu progreso"}
+            {t("home.savings.progressTitle")}
           </h2>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg border bg-card p-4">
             <p className="text-xs text-muted-foreground">
-              {locale === "en" ? "🏆 Months completed" : "🏆 Meses cumplidos"}
+              {t("home.savings.monthsCompletedLabel")}
             </p>
             <p className="text-2xl font-semibold text-emerald-500">
-              {historyStats.achievedMonths} {locale === "en" ? "of" : "de"}{" "}
-              {historyStats.totalMonths}
+              {t("home.savings.monthsCompletedValue", {
+                completed: historyStats.achievedMonths,
+                total: historyStats.totalMonths,
+              })}
             </p>
           </div>
           <div className="rounded-lg border bg-card p-4">
             <p className="text-xs text-muted-foreground">
-              {locale === "en" ? "📈 Current streak" : "📈 Racha actual"}
+              {t("home.savings.currentStreakLabel")}
             </p>
             <p className="text-2xl font-semibold">
-              {historyStats.currentStreak} {locale === "en" ? "months" : "meses"}
+              {t("home.savings.currentStreakValue", {
+                count: historyStats.currentStreak,
+              })}
             </p>
           </div>
         </CardContent>
@@ -590,7 +619,7 @@ export function SavingsClient({
       <Card>
         <CardHeader>
           <h2 className="text-lg font-semibold">
-            {locale === "en" ? "Last 6 months evolution" : "Evolución últimos 6 meses"}
+            {t("home.savings.evolutionTitle")}
           </h2>
         </CardHeader>
         <CardContent>
@@ -601,7 +630,7 @@ export function SavingsClient({
                 style={{ bottom: `${goalLinePercent}%` }}
               >
                 <span className="absolute right-0 -translate-y-4 text-[10px] text-muted-foreground">
-                  {locale === "en" ? "Goal" : "Meta"}{" "}
+                  {t("home.savings.goalLabel")}{" "}
                   {formatMoneyWithSymbol(distribution.objectiveMinor, baseCurrency, currencySymbol)}
                 </span>
               </div>
@@ -671,28 +700,34 @@ export function SavingsClient({
       <Card>
         <CardHeader>
           <h2 className="text-lg font-semibold">
-            {locale === "en" ? "⚡ This month vs your average" : "⚡ Este mes vs tu media"}
+            {t("home.savings.comparisonTitle")}
           </h2>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="flex items-center justify-between border-b pb-2">
-            <span className="text-muted-foreground">{locale === "en" ? "Savings" : "Ahorro"}</span>
+            <span className="text-muted-foreground">{t("home.savings.comparisonSavings")}</span>
             <span className={comparison.savingsDiffMinor >= 0n ? "text-emerald-500" : "text-orange-400"}>
               {formatSignedMoney(comparison.savingsDiffMinor, baseCurrency, currencySymbol)}
             </span>
           </div>
           <div className="flex items-center justify-between border-b pb-2">
-            <span className="text-muted-foreground">
-              {locale === "en" ? "Speed" : "Velocidad"}
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              {t("home.savings.comparisonSpeed")}
+              <button
+                type="button"
+                onClick={() => setIsSpeedTooltipOpen(true)}
+                className="inline-flex items-center justify-center rounded-sm p-0.5 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-muted-foreground"
+                aria-label={t("home.savings.comparisonSpeedTooltip")}
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
             </span>
             <span className={comparison.velocityPositive ? "text-emerald-500" : "text-orange-400"}>
               {comparison.velocityLabel}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">
-              {locale === "en" ? "Best month" : "Mejor mes"}
-            </span>
+            <span className="text-muted-foreground">{t("home.savings.comparisonBestMonth")}</span>
             <span>
               {comparison.bestMonth
                 ? `${formatMonthLabel(comparison.bestMonth.period, locale === "en" ? "en-US" : "es-ES")} · ${formatMoneyWithSymbol(
@@ -700,13 +735,20 @@ export function SavingsClient({
                     baseCurrency,
                     currencySymbol
                   )}`
-                : locale === "en"
-                ? "No data"
-                : "Sin datos"}
+                : t("home.savings.noData")}
             </span>
           </div>
         </CardContent>
       </Card>
+
+      <ConfirmationModal
+        open={isSpeedTooltipOpen}
+        title={t("home.savings.comparisonSpeed")}
+        description={t("home.savings.comparisonSpeedTooltip")}
+        confirmLabel={t("common.ok")}
+        onConfirm={() => setIsSpeedTooltipOpen(false)}
+        onCancel={() => setIsSpeedTooltipOpen(false)}
+      />
     </PageContainer>
   );
 }

@@ -12,10 +12,6 @@ export default function HomeStackLayout() {
         name="index"
         options={{ title: t(dictionary, "navigation.home") }}
       />
-      <Stack.Screen
-        name="savings"
-        options={{ title: t(dictionary, "home.savings.title") }}
-      />
     </Stack>
   );
 }

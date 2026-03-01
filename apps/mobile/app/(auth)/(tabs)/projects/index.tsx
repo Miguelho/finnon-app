@@ -379,7 +379,7 @@ export default function ProjectsScreen() {
                   <View style={styles.huchaHeader}>
                     <View style={styles.huchaHeaderLeft}>
                       <Text style={[styles.huchaTitle, { color: userTokens.textPrimary }]}>
-                        {huchaProject.emoji || "🐷"} Hucha
+                        {huchaProject.emoji || "🐷"} {t(dictionary, "home.savings.hucha")}
                       </Text>
                       <Text
                         numberOfLines={2}
@@ -588,7 +588,7 @@ export default function ProjectsScreen() {
                 },
               ]}
               activeOpacity={0.82}
-              onPress={() => router.push("/(auth)/(tabs)/home/savings")}
+              onPress={() => router.push("/(auth)/(tabs)/projects/savings")}
             >
               <View style={styles.commitmentContent}>
                 <View style={styles.commitmentLeft}>

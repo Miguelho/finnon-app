@@ -180,14 +180,14 @@ function CalendarTooltip({
           ]}
         >
           <View style={styles.tooltipRow}>
-            <Text style={[styles.tooltipLabel, { color: userTokens.textSecondary }]}>Gasto</Text>
+            <Text style={[styles.tooltipLabel, { color: userTokens.textSecondary }]}>Expense</Text>
             <Text style={[styles.tooltipValue, { color: expenseColor }]}>
               −{expenseInt},{expenseDec}
             </Text>
           </View>
           <View style={styles.tooltipRow}>
             <Text style={[styles.tooltipLabel, { color: userTokens.textSecondary }]}>
-              Ingreso
+              Income
             </Text>
             <Text style={[styles.tooltipValue, { color: INCOME }]}>
               +{incomeInt},{incomeDec}
@@ -322,7 +322,7 @@ export function Calendar({
             onPress={() => onViewChange("week")}
           >
             <Text style={[styles.toggleText, { color: userTokens.textSecondary }, isWeek && { color: userTokens.textPrimary }]}>
-              Semana
+              Week
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -336,7 +336,7 @@ export function Calendar({
                 !isWeek && { color: userTokens.textPrimary },
               ]}
             >
-              Mes
+              Month
             </Text>
           </TouchableOpacity>
         </View>
@@ -345,7 +345,9 @@ export function Calendar({
           <TouchableOpacity onPress={onPrevPeriod} style={styles.navArrowPressable} hitSlop={8}>
             <Text style={[styles.navArrow, { color: userTokens.textTertiary }]}>‹</Text>
           </TouchableOpacity>
-          <Text style={[styles.navLabel, { color: userTokens.textPrimary }]}>{periodLabel}</Text>
+          <Text numberOfLines={1} style={[styles.navLabel, { color: userTokens.textPrimary }]}>
+            {periodLabel}
+          </Text>
           <TouchableOpacity onPress={onNextPeriod} style={styles.navArrowPressable} hitSlop={8}>
             <Text style={[styles.navArrow, { color: userTokens.textTertiary }]}>›</Text>
           </TouchableOpacity>
@@ -486,7 +488,7 @@ export function Calendar({
             <View style={styles.weekLegendItem}>
               <View style={[styles.legendDot, { backgroundColor: INCOME }]} />
               <Text style={[styles.weekLegendLabel, { color: userTokens.textTertiary }]}>
-                Ingreso
+                Income
               </Text>
             </View>
           </View>
@@ -563,7 +565,7 @@ export function Calendar({
           </View>
 
           <View style={[styles.monthLegend, { borderTopColor: userTokens.border }]}>
-            <Text style={[styles.monthLegendLabel, { color: userTokens.textTertiary }]}>Menos</Text>
+            <Text style={[styles.monthLegendLabel, { color: userTokens.textTertiary }]}>Less</Text>
             <View style={styles.monthLegendScale}>
               {[0, 1, 2, 3, 4, 5].map((level) => (
                 <View
@@ -581,11 +583,11 @@ export function Calendar({
               ))}
             </View>
             <Text style={[styles.monthLegendLabel, { color: userTokens.textTertiary }]}>
-              Más gasto
+              More expense
             </Text>
             <Text style={[styles.monthLegendIncome, { color: INCOME }]}>5</Text>
             <Text style={[styles.monthLegendLabel, { color: userTokens.textTertiary }]}>
-              = ingreso
+              = income
             </Text>
           </View>
         </View>
@@ -598,12 +600,12 @@ export function Calendar({
           </Text>
           <View style={styles.summaryPillsLeft}>
             <View style={[styles.pill, { backgroundColor: INCOME_BG }]}>
-              <Text style={[styles.pillText, { color: INCOME }]}>
+              <Text numberOfLines={1} style={[styles.pillText, { color: INCOME }]}>
                 ↑ {formatCurrencyParts(selectedDayTotals.income, currencySymbol).full}
               </Text>
             </View>
             <View style={[styles.pill, { backgroundColor: EXPENSE_BG[activeTheme] }]}>
-              <Text style={[styles.pillText, { color: EXPENSE_TEXT[activeTheme] }]}>
+              <Text numberOfLines={1} style={[styles.pillText, { color: EXPENSE_TEXT[activeTheme] }]}>
                 ↓ {formatCurrencyParts(selectedDayTotals.expense, currencySymbol).full}
               </Text>
             </View>
@@ -611,7 +613,7 @@ export function Calendar({
         </View>
         <View style={styles.summaryBlockRight}>
           <Text style={[styles.summaryTitle, { color: userTokens.textTertiary }]}>
-            {isWeek ? (locale === "en" ? "Week" : "Semana") : (locale === "en" ? "Month" : "Mes")}
+            {isWeek ? "Week" : "Month"}
           </Text>
           <View style={styles.summaryPillsRight}>
             <View style={[styles.pill, { backgroundColor: INCOME_BG }]}>
@@ -690,6 +692,8 @@ const styles = StyleSheet.create({
   navLabel: {
     fontSize: 13,
     fontFamily: "DMSans-Medium",
+    minWidth: 120,
+    textAlign: "center",
   },
   monthHeader: {
     flexDirection: "row",
@@ -774,10 +778,10 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans-Medium",
   },
   summaryPillsLeft: {
-    flexDirection: "column",
+    flexDirection: "row",
     alignItems: "flex-start",
     gap: 6,
-    width: "100%",
+    flexWrap: "nowrap",
   },
   summaryPillsRight: {
     flexDirection: "row",

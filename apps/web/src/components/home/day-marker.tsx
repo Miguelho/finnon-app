@@ -60,8 +60,8 @@ export function DayMarker({
 
   // Tooltip text for accessibility
   const tooltipText = [
-    incomeCount > 0 && `Ingresos: ${incomeCount}`,
-    expenseCount > 0 && `Gastos: ${expenseCount}`,
+    incomeCount > 0 && `Income: ${incomeCount}`,
+    expenseCount > 0 && `Expense: ${expenseCount}`,
     pendingCount > 0 && `Pendientes: ${pendingCount}`,
   ]
     .filter(Boolean)

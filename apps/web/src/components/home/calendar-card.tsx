@@ -172,7 +172,7 @@ export function CalendarCard({
                 onClick={handlePrevMonth}
                 className="p-1 hover:opacity-70"
                 style={{ color: colors.text.secondary }}
-                aria-label="Mes anterior"
+                aria-label="Previous month"
               >
                 <ChevronLeft size={18} />
               </button>
@@ -181,7 +181,7 @@ export function CalendarCard({
                 onClick={handleNextMonth}
                 className="p-1 hover:opacity-70"
                 style={{ color: colors.text.secondary }}
-                aria-label="Mes siguiente"
+                aria-label="Next month"
               >
                 <ChevronRight size={18} />
               </button>
@@ -196,7 +196,7 @@ export function CalendarCard({
                 onClick={onPrevWeek}
                 className="p-1 hover:opacity-70"
                 style={{ color: colors.text.secondary }}
-                aria-label="Semana anterior"
+                aria-label="Previous week"
               >
                 <ChevronLeft size={18} />
               </button>
@@ -205,7 +205,7 @@ export function CalendarCard({
                 onClick={onNextWeek}
                 className="p-1 hover:opacity-70"
                 style={{ color: colors.text.secondary }}
-                aria-label="Semana siguiente"
+                aria-label="Next week"
               >
                 <ChevronRight size={18} />
               </button>

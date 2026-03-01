@@ -154,11 +154,11 @@ function TooltipContent({
   return (
     <div className="w-[220px] rounded-xl border border-[color:rgba(255,255,255,0.14)] bg-[var(--account-surface-alt)] p-3 shadow-[0_6px_20px_rgba(0,0,0,0.4)]">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-[var(--account-text-secondary)]">Gasto</span>
+        <span className="text-[var(--account-text-secondary)]">Expense</span>
         <span style={{ color: expenseColor }}>−{expense.full}</span>
       </div>
       <div className="mt-1 flex items-center justify-between text-xs">
-        <span className="text-[var(--account-text-secondary)]">Ingreso</span>
+        <span className="text-[var(--account-text-secondary)]">Income</span>
         <span style={{ color: INCOME }}>+{income.full}</span>
       </div>
       <div className="my-2 h-px bg-border" />
@@ -219,14 +219,6 @@ export function Calendar({
     return { income: toMinorInt(income), expense: toMinorInt(expense) };
   }, [monthDays]);
 
-  const weekTotals = useMemo(() => {
-    const income = weekDays.reduce((sum, day) => sum + day.totalIncome, 0);
-    const expense = weekDays.reduce((sum, day) => sum + day.totalExpense, 0);
-    return { income: toMinorInt(income), expense: toMinorInt(expense) };
-  }, [weekDays]);
-
-  const periodTotals = isWeek ? weekTotals : monthTotals;
-
   const selectedDayData = useMemo(() => {
     return (
       visibleDays.find((day) => day.date === selectedDayKey) ??
@@ -278,51 +270,57 @@ export function Calendar({
 
   return (
     <div className="rounded-[14px] border border-border bg-card p-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-full bg-[rgba(255,255,255,0.04)] p-[2px]">
-          <button
-            type="button"
-            onClick={() => onViewChange("week")}
-            className={`rounded-full px-3 py-1 text-[11px] ${
-              isWeek
-                ? "bg-[rgba(255,255,255,0.08)] text-[var(--account-text-primary)]"
-                : "text-[var(--account-text-secondary)]"
-            }`}
-          >
-            Semana
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewChange("month")}
-            className={`rounded-full px-3 py-1 text-[11px] ${
-              !isWeek
-                ? "bg-[rgba(255,255,255,0.08)] text-[var(--account-text-primary)]"
-                : "text-[var(--account-text-secondary)]"
-            }`}
-          >
-            Mes
-          </button>
+      <div className="grid grid-cols-3 items-center gap-3">
+        <div className="justify-self-start">
+          <div className="inline-flex rounded-full bg-[rgba(255,255,255,0.04)] p-[2px]">
+            <button
+              type="button"
+              onClick={() => onViewChange("week")}
+              className={`rounded-full px-3 py-1 text-[11px] ${
+                isWeek
+                  ? "bg-[rgba(255,255,255,0.08)] text-[var(--account-text-primary)]"
+                  : "text-[var(--account-text-secondary)]"
+              }`}
+            >
+              Week
+            </button>
+            <button
+              type="button"
+              onClick={() => onViewChange("month")}
+              className={`rounded-full px-3 py-1 text-[11px] ${
+                !isWeek
+                  ? "bg-[rgba(255,255,255,0.08)] text-[var(--account-text-primary)]"
+                  : "text-[var(--account-text-secondary)]"
+              }`}
+            >
+              Month
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onPrevPeriod}
-            className="text-lg leading-none text-[var(--account-text-tertiary)]"
-          >
-            ‹
-          </button>
-          <span className="text-[13px] font-medium text-[var(--account-text-primary)]">
-            {periodLabel}
-          </span>
-          <button
-            type="button"
-            onClick={onNextPeriod}
-            className="text-lg leading-none text-[var(--account-text-tertiary)]"
-          >
-            ›
-          </button>
+        <div className="justify-self-center">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onPrevPeriod}
+              className="text-lg leading-none text-[var(--account-text-tertiary)]"
+            >
+              ‹
+            </button>
+            <span className="min-w-[120px] whitespace-nowrap text-center text-[13px] font-medium text-[var(--account-text-primary)]">
+              {periodLabel}
+            </span>
+            <button
+              type="button"
+              onClick={onNextPeriod}
+              className="text-lg leading-none text-[var(--account-text-tertiary)]"
+            >
+              ›
+            </button>
+          </div>
         </div>
+
+        <div />
       </div>
 
       {isWeek ? (
@@ -446,7 +444,7 @@ export function Calendar({
             ))}
             <div className="inline-flex items-center gap-1">
               <span className="h-[6px] w-[6px] rounded-[2px]" style={{ backgroundColor: INCOME }} />
-              <span className="text-[9px] text-[var(--account-text-tertiary)]">Ingreso</span>
+              <span className="text-[9px] text-[var(--account-text-tertiary)]">Income</span>
             </div>
           </div>
         </div>
@@ -516,7 +514,7 @@ export function Calendar({
           </div>
 
           <div className="mt-2 flex flex-wrap items-center justify-center gap-[6px] border-t border-[color:rgba(255,255,255,0.12)] pt-2">
-            <span className="text-[9px] text-[var(--account-text-tertiary)]">Menos</span>
+            <span className="text-[9px] text-[var(--account-text-tertiary)]">Less</span>
             <div className="flex items-center gap-[3px]">
               {[0, 1, 2, 3, 4, 5].map((level) => (
                 <span
@@ -531,16 +529,15 @@ export function Calendar({
                 />
               ))}
             </div>
-            <span className="text-[9px] text-[var(--account-text-tertiary)]">Más gasto</span>
+            <span className="text-[9px] text-[var(--account-text-tertiary)]">More expense</span>
             <span className="text-[11px] font-bold text-[#6DC9A0]">5</span>
-            <span className="text-[9px] text-[var(--account-text-tertiary)]">= ingreso</span>
+            <span className="text-[9px] text-[var(--account-text-tertiary)]">= income</span>
           </div>
         </div>
       )}
 
-      <div className="mt-2 grid grid-cols-3 items-start gap-2">
-        <div />
-        <div className="justify-self-center text-center">
+      <div className="mt-2 flex items-start justify-between gap-3">
+        <div className="text-left">
           <p className="mb-1 text-[9px] uppercase tracking-[0.45px] text-[var(--account-text-tertiary)]">
             {locale.startsWith("en") ? "Day" : "Día"}
           </p>
@@ -556,19 +553,19 @@ export function Calendar({
             </span>
           </div>
         </div>
-        <div className="justify-self-end text-right">
+        <div className="text-right">
           <p className="mb-1 text-[9px] uppercase tracking-[0.45px] text-[var(--account-text-tertiary)]">
-            {isWeek ? (locale.startsWith("en") ? "Week" : "Semana") : (locale.startsWith("en") ? "Month" : "Mes")}
+            {locale.startsWith("en") ? "Month" : "Mes"}
           </p>
           <div className="flex items-center gap-1.5">
             <span className="rounded-full px-2 py-[4px] text-[10px] font-semibold" style={{ backgroundColor: INCOME_BG, color: INCOME }}>
-              ↑ {formatCurrencyParts(periodTotals.income, currencySymbol, locale).full}
+              ↑ {formatCurrencyParts(monthTotals.income, currencySymbol, locale).full}
             </span>
             <span
               className="rounded-full px-2 py-[4px] text-[10px] font-semibold"
               style={{ backgroundColor: EXPENSE_BG[activeTheme], color: EXPENSE_TEXT[activeTheme] }}
             >
-              ↓ {formatCurrencyParts(periodTotals.expense, currencySymbol, locale).full}
+              ↓ {formatCurrencyParts(monthTotals.expense, currencySymbol, locale).full}
             </span>
           </div>
         </div>

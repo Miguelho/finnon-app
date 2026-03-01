@@ -1,4 +1,5 @@
 import { ChevronRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { HUCHA_PROJECT_COLOR, PROJECT_PALETTE } from "@poleursus/shared";
 import { formatCurrencyParts, toMinor } from "./utils";
 import { SummaryCardShell } from "./SummaryCardShell";
@@ -98,6 +99,7 @@ export function ProjectsRow({
   onPress,
   locale = "es-ES",
 }: ProjectsRowProps) {
+  const t = useTranslations();
   const isHero = projects.length === 1;
   const ringTrack = "rgba(255,255,255,0.06)";
   const totalParts = formatCurrencyParts(totalSavingsMinor, currencySymbol, locale);
@@ -129,9 +131,13 @@ export function ProjectsRow({
                   {hero.name}
                 </p>
                 <p className="mt-[2px] text-[11px] text-[var(--account-text-secondary)]">
-                  <span className="font-balance">{heroCurrentParts?.full}</span> de{" "}
-                  <span className="font-balance">{heroGoalParts?.full}</span>
-                  {hero.currentAmountMinor >= hero.goalAmountMinor ? " · ¡Completado! 🎉" : ""}
+                  {t("home.savings.summary.progress", {
+                    current: heroCurrentParts?.full ?? "",
+                    goal: heroGoalParts?.full ?? "",
+                  })}
+                  {hero.currentAmountMinor >= hero.goalAmountMinor
+                    ? ` · ${t("home.savings.summary.completed")}! 🎉`
+                    : ""}
                 </p>
               </div>
               <p
@@ -151,7 +157,7 @@ export function ProjectsRow({
 
             <div className="mt-2 flex items-center justify-between gap-4 border-t border-[color:rgba(255,255,255,0.12)] pt-[10px]">
               <p className="text-[10px] text-[var(--account-text-secondary)]">
-                🐷 Hucha{" "}
+                🐷 {t("home.savings.hucha")}{" "}
                 <span
                   className="font-balance text-[11px] font-semibold"
                   style={{ color: HUCHA_PROJECT_COLOR }}
@@ -160,7 +166,7 @@ export function ProjectsRow({
                 </span>
               </p>
               <p className="text-[10px] text-[var(--account-text-secondary)]">
-                Total{" "}
+                {t("home.savings.summary.totalLabel")}{" "}
                 <span className="font-balance text-[11px] font-semibold text-[var(--account-text-primary)]">
                   {totalParts.full}
                 </span>
@@ -198,7 +204,7 @@ export function ProjectsRow({
 
               <div className="ml-auto min-w-0 text-right">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.7px] text-[var(--account-text-tertiary)]">
-                  AHORRO
+                  {t("home.savings.summary.totalAmountLabel")}
                 </p>
                 <p className="font-balance text-[19px] font-normal leading-[1.1] tracking-[-0.4px] text-[#6DC9A0]">
                   {totalParts.integer}
@@ -211,7 +217,7 @@ export function ProjectsRow({
             </div>
 
             <p className="mt-[6px] text-[10px] text-[var(--account-text-secondary)]">
-              🐷 Hucha:{" "}
+              🐷 {t("home.savings.hucha")}:{" "}
               <span
                 className="font-balance text-[11px] font-semibold"
                 style={{ color: HUCHA_PROJECT_COLOR }}
@@ -244,13 +250,14 @@ export const SavingsMonthCard = ({
   currencySymbol: string;
   locale?: string;
 }) => {
+  const t = useTranslations();
   const projectsValue = toMinor(projectsMinor);
   return (
     <ProjectsRow
       projects={[
         {
           id: "fallback",
-          name: "Proyecto",
+          name: t("home.savings.summary.fallbackProjectName"),
           emoji: "🎯",
           currentAmountMinor: projectsValue,
           goalAmountMinor: projectsValue > 0n ? projectsValue : 1n,

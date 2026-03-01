@@ -546,7 +546,11 @@ export default function ProjectsMonthCloseScreen() {
 
       setConfirmedRows((data ?? []) as ProjectContribution[]);
       setSuccessMessage(t(dictionary, "projects.monthClose.confirmed"));
-      void loadData();
+
+      // Redirigir a la pantalla de proyectos después de confirmar
+      setTimeout(() => {
+        router.push("/(auth)/(tabs)/projects");
+      }, 1000);
     } catch (confirmError) {
       console.error("[Projects][mobile] month-close confirm error", confirmError);
       setErrorMessage(t(dictionary, "errors.internalServer"));
@@ -581,6 +585,9 @@ export default function ProjectsMonthCloseScreen() {
     );
   }
 
+  const previousMonth = addMonths(monthKey, -1);
+  const nextMonth = addMonths(monthKey, 1);
+
   return (
     <>
       <Stack.Screen options={{ title: t(dictionary, "projects.monthClose.title") }} />
@@ -602,49 +609,104 @@ export default function ProjectsMonthCloseScreen() {
             </Text>
           </Card>
 
-          {pendingMonthKeys.length > 0 ? (
-            <Card>
-              <Text style={[styles.pendingMonthsTitle, { color: userTokens.textPrimary }]}>
-                {t(dictionary, "projects.monthClose.pendingMonthsListTitle")}
-              </Text>
-              <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
-                {t(dictionary, "projects.monthClose.pendingMonthsListHint")}
-              </Text>
-              <View style={styles.pendingMonthsWrap}>
-                {pendingMonthKeys.map((pendingKey) => {
-                  const isSelected = pendingKey === monthKey;
-                  return (
-                    <Pressable
-                      key={pendingKey}
-                      onPress={() =>
-                        router.replace(
-                          `/(auth)/(tabs)/projects/month-close?month=${pendingKey}`
-                        )
-                      }
-                      style={[
-                        styles.pendingMonthChip,
-                        {
-                          borderColor: isSelected ? primaryActionColor : userTokens.border,
-                          backgroundColor: isSelected
-                            ? primaryActionColor
-                            : userTokens.surface,
-                        },
-                      ]}
-                    >
-                      <Text
+          {/* Month Navigation - Always visible */}
+          <Card>
+            <Text style={[styles.pendingMonthsTitle, { color: userTokens.textPrimary }]}>
+              {t(dictionary, "projects.monthClose.selectMonth")}
+            </Text>
+
+            {/* Month navigation buttons */}
+            <View style={styles.monthNavigation}>
+              <Pressable
+                onPress={() =>
+                  router.replace(
+                    `/(auth)/(tabs)/projects/month-close?month=${previousMonth}`
+                  )
+                }
+                style={[
+                  styles.monthNavButton,
+                  {
+                    borderColor: userTokens.border,
+                    backgroundColor: userTokens.surface,
+                  },
+                ]}
+              >
+                <Text style={[styles.monthNavButtonText, { color: userTokens.textPrimary }]}>
+                  ←
+                </Text>
+              </Pressable>
+
+              <View style={styles.currentMonthDisplay}>
+                <Text style={[styles.currentMonthLabel, { color: userTokens.textPrimary }]}>
+                  {formatMonthLabel(monthKey, locale)}
+                </Text>
+                <Text style={[styles.currentMonthHint, { color: userTokens.textSecondary }]}>
+                  {t(dictionary, "projects.monthClose.currentMonth")}
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={() =>
+                  router.replace(
+                    `/(auth)/(tabs)/projects/month-close?month=${nextMonth}`
+                  )
+                }
+                style={[
+                  styles.monthNavButton,
+                  {
+                    borderColor: userTokens.border,
+                    backgroundColor: userTokens.surface,
+                  },
+                ]}
+              >
+                <Text style={[styles.monthNavButtonText, { color: userTokens.textPrimary }]}>
+                  →
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* Pending months list */}
+            {pendingMonthKeys.length > 1 ? (
+              <View style={styles.pendingMonthsSection}>
+                <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
+                  {t(dictionary, "projects.monthClose.pendingMonthsListHint")}
+                </Text>
+                <View style={styles.pendingMonthsWrap}>
+                  {pendingMonthKeys.map((pendingKey) => {
+                    const isSelected = pendingKey === monthKey;
+                    return (
+                      <Pressable
+                        key={pendingKey}
+                        onPress={() =>
+                          router.replace(
+                            `/(auth)/(tabs)/projects/month-close?month=${pendingKey}`
+                          )
+                        }
                         style={[
-                          styles.pendingMonthChipText,
-                          { color: isSelected ? "#FFFFFF" : userTokens.textPrimary },
+                          styles.pendingMonthChip,
+                          {
+                            borderColor: isSelected ? primaryActionColor : userTokens.border,
+                            backgroundColor: isSelected
+                              ? primaryActionColor
+                              : userTokens.surface,
+                          },
                         ]}
                       >
-                        {formatMonthLabel(pendingKey, locale)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                        <Text
+                          style={[
+                            styles.pendingMonthChipText,
+                            { color: isSelected ? "#FFFFFF" : userTokens.textPrimary },
+                          ]}
+                        >
+                          {formatMonthLabel(pendingKey, locale)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
-            </Card>
-          ) : null}
+            ) : null}
+          </Card>
 
           <View style={styles.summaryGrid}>
             <Card style={styles.summaryCard}>
@@ -826,12 +888,6 @@ export default function ProjectsMonthCloseScreen() {
 
               <View style={styles.actionsRow}>
                 <Button
-                  variant="secondary"
-                  title={t(dictionary, "common.cancel")}
-                  onPress={() => router.push("/(auth)/(tabs)/projects")}
-                  disabled={isSaving}
-                />
-                <Button
                   title={
                     isSaving
                       ? t(dictionary, "projects.monthClose.confirming")
@@ -880,6 +936,47 @@ const styles = StyleSheet.create({
   pendingMonthsTitle: {
     fontSize: tokens.typography.size.sm,
     fontFamily: "DMSans-SemiBold",
+  },
+  monthNavigation: {
+    marginTop: tokens.spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: tokens.spacing.md,
+  },
+  monthNavButton: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  monthNavButtonText: {
+    fontSize: 18,
+    fontFamily: "DMSans-Medium",
+    textAlign: "center",
+  },
+  currentMonthDisplay: {
+    alignItems: "center",
+    paddingHorizontal: tokens.spacing.sm,
+  },
+  currentMonthLabel: {
+    fontSize: tokens.typography.size.md,
+    fontFamily: "DMSans-Bold",
+    textAlign: "center",
+  },
+  currentMonthHint: {
+    fontSize: tokens.typography.size.xxs,
+    fontFamily: "DMSans-Regular",
+    marginTop: 2,
+    textAlign: "center",
+  },
+  pendingMonthsSection: {
+    marginTop: tokens.spacing.sm,
+    paddingTop: tokens.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
   },
   pendingMonthsWrap: {
     marginTop: tokens.spacing.sm,

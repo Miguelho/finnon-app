@@ -3,6 +3,7 @@ import Svg, { Circle } from "react-native-svg";
 import { ChevronRight } from "lucide-react-native";
 import { HUCHA_PROJECT_COLOR, PROJECT_PALETTE, themeTokens, withAlpha } from "@poleursus/shared";
 import { useUserTheme } from "../../contexts/UserThemeContext";
+import { useCopy, t } from "../../lib/i18n";
 import { formatCurrencyParts, toMinor } from "./utils";
 
 const tokens = themeTokens.light;
@@ -110,6 +111,7 @@ export function ProjectsRow({
   onPress,
 }: ProjectsRowProps) {
   const { tokens: userTokens, resolvedMode } = useUserTheme();
+  const { dictionary } = useCopy();
   const isHero = projects.length === 1;
   const ringTrack =
     resolvedMode === "dark" ? "rgba(255,255,255,0.06)" : withAlpha(userTokens.textPrimary, 0.1);
@@ -144,14 +146,13 @@ export function ProjectsRow({
                   {hero.name}
                 </Text>
                 <Text style={[styles.heroProgress, { color: userTokens.textSecondary }]}>
-                  <Text style={styles.heroProgressAmount}>
-                    {formatCurrencyParts(hero.currentAmountMinor, currencySymbol).full}
-                  </Text>{" "}
-                  de{" "}
-                  <Text style={styles.heroProgressAmount}>
-                    {formatCurrencyParts(hero.goalAmountMinor, currencySymbol).full}
-                  </Text>
-                  {hero.currentAmountMinor >= hero.goalAmountMinor ? " · ¡Completado! 🎉" : ""}
+                  {t(dictionary, "home.savings.summary.progress", {
+                    current: formatCurrencyParts(hero.currentAmountMinor, currencySymbol).full,
+                    goal: formatCurrencyParts(hero.goalAmountMinor, currencySymbol).full,
+                  })}
+                  {hero.currentAmountMinor >= hero.goalAmountMinor
+                    ? ` · ${t(dictionary, "home.savings.summary.completed")}! 🎉`
+                    : ""}
                 </Text>
               </View>
               <Text
@@ -173,10 +174,12 @@ export function ProjectsRow({
 
             <View style={[styles.heroBottom, { borderTopColor: withAlpha(userTokens.textPrimary, 0.14) }]}>
               <Text style={[styles.huchaText, { color: userTokens.textSecondary }]}>
-                🐷 Hucha <Text style={[styles.huchaAmount, { color: HUCHA_PROJECT_COLOR }]}>{huchaParts.full}</Text>
+                🐷 {t(dictionary, "home.savings.hucha")}{" "}
+                <Text style={[styles.huchaAmount, { color: HUCHA_PROJECT_COLOR }]}>{huchaParts.full}</Text>
               </Text>
               <Text style={[styles.huchaText, { color: userTokens.textSecondary }]}>
-                Total <Text style={[styles.huchaAmount, { color: userTokens.textPrimary }]}>{totalParts.full}</Text>
+                {t(dictionary, "home.savings.summary.totalLabel")}{" "}
+                <Text style={[styles.huchaAmount, { color: userTokens.textPrimary }]}>{totalParts.full}</Text>
               </Text>
             </View>
           </>
@@ -205,7 +208,9 @@ export function ProjectsRow({
                 })}
               </View>
               <View style={styles.headerRight}>
-                <Text style={[styles.label, { color: userTokens.textTertiary }]}>AHORRO</Text>
+                <Text style={[styles.label, { color: userTokens.textTertiary }]}>
+                  {t(dictionary, "home.savings.summary.totalAmountLabel")}
+                </Text>
                 <Text style={styles.totalAmount}>
                   {totalParts.integer}
                   <Text style={styles.totalDecimals}>,{totalParts.decimals}</Text>
@@ -215,7 +220,8 @@ export function ProjectsRow({
               <ChevronRight size={16} color={userTokens.textTertiary} />
             </View>
             <Text style={[styles.huchaText, { color: userTokens.textSecondary }]}>
-              🐷 Hucha: <Text style={[styles.huchaAmount, { color: HUCHA_PROJECT_COLOR }]}>{huchaParts.full}</Text>
+              🐷 {t(dictionary, "home.savings.hucha")}:{" "}
+              <Text style={[styles.huchaAmount, { color: HUCHA_PROJECT_COLOR }]}>{huchaParts.full}</Text>
             </Text>
           </>
         )}
@@ -240,10 +246,11 @@ export const SavingsMonthCard = ({
   monthLabel: string;
   currencySymbol: string;
 }) => {
+  const { dictionary } = useCopy();
   const projectsValue = toMinor(projectsMinor);
   const project = {
     id: "fallback",
-    name: "Proyecto",
+    name: t(dictionary, "home.savings.summary.fallbackProjectName" as any),
     emoji: "🎯",
     currentAmountMinor: projectsValue,
     goalAmountMinor: projectsValue > 0n ? projectsValue : 1n,

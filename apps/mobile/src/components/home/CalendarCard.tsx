@@ -138,14 +138,14 @@ export function CalendarCard({
               <TouchableOpacity
                 onPress={handlePrevMonth}
                 style={styles.navButton}
-                accessibilityLabel="Mes anterior"
+                accessibilityLabel="Previous month"
               >
                 <ChevronLeft size={18} color={colors.text.secondary} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleNextMonth}
                 style={styles.navButton}
-                accessibilityLabel="Mes siguiente"
+                accessibilityLabel="Next month"
               >
                 <ChevronRight size={18} color={colors.text.secondary} />
               </TouchableOpacity>
@@ -158,14 +158,14 @@ export function CalendarCard({
               <TouchableOpacity
                 onPress={onPrevWeek}
                 style={styles.navButton}
-                accessibilityLabel="Semana anterior"
+                accessibilityLabel="Previous week"
               >
                 <ChevronLeft size={18} color={colors.text.secondary} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={onNextWeek}
                 style={styles.navButton}
-                accessibilityLabel="Semana siguiente"
+                accessibilityLabel="Next week"
               >
                 <ChevronRight size={18} color={colors.text.secondary} />
               </TouchableOpacity>
