@@ -14,10 +14,19 @@ export function TransactionStepCarousel({
   steps,
   className,
 }: TransactionStepCarouselProps) {
+  const stepRefs = React.useRef<(HTMLDivElement | null)[]>([]);
+
+  React.useEffect(() => {
+    const activeStepEl = stepRefs.current[currentStep - 1];
+    if (activeStepEl) {
+      activeStepEl.scrollTop = 0;
+    }
+  }, [currentStep]);
+
   return (
     <div className={cn("overflow-hidden", className)}>
       <div
-        className="flex transition-transform duration-300 ease-out"
+        className="flex h-full transition-transform duration-300 ease-out"
         style={{
           transform: `translateX(-${(currentStep - 1) * 100}%)`,
         }}
@@ -25,7 +34,10 @@ export function TransactionStepCarousel({
         {steps.map((step, index) => (
           <div
             key={index}
-            className="w-full flex-shrink-0 px-1"
+            ref={(el) => {
+              stepRefs.current[index] = el;
+            }}
+            className="w-full flex-shrink-0 overflow-y-auto px-1"
             aria-hidden={currentStep !== index + 1}
           >
             {step}

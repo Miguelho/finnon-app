@@ -172,8 +172,6 @@ export async function TopNav() {
         <AddActionTrigger
           canEdit={canEdit}
           accountId={activeAccount.id}
-          currency={activeAccount.base_currency}
-          locale={locale}
           variant="footer-center"
         />
       ) : null}

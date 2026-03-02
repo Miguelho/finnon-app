@@ -274,6 +274,9 @@ export function AddTransactionForm({
   // Animation for carousel
   const slideAnim = useRef(new Animated.Value(0)).current;
 
+  // Scroll view refs for auto-scroll on step change (panels mode)
+  const scrollViewRefs = useRef<Record<string, KeyboardAwareScrollView | null>>({});
+
   // Load form mode from storage on mount
   useEffect(() => {
     AsyncStorage.getItem(FORM_MODE_KEY).then((value) => {
@@ -292,6 +295,16 @@ export function AddTransactionForm({
       tension: 40,
     }).start();
   }, [currentStep, slideAnim]);
+
+  // Auto-scroll to top on step change (panels mode)
+  useEffect(() => {
+    if (formMode !== "panels") return;
+    const stepKey = getStepKey(currentStep);
+    const scrollView = scrollViewRefs.current[stepKey];
+    if (scrollView) {
+      scrollView.scrollToPosition(0, 0, false);
+    }
+  }, [currentStep, formMode]);
 
   const handleFormModeChange = async (mode: FormMode) => {
     setFormModeState(mode);
@@ -741,6 +754,7 @@ export function AddTransactionForm({
             {useQuickAddStep && (
               <View style={styles.carouselStep}>
                 <KeyboardAwareScrollView
+                  ref={(el) => { scrollViewRefs.current.quickAdd = el; }}
                   style={styles.stepScrollView}
                   contentContainerStyle={styles.stepContent}
                   enableOnAndroid
@@ -760,6 +774,7 @@ export function AddTransactionForm({
 
             <View style={styles.carouselStep}>
               <KeyboardAwareScrollView
+                ref={(el) => { scrollViewRefs.current.details = el; }}
                 style={styles.stepScrollView}
                 contentContainerStyle={styles.stepContent}
                 enableOnAndroid
@@ -781,6 +796,7 @@ export function AddTransactionForm({
             {isRecurringMode && (
               <View style={styles.carouselStep}>
                 <KeyboardAwareScrollView
+                  ref={(el) => { scrollViewRefs.current.recurring = el; }}
                   style={styles.stepScrollView}
                   contentContainerStyle={styles.stepContent}
                   enableOnAndroid
@@ -794,6 +810,7 @@ export function AddTransactionForm({
 
             <View style={styles.carouselStep}>
               <KeyboardAwareScrollView
+                ref={(el) => { scrollViewRefs.current.category = el; }}
                 style={styles.stepScrollView}
                 contentContainerStyle={styles.stepContent}
                 enableOnAndroid
@@ -814,6 +831,7 @@ export function AddTransactionForm({
 
             <View style={styles.carouselStep}>
               <KeyboardAwareScrollView
+                ref={(el) => { scrollViewRefs.current.notes = el; }}
                 style={styles.stepScrollView}
                 contentContainerStyle={styles.stepContent}
                 enableOnAndroid

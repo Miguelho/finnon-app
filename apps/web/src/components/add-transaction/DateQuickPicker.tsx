@@ -53,7 +53,12 @@ export function DateQuickPicker({
 
   const handleCalendarClick = () => {
     if (dateInputRef.current) {
-      dateInputRef.current.showPicker();
+      try {
+        dateInputRef.current.showPicker();
+      } catch {
+        // Safari may block showPicker on hidden/clipped elements — fall back to click
+        dateInputRef.current.click();
+      }
     }
   };
 
@@ -102,7 +107,8 @@ export function DateQuickPicker({
           type="date"
           value={value}
           onChange={handleCalendarChange}
-          className="sr-only"
+          className="absolute opacity-0 pointer-events-none"
+          style={{ width: 0, height: 0 }}
           aria-label={t("datePickOther")}
           tabIndex={-1}
         />

@@ -62,7 +62,7 @@ export default function CreateTransactionScreen(): React.JSX.Element {
 
 function CreateMovementTransactionScreen(): React.JSX.Element {
   const router = useRouter();
-  const params = useLocalSearchParams<{ type?: string }>();
+  const params = useLocalSearchParams<{ type?: string; date?: string }>();
   const { selectedAccountId } = useAuth();
   const { cache, userId, emitMutation } = useDataCache();
   const loadCachedCategoriesAndSuggestions = useCachedCategoriesAndSuggestions();
@@ -87,6 +87,8 @@ function CreateMovementTransactionScreen(): React.JSX.Element {
   const resolvedType = Array.isArray(params.type) ? params.type[0] : params.type;
   const initialType: TransactionType =
     resolvedType === "income" ? "income" : "expense";
+  const resolvedDate = Array.isArray(params.date) ? params.date[0] : params.date;
+  const defaultDate = resolvedDate || undefined;
 
   useEffect(() => {
     if (!isFocused || !selectedAccountId) return;
@@ -261,6 +263,7 @@ function CreateMovementTransactionScreen(): React.JSX.Element {
           topCategories={topCategories}
           merchantSuggestions={merchantSuggestions}
           participants={participants}
+          defaultDate={defaultDate}
           onMutationSuccess={handleMutationSuccess}
           onSuccess={handleSuccess}
           onCancel={() => router.back()}

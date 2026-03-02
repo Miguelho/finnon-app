@@ -586,6 +586,10 @@ export function HomePageClient({
     setMonthReference(next);
   };
 
+  const handleAddTransaction = () => {
+    router.push(`/transactions/create?date=${selectedDayKey}`);
+  };
+
   return (
     <PageContainer className="pb-20 pt-7">
       <div className="space-y-3">
@@ -621,12 +625,23 @@ export function HomePageClient({
         />
 
         <div className="rounded-[14px] border border-border bg-card p-3">
-          <p className="text-[13px] font-semibold text-[var(--account-text-primary)]">
-            {locale === "en" ? "Day movements" : "Transacciones del día"}
-          </p>
-          <p className="mt-[2px] text-[11px] text-[var(--account-text-secondary)]">
-            {selectedDayLabel}
-          </p>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-[13px] font-semibold text-[var(--account-text-primary)]">
+                {locale === "en" ? "Day movements" : "Transacciones del día"}
+              </p>
+              <p className="mt-[2px] text-[11px] text-[var(--account-text-secondary)]">
+                {selectedDayLabel}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleAddTransaction}
+              className="rounded-full border border-[rgba(255,255,255,0.12)] px-2.5 py-[4px] text-[11px] font-semibold text-[var(--account-text-secondary)] transition-colors hover:bg-[rgba(255,255,255,0.06)]"
+            >
+              {locale === "en" ? "+ Add" : "+ Añadir"}
+            </button>
+          </div>
 
           {selectedDayMovementGroups.length === 0 ? (
             <p className="mt-2 text-[12px] text-[var(--account-text-tertiary)]">
@@ -719,8 +734,6 @@ export function HomePageClient({
       <AddActionTrigger
         canEdit={account.canEdit}
         accountId={account.id}
-        currency={account.baseCurrency}
-        locale={locale}
         variant="hidden"
       />
     </PageContainer>

@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
@@ -777,12 +778,24 @@ export default function HomeScreen() {
             { backgroundColor: userTokens.surface, borderColor: userTokens.border },
           ]}
         >
-          <Text style={[styles.dayTitle, { color: userTokens.textPrimary }]}>
-            {t(dictionary, "mobile.home.calendarTitle")}
-          </Text>
-          <Text style={[styles.daySubtitle, { color: userTokens.textSecondary }]}>
-            {selectedDayLabel}
-          </Text>
+          <View style={styles.dayCardHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.dayTitle, { color: userTokens.textPrimary }]}>
+                {t(dictionary, "mobile.home.calendarTitle")}
+              </Text>
+              <Text style={[styles.daySubtitle, { color: userTokens.textSecondary }]}>
+                {selectedDayLabel}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => router.push(`/(auth)/(tabs)/transactions/create?date=${selectedDayKey}`)}
+              style={styles.addPill}
+            >
+              <Text style={[styles.addPillText, { color: userTokens.textSecondary }]}>
+                {t(dictionary, "home.calendar.addCta")}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {selectedDayMovementGroups.length === 0 ? (
             <Text style={[styles.emptyDay, { color: userTokens.textTertiary }]}>
@@ -929,6 +942,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 14,
     padding: 12,
+  },
+  dayCardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  addPill: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  addPillText: {
+    fontSize: 11,
+    fontFamily: "DMSans-SemiBold",
   },
   dayTitle: {
     fontSize: 13,

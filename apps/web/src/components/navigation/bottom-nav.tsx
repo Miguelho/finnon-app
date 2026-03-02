@@ -26,8 +26,6 @@ type BottomNavProps = {
   addHref?: string;
   addAction?: {
     accountId: string;
-    currency: string;
-    locale: string;
     canEdit: boolean;
   };
 };
@@ -101,8 +99,6 @@ export function BottomNav({
           <AddActionTrigger
             canEdit={addAction.canEdit}
             accountId={addAction.accountId}
-            currency={addAction.currency}
-            locale={addAction.locale}
             variant="bottom-nav"
           />
         ) : (

@@ -31,8 +31,6 @@ export async function BottomNavWrapper() {
     cookieStore.get("finnon:activeAccountId")?.value ?? "";
   let addActionProps: {
     accountId: string;
-    currency: string;
-    locale: string;
     canEdit: boolean;
   } | null = null;
 
@@ -56,8 +54,6 @@ export async function BottomNavWrapper() {
             ?.role ?? "viewer";
         addActionProps = {
           accountId: account.id,
-          currency: account.base_currency,
-          locale,
           canEdit: role !== "viewer",
         };
       }

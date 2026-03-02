@@ -1358,6 +1358,18 @@ export const en = {
     addRecurringTitle: "Add recurring",
     addRecurringDescription:
       "A series that creates occurrences; confirm each one to log it.",
+    calendar: {
+      week: "Week",
+      month: "Month",
+      day: "Day",
+      income: "Income",
+      expense: "Expense",
+      net: "Net",
+      less: "Less",
+      moreExpense: "More expense",
+      equalsIncome: "= income",
+      addCta: "+ Add",
+    },
     savings: {
       title: "Savings",
       noSavings: "No savings this month yet.",

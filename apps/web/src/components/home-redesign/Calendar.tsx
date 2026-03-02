@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getHeatLevel, type CalendarDayData } from "@poleursus/shared";
 import { formatCurrencyParts } from "./utils";
 import { useWebUserTheme } from "@/components/theme/web-user-theme-provider";
+import { useTranslations } from "next-intl";
 
 const WEEK_BAR_LAYOUT = {
   phone: {
@@ -142,6 +143,7 @@ function TooltipContent({
   locale: string;
   expenseColor: string;
 }) {
+  const t = useTranslations();
   const expense = formatCurrencyParts(toMinorInt(day.totalExpense), currencySymbol, locale);
   const income = formatCurrencyParts(toMinorInt(day.totalIncome), currencySymbol, locale);
   const netAbs = formatCurrencyParts(
@@ -154,16 +156,16 @@ function TooltipContent({
   return (
     <div className="w-[220px] rounded-xl border border-[color:rgba(255,255,255,0.14)] bg-[var(--account-surface-alt)] p-3 shadow-[0_6px_20px_rgba(0,0,0,0.4)]">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-[var(--account-text-secondary)]">Expense</span>
+        <span className="text-[var(--account-text-secondary)]">{t("home.calendar.expense")}</span>
         <span style={{ color: expenseColor }}>−{expense.full}</span>
       </div>
       <div className="mt-1 flex items-center justify-between text-xs">
-        <span className="text-[var(--account-text-secondary)]">Income</span>
+        <span className="text-[var(--account-text-secondary)]">{t("home.calendar.income")}</span>
         <span style={{ color: INCOME }}>+{income.full}</span>
       </div>
       <div className="my-2 h-px bg-border" />
       <div className="flex items-center justify-between text-xs">
-        <span className="text-[var(--account-text-secondary)]">Neto</span>
+        <span className="text-[var(--account-text-secondary)]">{t("home.calendar.net")}</span>
         <span style={{ color: day.net >= 0 ? INCOME : expenseColor }}>
           {netSign}
           {netAbs.full}
@@ -185,6 +187,7 @@ export function Calendar({
   onNextPeriod,
   currencySymbol,
 }: CalendarProps) {
+  const t = useTranslations();
   const { theme } = useWebUserTheme();
   const [hoveredMonthDay, setHoveredMonthDay] = useState<CalendarDay | null>(null);
   const [hoveredWeekDay, setHoveredWeekDay] = useState<CalendarDay | null>(null);
@@ -270,8 +273,8 @@ export function Calendar({
 
   return (
     <div className="rounded-[14px] border border-border bg-card p-3">
-      <div className="grid grid-cols-3 items-center gap-3">
-        <div className="justify-self-start">
+      <div className="flex items-center gap-2">
+        <div className="shrink-0">
           <div className="inline-flex rounded-full bg-[rgba(255,255,255,0.04)] p-[2px]">
             <button
               type="button"
@@ -282,7 +285,7 @@ export function Calendar({
                   : "text-[var(--account-text-secondary)]"
               }`}
             >
-              Week
+              {t("home.calendar.week")}
             </button>
             <button
               type="button"
@@ -293,12 +296,12 @@ export function Calendar({
                   : "text-[var(--account-text-secondary)]"
               }`}
             >
-              Month
+              {t("home.calendar.month")}
             </button>
           </div>
         </div>
 
-        <div className="justify-self-center">
+        <div className="flex min-w-0 flex-1 items-center justify-end">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -307,7 +310,7 @@ export function Calendar({
             >
               ‹
             </button>
-            <span className="min-w-[120px] whitespace-nowrap text-center text-[13px] font-medium text-[var(--account-text-primary)]">
+            <span className="whitespace-nowrap text-center text-[13px] font-medium text-[var(--account-text-primary)]">
               {periodLabel}
             </span>
             <button
@@ -319,8 +322,6 @@ export function Calendar({
             </button>
           </div>
         </div>
-
-        <div />
       </div>
 
       {isWeek ? (
@@ -444,7 +445,7 @@ export function Calendar({
             ))}
             <div className="inline-flex items-center gap-1">
               <span className="h-[6px] w-[6px] rounded-[2px]" style={{ backgroundColor: INCOME }} />
-              <span className="text-[9px] text-[var(--account-text-tertiary)]">Income</span>
+              <span className="text-[9px] text-[var(--account-text-tertiary)]">{t("home.calendar.income")}</span>
             </div>
           </div>
         </div>
@@ -514,7 +515,7 @@ export function Calendar({
           </div>
 
           <div className="mt-2 flex flex-wrap items-center justify-center gap-[6px] border-t border-[color:rgba(255,255,255,0.12)] pt-2">
-            <span className="text-[9px] text-[var(--account-text-tertiary)]">Less</span>
+            <span className="text-[9px] text-[var(--account-text-tertiary)]">{t("home.calendar.less")}</span>
             <div className="flex items-center gap-[3px]">
               {[0, 1, 2, 3, 4, 5].map((level) => (
                 <span
@@ -529,9 +530,9 @@ export function Calendar({
                 />
               ))}
             </div>
-            <span className="text-[9px] text-[var(--account-text-tertiary)]">More expense</span>
+            <span className="text-[9px] text-[var(--account-text-tertiary)]">{t("home.calendar.moreExpense")}</span>
             <span className="text-[11px] font-bold text-[#6DC9A0]">5</span>
-            <span className="text-[9px] text-[var(--account-text-tertiary)]">= income</span>
+            <span className="text-[9px] text-[var(--account-text-tertiary)]">{t("home.calendar.equalsIncome")}</span>
           </div>
         </div>
       )}
@@ -539,7 +540,7 @@ export function Calendar({
       <div className="mt-2 flex items-start justify-between gap-3">
         <div className="text-left">
           <p className="mb-1 text-[9px] uppercase tracking-[0.45px] text-[var(--account-text-tertiary)]">
-            {locale.startsWith("en") ? "Day" : "Día"}
+            {t("home.calendar.day")}
           </p>
           <div className="flex items-center gap-1.5">
             <span className="rounded-full px-2 py-[4px] text-[10px] font-semibold" style={{ backgroundColor: INCOME_BG, color: INCOME }}>
@@ -555,7 +556,7 @@ export function Calendar({
         </div>
         <div className="text-right">
           <p className="mb-1 text-[9px] uppercase tracking-[0.45px] text-[var(--account-text-tertiary)]">
-            {locale.startsWith("en") ? "Month" : "Mes"}
+            {t("home.calendar.month")}
           </p>
           <div className="flex items-center gap-1.5">
             <span className="rounded-full px-2 py-[4px] text-[10px] font-semibold" style={{ backgroundColor: INCOME_BG, color: INCOME }}>

@@ -13,7 +13,7 @@ import {
   themeTokens,
   type CalendarDayData,
 } from "@poleursus/shared";
-import { useCopy } from "../../lib/i18n";
+import { useCopy, t } from "../../lib/i18n";
 import { useUserTheme } from "../../contexts/UserThemeContext";
 import { formatCurrencyParts } from "./utils";
 
@@ -156,6 +156,7 @@ function CalendarTooltip({
   expenseColor: string;
 }) {
   const { tokens: userTokens } = useUserTheme();
+  const { dictionary } = useCopy();
   const { integer: expenseInt, decimals: expenseDec } = formatCurrencyParts(
     toMinorInt(day.totalExpense),
     currencySymbol
@@ -180,14 +181,14 @@ function CalendarTooltip({
           ]}
         >
           <View style={styles.tooltipRow}>
-            <Text style={[styles.tooltipLabel, { color: userTokens.textSecondary }]}>Expense</Text>
+            <Text style={[styles.tooltipLabel, { color: userTokens.textSecondary }]}>{t(dictionary, "home.calendar.expense")}</Text>
             <Text style={[styles.tooltipValue, { color: expenseColor }]}>
               −{expenseInt},{expenseDec}
             </Text>
           </View>
           <View style={styles.tooltipRow}>
             <Text style={[styles.tooltipLabel, { color: userTokens.textSecondary }]}>
-              Income
+              {t(dictionary, "home.calendar.income")}
             </Text>
             <Text style={[styles.tooltipValue, { color: INCOME }]}>
               +{incomeInt},{incomeDec}
@@ -195,7 +196,7 @@ function CalendarTooltip({
           </View>
           <View style={[styles.tooltipDivider, { backgroundColor: userTokens.border }]} />
           <View style={styles.tooltipRow}>
-            <Text style={[styles.tooltipLabel, { color: userTokens.textSecondary }]}>Neto</Text>
+            <Text style={[styles.tooltipLabel, { color: userTokens.textSecondary }]}>{t(dictionary, "home.calendar.net")}</Text>
             <Text
               style={[
                 styles.tooltipValue,
@@ -226,7 +227,7 @@ export function Calendar({
 }: CalendarProps) {
   const isWeek = view === "week";
   const { width, height } = useWindowDimensions();
-  const { locale } = useCopy();
+  const { locale, dictionary } = useCopy();
   const { tokens: userTokens, theme } = useUserTheme();
   const [tooltipDay, setTooltipDay] = useState<CalendarDay | null>(null);
   const activeTheme = theme === "oceano" ? "oceano" : "grafito";
@@ -322,7 +323,7 @@ export function Calendar({
             onPress={() => onViewChange("week")}
           >
             <Text style={[styles.toggleText, { color: userTokens.textSecondary }, isWeek && { color: userTokens.textPrimary }]}>
-              Week
+              {t(dictionary, "home.calendar.week")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -336,7 +337,7 @@ export function Calendar({
                 !isWeek && { color: userTokens.textPrimary },
               ]}
             >
-              Month
+              {t(dictionary, "home.calendar.month")}
             </Text>
           </TouchableOpacity>
         </View>
@@ -488,7 +489,7 @@ export function Calendar({
             <View style={styles.weekLegendItem}>
               <View style={[styles.legendDot, { backgroundColor: INCOME }]} />
               <Text style={[styles.weekLegendLabel, { color: userTokens.textTertiary }]}>
-                Income
+                {t(dictionary, "home.calendar.income")}
               </Text>
             </View>
           </View>
@@ -565,7 +566,7 @@ export function Calendar({
           </View>
 
           <View style={[styles.monthLegend, { borderTopColor: userTokens.border }]}>
-            <Text style={[styles.monthLegendLabel, { color: userTokens.textTertiary }]}>Less</Text>
+            <Text style={[styles.monthLegendLabel, { color: userTokens.textTertiary }]}>{t(dictionary, "home.calendar.less")}</Text>
             <View style={styles.monthLegendScale}>
               {[0, 1, 2, 3, 4, 5].map((level) => (
                 <View
@@ -583,11 +584,11 @@ export function Calendar({
               ))}
             </View>
             <Text style={[styles.monthLegendLabel, { color: userTokens.textTertiary }]}>
-              More expense
+              {t(dictionary, "home.calendar.moreExpense")}
             </Text>
             <Text style={[styles.monthLegendIncome, { color: INCOME }]}>5</Text>
             <Text style={[styles.monthLegendLabel, { color: userTokens.textTertiary }]}>
-              = income
+              {t(dictionary, "home.calendar.equalsIncome")}
             </Text>
           </View>
         </View>
@@ -596,7 +597,7 @@ export function Calendar({
       <View style={styles.summaryAxis}>
         <View style={styles.summaryBlockLeft}>
           <Text style={[styles.summaryTitle, { color: userTokens.textTertiary }]}>
-            {locale === "en" ? "Day" : "Día"}
+            {t(dictionary, "home.calendar.day")}
           </Text>
           <View style={styles.summaryPillsLeft}>
             <View style={[styles.pill, { backgroundColor: INCOME_BG }]}>
@@ -613,7 +614,7 @@ export function Calendar({
         </View>
         <View style={styles.summaryBlockRight}>
           <Text style={[styles.summaryTitle, { color: userTokens.textTertiary }]}>
-            {isWeek ? "Week" : "Month"}
+            {isWeek ? t(dictionary, "home.calendar.week") : t(dictionary, "home.calendar.month")}
           </Text>
           <View style={styles.summaryPillsRight}>
             <View style={[styles.pill, { backgroundColor: INCOME_BG }]}>
