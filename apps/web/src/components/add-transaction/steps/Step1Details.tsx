@@ -8,6 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -16,18 +23,20 @@ import {
 } from "@/components/ui/dialog";
 import { FutureObligationSuggestion } from "../FutureObligationSuggestion";
 import { DateQuickPicker } from "../DateQuickPicker";
+import { Step0QuickAdd } from "./Step0QuickAdd";
+import { PaidBySelector } from "./PaidBySelector";
+import { SplitSelector } from "./SplitSelector";
 import type {
   TransactionDraft,
   TransactionType,
   ObligationType,
-  ContributionSplitType,
 } from "@poleursus/shared";
 import {
   formatDateForDisplay,
   parseMoneyToMinor,
-  formatMinorToMoney,
   buildEqualSplit,
   CURRENCY_MINOR_UNITS,
+  CURRENCIES,
 } from "@poleursus/shared";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +44,14 @@ interface Step1DetailsProps {
   draft: TransactionDraft;
   errors: Record<string, string>;
   locale: string;
+  accountId?: string;
+  categories?: {
+    id: string;
+    name: string;
+    icon_id: string;
+    type: "income" | "expense";
+  }[];
+  showQuickAdd?: boolean;
   onFieldChange: <K extends keyof TransactionDraft>(
     field: K,
     value: TransactionDraft[K]
@@ -72,6 +89,9 @@ export function Step1Details({
   draft,
   errors,
   locale,
+  accountId = "",
+  categories = [],
+  showQuickAdd = false,
   onFieldChange,
   allowObligation = true,
   splitParticipants = [],
@@ -88,9 +108,7 @@ export function Step1Details({
     React.useState(false);
   const [dismissedFutureSuggestion, setDismissedFutureSuggestion] =
     React.useState(false);
-  const [customSplitInputs, setCustomSplitInputs] = React.useState<
-    Record<string, string>
-  >({});
+  const [paidByBoth, setPaidByBoth] = React.useState(() => draft.paidByUserId === null);
   const openedFromToggleRef = React.useRef(false);
 
   const sanitizeNumericInput = (value: string) =>
@@ -243,6 +261,15 @@ export function Step1Details({
     [visibleSplitParticipants]
   );
   const canConfigureSplit = splitParticipantIds.length >= 2;
+  const shouldShowSplitSection = canConfigureSplit && draft.type !== "income";
+  const currencyCodes = React.useMemo(
+    () => Object.keys(CURRENCY_MINOR_UNITS).sort(),
+    []
+  );
+  const currencySymbol = React.useMemo(
+    () => CURRENCIES.find((item) => item.code === draft.currency)?.symbol ?? draft.currency,
+    [draft.currency]
+  );
 
   const resolveAmountMinor = React.useCallback(() => {
     const parsed = parseMoneyToMinor(
@@ -256,8 +283,13 @@ export function Step1Details({
 
   React.useEffect(() => {
     if (!canConfigureSplit) return;
+    if (draft.type === "income") return;
+    if (paidByBoth) return;
     if (draft.paidByUserId) return;
-    const fallbackPaidBy = currentUserId ?? splitParticipantIds[0] ?? null;
+    const fallbackPaidBy =
+      (currentUserId && splitParticipantIds.includes(currentUserId)
+        ? currentUserId
+        : splitParticipantIds[0]) ?? null;
     if (fallbackPaidBy) {
       onFieldChange("paidByUserId", fallbackPaidBy);
     }
@@ -266,11 +298,14 @@ export function Step1Details({
     currentUserId,
     draft.paidByUserId,
     onFieldChange,
+    paidByBoth,
     splitParticipantIds,
+    draft.type,
   ]);
 
   React.useEffect(() => {
     if (!canConfigureSplit) return;
+    if (draft.type === "income") return;
     if (draft.splitType !== "custom") return;
     if (draft.splitDetails && draft.splitDetails.length > 0) return;
     const amountMinor = resolveAmountMinor();
@@ -283,99 +318,86 @@ export function Step1Details({
     onFieldChange,
     resolveAmountMinor,
     splitParticipantIds,
+    draft.type,
   ]);
 
   React.useEffect(() => {
-    if (!canConfigureSplit || draft.splitType !== "custom") {
-      setCustomSplitInputs((prev) => (Object.keys(prev).length > 0 ? {} : prev));
+    if (!canConfigureSplit || draft.type === "income") {
+      if (paidByBoth) {
+        setPaidByBoth(false);
+      }
       return;
     }
-    const details = draft.splitDetails ?? [];
-    const nextInputs: Record<string, string> = {};
-    splitParticipantIds.forEach((userId) => {
-      const detail = details.find((item) => item.userId === userId);
-      const shareMinor = detail?.shareMinor ?? 0;
-      nextInputs[userId] = formatMinorToMoney(
-        BigInt(Math.max(0, shareMinor)),
-        draft.currency,
-        CURRENCY_MINOR_UNITS
-      ).replace(".", ",");
-    });
-    setCustomSplitInputs((prev) => {
-      const prevKeys = Object.keys(prev);
-      const nextKeys = Object.keys(nextInputs);
-      if (
-        prevKeys.length === nextKeys.length &&
-        nextKeys.every((key) => prev[key] === nextInputs[key])
-      ) {
-        return prev;
-      }
-      return nextInputs;
-    });
+
+    const shouldBeBoth = draft.paidByUserId === null;
+    if (paidByBoth !== shouldBeBoth) {
+      setPaidByBoth(shouldBeBoth);
+    }
+  }, [canConfigureSplit, draft.paidByUserId, draft.type, paidByBoth]);
+
+  React.useEffect(() => {
+    if (!canConfigureSplit) return;
+    if (draft.type !== "income") return;
+    if (draft.splitType !== "equal") {
+      onFieldChange("splitType", "equal");
+    }
+    if (draft.splitDetails !== null) {
+      onFieldChange("splitDetails", null);
+    }
   }, [
     canConfigureSplit,
-    draft.currency,
     draft.splitDetails,
     draft.splitType,
-    splitParticipantIds,
+    draft.type,
+    onFieldChange,
   ]);
 
-  const handlePaidByChange = (userId: string) => {
-    onFieldChange("paidByUserId", userId);
+  const handlePaidByChange = (userId: string | null, bothSelected: boolean) => {
+    setPaidByBoth(bothSelected);
+    if (bothSelected) {
+      onFieldChange("paidByUserId", null);
+      return;
+    }
+
+    const nextUserId =
+      userId ??
+      (currentUserId && splitParticipantIds.includes(currentUserId)
+        ? currentUserId
+        : splitParticipantIds[0] ?? null);
+    onFieldChange("paidByUserId", nextUserId);
   };
 
-  const handleSplitTypeChange = (value: ContributionSplitType) => {
+  const handleSplitTypeChange = (
+    value: "equal" | "personal" | "custom",
+    splitDetails?: TransactionDraft["splitDetails"]
+  ) => {
     onFieldChange("splitType", value);
     if (value !== "custom") {
       onFieldChange("splitDetails", null);
       return;
     }
-    const amountMinor = resolveAmountMinor() ?? 0;
-    onFieldChange("splitDetails", buildEqualSplit(amountMinor, splitParticipantIds));
-  };
-
-  const applyCustomSplitValue = (userId: string, rawValue: string) => {
     const amountMinor = resolveAmountMinor();
-    if (amountMinor === null) return;
-
-    const sanitized = rawValue.replace(/[^0-9.,]/g, "");
-    setCustomSplitInputs((prev) => ({ ...prev, [userId]: sanitized }));
-
-    const parsedTarget = parseMoneyToMinor(
-      sanitized || "0",
-      draft.currency,
-      CURRENCY_MINOR_UNITS
+    if (splitDetails && splitDetails.length > 0) {
+      onFieldChange("splitDetails", splitDetails);
+      return;
+    }
+    onFieldChange(
+      "splitDetails",
+      buildEqualSplit(amountMinor ?? 0, splitParticipantIds)
     );
-
-    const targetValue = Math.max(
-      0,
-      Math.min(
-        amountMinor,
-        typeof parsedTarget === "bigint" ? Number(parsedTarget) : 0
-      )
-    );
-
-    const otherUserIds = splitParticipantIds.filter((id) => id !== userId);
-    const remaining = Math.max(0, amountMinor - targetValue);
-    const baseShare =
-      otherUserIds.length > 0 ? Math.floor(remaining / otherUserIds.length) : 0;
-    const remainder =
-      otherUserIds.length > 0 ? remaining % otherUserIds.length : 0;
-
-    const nextDetails = splitParticipantIds.map((id) => {
-      if (id === userId) {
-        return { userId: id, shareMinor: targetValue };
-      }
-      const otherIndex = otherUserIds.indexOf(id);
-      return {
-        userId: id,
-        shareMinor:
-          baseShare + (otherIndex >= 0 && otherIndex < remainder ? 1 : 0),
-      };
-    });
-
-    onFieldChange("splitDetails", nextDetails);
   };
+
+  const paidByParticipant =
+    visibleSplitParticipants.find((member) => member.userId === draft.paidByUserId) ??
+    null;
+  const paidByFirstName = paidByParticipant?.name.trim().split(/\s+/)[0] ?? "";
+  const personalSplitLabel =
+    !paidByBoth &&
+    draft.paidByUserId &&
+    draft.paidByUserId !== currentUserId &&
+    paidByFirstName
+      ? t("splitPersonalOf", { name: paidByFirstName })
+      : t("splitPersonalOption");
 
   return (
     <div className="space-y-6">
@@ -436,6 +458,16 @@ export function Step1Details({
         </div>
       </div>
 
+      {showQuickAdd ? (
+        <Step0QuickAdd
+          accountId={accountId}
+          locale={locale}
+          categories={categories}
+          draft={draft}
+          onFieldChange={onFieldChange}
+        />
+      ) : null}
+
       {allowObligation && draft.type === "expense" && draft.isObligation && (
         <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
           {/* Obligation toggle */}
@@ -485,7 +517,25 @@ export function Step1Details({
         <Label htmlFor="amount" className="text-lg font-bold">
           {t("amountLabel")}
         </Label>
-        <div className="relative">
+        <div className="flex items-center justify-start">
+          <Select
+            value={draft.currency}
+            onValueChange={(nextCurrency) => onFieldChange("currency", nextCurrency)}
+          >
+            <SelectTrigger className="h-8 w-24 shrink-0 rounded-md border-border bg-muted/40 px-2.5 text-xs font-semibold">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-80">
+              {currencyCodes.map((code) => (
+                <SelectItem key={code} value={code}>
+                  {code}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex min-h-12 items-end gap-1">
           <Input
             id="amount"
             type="text"
@@ -496,12 +546,15 @@ export function Step1Details({
             }
             pattern="[0-9]*[.,]?[0-9]*"
             placeholder={locale === "es" ? "0,00" : "0.00"}
-            className="h-14 text-2xl font-semibold pr-20 leading-tight"
+            className={cn(
+              "h-auto flex-1 border-0 bg-transparent px-0 py-0 text-[40px] font-light leading-none tracking-[-0.04em] shadow-none",
+              "[font-variant-numeric:tabular-nums] placeholder:text-muted-foreground/70",
+              "focus-visible:ring-0 focus-visible:ring-offset-0"
+            )}
+            style={{ caretColor: "hsl(var(--primary))" }}
             autoComplete="off"
           />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-foreground">
-            {draft.currency}
-          </span>
+          <span className="pb-1 text-xl text-muted-foreground">{currencySymbol}</span>
         </div>
         {errors.amount ? (
           <p className="text-sm text-destructive">
@@ -518,33 +571,19 @@ export function Step1Details({
         )}
       </div>
 
-      {canConfigureSplit && (
-        <>
-          <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+      {shouldShowSplitSection && (
+        <div className="overflow-hidden rounded-xl border border-border bg-muted/30">
+          <div className="space-y-3 p-4">
             <Label className="text-sm font-semibold text-foreground">
               {draft.type === "income" ? t("receivedByLabel") : t("paidByLabel")}
             </Label>
-            <div className="flex flex-wrap gap-2">
-              {visibleSplitParticipants.map((member) => {
-                const isSelected = draft.paidByUserId === member.userId;
-                return (
-                  <button
-                    key={member.userId}
-                    type="button"
-                    onClick={() => handlePaidByChange(member.userId)}
-                    className={cn(
-                      "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                      isSelected
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-background text-foreground hover:bg-muted/50"
-                    )}
-                  >
-                    {member.name}
-                  </button>
-                );
-              })}
-            </div>
+            <PaidBySelector
+              participants={visibleSplitParticipants}
+              currentUserId={currentUserId}
+              value={draft.paidByUserId}
+              bothSelected={paidByBoth}
+              onChange={handlePaidByChange}
+            />
             {errors.paidByUserId ? (
               <p className="text-sm text-destructive">
                 {draft.type === "income"
@@ -554,63 +593,21 @@ export function Step1Details({
             ) : null}
           </div>
 
-          <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+          <div className="mx-4 h-px bg-border" />
+
+          <div className="space-y-3 p-4">
             <Label className="text-sm font-semibold text-foreground">
               {t("splitLabel")}
             </Label>
-            <div className="grid grid-cols-3 gap-2 rounded-full border border-border bg-muted/40 p-1">
-              {(
-                [
-                  { key: "equal", label: "splitEqualOption" },
-                  { key: "personal", label: "splitPersonalOption" },
-                  { key: "custom", label: "splitCustomOption" },
-                ] as const
-              ).map((option) => {
-                const isActive = draft.splitType === option.key;
-                return (
-                  <button
-                    key={option.key}
-                    type="button"
-                    onClick={() => handleSplitTypeChange(option.key)}
-                    className={cn(
-                      "rounded-full px-2 py-2 text-xs font-semibold transition-colors sm:text-sm",
-                      isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {t(option.label)}
-                  </button>
-                );
-              })}
-            </div>
-
-            {draft.splitType === "custom" && (
-              <div className="space-y-3 rounded-lg border border-border bg-background p-3">
-                <p className="text-xs font-medium text-muted-foreground">
-                  {t("splitCustomHelper")}
-                </p>
-                <div className="space-y-2">
-                  {visibleSplitParticipants.map((member) => (
-                    <div
-                      key={member.userId}
-                      className="flex items-center justify-between gap-3"
-                    >
-                      <span className="text-sm text-foreground">{member.name}</span>
-                      <Input
-                        value={customSplitInputs[member.userId] ?? ""}
-                        onChange={(event) =>
-                          applyCustomSplitValue(member.userId, event.target.value)
-                        }
-                        placeholder={locale === "es" ? "0,00" : "0.00"}
-                        inputMode="decimal"
-                        className="h-9 w-28 text-right text-sm"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <SplitSelector
+              value={draft.splitType}
+              paidByBoth={paidByBoth}
+              participants={visibleSplitParticipants}
+              splitDetails={draft.splitDetails}
+              totalAmountMinor={resolveAmountMinor() ?? 0}
+              personalLabel={personalSplitLabel}
+              onChange={handleSplitTypeChange}
+            />
 
             {errors.splitDetails ? (
               <p className="text-sm text-destructive">
@@ -618,7 +615,7 @@ export function Step1Details({
               </p>
             ) : null}
           </div>
-        </>
+        </div>
       )}
 
       {/* Date field */}

@@ -16,7 +16,12 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import {
   themeTokens,
   ConfirmationModal,
+  computeCategoryOccurrencesByType,
+  EMPTY_CATEGORY_OCCURRENCES_BY_TYPE,
+  formatDateISO,
   type TransactionDraft,
+  type Transaction,
+  type CategoryOccurrencesByType,
   type ContributionSplitType,
   type FormMode,
   type StepStatus,
@@ -29,10 +34,11 @@ import {
   createInitialDraft,
   validateStep1,
   validateStep2,
-  validateStep3,
   parseMoneyToMinor,
   CURRENCY_MINOR_UNITS,
+  normalizeMerchant,
 } from "@poleursus/shared";
+import { useCachedTransactionsRange } from "../../cache/hooks";
 import { useCopy, t } from "../../lib/i18n";
 import { useAuth } from "../../contexts/AuthContext";
 import { useUserTheme } from "../../contexts/UserThemeContext";
@@ -41,7 +47,7 @@ import { Button } from "../Button";
 import { DatePickerField } from "../DatePickerField";
 import { TransactionStepperBreadcrumb } from "./TransactionStepperBreadcrumb";
 import { FormModeToggle } from "./FormModeToggle";
-import { Step0QuickAdd, Step1Details, Step2Category, Step3Notes } from "./steps";
+import { Step1Details, Step2Category } from "./steps";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -52,6 +58,12 @@ const parseIsoDate = (value: string) => {
   const [year, month, day] = value.split("-").map((part) => Number(part));
   if (!year || !month || !day) return null;
   return new Date(year, month - 1, day);
+};
+
+const subtractDays = (date: Date, days: number) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() - days);
+  return next;
 };
 
 const isFutureDate = (value: string) => {
@@ -86,13 +98,68 @@ type FormParticipant = {
 
 type SubmitMode = "transaction" | "recurring";
 
-type FormStepKey = "quickAdd" | "details" | "recurring" | "category" | "notes";
+type FormStepKey = "details" | "recurring" | "category";
 
 type RecurringSubmitData = {
   frequency: RecurringFrequency;
   interval: number;
   startDate: string;
   endDate: string | null;
+};
+
+type CategoryMerchantsByType = {
+  expense: Record<string, string[]>;
+  income: Record<string, string[]>;
+};
+
+type CategoryMerchantRow = {
+  type: "income" | "expense" | null;
+  category_id: string | null;
+  merchant: string | null;
+};
+
+const EMPTY_CATEGORY_MERCHANTS: CategoryMerchantsByType = {
+  expense: {},
+  income: {},
+};
+
+const buildCategoryMerchantsByType = (
+  rows: CategoryMerchantRow[]
+): CategoryMerchantsByType => {
+  const grouped: CategoryMerchantsByType = {
+    expense: {},
+    income: {},
+  };
+  const seen = {
+    expense: new Map<string, Set<string>>(),
+    income: new Map<string, Set<string>>(),
+  };
+
+  rows.forEach((row) => {
+    if (row.type !== "income" && row.type !== "expense") return;
+    if (!row.category_id) return;
+    if (!row.merchant) return;
+    const txType = row.type;
+    const categoryId = row.category_id;
+
+    const merchant = row.merchant.trim().replace(/\s+/g, " ");
+    if (!merchant) return;
+
+    const normalized = normalizeMerchant(merchant);
+    const categoryMap = seen[txType];
+    const categorySeen = categoryMap.get(categoryId) ?? new Set<string>();
+
+    if (categorySeen.has(normalized)) return;
+    categorySeen.add(normalized);
+    categoryMap.set(categoryId, categorySeen);
+
+    if (!grouped[txType][categoryId]) {
+      grouped[txType][categoryId] = [];
+    }
+    grouped[txType][categoryId].push(merchant);
+  });
+
+  return grouped;
 };
 
 interface AddTransactionFormProps {
@@ -159,10 +226,8 @@ export function AddTransactionForm({
   const isRecurringMode = submitMode === "recurring";
   const useQuickAddStep = mode === "create" && !isRecurringMode;
   const stepOrder: FormStepKey[] = isRecurringMode
-    ? ["details", "recurring", "category", "notes"]
-    : useQuickAddStep
-      ? ["quickAdd", "details", "category", "notes"]
-      : ["details", "category", "notes"];
+    ? ["details", "recurring", "category"]
+    : ["details", "category"];
   const totalSteps = stepOrder.length;
   const activeSplitParticipants = useMemo(
     () =>
@@ -177,6 +242,7 @@ export function AddTransactionForm({
     [activeSplitParticipants]
   );
   const isSharedSplitAccount = activeSplitParticipants.length >= 2;
+  const hasParticipantsContext = participants.length > 0;
 
   // Form state
   const [draft, setDraft] = useState<TransactionDraft>(() =>
@@ -186,6 +252,11 @@ export function AddTransactionForm({
   // Get current top categories and merchant suggestions based on draft type
   const currentTopCategories = topCategories[draft.type];
   const currentMerchantSuggestions = merchantSuggestions[draft.type];
+  const loadCachedTransactionsRange = useCachedTransactionsRange();
+  const [categoryMerchantsByType, setCategoryMerchantsByType] =
+    useState<CategoryMerchantsByType>(EMPTY_CATEGORY_MERCHANTS);
+  const [categoryOccurrencesByType, setCategoryOccurrencesByType] =
+    useState<CategoryOccurrencesByType>(EMPTY_CATEGORY_OCCURRENCES_BY_TYPE);
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -194,6 +265,90 @@ export function AddTransactionForm({
     useState<RecurringFrequency>("monthly");
   const [recurringInterval, setRecurringInterval] = useState("1");
   const [recurringEndDate, setRecurringEndDate] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setCategoryMerchantsByType(EMPTY_CATEGORY_MERCHANTS);
+
+    const loadCategoryMerchants = async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("type, category_id, merchant")
+        .eq("account_id", accountId)
+        .not("category_id", "is", null)
+        .not("merchant", "is", null)
+        .order("date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(400);
+
+      if (error) {
+        console.error("[AddTransactionForm] Error loading category merchants:", error);
+        return;
+      }
+
+      if (cancelled) return;
+      setCategoryMerchantsByType(
+        buildCategoryMerchantsByType((data ?? []) as CategoryMerchantRow[])
+      );
+    };
+
+    void loadCategoryMerchants();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+
+  useEffect(() => {
+    if (!accountId) {
+      setCategoryOccurrencesByType(EMPTY_CATEGORY_OCCURRENCES_BY_TYPE);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadCategoryOccurrences = async () => {
+      const today = new Date();
+      const start = formatDateISO(subtractDays(today, 90));
+      const end = formatDateISO(today);
+
+      try {
+        const transactions = await loadCachedTransactionsRange<Transaction[]>({
+          accountId,
+          start,
+          end,
+          loader: async () => {
+            const { data, error } = await supabase
+              .from("transactions")
+              .select(
+                "id, account_id, type, amount_minor, currency, category_id, date, merchant, created_at"
+              )
+              .eq("account_id", accountId)
+              .gte("date", start)
+              .lte("date", end)
+              .order("date", { ascending: false })
+              .order("created_at", { ascending: false });
+            if (error) throw error;
+            return (data ?? []) as Transaction[];
+          },
+        });
+
+        if (cancelled) return;
+        setCategoryOccurrencesByType(computeCategoryOccurrencesByType(transactions));
+      } catch (error) {
+        console.error("[AddTransactionForm] Error loading category occurrences:", error);
+        if (!cancelled) {
+          setCategoryOccurrencesByType(EMPTY_CATEGORY_OCCURRENCES_BY_TYPE);
+        }
+      }
+    };
+
+    void loadCategoryOccurrences();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, loadCachedTransactionsRange]);
 
   useEffect(() => {
     if (initialDraft) {
@@ -229,20 +384,32 @@ export function AddTransactionForm({
       const next = { ...prev };
       let changed = false;
 
-      const defaultPaidBy =
-        prev.paidByUserId ??
-        user?.id ??
-        activeSplitParticipants[0]?.userId ??
-        null;
+      const shouldAutofillPaidBy = !(hasParticipantsContext && isSharedSplitAccount);
+      if (shouldAutofillPaidBy) {
+        const defaultPaidBy =
+          prev.paidByUserId ??
+          user?.id ??
+          activeSplitParticipants[0]?.userId ??
+          null;
 
-      if (defaultPaidBy && defaultPaidBy !== prev.paidByUserId) {
-        next.paidByUserId = defaultPaidBy;
-        changed = true;
+        if (defaultPaidBy && defaultPaidBy !== prev.paidByUserId) {
+          next.paidByUserId = defaultPaidBy;
+          changed = true;
+        }
       }
 
       if (!isSharedSplitAccount) {
         if (prev.splitType !== "personal") {
           next.splitType = "personal";
+          changed = true;
+        }
+        if (prev.splitDetails !== null) {
+          next.splitDetails = null;
+          changed = true;
+        }
+      } else if (prev.type === "income") {
+        if (prev.splitType !== "equal") {
+          next.splitType = "equal";
           changed = true;
         }
         if (prev.splitDetails !== null) {
@@ -266,7 +433,13 @@ export function AddTransactionForm({
 
       return changed ? next : prev;
     });
-  }, [activeSplitMemberIds, activeSplitParticipants, isSharedSplitAccount, user?.id]);
+  }, [
+    activeSplitMemberIds,
+    activeSplitParticipants,
+    hasParticipantsContext,
+    isSharedSplitAccount,
+    user?.id,
+  ]);
 
   // Form mode (panels vs list)
   const [formMode, setFormModeState] = useState<FormMode>("panels");
@@ -343,10 +516,6 @@ export function AddTransactionForm({
       return validateStep1(draft);
     }
 
-    if (stepKey === "quickAdd") {
-      return { valid: true, errors: {} };
-    }
-
     if (stepKey === "recurring") {
       const recurringErrors: Record<string, string> = {};
       const interval = Number(recurringInterval);
@@ -367,7 +536,7 @@ export function AddTransactionForm({
       return validateStep2(draft);
     }
 
-    return validateStep3(draft);
+    return { valid: true, errors: {} };
   };
 
   const handleNext = () => {
@@ -442,6 +611,9 @@ export function AddTransactionForm({
 
     if (!isSharedSplitAccount) {
       normalizedDraft.splitType = "personal";
+      normalizedDraft.splitDetails = null;
+    } else if (normalizedDraft.type === "income") {
+      normalizedDraft.splitType = "equal";
       normalizedDraft.splitDetails = null;
     } else if (normalizedDraft.splitType === "custom") {
       const amountMinorResult = parseMoneyToMinor(
@@ -699,11 +871,9 @@ export function AddTransactionForm({
   );
 
   const getStepLabel = (stepKey: FormStepKey) => {
-    if (stepKey === "quickAdd") return translateDynamic("addTransaction.stepQuickAdd");
     if (stepKey === "details") return translateDynamic("addTransaction.stepDetails");
     if (stepKey === "recurring") return translateDynamic("transactions.repeat.label");
-    if (stepKey === "category") return translateDynamic("addTransaction.stepCategory");
-    return translateDynamic("addTransaction.stepNotes");
+    return translateDynamic("addTransaction.stepCategory");
   };
 
   // Step status calculation
@@ -751,27 +921,6 @@ export function AddTransactionForm({
               },
             ]}
           >
-            {useQuickAddStep && (
-              <View style={styles.carouselStep}>
-                <KeyboardAwareScrollView
-                  ref={(el) => { scrollViewRefs.current.quickAdd = el; }}
-                  style={styles.stepScrollView}
-                  contentContainerStyle={styles.stepContent}
-                  enableOnAndroid
-                  extraScrollHeight={80}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  <Step0QuickAdd
-                    accountId={accountId}
-                    categories={categories}
-                    draft={draft}
-                    onFieldChange={handleFieldChange}
-                    onContinueManual={handleNext}
-                  />
-                </KeyboardAwareScrollView>
-              </View>
-            )}
-
             <View style={styles.carouselStep}>
               <KeyboardAwareScrollView
                 ref={(el) => { scrollViewRefs.current.details = el; }}
@@ -784,6 +933,9 @@ export function AddTransactionForm({
                 <Step1Details
                   draft={draft}
                   errors={errors}
+                  accountId={accountId}
+                  categories={categories}
+                  showQuickAdd={useQuickAddStep}
                   onFieldChange={handleFieldChange}
                   allowObligation={allowObligation}
                   splitParticipants={activeSplitParticipants}
@@ -822,26 +974,11 @@ export function AddTransactionForm({
                   errors={errors}
                   topCategories={currentTopCategories}
                   allCategories={categories}
+                  categoryOccurrenceCounts={categoryOccurrencesByType[draft.type]}
                   merchantSuggestions={currentMerchantSuggestions}
+                  categoryMerchantOptions={categoryMerchantsByType[draft.type]}
                   onFieldChange={handleFieldChange}
                   onAddCategory={handleRequestAddCategory}
-                />
-              </KeyboardAwareScrollView>
-            </View>
-
-            <View style={styles.carouselStep}>
-              <KeyboardAwareScrollView
-                ref={(el) => { scrollViewRefs.current.notes = el; }}
-                style={styles.stepScrollView}
-                contentContainerStyle={styles.stepContent}
-                enableOnAndroid
-                extraScrollHeight={80}
-                keyboardShouldPersistTaps="handled"
-              >
-                <Step3Notes
-                  draft={draft}
-                  errors={errors}
-                  onFieldChange={handleFieldChange}
                 />
               </KeyboardAwareScrollView>
             </View>
@@ -914,21 +1051,13 @@ export function AddTransactionForm({
         extraScrollHeight={80}
         keyboardShouldPersistTaps="handled"
       >
-        {useQuickAddStep && (
-          <View style={styles.listSection}>
-            <Step0QuickAdd
-              accountId={accountId}
-              categories={categories}
-              draft={draft}
-              onFieldChange={handleFieldChange}
-            />
-          </View>
-        )}
-
         <View style={styles.listSection}>
           <Step1Details
             draft={draft}
             errors={errors}
+            accountId={accountId}
+            categories={categories}
+            showQuickAdd={useQuickAddStep}
             onFieldChange={handleFieldChange}
             allowObligation={allowObligation}
             splitParticipants={activeSplitParticipants}
@@ -945,17 +1074,11 @@ export function AddTransactionForm({
             errors={errors}
             topCategories={currentTopCategories}
             allCategories={categories}
+            categoryOccurrenceCounts={categoryOccurrencesByType[draft.type]}
             merchantSuggestions={currentMerchantSuggestions}
+            categoryMerchantOptions={categoryMerchantsByType[draft.type]}
             onFieldChange={handleFieldChange}
             onAddCategory={handleRequestAddCategory}
-          />
-        </View>
-
-        <View style={styles.listSection}>
-          <Step3Notes
-            draft={draft}
-            errors={errors}
-            onFieldChange={handleFieldChange}
           />
         </View>
       </KeyboardAwareScrollView>

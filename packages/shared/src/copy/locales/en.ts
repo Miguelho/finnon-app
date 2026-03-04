@@ -1645,7 +1645,7 @@ export const en = {
     // Stepper
     stepQuickAdd: "Quick add",
     stepDetails: "Details",
-    stepCategory: "Category",
+    stepCategory: "Tags",
     stepNotes: "Notes",
 
     // Mode toggle
@@ -1669,11 +1669,16 @@ export const en = {
     amountHelper: "",
     paidByLabel: "Who paid?",
     receivedByLabel: "Who received it?",
+    bothPaidOption: "Both paid",
     splitLabel: "Split",
     splitEqualOption: "Equal parts",
     splitPersonalOption: "Only mine",
+    splitPersonalOf: "Only {name}",
     splitCustomOption: "Custom",
+    splitEqualRequiresBoth: "\"Equal parts\" requires both participants to have paid",
+    splitPersonalDisabledForBoth: "\"Only mine/theirs\" does not apply when both paid",
     splitCustomHelper: "Adjust each member amount so it matches the total",
+    splitTotalLabel: "Total: {total}% ✓",
     quickAddLabel: "Quick add",
     quickAddEmpty:
       "As you log more transactions, we will suggest your most frequent ones so you can add them with one tap.",
@@ -1682,11 +1687,11 @@ export const en = {
     // Step 2 - Category & Merchant
     categoryLabel: "Category",
     categoryAddLabel: "Add category",
-    categorySeeAll: "See all",
+    categorySeeAll: "See more categories",
     categoryHide: "Hide",
     categoryEmpty: "Pick a category to continue",
     merchantLabel: "Merchant",
-    merchantPlaceholder: "e.g. \"Mercadona\", \"Amazon\", \"Renfe\"",
+    merchantPlaceholder: "e.g. \"Tesco\", \"Amazon\", \"Spotify\"",
     merchantSuggested: "Suggested",
     merchantSkip: "Skip merchant",
     merchantHistoryHint: "Based on your history...",

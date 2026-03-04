@@ -96,12 +96,43 @@ test("computeQuickAddSuggestions orders by frequency, daymatchRatio, and recency
   );
 
   assert.equal(suggestions.length, 3);
-  assert.equal(suggestions[0]?.merchant, "netflix");
-  assert.equal(suggestions[1]?.merchant, "uber");
-  assert.equal(suggestions[2]?.merchant, "cafe");
+  assert.equal(suggestions[0]?.merchant, "Netflix");
+  assert.equal(suggestions[1]?.merchant, "Uber");
+  assert.equal(suggestions[2]?.merchant, "Cafe");
   assert.equal(suggestions[0]?.frequency, 3);
   assert.equal(suggestions[0]?.daymatchRatio, 2 / 3);
   assert.equal(suggestions[1]?.daymatchRatio, 1 / 3);
+});
+
+test("computeQuickAddSuggestions keeps display merchant format from latest usage", () => {
+  const referenceDate = new Date(2024, 0, 8);
+  const transactions: Transaction[] = [
+    makeTransaction({
+      id: "d1",
+      type: "expense",
+      date: "2024-01-03",
+      merchant: "cafe rio",
+      category_id: "cat-food",
+      amount_minor: "1500",
+    }),
+    makeTransaction({
+      id: "d2",
+      type: "expense",
+      date: "2024-01-08",
+      merchant: "  Café   Río  ",
+      category_id: "cat-food",
+      amount_minor: "1500",
+    }),
+  ];
+
+  const suggestions = computeQuickAddSuggestions(
+    transactions,
+    "expense",
+    referenceDate
+  );
+
+  assert.equal(suggestions.length, 1);
+  assert.equal(suggestions[0]?.merchant, "Café Río");
 });
 
 test("computeQuickAddSuggestions resolves mode amount by recency on ties", () => {

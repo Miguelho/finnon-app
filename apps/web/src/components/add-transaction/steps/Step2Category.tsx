@@ -5,9 +5,11 @@ import { useTranslations } from "next-intl";
 import { Plus } from "lucide-react";
 import { CaretRight, CaretDown } from "@phosphor-icons/react";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { MerchantAutocomplete } from "@/components/ui/merchant-autocomplete";
 import { CategoryIcon } from "@/components/category-icon";
 import { cn } from "@/lib/utils";
+import { normalizeMerchant } from "@poleursus/shared";
 import type {
   TransactionDraft,
   TopCategory,
@@ -26,7 +28,9 @@ interface Step2CategoryProps {
   errors: Record<string, string>;
   topCategories: TopCategory[];
   allCategories: Category[];
+  categoryOccurrenceCounts: Record<string, number>;
   merchantSuggestions: MerchantSuggestion[];
+  categoryMerchantOptions: Record<string, string[]>;
   onFieldChange: <K extends keyof TransactionDraft>(
     field: K,
     value: TransactionDraft[K]
@@ -39,28 +43,109 @@ export function Step2Category({
   errors,
   topCategories,
   allCategories,
+  categoryOccurrenceCounts,
   merchantSuggestions,
+  categoryMerchantOptions,
   onFieldChange,
   onAddCategory,
 }: Step2CategoryProps) {
   const t = useTranslations("addTransaction");
   const [showAllCategories, setShowAllCategories] = React.useState(false);
+  const [isSmUp, setIsSmUp] = React.useState(false);
 
   // Filter categories by transaction type
-  const filteredCategories = allCategories.filter(
-    (cat) => cat.type === draft.type
+  const filteredCategories = React.useMemo(
+    () => allCategories.filter((cat) => cat.type === draft.type),
+    [allCategories, draft.type]
   );
+  const topCategoryOrder = React.useMemo(() => {
+    const map = new Map<string, number>();
+    topCategories.forEach((category, index) => {
+      map.set(category.id, index);
+    });
+    return map;
+  }, [topCategories]);
+  const sortedCategories = React.useMemo(() => {
+    return [...filteredCategories].sort((left, right) => {
+      const occurrenceDiff =
+        (categoryOccurrenceCounts[right.id] ?? 0) -
+        (categoryOccurrenceCounts[left.id] ?? 0);
+      if (occurrenceDiff !== 0) return occurrenceDiff;
 
-  const handleCategorySelect = (categoryId: string) => {
+      const leftOrder = topCategoryOrder.get(left.id);
+      const rightOrder = topCategoryOrder.get(right.id);
+      if (leftOrder !== undefined || rightOrder !== undefined) {
+        if (leftOrder === undefined) return 1;
+        if (rightOrder === undefined) return -1;
+        if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+  }, [categoryOccurrenceCounts, filteredCategories, topCategoryOrder]);
+  const collapsedLimit = isSmUp ? 12 : 8;
+  const shouldShowToggle = sortedCategories.length > collapsedLimit;
+  const visibleCategories =
+    shouldShowToggle && !showAllCategories
+      ? sortedCategories.slice(0, collapsedLimit)
+      : sortedCategories;
+
+  const handleCategorySelect = React.useCallback((
+    categoryId: string,
+    options?: { clearMerchant?: boolean }
+  ) => {
+    const shouldClearMerchant = options?.clearMerchant ?? true;
+    const isCategoryChange = draft.categoryId !== categoryId;
+
     onFieldChange("categoryId", categoryId);
     if (draft.suggestedCategoryId) {
       onFieldChange("suggestedCategoryId", null);
     }
-  };
+
+    if (shouldClearMerchant && isCategoryChange) {
+      onFieldChange("merchant", "");
+    }
+
+    const merchantsForCategory = categoryMerchantOptions[categoryId] ?? [];
+    if (merchantsForCategory.length === 1) {
+      const [onlyMerchant] = merchantsForCategory;
+      if (onlyMerchant) {
+        onFieldChange("merchant", onlyMerchant);
+      }
+    }
+  }, [
+    categoryMerchantOptions,
+    draft.categoryId,
+    draft.suggestedCategoryId,
+    onFieldChange,
+  ]);
 
   const selectedCategory = filteredCategories.find(
     (cat) => cat.id === draft.categoryId
   );
+  const merchantsForSelectedCategory = draft.categoryId
+    ? (categoryMerchantOptions[draft.categoryId] ?? [])
+    : [];
+  const selectedMerchantNormalized = normalizeMerchant(draft.merchant);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(min-width: 640px)");
+    const update = () => setIsSmUp(mediaQuery.matches);
+    update();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", update);
+      return () => mediaQuery.removeEventListener("change", update);
+    }
+
+    mediaQuery.addListener(update);
+    return () => mediaQuery.removeListener(update);
+  }, []);
+
+  React.useEffect(() => {
+    setShowAllCategories(false);
+  }, [draft.type]);
 
   React.useEffect(() => {
     if (draft.categoryId || !draft.suggestedCategoryId) return;
@@ -68,8 +153,8 @@ export function Step2Category({
       (category) => category.id === draft.suggestedCategoryId
     );
     if (!exists) return;
-    onFieldChange("categoryId", draft.suggestedCategoryId);
-  }, [draft.categoryId, draft.suggestedCategoryId, filteredCategories, onFieldChange]);
+    handleCategorySelect(draft.suggestedCategoryId, { clearMerchant: false });
+  }, [draft.categoryId, draft.suggestedCategoryId, filteredCategories, handleCategorySelect]);
 
   return (
     <div className="space-y-6">
@@ -92,58 +177,10 @@ export function Step2Category({
           </button>
         </div>
 
-        {/* Top category chips */}
-        {topCategories.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
-            {topCategories.slice(0, 3).map((category) => {
-              const isSelected = draft.categoryId === category.id;
-              return (
-                <button
-                  key={category.id}
-                  type="button"
-                  onClick={() => handleCategorySelect(category.id)}
-                  aria-pressed={isSelected}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
-                    "border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                    isSelected
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-background text-foreground hover:bg-muted"
-                  )}
-                >
-                  <CategoryIcon
-                    iconId={category.icon_id}
-                    size={16}
-                    tone={isSelected ? "primary" : "muted"}
-                    accessibilityLabel={category.name}
-                  />
-                  <span>{category.name}</span>
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={() => setShowAllCategories(!showAllCategories)}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-sm font-semibold",
-                "text-muted-foreground hover:text-foreground hover:bg-muted",
-                "transition-colors"
-              )}
-            >
-              <span>{t("categorySeeAll")}</span>
-              {showAllCategories ? (
-                <CaretDown size={16} weight="bold" />
-              ) : (
-                <CaretRight size={16} weight="bold" />
-              )}
-            </button>
-          </div>
-        )}
-
         {/* All categories grid (expandable) */}
-        {(showAllCategories || topCategories.length === 0) && (
+        {sortedCategories.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2">
-            {filteredCategories.map((category) => {
+            {visibleCategories.map((category) => {
               const isSelected = draft.categoryId === category.id;
               return (
                 <button
@@ -172,8 +209,27 @@ export function Step2Category({
           </div>
         )}
 
+        {shouldShowToggle && (
+          <button
+            type="button"
+            onClick={() => setShowAllCategories((current) => !current)}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-sm font-semibold",
+              "text-muted-foreground hover:text-foreground hover:bg-muted",
+              "transition-colors"
+            )}
+          >
+            <span>{showAllCategories ? t("categoryHide") : t("categorySeeAll")}</span>
+            {showAllCategories ? (
+              <CaretDown size={16} weight="bold" />
+            ) : (
+              <CaretRight size={16} weight="bold" />
+            )}
+          </button>
+        )}
+
         {/* Selected category display */}
-        {selectedCategory && !showAllCategories && topCategories.length > 0 && (
+        {selectedCategory && !showAllCategories && shouldShowToggle && (
           <p className="text-sm text-muted-foreground">
             {selectedCategory.name}
           </p>
@@ -212,6 +268,32 @@ export function Step2Category({
           placeholder={t("merchantPlaceholder")}
         />
 
+        {merchantsForSelectedCategory.length > 1 && (
+          <div className="flex flex-wrap gap-2">
+            {merchantsForSelectedCategory.map((merchant) => {
+              const isSelected =
+                selectedMerchantNormalized === normalizeMerchant(merchant);
+
+              return (
+                <button
+                  key={merchant}
+                  type="button"
+                  onClick={() => onFieldChange("merchant", merchant)}
+                  className={cn(
+                    "inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    isSelected
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-background text-foreground hover:bg-muted"
+                  )}
+                >
+                  {merchant}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {draft.merchant && (
           <button
             type="button"
@@ -221,6 +303,21 @@ export function Step2Category({
             {t("merchantSkip")}
           </button>
         )}
+      </div>
+
+      {/* Notes field */}
+      <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+        <Label htmlFor="notes" className="text-base font-semibold">
+          {t("notesLabel")}
+        </Label>
+        <Textarea
+          id="notes"
+          value={draft.notes}
+          onChange={(event) => onFieldChange("notes", event.target.value)}
+          placeholder={t("notesPlaceholder")}
+          className="min-h-[120px] resize-none"
+          rows={4}
+        />
       </div>
     </div>
   );

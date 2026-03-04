@@ -1648,7 +1648,7 @@ export const es = {
     // Stepper
     stepQuickAdd: "Rápido",
     stepDetails: "Detalles",
-    stepCategory: "Categoría",
+    stepCategory: "Etiquetas",
     stepNotes: "Notas",
 
     // Toggle de modo
@@ -1672,11 +1672,16 @@ export const es = {
     amountHelper: "",
     paidByLabel: "¿Quién pagó?",
     receivedByLabel: "¿Quién ingresó?",
+    bothPaidOption: "Los dos pagaron",
     splitLabel: "Reparto",
     splitEqualOption: "Partes iguales",
     splitPersonalOption: "Solo mío",
+    splitPersonalOf: "Solo de {name}",
     splitCustomOption: "Personalizado",
+    splitEqualRequiresBoth: "\"Partes iguales\" requiere que ambos hayan pagado",
+    splitPersonalDisabledForBoth: "\"Solo mío/suyo\" no aplica cuando ambos pagaron",
     splitCustomHelper: "Ajusta importes por persona para que sumen el total",
+    splitTotalLabel: "Total: {total}% ✓",
     quickAddLabel: "Añadido rápido",
     quickAddEmpty:
       "A medida que registres movimientos, te sugeriremos los más frecuentes para que los añadas con un toque.",
@@ -1685,7 +1690,7 @@ export const es = {
     // Paso 2 - Categoría y Comercio
     categoryLabel: "Categoría",
     categoryAddLabel: "Añadir categoría",
-    categorySeeAll: "Ver todas",
+    categorySeeAll: "Ver más categorías",
     categoryHide: "Ocultar",
     categoryEmpty: "Elige una categoría para seguir",
     merchantLabel: "Comercio",

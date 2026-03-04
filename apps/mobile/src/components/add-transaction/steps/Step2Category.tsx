@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
-import { Plus } from "lucide-react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { View, Text, Pressable, StyleSheet, TextInput } from "react-native";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react-native";
 import {
+  normalizeMerchant,
   themeTokens,
   type TransactionDraft,
   type TopCategory,
@@ -10,7 +11,6 @@ import {
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../lib/i18n";
 import { useUserTheme } from "../../../contexts/UserThemeContext";
-import { TopCategorySelector } from "../../TopCategorySelector";
 import { MerchantAutocomplete } from "../../MerchantAutocomplete";
 import { CategoryIcon } from "../../CategoryIcon";
 
@@ -29,7 +29,9 @@ interface Step2CategoryProps {
   errors: Record<string, string>;
   topCategories: TopCategory[];
   allCategories: Category[];
+  categoryOccurrenceCounts: Record<string, number>;
   merchantSuggestions: MerchantSuggestion[];
+  categoryMerchantOptions: Record<string, string[]>;
   onFieldChange: <K extends keyof TransactionDraft>(
     field: K,
     value: TransactionDraft[K]
@@ -42,7 +44,9 @@ export function Step2Category({
   errors,
   topCategories,
   allCategories,
+  categoryOccurrenceCounts,
   merchantSuggestions,
+  categoryMerchantOptions,
   onFieldChange,
   onAddCategory,
 }: Step2CategoryProps) {
@@ -51,20 +55,83 @@ export function Step2Category({
   const [showAllCategories, setShowAllCategories] = useState(false);
 
   // Filter categories by transaction type
-  const filteredCategories = allCategories.filter(
-    (cat) => cat.type === draft.type
+  const filteredCategories = useMemo(
+    () => allCategories.filter((cat) => cat.type === draft.type),
+    [allCategories, draft.type]
   );
+  const topCategoryOrder = useMemo(() => {
+    const map = new Map<string, number>();
+    topCategories.forEach((category, index) => {
+      map.set(category.id, index);
+    });
+    return map;
+  }, [topCategories]);
+  const sortedCategories = useMemo(() => {
+    return [...filteredCategories].sort((left, right) => {
+      const occurrenceDiff =
+        (categoryOccurrenceCounts[right.id] ?? 0) -
+        (categoryOccurrenceCounts[left.id] ?? 0);
+      if (occurrenceDiff !== 0) return occurrenceDiff;
 
-  const handleCategorySelect = (categoryId: string) => {
+      const leftOrder = topCategoryOrder.get(left.id);
+      const rightOrder = topCategoryOrder.get(right.id);
+      if (leftOrder !== undefined || rightOrder !== undefined) {
+        if (leftOrder === undefined) return 1;
+        if (rightOrder === undefined) return -1;
+        if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+  }, [categoryOccurrenceCounts, filteredCategories, topCategoryOrder]);
+  const collapsedLimit = 8;
+  const shouldShowToggle = sortedCategories.length > collapsedLimit;
+  const visibleCategories =
+    shouldShowToggle && !showAllCategories
+      ? sortedCategories.slice(0, collapsedLimit)
+      : sortedCategories;
+
+  const handleCategorySelect = useCallback((
+    categoryId: string,
+    options?: { clearMerchant?: boolean }
+  ) => {
+    const shouldClearMerchant = options?.clearMerchant ?? true;
+    const isCategoryChange = draft.categoryId !== categoryId;
+
     onFieldChange("categoryId", categoryId);
     if (draft.suggestedCategoryId) {
       onFieldChange("suggestedCategoryId", null);
     }
-  };
+
+    if (shouldClearMerchant && isCategoryChange) {
+      onFieldChange("merchant", "");
+    }
+
+    const merchantsForCategory = categoryMerchantOptions[categoryId] ?? [];
+    if (merchantsForCategory.length === 1) {
+      const [onlyMerchant] = merchantsForCategory;
+      if (onlyMerchant) {
+        onFieldChange("merchant", onlyMerchant);
+      }
+    }
+  }, [
+    categoryMerchantOptions,
+    draft.categoryId,
+    draft.suggestedCategoryId,
+    onFieldChange,
+  ]);
 
   const selectedCategory = filteredCategories.find(
     (cat) => cat.id === draft.categoryId
   );
+  const merchantsForSelectedCategory = draft.categoryId
+    ? (categoryMerchantOptions[draft.categoryId] ?? [])
+    : [];
+  const selectedMerchantNormalized = normalizeMerchant(draft.merchant);
+
+  useEffect(() => {
+    setShowAllCategories(false);
+  }, [draft.type]);
 
   useEffect(() => {
     if (draft.categoryId || !draft.suggestedCategoryId) return;
@@ -72,8 +139,8 @@ export function Step2Category({
       (category) => category.id === draft.suggestedCategoryId
     );
     if (!exists) return;
-    onFieldChange("categoryId", draft.suggestedCategoryId);
-  }, [draft.categoryId, draft.suggestedCategoryId, filteredCategories, onFieldChange]);
+    handleCategorySelect(draft.suggestedCategoryId, { clearMerchant: false });
+  }, [draft.categoryId, draft.suggestedCategoryId, filteredCategories, handleCategorySelect]);
 
   return (
     <View style={styles.container}>
@@ -108,23 +175,10 @@ export function Step2Category({
           </Pressable>
         </View>
 
-        {/* Top category chips */}
-        {topCategories.length > 0 && (
-          <TopCategorySelector
-            topCategories={topCategories.slice(0, 3)}
-            selectedCategoryId={draft.categoryId ?? undefined}
-            onSelect={handleCategorySelect}
-            onToggleAll={() => setShowAllCategories(!showAllCategories)}
-            isExpanded={showAllCategories}
-            seeOthersLabel={t(dictionary, "addTransaction.categorySeeAll")}
-            hideOthersLabel={t(dictionary, "addTransaction.categoryHide")}
-          />
-        )}
-
         {/* All categories grid (expandable) */}
-        {(showAllCategories || topCategories.length === 0) && (
+        {sortedCategories.length > 0 && (
           <View style={styles.allCategoriesGrid}>
-            {filteredCategories.map((category) => {
+            {visibleCategories.map((category) => {
               const isSelected = draft.categoryId === category.id;
               return (
                 <Pressable
@@ -168,8 +222,37 @@ export function Step2Category({
           </View>
         )}
 
+        {shouldShowToggle && (
+          <Pressable
+            onPress={() => setShowAllCategories((current) => !current)}
+            accessibilityRole="button"
+            style={[
+              styles.categoriesToggleButton,
+              {
+                borderColor: userTokens.border,
+                backgroundColor: showAllCategories
+                  ? userTokens.surfaceAlt
+                  : userTokens.surface,
+              },
+            ]}
+          >
+            <Text
+              style={[styles.categoriesToggleText, { color: userTokens.textPrimary }]}
+            >
+              {showAllCategories
+                ? t(dictionary, "addTransaction.categoryHide")
+                : t(dictionary, "addTransaction.categorySeeAll")}
+            </Text>
+            {showAllCategories ? (
+              <ChevronDown size={16} color={userTokens.textPrimary} />
+            ) : (
+              <ChevronRight size={16} color={userTokens.textPrimary} />
+            )}
+          </Pressable>
+        )}
+
         {/* Selected category display */}
-        {selectedCategory && !showAllCategories && topCategories.length > 0 && (
+        {selectedCategory && !showAllCategories && shouldShowToggle && (
           <Text style={[styles.selectedText, { color: userTokens.textSecondary }]}>
             {selectedCategory.name}
           </Text>
@@ -210,6 +293,69 @@ export function Step2Category({
           suggestions={merchantSuggestions}
           placeholder={t(dictionary, "addTransaction.merchantPlaceholder")}
         />
+        {merchantsForSelectedCategory.length > 1 && (
+          <View style={styles.merchantChipsRow}>
+            {merchantsForSelectedCategory.map((merchant) => {
+              const isSelected =
+                selectedMerchantNormalized === normalizeMerchant(merchant);
+              return (
+                <Pressable
+                  key={merchant}
+                  onPress={() => onFieldChange("merchant", merchant)}
+                  style={[
+                    styles.merchantChip,
+                    {
+                      borderColor: isSelected ? primaryActionColor : userTokens.border,
+                      backgroundColor: isSelected
+                        ? userTokens.surfaceAlt
+                        : userTokens.surface,
+                    },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                >
+                  <Text
+                    style={[
+                      styles.merchantChipText,
+                      { color: isSelected ? primaryActionColor : userTokens.textPrimary },
+                    ]}
+                  >
+                    {merchant}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+      </View>
+
+      {/* Notes field */}
+      <View
+        style={[
+          styles.section,
+          { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+        ]}
+      >
+        <Text style={[styles.label, { color: userTokens.textPrimary }]}>
+          {t(dictionary, "addTransaction.notesLabel")}
+        </Text>
+        <TextInput
+          style={[
+            styles.notesTextArea,
+            {
+              borderColor: userTokens.border,
+              backgroundColor: userTokens.surface,
+              color: userTokens.textPrimary,
+            },
+          ]}
+          value={draft.notes}
+          onChangeText={(value) => onFieldChange("notes", value)}
+          placeholder={t(dictionary, "addTransaction.notesPlaceholder")}
+          placeholderTextColor={userTokens.textTertiary}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+        />
       </View>
     </View>
   );
@@ -228,6 +374,21 @@ const styles = StyleSheet.create({
   merchantField: {
     zIndex: 10,
     gap: tokens.spacing.md,
+  },
+  merchantChipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: tokens.spacing.sm,
+  },
+  merchantChip: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.pill,
+    paddingVertical: tokens.spacing.xs,
+    paddingHorizontal: tokens.spacing.md,
+  },
+  merchantChipText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.medium,
   },
   categoryHeaderRow: {
     flexDirection: "row",
@@ -249,6 +410,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.spacing.md,
   },
   addCategoryButtonText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+  },
+  categoriesToggleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.xs,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    paddingVertical: tokens.spacing.xs,
+    paddingHorizontal: tokens.spacing.md,
+  },
+  categoriesToggleText: {
     fontSize: tokens.typography.size.sm,
     fontWeight: tokens.typography.weight.semibold,
   },
@@ -291,5 +466,14 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.sm,
     color: colors.state.negative,
     marginTop: tokens.spacing.sm,
+  },
+  notesTextArea: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+    paddingVertical: tokens.spacing.xl,
+    paddingHorizontal: tokens.spacing.xl,
+    fontSize: tokens.typography.size.md,
+    minHeight: 160,
+    textAlignVertical: "top",
   },
 });

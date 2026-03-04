@@ -27,7 +27,8 @@ const DEFAULT_CONFIG: QuickAddConfig = {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 type PreparedTransaction = {
-  merchant: string;
+  normalizedMerchant: string;
+  displayMerchant: string;
   categoryId: string;
   amount: number;
   date: Date;
@@ -105,8 +106,11 @@ const mergeConfig = (config?: Partial<QuickAddConfig>): QuickAddConfig => ({
   windowDays: config?.windowDays ?? DEFAULT_CONFIG.windowDays,
 });
 
-const buildGroupKey = (merchant: string, categoryId: string) =>
-  `${merchant}::${categoryId}`;
+const sanitizeDisplayMerchant = (merchant: string) =>
+  merchant.trim().replace(/\s+/g, " ");
+
+const buildGroupKey = (normalizedMerchant: string, categoryId: string) =>
+  `${normalizedMerchant}::${categoryId}`;
 
 const computeDaysSince = (reference: Date, target: Date) =>
   Math.max(0, Math.floor((reference.getTime() - target.getTime()) / DAY_MS));
@@ -152,7 +156,8 @@ export function computeQuickAddSuggestions(
   for (const transaction of transactions) {
     if (transaction.type !== type) continue;
 
-    const normalizedMerchant = normalizeMerchant(transaction.merchant ?? "");
+    const displayMerchant = sanitizeDisplayMerchant(transaction.merchant ?? "");
+    const normalizedMerchant = normalizeMerchant(displayMerchant);
     if (!normalizedMerchant) continue;
 
     const categoryId =
@@ -174,7 +179,8 @@ export function computeQuickAddSuggestions(
     const timestamp = (createdAtDate ?? date).getTime();
 
     prepared.push({
-      merchant: normalizedMerchant,
+      normalizedMerchant,
+      displayMerchant,
       categoryId,
       amount,
       date,
@@ -188,12 +194,12 @@ export function computeQuickAddSuggestions(
   const grouped = new Map<string, GroupStats>();
 
   prepared.forEach((item) => {
-    const key = buildGroupKey(item.merchant, item.categoryId);
+    const key = buildGroupKey(item.normalizedMerchant, item.categoryId);
     const existing = grouped.get(key);
 
     if (!existing) {
       grouped.set(key, {
-        merchant: item.merchant,
+        merchant: item.displayMerchant,
         categoryId: item.categoryId,
         frequency: 1,
         sameDayFrequency: item.dayOfWeek === referenceDay ? 1 : 0,
@@ -217,8 +223,15 @@ export function computeQuickAddSuggestions(
       existing.sameDayFrequency += 1;
     }
 
-    if (item.date.getTime() > existing.lastUsedDate.getTime()) {
+    const itemDateTimestamp = item.date.getTime();
+    const existingDateTimestamp = existing.lastUsedDate.getTime();
+    if (
+      itemDateTimestamp > existingDateTimestamp ||
+      (itemDateTimestamp === existingDateTimestamp &&
+        item.timestamp > existing.lastUsedTimestamp)
+    ) {
       existing.lastUsedDate = item.date;
+      existing.merchant = item.displayMerchant;
     }
     if (item.timestamp > existing.lastUsedTimestamp) {
       existing.lastUsedTimestamp = item.timestamp;

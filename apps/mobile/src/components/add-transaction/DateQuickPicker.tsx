@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
 } from "react-native";
 import { Calendar } from "lucide-react-native";
@@ -46,12 +45,33 @@ const formatIsoDate = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+const withAlpha = (hex: string, alpha: number) => {
+  const normalized = hex.replace("#", "");
+  const safeAlpha = Math.max(0, Math.min(1, alpha));
+  const chunk =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((char) => `${char}${char}`)
+          .join("")
+      : normalized;
+  const red = Number.parseInt(chunk.slice(0, 2), 16);
+  const green = Number.parseInt(chunk.slice(2, 4), 16);
+  const blue = Number.parseInt(chunk.slice(4, 6), 16);
+
+  if ([red, green, blue].some((value) => Number.isNaN(value))) {
+    return `rgba(0,0,0,${safeAlpha})`;
+  }
+
+  return `rgba(${red},${green},${blue},${safeAlpha})`;
+};
+
 const startOfMonth = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), 1);
 
 export function DateQuickPicker({ value, onChange, error }: DateQuickPickerProps) {
   const { locale, dictionary } = useCopy();
-  const { tokens: userTokens, primaryActionColor, primaryActionTextColor } = useUserTheme();
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(() =>
     startOfMonth(parseIsoDate(value) ?? new Date())
@@ -95,39 +115,36 @@ export function DateQuickPicker({ value, onChange, error }: DateQuickPickerProps
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: userTokens.textPrimary }]}>
+      <Text style={[styles.label, { color: userTokens.textSecondary }]}>
         {t(dictionary, "addTransaction.dateLabel")}
       </Text>
 
       {/* Quick option chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipsRow}
-      >
+      <View style={styles.chipsRow}>
         {quickOptions.map((option) => (
           <TouchableOpacity
             key={option.labelKey}
             onPress={() => handleQuickSelect(option.getValue)}
             style={[
               styles.chip,
+              styles.chipFlexible,
               {
                 borderColor: userTokens.border,
-                backgroundColor: userTokens.surface,
+                backgroundColor: userTokens.surfaceAlt,
               },
               isSelected(option.getValue) && styles.chipSelected,
               isSelected(option.getValue) && {
-                backgroundColor: primaryActionColor,
-                borderColor: primaryActionColor,
+                backgroundColor: withAlpha(primaryActionColor, 0.15),
+                borderColor: withAlpha(primaryActionColor, 0.5),
               },
             ]}
           >
             <Text
               style={[
                 styles.chipText,
-                { color: userTokens.textPrimary },
+                { color: userTokens.textSecondary },
                 isSelected(option.getValue) && styles.chipTextSelected,
-                isSelected(option.getValue) && { color: primaryActionTextColor },
+                isSelected(option.getValue) && { color: primaryActionColor },
               ]}
             >
               {t(dictionary, `addTransaction.${option.labelKey}`)}
@@ -140,21 +157,30 @@ export function DateQuickPicker({ value, onChange, error }: DateQuickPickerProps
           onPress={handleCalendarOpen}
           style={[
             styles.chip,
-            { borderColor: userTokens.border, backgroundColor: userTokens.surface },
+            styles.chipFlexible,
+            { borderColor: userTokens.border, backgroundColor: userTokens.surfaceAlt },
           ]}
         >
-          <Calendar size={14} color={userTokens.textPrimary} style={styles.chipIcon} />
-          <Text style={[styles.chipText, { color: userTokens.textPrimary }]}>
+          <Calendar size={14} color={userTokens.textSecondary} style={styles.chipIcon} />
+          <Text style={[styles.chipText, { color: userTokens.textSecondary }]}>
             {t(dictionary, "addTransaction.datePickOther")}
           </Text>
         </TouchableOpacity>
-      </ScrollView>
+      </View>
 
       {/* Selected date display */}
       {value && (
-        <Text style={[styles.selectedDate, { color: userTokens.textSecondary }]}>
-          {formatDateForDisplay(value, locale)}
-        </Text>
+        <View
+          style={[
+            styles.selectedDateWrap,
+            { borderColor: userTokens.border, backgroundColor: userTokens.surface },
+          ]}
+        >
+          <Calendar size={15} color={userTokens.textSecondary} />
+          <Text style={[styles.selectedDate, { color: userTokens.textPrimary }]}>
+            {formatDateForDisplay(value, locale)}
+          </Text>
+        </View>
       )}
 
       {/* Error message */}
@@ -236,27 +262,33 @@ export function DateQuickPicker({ value, onChange, error }: DateQuickPickerProps
 
 const styles = StyleSheet.create({
   container: {
-    gap: tokens.spacing.sm,
+    gap: tokens.spacing.md,
   },
   label: {
-    fontSize: tokens.typography.size.sm,
+    fontSize: 11,
     fontWeight: tokens.typography.weight.semibold,
-    marginBottom: tokens.spacing.xs,
+    textTransform: "uppercase",
+    letterSpacing: 0.7,
+    marginBottom: 2,
   },
   chipsRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: tokens.spacing.sm,
-    paddingRight: tokens.spacing.sm,
+    width: "100%",
   },
   chip: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: tokens.spacing.md,
-    paddingVertical: tokens.spacing.sm,
-    borderRadius: tokens.radii.pill,
+    paddingVertical: tokens.spacing.xs,
+    borderRadius: tokens.radii.md,
     borderWidth: 1,
-    minHeight: 36,
+    minHeight: 32,
+  },
+  chipFlexible: {
+    flex: 1,
   },
   chipSelected: {
   },
@@ -264,15 +296,25 @@ const styles = StyleSheet.create({
     marginRight: tokens.spacing.xs,
   },
   chipText: {
-    fontSize: tokens.typography.size.sm,
+    fontSize: tokens.typography.size.xs,
     fontWeight: tokens.typography.weight.medium,
+    textAlign: "center",
   },
   chipTextSelected: {
+  },
+  selectedDateWrap: {
+    minHeight: 36,
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.xs,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
   },
   selectedDate: {
     fontSize: tokens.typography.size.md,
     fontWeight: tokens.typography.weight.medium,
-    marginTop: tokens.spacing.xs,
   },
   errorText: {
     fontSize: tokens.typography.size.sm,

@@ -1,2 +1,0 @@
-Contexto: la aplicación transmite con una leyenda de color con todos más transparentes y claros, además de con un chip, y un tooltip contextual los movimientos pendientes en la pantalla de inicio. Esta característica no está en la pantalla de movimientos y quiero alinearla.
-Tarea: añade el tooltip con el icono de circulo con una + en el interior en la pantalla de movimientos para mostrar los movimientos pendientes por ingreso o gasto en el mes seleccionado. Añade la leyenda de color para ingresos y gastos futuros.

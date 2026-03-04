@@ -7,19 +7,24 @@ import {
   Switch,
   StyleSheet,
   Modal,
+  ScrollView,
   TouchableOpacity,
 } from "react-native";
-import { ArrowDownLeft, ArrowUpRight, Info } from "lucide-react-native";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  ChevronDown,
+  Info,
+} from "lucide-react-native";
 import {
   themeTokens,
   type TransactionDraft,
   type TransactionType,
   type ObligationType,
-  type ContributionSplitType,
   parseMoneyToMinor,
-  formatMinorToMoney,
   buildEqualSplit,
   CURRENCY_MINOR_UNITS,
+  CURRENCIES,
   formatDateForDisplay,
 } from "@poleursus/shared";
 import { useCopy, t } from "../../../lib/i18n";
@@ -28,6 +33,9 @@ import { DateQuickPicker } from "../DateQuickPicker";
 import { DatePickerField } from "../../DatePickerField";
 import { Button } from "../../Button";
 import { FutureObligationSuggestion } from "../FutureObligationSuggestion";
+import { Step0QuickAdd } from "./Step0QuickAdd";
+import { PaidBySelector } from "./PaidBySelector";
+import { SplitSelector } from "./SplitSelector";
 
 const tokens = themeTokens.light;
 const colors = tokens.colors;
@@ -54,6 +62,14 @@ const getDefaultObligationConfig = (date: string) =>
 interface Step1DetailsProps {
   draft: TransactionDraft;
   errors: Record<string, string>;
+  accountId?: string;
+  categories?: {
+    id: string;
+    name: string;
+    icon_id: string;
+    type: "income" | "expense";
+  }[];
+  showQuickAdd?: boolean;
   onFieldChange: <K extends keyof TransactionDraft>(
     field: K,
     value: TransactionDraft[K]
@@ -71,6 +87,9 @@ interface Step1DetailsProps {
 export function Step1Details({
   draft,
   errors,
+  accountId = "",
+  categories = [],
+  showQuickAdd = false,
   onFieldChange,
   allowObligation = true,
   splitParticipants = [],
@@ -86,7 +105,8 @@ export function Step1Details({
   const [sheetScheduledDate, setSheetScheduledDate] = useState(draft.date);
   const [sheetScheduledOverride, setSheetScheduledOverride] = useState(false);
   const [dismissedFutureSuggestion, setDismissedFutureSuggestion] = useState(false);
-  const [customSplitInputs, setCustomSplitInputs] = useState<Record<string, string>>({});
+  const [paidByBoth, setPaidByBoth] = useState(() => draft.paidByUserId === null);
+  const [isCurrencySheetOpen, setIsCurrencySheetOpen] = useState(false);
   const openedFromToggleRef = useRef(false);
 
   const handleAmountChange = (value: string) => {
@@ -235,6 +255,15 @@ export function Step1Details({
     [visibleSplitParticipants]
   );
   const canConfigureSplit = splitParticipantIds.length >= 2;
+  const shouldShowSplitSection = canConfigureSplit && draft.type !== "income";
+  const currencyCodes = useMemo(
+    () => Object.keys(CURRENCY_MINOR_UNITS).sort(),
+    []
+  );
+  const currencySymbol = useMemo(
+    () => CURRENCIES.find((item) => item.code === draft.currency)?.symbol ?? draft.currency,
+    [draft.currency]
+  );
 
   const resolveAmountMinor = () => {
     const parsed = parseMoneyToMinor(
@@ -248,8 +277,13 @@ export function Step1Details({
 
   useEffect(() => {
     if (!canConfigureSplit) return;
+    if (draft.type === "income") return;
+    if (paidByBoth) return;
     if (draft.paidByUserId) return;
-    const fallbackPaidBy = currentUserId ?? splitParticipantIds[0] ?? null;
+    const fallbackPaidBy =
+      (currentUserId && splitParticipantIds.includes(currentUserId)
+        ? currentUserId
+        : splitParticipantIds[0]) ?? null;
     if (fallbackPaidBy) {
       onFieldChange("paidByUserId", fallbackPaidBy);
     }
@@ -258,11 +292,14 @@ export function Step1Details({
     currentUserId,
     draft.paidByUserId,
     onFieldChange,
+    paidByBoth,
     splitParticipantIds,
+    draft.type,
   ]);
 
   useEffect(() => {
     if (!canConfigureSplit) return;
+    if (draft.type === "income") return;
     if (draft.splitType !== "custom") return;
     if (draft.splitDetails && draft.splitDetails.length > 0) return;
     const amountMinor = resolveAmountMinor();
@@ -276,99 +313,83 @@ export function Step1Details({
     draft.splitType,
     onFieldChange,
     splitParticipantIds,
+    draft.type,
   ]);
 
   useEffect(() => {
-    if (!canConfigureSplit || draft.splitType !== "custom") {
-      setCustomSplitInputs((prev) => (Object.keys(prev).length > 0 ? {} : prev));
+    if (!canConfigureSplit || draft.type === "income") {
+      if (paidByBoth) {
+        setPaidByBoth(false);
+      }
       return;
     }
-    const details = draft.splitDetails ?? [];
-    const nextInputs: Record<string, string> = {};
-    splitParticipantIds.forEach((userId) => {
-      const detail = details.find((item) => item.userId === userId);
-      const shareMinor = detail?.shareMinor ?? 0;
-      nextInputs[userId] = formatMinorToMoney(
-        BigInt(Math.max(0, shareMinor)),
-        draft.currency,
-        CURRENCY_MINOR_UNITS
-      ).replace(".", ",");
-    });
-    setCustomSplitInputs((prev) => {
-      const prevKeys = Object.keys(prev);
-      const nextKeys = Object.keys(nextInputs);
-      if (
-        prevKeys.length === nextKeys.length &&
-        nextKeys.every((key) => prev[key] === nextInputs[key])
-      ) {
-        return prev;
-      }
-      return nextInputs;
-    });
+
+    const shouldBeBoth = draft.paidByUserId === null;
+    if (paidByBoth !== shouldBeBoth) {
+      setPaidByBoth(shouldBeBoth);
+    }
+  }, [canConfigureSplit, draft.paidByUserId, draft.type, paidByBoth]);
+
+  useEffect(() => {
+    if (!canConfigureSplit) return;
+    if (draft.type !== "income") return;
+    if (draft.splitType !== "equal") {
+      onFieldChange("splitType", "equal");
+    }
+    if (draft.splitDetails !== null) {
+      onFieldChange("splitDetails", null);
+    }
   }, [
     canConfigureSplit,
-    draft.currency,
     draft.splitDetails,
     draft.splitType,
-    splitParticipantIds,
+    draft.type,
+    onFieldChange,
   ]);
 
-  const handlePaidByChange = (userId: string) => {
-    onFieldChange("paidByUserId", userId);
+  const handlePaidByChange = (userId: string | null, bothSelected: boolean) => {
+    setPaidByBoth(bothSelected);
+    if (bothSelected) {
+      onFieldChange("paidByUserId", null);
+      return;
+    }
+
+    const nextUserId =
+      userId ??
+      (currentUserId && splitParticipantIds.includes(currentUserId)
+        ? currentUserId
+        : splitParticipantIds[0] ?? null);
+    onFieldChange("paidByUserId", nextUserId);
   };
 
-  const handleSplitTypeChange = (value: ContributionSplitType) => {
+  const handleSplitTypeChange = (
+    value: "equal" | "personal" | "custom",
+    splitDetails?: TransactionDraft["splitDetails"]
+  ) => {
     onFieldChange("splitType", value);
     if (value !== "custom") {
       onFieldChange("splitDetails", null);
       return;
     }
-    const amountMinor = resolveAmountMinor() ?? 0;
-    onFieldChange("splitDetails", buildEqualSplit(amountMinor, splitParticipantIds));
-  };
-
-  const applyCustomSplitValue = (userId: string, rawValue: string) => {
+    if (splitDetails && splitDetails.length > 0) {
+      onFieldChange("splitDetails", splitDetails);
+      return;
+    }
     const amountMinor = resolveAmountMinor();
-    if (amountMinor === null) return;
-
-    const sanitized = rawValue.replace(/[^0-9.,]/g, "");
-    setCustomSplitInputs((prev) => ({ ...prev, [userId]: sanitized }));
-
-    const parsedTarget = parseMoneyToMinor(
-      sanitized || "0",
-      draft.currency,
-      CURRENCY_MINOR_UNITS
-    );
-
-    const targetValue = Math.max(
-      0,
-      Math.min(
-        amountMinor,
-        typeof parsedTarget === "bigint" ? Number(parsedTarget) : 0
-      )
-    );
-
-    const otherUserIds = splitParticipantIds.filter((id) => id !== userId);
-    const remaining = Math.max(0, amountMinor - targetValue);
-    const baseShare =
-      otherUserIds.length > 0 ? Math.floor(remaining / otherUserIds.length) : 0;
-    const remainder =
-      otherUserIds.length > 0 ? remaining % otherUserIds.length : 0;
-
-    const nextDetails = splitParticipantIds.map((id) => {
-      if (id === userId) {
-        return { userId: id, shareMinor: targetValue };
-      }
-      const otherIndex = otherUserIds.indexOf(id);
-      return {
-        userId: id,
-        shareMinor:
-          baseShare + (otherIndex >= 0 && otherIndex < remainder ? 1 : 0),
-      };
-    });
-
-    onFieldChange("splitDetails", nextDetails);
+    onFieldChange("splitDetails", buildEqualSplit(amountMinor ?? 0, splitParticipantIds));
   };
+
+  const paidByParticipant =
+    visibleSplitParticipants.find((member) => member.userId === draft.paidByUserId) ??
+    null;
+  const paidByFirstName = paidByParticipant?.name.trim().split(/\s+/)[0] ?? "";
+  const personalSplitLabel =
+    !paidByBoth &&
+    draft.paidByUserId &&
+    draft.paidByUserId !== currentUserId &&
+    paidByFirstName
+      ? t(dictionary, "addTransaction.splitPersonalOf", { name: paidByFirstName })
+      : t(dictionary, "addTransaction.splitPersonalOption");
 
   return (
     <View style={styles.container}>
@@ -448,6 +469,15 @@ export function Step1Details({
         </View>
       </View>
 
+      {showQuickAdd ? (
+        <Step0QuickAdd
+          accountId={accountId}
+          categories={categories}
+          draft={draft}
+          onFieldChange={onFieldChange}
+        />
+      ) : null}
+
       {allowObligation && draft.type === "expense" && draft.isObligation && (
         <View
           style={[
@@ -519,13 +549,24 @@ export function Step1Details({
           {t(dictionary, "addTransaction.amountLabel")}
         </Text>
         <View style={styles.amountRow}>
+          <Pressable
+            onPress={() => setIsCurrencySheetOpen(true)}
+            style={[
+              styles.currencySelector,
+              { borderColor: userTokens.border, backgroundColor: userTokens.surface },
+            ]}
+          >
+            <Text style={[styles.currencySelectorText, { color: userTokens.textPrimary }]}>
+              {draft.currency}
+            </Text>
+            <ChevronDown size={14} color={userTokens.textSecondary} />
+          </Pressable>
+        </View>
+        <View style={styles.amountDisplayRow}>
           <TextInput
             style={[
-              styles.input,
               styles.amountInput,
               {
-                borderColor: userTokens.border,
-                backgroundColor: userTokens.surface,
                 color: userTokens.textPrimary,
               },
               errors.amount && styles.inputError,
@@ -536,16 +577,9 @@ export function Step1Details({
             placeholderTextColor={userTokens.textTertiary}
             keyboardType="decimal-pad"
           />
-          <View
-            style={[
-              styles.currencyBadge,
-              { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
-            ]}
-          >
-            <Text style={[styles.currencyText, { color: userTokens.textSecondary }]}>
-              {draft.currency}
-            </Text>
-          </View>
+          <Text style={[styles.amountCurrencySymbol, { color: userTokens.textSecondary }]}>
+            {currencySymbol}
+          </Text>
         </View>
         {errors.amount ? (
           <Text style={styles.errorText}>
@@ -558,12 +592,16 @@ export function Step1Details({
         )}
       </View>
 
-      {canConfigureSplit && (
-        <>
+      {shouldShowSplitSection && (
+        <View
+          style={[
+            styles.splitCard,
+            { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+          ]}
+        >
           <View
             style={[
-              styles.section,
-              { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+              styles.splitCardSection,
             ]}
           >
             <Text style={[styles.sectionLabel, { color: userTokens.textPrimary }]}>
@@ -574,39 +612,18 @@ export function Step1Details({
                   : "addTransaction.paidByLabel"
               )}
             </Text>
-            <View style={styles.memberWrap}>
-              {visibleSplitParticipants.map((member) => {
-                const isSelected = draft.paidByUserId === member.userId;
-                return (
-                  <Pressable
-                    key={member.userId}
-                    onPress={() => handlePaidByChange(member.userId)}
-                    style={[
-                      styles.memberChip,
-                      {
-                        borderColor: isSelected ? primaryActionColor : userTokens.border,
-                        backgroundColor: isSelected
-                          ? primaryActionColor
-                          : userTokens.surface,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.memberChipText,
-                        {
-                          color: isSelected
-                            ? primaryActionTextColor
-                            : userTokens.textPrimary,
-                        },
-                      ]}
-                    >
-                      {member.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <PaidBySelector
+              participants={visibleSplitParticipants}
+              currentUserId={currentUserId}
+              value={draft.paidByUserId}
+              bothSelected={paidByBoth}
+              bothLabel={t(dictionary, "addTransaction.bothPaidOption")}
+              borderColor={userTokens.border}
+              surfaceColor={userTokens.surface}
+              mutedTextColor={userTokens.textSecondary}
+              primaryColor={primaryActionColor}
+              onChange={handlePaidByChange}
+            />
             {errors.paidByUserId ? (
               <Text style={styles.errorText}>
                 {t(
@@ -619,83 +636,41 @@ export function Step1Details({
             ) : null}
           </View>
 
+          <View style={[styles.splitCardDivider, { backgroundColor: userTokens.border }]} />
+
           <View
             style={[
-              styles.section,
-              { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+              styles.splitCardSection,
             ]}
           >
             <Text style={[styles.sectionLabel, { color: userTokens.textPrimary }]}>
               {t(dictionary, "addTransaction.splitLabel")}
             </Text>
-            <View
-              style={[
-                styles.segmentedControl,
-                { borderColor: userTokens.border, backgroundColor: userTokens.surfaceAlt },
-              ]}
-            >
-              {(
-                [
-                  { key: "equal", label: "addTransaction.splitEqualOption" },
-                  { key: "personal", label: "addTransaction.splitPersonalOption" },
-                  { key: "custom", label: "addTransaction.splitCustomOption" },
-                ] as const
-              ).map((option) => {
-                const isActive = draft.splitType === option.key;
-                return (
-                  <Pressable
-                    key={option.key}
-                    onPress={() => handleSplitTypeChange(option.key)}
-                    style={[
-                      styles.segmentOption,
-                      isActive && styles.segmentOptionActive,
-                      isActive && { backgroundColor: primaryActionColor },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.segmentOptionText,
-                        isActive && styles.segmentOptionTextActive,
-                        { color: userTokens.textSecondary },
-                        isActive && { color: primaryActionTextColor },
-                      ]}
-                    >
-                      {t(dictionary, option.label)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {draft.splitType === "custom" && (
-              <View style={styles.customSplitList}>
-                <Text style={[styles.helperText, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "addTransaction.splitCustomHelper")}
-                </Text>
-                {visibleSplitParticipants.map((member) => (
-                  <View key={member.userId} style={styles.customSplitRow}>
-                    <Text style={[styles.customSplitName, { color: userTokens.textPrimary }]}>
-                      {member.name}
-                    </Text>
-                    <TextInput
-                      value={customSplitInputs[member.userId] ?? ""}
-                      onChangeText={(value) => applyCustomSplitValue(member.userId, value)}
-                      placeholder="0,00"
-                      placeholderTextColor={userTokens.textTertiary}
-                      keyboardType="decimal-pad"
-                      style={[
-                        styles.customSplitInput,
-                        {
-                          borderColor: userTokens.border,
-                          backgroundColor: userTokens.surface,
-                          color: userTokens.textPrimary,
-                        },
-                      ]}
-                    />
-                  </View>
-                ))}
-              </View>
-            )}
+            <SplitSelector
+              value={draft.splitType}
+              paidByBoth={paidByBoth}
+              participants={visibleSplitParticipants}
+              splitDetails={draft.splitDetails}
+              totalAmountMinor={resolveAmountMinor() ?? 0}
+              equalLabel={t(dictionary, "addTransaction.splitEqualOption")}
+              personalLabel={personalSplitLabel}
+              customLabel={t(dictionary, "addTransaction.splitCustomOption")}
+              equalHintText={t(dictionary, "addTransaction.splitEqualRequiresBoth")}
+              personalHintText={t(
+                dictionary,
+                "addTransaction.splitPersonalDisabledForBoth"
+              )}
+              customHelperText={t(dictionary, "addTransaction.splitCustomHelper")}
+              formatTotalLabel={(total) =>
+                t(dictionary, "addTransaction.splitTotalLabel", { total })
+              }
+              borderColor={userTokens.border}
+              surfaceColor={userTokens.surface}
+              textPrimaryColor={userTokens.textPrimary}
+              textSecondaryColor={userTokens.textSecondary}
+              primaryColor={primaryActionColor}
+              onChange={handleSplitTypeChange}
+            />
 
             {errors.splitDetails ? (
               <Text style={styles.errorText}>
@@ -703,7 +678,7 @@ export function Step1Details({
               </Text>
             ) : null}
           </View>
-        </>
+        </View>
       )}
 
       {/* Date field */}
@@ -719,6 +694,78 @@ export function Step1Details({
           error={errors.date ? t(dictionary, "addTransaction.errors.dateRequired") : undefined}
         />
       </View>
+
+      <Modal
+        transparent
+        visible={isCurrencySheetOpen}
+        animationType="slide"
+        onRequestClose={() => setIsCurrencySheetOpen(false)}
+      >
+        <View style={styles.sheetOverlay}>
+          <Pressable
+            style={styles.sheetBackdrop}
+            onPress={() => setIsCurrencySheetOpen(false)}
+          />
+          <View
+            style={[
+              styles.sheetContainer,
+              { backgroundColor: userTokens.surface, borderTopColor: userTokens.border },
+            ]}
+          >
+            <View style={[styles.sheetHandle, { backgroundColor: userTokens.border }]} />
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.sheetTitle, { color: userTokens.textPrimary }]}>
+                {t(dictionary, "common.currencyLabel")}
+              </Text>
+              <TouchableOpacity onPress={() => setIsCurrencySheetOpen(false)}>
+                <Text style={[styles.sheetAction, { color: primaryActionColor }]}>
+                  {t(dictionary, "common.close")}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              style={styles.currencyList}
+              contentContainerStyle={styles.currencyListContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {currencyCodes.map((code) => {
+                const isCurrent = code === draft.currency;
+                return (
+                  <Pressable
+                    key={code}
+                    onPress={() => {
+                      onFieldChange("currency", code);
+                      setIsCurrencySheetOpen(false);
+                    }}
+                    style={[
+                      styles.currencyItem,
+                      {
+                        borderColor: isCurrent ? primaryActionColor : userTokens.border,
+                        backgroundColor: isCurrent
+                          ? primaryActionColor
+                          : userTokens.surfaceAlt,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.currencyItemText,
+                        {
+                          color: isCurrent
+                            ? primaryActionTextColor
+                            : userTokens.textPrimary,
+                        },
+                      ]}
+                    >
+                      {code}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {allowObligation && (
         <>
@@ -917,11 +964,34 @@ const styles = StyleSheet.create({
   },
   amountRow: {
     flexDirection: "row",
-    alignItems: "stretch",
-    gap: tokens.spacing.sm,
+    alignItems: "center",
+    justifyContent: "flex-start",
+  },
+  amountDisplayRow: {
+    marginTop: tokens.spacing.sm,
+    minHeight: 52,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 4,
   },
   amountInput: {
     flex: 1,
+    borderWidth: 0,
+    borderRadius: 0,
+    backgroundColor: "transparent",
+    fontSize: 40,
+    fontWeight: "300",
+    letterSpacing: -1,
+    lineHeight: 42,
+    minHeight: 52,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    fontVariant: ["tabular-nums"],
+  },
+  amountCurrencySymbol: {
+    fontSize: 20,
+    fontWeight: tokens.typography.weight.medium,
+    marginBottom: 6,
   },
   amountLabel: {
     fontSize: tokens.typography.size.xl,
@@ -930,6 +1000,35 @@ const styles = StyleSheet.create({
   },
   amountSection: {
     paddingVertical: tokens.spacing.xl,
+  },
+  currencySelector: {
+    minWidth: 84,
+    minHeight: 34,
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: tokens.spacing.xs,
+  },
+  currencySelectorText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.semibold,
+  },
+  splitCard: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+    overflow: "hidden",
+  },
+  splitCardSection: {
+    padding: tokens.spacing.lg,
+    gap: tokens.spacing.md,
+  },
+  splitCardDivider: {
+    height: 1,
+    marginHorizontal: tokens.spacing.lg,
   },
   currencyBadge: {
     backgroundColor: colors.bg.secondary,
@@ -1130,6 +1229,24 @@ const styles = StyleSheet.create({
   sheetDescription: {
     fontSize: tokens.typography.size.sm,
     color: colors.text.secondary,
+  },
+  currencyList: {
+    maxHeight: 360,
+  },
+  currencyListContent: {
+    gap: tokens.spacing.xs,
+    paddingBottom: tokens.spacing.sm,
+  },
+  currencyItem: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    paddingHorizontal: tokens.spacing.md,
+    justifyContent: "center",
+  },
+  currencyItemText: {
+    fontSize: tokens.typography.size.md,
+    fontWeight: tokens.typography.weight.semibold,
   },
   sheetContent: {
     gap: tokens.spacing.lg,

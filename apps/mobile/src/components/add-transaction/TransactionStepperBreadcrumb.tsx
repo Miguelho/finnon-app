@@ -25,67 +25,75 @@ export function TransactionStepperBreadcrumb({
 
   return (
     <View style={styles.container}>
-      {steps.map((step, index) => (
-        <View key={step.number} style={styles.stepWrapper}>
-          {/* Connector line */}
-          {index > 0 && (
-            <View
+      {steps.map((step, index) => {
+        const isClickable = step.status === "completed";
+        return (
+          <View key={step.number} style={styles.stepWrapper}>
+            {/* Connector line */}
+            {index < steps.length - 1 && (
+              <View
+                style={[
+                  styles.connector,
+                  {
+                    backgroundColor:
+                      step.status === "completed"
+                        ? primaryActionColor
+                        : userTokens.border,
+                  },
+                ]}
+              />
+            )}
+
+            {/* Step indicator */}
+            <TouchableOpacity
+              onPress={() => isClickable && onStepClick(step.number)}
+              disabled={!isClickable}
               style={[
-                styles.connector,
-                { backgroundColor: userTokens.border },
-                step.status !== "pending" && {
+                styles.stepButton,
+                {
+                  borderColor: userTokens.border,
+                  backgroundColor: userTokens.surface,
+                },
+                step.status === "active" && {
+                  borderColor: primaryActionColor,
+                },
+                step.status === "completed" && {
+                  borderColor: primaryActionColor,
                   backgroundColor: primaryActionColor,
                 },
               ]}
-            />
-          )}
+              accessibilityRole="button"
+              accessibilityLabel={`${step.label} - ${step.status}`}
+            >
+              {step.status === "completed" ? (
+                <Check size={14} color={primaryActionTextColor} strokeWidth={3} />
+              ) : (
+                <Text
+                  style={[
+                    styles.stepNumber,
+                    { color: userTokens.textTertiary },
+                    step.status === "active" && {
+                      color: primaryActionColor,
+                    },
+                  ]}
+                >
+                  {step.number}
+                </Text>
+              )}
+            </TouchableOpacity>
 
-          {/* Step indicator */}
-          <TouchableOpacity
-            onPress={() => onStepClick(step.number)}
-            disabled={step.status === "pending"}
-            style={[
-              styles.stepButton,
-              {
-                borderColor: userTokens.border,
-                backgroundColor: userTokens.surface,
-              },
-              step.status === "active" && {
-                borderColor: primaryActionColor,
-              },
-              step.status === "completed" && {
-                borderColor: primaryActionColor,
-                backgroundColor: primaryActionColor,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={`${step.label} - ${step.status}`}
-          >
-            {step.status === "completed" ? (
-              <Check size={14} color={primaryActionTextColor} strokeWidth={3} />
-            ) : (
+            {/* Step label */}
+            {step.status === "active" && (
               <Text
-                style={[
-                  styles.stepNumber,
-                  { color: userTokens.textTertiary },
-                  step.status === "active" && {
-                    color: primaryActionColor,
-                  },
-                ]}
+                style={[styles.stepLabel, { color: userTokens.textPrimary }]}
+                numberOfLines={1}
               >
-                {step.number}
+                {step.label}
               </Text>
             )}
-          </TouchableOpacity>
-
-          {/* Step label (only show for active step on small screens) */}
-          {step.status === "active" && (
-            <Text style={[styles.stepLabel, { color: userTokens.textPrimary }]} numberOfLines={1}>
-              {step.label}
-            </Text>
-          )}
-        </View>
-      ))}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -93,18 +101,21 @@ export function TransactionStepperBreadcrumb({
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: tokens.spacing.md,
+    alignItems: "flex-start",
+    width: "100%",
   },
   stepWrapper: {
-    flexDirection: "row",
+    flex: 1,
     alignItems: "center",
-    gap: tokens.spacing.md,
+    position: "relative",
+    minHeight: 56,
   },
   connector: {
-    width: 28,
+    position: "absolute",
+    top: 16,
+    left: "50%",
+    width: "100%",
     height: 2,
-    marginRight: tokens.spacing.md,
   },
   stepButton: {
     width: 32,
@@ -113,14 +124,17 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 1,
   },
   stepNumber: {
     fontSize: tokens.typography.size.md,
     fontWeight: tokens.typography.weight.semibold,
   },
   stepLabel: {
+    marginTop: tokens.spacing.sm,
     fontSize: tokens.typography.size.md,
     fontWeight: tokens.typography.weight.medium,
     maxWidth: 120,
+    textAlign: "center",
   },
 });

@@ -42,6 +42,7 @@ export * from "./ui/addMenu";
 export * from "./ui/confirmation-modal";
 export * from "./ui/onboarding-progress";
 export * from "./categories/defaults";
+export * from "./categories/history-occurrence";
 export * from "./categories/palette";
 export * from "./categories/top-categories";
 export * from "./onboarding";

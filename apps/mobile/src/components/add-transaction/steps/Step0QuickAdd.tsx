@@ -204,9 +204,14 @@ const styles = StyleSheet.create({
     fontWeight: tokens.typography.weight.medium,
   },
   quickAddList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     gap: tokens.spacing.sm,
   },
   quickAddChip: {
+    flexBasis: "48%",
+    maxWidth: "48%",
     flexDirection: "row",
     alignItems: "center",
     gap: tokens.spacing.sm,

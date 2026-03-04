@@ -106,7 +106,7 @@ export function Step0QuickAdd({
       {!isLoading && suggestions.length === 0 ? (
         <p className="text-sm font-medium text-muted-foreground">{t("quickAddEmpty")}</p>
       ) : (
-        <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
           {suggestions.map((suggestion) => {
             const key = buildSuggestionKey(suggestion);
             const category = categoriesById.get(suggestion.categoryId);

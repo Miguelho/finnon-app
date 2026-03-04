@@ -65,23 +65,23 @@ export function DateQuickPicker({
   const isSelected = (getValue: () => string) => value === getValue();
 
   return (
-    <div className={cn("space-y-2", className)}>
-      <Label className="text-sm font-semibold text-foreground">
+    <div className={cn("space-y-3", className)}>
+      <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
         {t("dateLabel")}
       </Label>
 
       {/* Quick option chips */}
-      <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-0.5">
+      <div className="grid grid-cols-4 gap-2">
         {quickOptions.map((option) => (
           <button
             key={option.labelKey}
             type="button"
             onClick={() => handleQuickSelect(option.getValue)}
             className={cn(
-              "shrink-0 px-2.5 py-1 text-xs rounded-full border transition-colors",
+              "inline-flex w-full items-center justify-center rounded-lg border px-2 py-1.5 text-xs font-medium transition-all",
               isSelected(option.getValue)
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background border-input hover:bg-accent hover:text-accent-foreground"
+                ? "border-primary/50 bg-primary/15 text-primary"
+                : "border-border bg-muted/40 text-muted-foreground hover:border-primary/40 hover:text-foreground"
             )}
           >
             {t(option.labelKey)}
@@ -93,11 +93,11 @@ export function DateQuickPicker({
           type="button"
           onClick={handleCalendarClick}
           className={cn(
-            "shrink-0 inline-flex items-center px-2.5 py-1 text-xs rounded-full border transition-colors",
-            "bg-background border-input hover:bg-accent hover:text-accent-foreground"
+            "inline-flex w-full items-center justify-center rounded-lg border px-2 py-1.5 text-xs font-medium transition-all",
+            "border-border bg-muted/40 text-muted-foreground hover:border-primary/40 hover:text-foreground"
           )}
         >
-          <CalendarBlank className="w-3.5 h-3.5 mr-1" />
+          <CalendarBlank className="mr-1 h-3.5 w-3.5" />
           {t("datePickOther")}
         </button>
 
@@ -116,9 +116,12 @@ export function DateQuickPicker({
 
       {/* Selected date display */}
       {value && (
-        <p className="text-sm font-medium text-muted-foreground">
-          {formatDateForDisplay(value, locale)}
-        </p>
+        <div className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5">
+          <CalendarBlank className="h-4 w-4 text-muted-foreground" />
+          <p className="text-sm font-medium text-foreground">
+            {formatDateForDisplay(value, locale)}
+          </p>
+        </div>
       )}
 
       {/* Error message */}
