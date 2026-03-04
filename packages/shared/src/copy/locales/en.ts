@@ -241,7 +241,7 @@ export const en = {
       title: "Create your first project",
       subtitle: "Set your first savings destination.",
       nameLabel: "Project name",
-      namePlaceholder: "e.g. Emergency fund",
+      namePlaceholder: "e.g. New car",
       emojiLabel: "Emoji",
       targetLabel: "Target amount",
       commitmentLabel: "Monthly commitment",

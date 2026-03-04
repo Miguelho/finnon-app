@@ -15,10 +15,15 @@ import type {
   OnboardingFirstProjectInput,
   OnboardingRecurrentInput,
 } from "@poleursus/shared";
-import { DEFAULT_CATEGORIES } from "@poleursus/shared";
+import {
+  DEFAULT_CATEGORIES,
+  DEFAULT_PROJECT_EMOJI,
+  PROJECT_PALETTE,
+} from "@poleursus/shared";
 import {
   createInitialRecurrentsState,
   ONBOARDING_STORAGE_KEY,
+  relocalizeRecurrentsState,
   type OnboardingPersistedState,
   type RecurrentsStepState,
 } from "./state";
@@ -47,12 +52,14 @@ export default function OnboardingPage() {
   const [projectDraft, setProjectDraft] = useState<{
     name: string;
     emoji: string;
+    color: string;
     targetAmount: string;
     monthlyCommitment: string;
   }>({
     name: "",
-    emoji: "🎯",
-    targetAmount: "",
+    emoji: DEFAULT_PROJECT_EMOJI,
+    color: PROJECT_PALETTE[0],
+    targetAmount: "25000",
     monthlyCommitment: "",
   });
   const [recurrents, setRecurrents] = useState<OnboardingRecurrentInput[]>([]);
@@ -84,14 +91,18 @@ export default function OnboardingPage() {
         if (Array.isArray(parsed.selectedCategories)) {
           setSelectedCategories(parsed.selectedCategories);
         }
-        if (parsed.recurrentsState) setRecurrentsState(parsed.recurrentsState);
+        if (parsed.recurrentsState) {
+          setRecurrentsState(
+            relocalizeRecurrentsState(parsed.recurrentsState, tGlobal)
+          );
+        }
         if (parsed.projectDraft) {
-          setProjectDraft(parsed.projectDraft);
+          setProjectDraft((prev) => ({ ...prev, ...parsed.projectDraft }));
         } else if ((parsed as any).objectiveDraft) {
           const legacy = (parsed as any).objectiveDraft;
           setProjectDraft((prev) => ({
             ...prev,
-            targetAmount: legacy.amount ?? "",
+            targetAmount: legacy.amount ?? prev.targetAmount,
           }));
         }
         if (Array.isArray(parsed.recurrents)) setRecurrents(parsed.recurrents);
@@ -178,6 +189,7 @@ export default function OnboardingPage() {
       content = (
         <RecurrentsStep
           currency={currency}
+          selectedCategories={selectedCategories}
           state={recurrentsState}
           onChangeState={setRecurrentsState}
           onContinue={(recs) => {
@@ -194,6 +206,7 @@ export default function OnboardingPage() {
           currency={currency}
           name={projectDraft.name}
           emoji={projectDraft.emoji}
+          color={projectDraft.color}
           targetAmount={projectDraft.targetAmount}
           monthlyCommitment={projectDraft.monthlyCommitment}
           onNameChange={(value) =>
@@ -201,6 +214,9 @@ export default function OnboardingPage() {
           }
           onEmojiChange={(value) =>
             setProjectDraft((prev) => ({ ...prev, emoji: value }))
+          }
+          onColorChange={(value) =>
+            setProjectDraft((prev) => ({ ...prev, color: value }))
           }
           onTargetAmountChange={(value) =>
             setProjectDraft((prev) => ({ ...prev, targetAmount: value }))
@@ -257,4 +273,3 @@ export default function OnboardingPage() {
     </div>
   );
 }
-

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
+import { useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowDownLeft,
@@ -22,6 +22,7 @@ import {
   DEFAULT_CATEGORIES,
   ONBOARDING_MIN_RECURRENTS,
   parseMoneyToMinor,
+  type DefaultCategory,
   type OnboardingRecurrentInput,
 } from "@poleursus/shared";
 import { OnboardingProgress } from "./OnboardingProgress";
@@ -29,6 +30,7 @@ import type { RecurrentsStepState, RecurrentDraft } from "../state";
 
 type RecurrentsStepProps = {
   currency: string;
+  selectedCategories: DefaultCategory[];
   state: RecurrentsStepState;
   onChangeState: Dispatch<SetStateAction<RecurrentsStepState>>;
   onContinue: (recurrents: OnboardingRecurrentInput[]) => void;
@@ -46,6 +48,7 @@ const recurrentIcons: Record<string, LucideIcon> = {
 
 export function RecurrentsStep({
   currency,
+  selectedCategories,
   state,
   onChangeState,
   onContinue,
@@ -88,8 +91,39 @@ export function RecurrentsStep({
     return day;
   };
 
-  const selectedItems = items.filter((item) => item.selected);
+  const itemInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const normalizeCategoryToken = (value: string) => value.trim().toLowerCase();
+  const selectedCategoryTokens = useMemo(
+    () =>
+      new Set(
+        selectedCategories.flatMap((category) => [
+          normalizeCategoryToken(category.name),
+          normalizeCategoryToken(category.name_en),
+        ])
+      ),
+    [selectedCategories]
+  );
+  const visibleItems = useMemo(
+    () =>
+      items.filter((item) =>
+        selectedCategoryTokens.has(normalizeCategoryToken(item.suggestedCategoryName))
+      ),
+    [items, selectedCategoryTokens]
+  );
+  const selectedItems = visibleItems.filter((item) => item.selected);
+  const preferredFocusItemId = useMemo(
+    () => selectedItems[0]?.id ?? visibleItems[0]?.id ?? null,
+    [selectedItems, visibleItems]
+  );
   const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
+
+  useEffect(() => {
+    if (!preferredFocusItemId) return;
+    const active = document.activeElement;
+    if (active instanceof HTMLInputElement) return;
+    const target = itemInputRefs.current[preferredFocusItemId];
+    target?.focus({ preventScroll: true });
+  }, [preferredFocusItemId]);
 
   const selectedAmounts = selectedItems
     .filter((item) => item.amount.trim() !== "")
@@ -190,7 +224,7 @@ export function RecurrentsStep({
       </div>
 
       <div className="mt-6 flex flex-col gap-3 px-6">
-        {items.map((item) => {
+        {visibleItems.map((item) => {
           const detail = item.type === "income"
             ? tGlobal("common.incomeLabel")
             : tGlobal("common.expenseLabel");
@@ -202,37 +236,45 @@ export function RecurrentsStep({
               tabIndex={0}
               onClick={() => updateItem(item.id, { selected: !item.selected })}
               className={cn(
-                "flex items-center gap-3 rounded-lg border border-border px-4 py-3 transition",
+                "flex flex-col gap-3 rounded-lg border border-border px-4 py-3 transition sm:flex-row sm:items-center",
                 item.selected
                   ? "border-foreground bg-muted/30"
                   : "hover:border-muted-foreground"
               )}
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                <ItemIcon className="h-4 w-4" />
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <ItemIcon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <Input
+                    ref={(node) => {
+                      itemInputRefs.current[item.id] = node;
+                    }}
+                    type="text"
+                    value={item.label}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) => updateItem(item.id, { label: event.target.value })}
+                    placeholder={tGlobal("addTransaction.namePlaceholder")}
+                    className="h-9 min-w-0 border-input bg-background text-sm font-semibold"
+                    style={{ caretColor: "hsl(var(--primary))" }}
+                    autoComplete="off"
+                  />
+                  <p className="truncate text-xs text-muted-foreground">{detail}</p>
+                </div>
               </div>
-              <div className="flex-1">
-                <input
-                  type="text"
-                  value={item.label}
-                  onClick={(event) => event.stopPropagation()}
-                  onChange={(event) => updateItem(item.id, { label: event.target.value })}
-                  className="w-full bg-transparent text-sm font-semibold text-foreground outline-none"
-                />
-                <p className="text-xs text-muted-foreground">{detail}</p>
-              </div>
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <input
+              <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
+                <Input
                   type="date"
                   value={item.expectedDate || today}
                   onClick={(event) => event.stopPropagation()}
                   onChange={(event) =>
                     updateItem(item.id, { expectedDate: event.target.value })
                   }
-                  className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus:border-ring"
+                  className="h-9 w-[150px] bg-background text-sm"
                 />
                 <span className="text-xs text-muted-foreground">{currency}</span>
-                <input
+                <Input
                   type="text"
                   inputMode="decimal"
                   value={item.amount}
@@ -240,7 +282,8 @@ export function RecurrentsStep({
                   onChange={(event) =>
                     updateItem(item.id, { amount: sanitizeNumericInput(event.target.value) })
                   }
-                  className="h-8 w-20 rounded-md border border-border bg-background px-2 text-right text-sm font-semibold text-foreground outline-none focus:border-ring"
+                  className="h-9 w-24 bg-background text-right text-sm font-semibold"
+                  style={{ caretColor: "hsl(var(--primary))" }}
                 />
               </div>
             </div>

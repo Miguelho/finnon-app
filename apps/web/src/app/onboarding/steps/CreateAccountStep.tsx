@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEventHandler } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,7 @@ export function CreateAccountStep({
   onContinue,
   onBack,
 }: CreateAccountStepProps) {
+  const locale = useLocale();
   const tGlobal = useTranslations();
   const t = useTranslations("onboarding");
   const [accountName, setAccountName] = useState(initialAccountName);
@@ -82,7 +83,7 @@ export function CreateAccountStep({
           >
             {CURRENCIES.map((curr) => (
               <option key={curr.code} value={curr.code}>
-                {curr.symbol} {curr.name} ({curr.code})
+                {curr.symbol} {locale === "en" ? curr.name_en : curr.name} ({curr.code})
               </option>
             ))}
           </select>

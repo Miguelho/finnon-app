@@ -42,6 +42,7 @@ export type OnboardingPersistedState = {
   projectDraft: {
     name: string;
     emoji: string;
+    color: string;
     targetAmount: string;
     monthlyCommitment: string;
   };

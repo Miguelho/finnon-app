@@ -31,6 +31,11 @@ export type RecurrentsStepState = {
 export type TranslateFn = (key: string) => string;
 
 export const ONBOARDING_STORAGE_KEY = "finnon:onboardingDraft";
+const suggestedRecurrentsById = new Map(
+  SUGGESTED_RECURRENTS.map((item) => [item.id, item])
+);
+
+const normalizeLabel = (value: string) => value.trim().toLowerCase();
 
 export type OnboardingPersistedState = {
   currentStep: string;
@@ -42,6 +47,7 @@ export type OnboardingPersistedState = {
   projectDraft: {
     name: string;
     emoji: string;
+    color: string;
     targetAmount: string;
     monthlyCommitment: string;
   };
@@ -74,3 +80,30 @@ export const createInitialRecurrentsState = (
     customType: "expense",
   };
 };
+
+export const relocalizeRecurrentsState = (
+  state: RecurrentsStepState,
+  translate: TranslateFn
+): RecurrentsStepState => ({
+  ...state,
+  items: state.items.map((item) => {
+    const suggested = suggestedRecurrentsById.get(item.id);
+    if (!suggested) return item;
+
+    const localizedLabel = translate(suggested.labelKey);
+    const normalizedCurrent = normalizeLabel(item.label);
+    const fallbackLabels = new Set(
+      [suggested.label_es, suggested.label_en, localizedLabel]
+        .map(normalizeLabel)
+        .filter(Boolean)
+    );
+
+    if (!normalizedCurrent || fallbackLabels.has(normalizedCurrent)) {
+      return {
+        ...item,
+        label: localizedLabel,
+      };
+    }
+    return item;
+  }),
+});

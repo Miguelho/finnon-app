@@ -788,7 +788,7 @@ export default function HomeScreen() {
               </Text>
             </View>
             <TouchableOpacity
-              onPress={() => router.push(`/(auth)/(tabs)/transactions/create?date=${selectedDayKey}`)}
+              onPress={() => router.push(`/(auth)/transactions/create?date=${selectedDayKey}`)}
               style={styles.addPill}
             >
               <Text style={[styles.addPillText, { color: userTokens.textSecondary }]}>

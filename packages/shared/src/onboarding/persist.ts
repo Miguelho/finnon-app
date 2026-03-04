@@ -1,6 +1,6 @@
 import { normalizeCategoryName } from "../schemas/category";
-import { assignCategoryColor } from "../categories/palette";
-import { assignProjectColor } from "../projects/palette";
+import { assignCategoryColor, normalizeHexColor } from "../categories/palette";
+import { assignProjectColor, PROJECT_PALETTE } from "../projects/palette";
 import {
   getOccurrencesBetween,
   type RecurringItem,
@@ -38,6 +38,12 @@ const dayOfMonthFromDate = (value: string, fallback: number): number => {
   if (!Number.isInteger(day) || day < 1 || day > 31) return fallback;
   return day;
 };
+
+const isProjectPaletteColor = (
+  value: string | null
+): value is (typeof PROJECT_PALETTE)[number] =>
+  typeof value === "string" &&
+  (PROJECT_PALETTE as readonly string[]).includes(value);
 
 /**
  * Persiste todos los datos del onboarding en una transacción lógica.
@@ -211,12 +217,16 @@ export async function persistOnboarding(
 
         const nextPriority =
           usedPriorities.length > 0 ? Math.max(...usedPriorities) + 1 : 1;
-        const nextColor = assignProjectColor(
-          ((existingProjects ?? []) as Array<{
-            color?: string | null;
-            is_hucha?: boolean;
-          }>).filter((project) => !project.is_hucha)
-        );
+        const selectedColor = normalizeHexColor(nextProject.color);
+        const nextColor =
+          isProjectPaletteColor(selectedColor)
+            ? selectedColor
+            : assignProjectColor(
+                ((existingProjects ?? []) as Array<{
+                  color?: string | null;
+                  is_hucha?: boolean;
+                }>).filter((project) => !project.is_hucha)
+              );
 
         const { error: firstProjectError } = await client
           .from("projects")

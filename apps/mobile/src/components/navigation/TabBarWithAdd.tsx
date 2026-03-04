@@ -44,13 +44,13 @@ export function TabBarWithAdd({ state, navigation }: BottomTabBarProps) {
   const handleAddAction = (key: AddActionKey) => {
     switch (key) {
       case "movement":
-        router.push("/(auth)/(tabs)/transactions/create");
+        router.push("/(auth)/transactions/create");
         return;
       case "category":
         router.push("/(auth)/(tabs)/account/categories/create");
         return;
       case "recurring":
-        router.push("/(auth)/(tabs)/transactions/create?type=expense&kind=recurring");
+        router.push("/(auth)/transactions/create?type=expense&kind=recurring");
         return;
     }
   };

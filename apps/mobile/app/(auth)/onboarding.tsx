@@ -5,7 +5,11 @@ import type {
   OnboardingFirstProjectInput,
   OnboardingRecurrentInput,
 } from "@poleursus/shared";
-import { DEFAULT_CATEGORIES } from "@poleursus/shared";
+import {
+  DEFAULT_CATEGORIES,
+  DEFAULT_PROJECT_EMOJI,
+  PROJECT_PALETTE,
+} from "@poleursus/shared";
 import { useCopy, t } from "../../src/lib/i18n";
 import { CreateAccountStep } from "./onboarding/CreateAccountStep";
 import { WelcomeStep } from "./onboarding/WelcomeStep";
@@ -43,12 +47,14 @@ export default function OnboardingScreen() {
   const [projectDraft, setProjectDraft] = useState<{
     name: string;
     emoji: string;
+    color: string;
     targetAmount: string;
     monthlyCommitment: string;
   }>({
     name: "",
-    emoji: "🎯",
-    targetAmount: "",
+    emoji: DEFAULT_PROJECT_EMOJI,
+    color: PROJECT_PALETTE[0],
+    targetAmount: "25000",
     monthlyCommitment: "",
   });
   const [recurrents, setRecurrents] = useState<OnboardingRecurrentInput[]>([]);
@@ -84,12 +90,12 @@ export default function OnboardingScreen() {
         }
         if (parsed.recurrentsState) setRecurrentsState(parsed.recurrentsState);
         if (parsed.projectDraft) {
-          setProjectDraft(parsed.projectDraft);
+          setProjectDraft((prev) => ({ ...prev, ...parsed.projectDraft }));
         } else if ((parsed as any).objectiveDraft) {
           const legacy = (parsed as any).objectiveDraft;
           setProjectDraft((prev) => ({
             ...prev,
-            targetAmount: legacy.amount ?? "",
+            targetAmount: legacy.amount ?? prev.targetAmount,
           }));
         }
         if (Array.isArray(parsed.recurrents)) setRecurrents(parsed.recurrents);
@@ -190,6 +196,7 @@ export default function OnboardingScreen() {
           currency={currency}
           name={projectDraft.name}
           emoji={projectDraft.emoji}
+          color={projectDraft.color}
           targetAmount={projectDraft.targetAmount}
           monthlyCommitment={projectDraft.monthlyCommitment}
           onNameChange={(value) =>
@@ -197,6 +204,9 @@ export default function OnboardingScreen() {
           }
           onEmojiChange={(value) =>
             setProjectDraft((prev) => ({ ...prev, emoji: value }))
+          }
+          onColorChange={(value) =>
+            setProjectDraft((prev) => ({ ...prev, color: value }))
           }
           onTargetAmountChange={(value) =>
             setProjectDraft((prev) => ({ ...prev, targetAmount: value }))

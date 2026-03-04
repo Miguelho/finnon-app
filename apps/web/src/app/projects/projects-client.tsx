@@ -13,6 +13,8 @@ import {
   getHuchaStats,
   HUCHA_PROJECT_COLOR,
   getMonthlyProjectCommitmentTotal,
+  DEFAULT_PROJECT_EMOJI,
+  PROJECT_EMOJI_SUGGESTIONS,
   parseMoneyToMinor,
   toMonthKey,
   type Project,
@@ -49,19 +51,6 @@ type ProjectsClientProps = {
   hasPendingMonthlyClose: boolean;
   pendingMonthKey: string;
 };
-
-const DEFAULT_EMOJI = "\u{1F3AF}";
-const EMOJI_SUGGESTIONS = [
-  "\u{1F3AF}",
-  "\u{1F3F0}",
-  "\u{1F4BB}",
-  "\u{1F697}",
-  "\u{1F3E0}",
-  "\u{2708}\u{FE0F}",
-  "\u{1F3D6}\u{FE0F}",
-  "\u{1F6B2}",
-  "\u{1F4CD}",
-];
 
 const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
 
@@ -124,7 +113,7 @@ export function ProjectsClient({
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [nameInput, setNameInput] = useState("");
-  const [emojiInput, setEmojiInput] = useState(DEFAULT_EMOJI);
+  const [emojiInput, setEmojiInput] = useState(DEFAULT_PROJECT_EMOJI);
   const [targetInput, setTargetInput] = useState("");
   const [priorityInput, setPriorityInput] = useState("");
 
@@ -177,7 +166,7 @@ export function ProjectsClient({
   const openCreate = () => {
     setCreateError(null);
     setNameInput("");
-    setEmojiInput(DEFAULT_EMOJI);
+    setEmojiInput(DEFAULT_PROJECT_EMOJI);
     setTargetInput("");
     setPriorityInput(String(nextPriority));
     setIsCreateOpen(true);
@@ -220,7 +209,7 @@ export function ProjectsClient({
         .insert({
           account_id: accountId,
           name: trimmedName,
-          emoji: emojiInput.trim() || DEFAULT_EMOJI,
+          emoji: emojiInput.trim() || DEFAULT_PROJECT_EMOJI,
           color: nextColor,
           is_hucha: false,
           target_amount_base_minor: String(parsedTarget),
@@ -385,7 +374,7 @@ export function ProjectsClient({
                       progressColor={projectColor}
                       center={
                         <span className="text-2xl leading-none">
-                          {project.emoji || DEFAULT_EMOJI}
+                          {project.emoji || DEFAULT_PROJECT_EMOJI}
                         </span>
                       }
                     />
@@ -474,7 +463,7 @@ export function ProjectsClient({
                 maxLength={8}
               />
               <div className="flex flex-wrap gap-2">
-                {EMOJI_SUGGESTIONS.map((emoji) => (
+                {PROJECT_EMOJI_SUGGESTIONS.map((emoji) => (
                   <button
                     key={emoji}
                     type="button"

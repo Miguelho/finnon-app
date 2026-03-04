@@ -3,9 +3,13 @@
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   CURRENCIES,
+  DEFAULT_PROJECT_EMOJI,
   parseMoneyToMinor,
+  PROJECT_EMOJI_SUGGESTIONS,
+  PROJECT_PALETTE,
   type OnboardingFirstProjectInput,
 } from "@poleursus/shared";
 import { OnboardingProgress } from "./OnboardingProgress";
@@ -14,10 +18,12 @@ type ObjectiveStepProps = {
   currency: string;
   name: string;
   emoji: string;
+  color: string;
   targetAmount: string;
   monthlyCommitment: string;
   onNameChange: (value: string) => void;
   onEmojiChange: (value: string) => void;
+  onColorChange: (value: string) => void;
   onTargetAmountChange: (value: string) => void;
   onMonthlyCommitmentChange: (value: string) => void;
   onContinue: (project: OnboardingFirstProjectInput) => void;
@@ -31,10 +37,12 @@ export function ObjectiveStep({
   currency,
   name,
   emoji,
+  color,
   targetAmount,
   monthlyCommitment,
   onNameChange,
   onEmojiChange,
+  onColorChange,
   onTargetAmountChange,
   onMonthlyCommitmentChange,
   onContinue,
@@ -48,6 +56,10 @@ export function ObjectiveStep({
     () => CURRENCIES.find((curr) => curr.code === currency)?.symbol ?? currency,
     [currency]
   );
+  const selectedEmoji = emoji.trim() || DEFAULT_PROJECT_EMOJI;
+  const selectedColor = PROJECT_PALETTE.includes(color as (typeof PROJECT_PALETTE)[number])
+    ? color
+    : PROJECT_PALETTE[0];
 
   const parsedTarget = targetAmount.trim()
     ? parseMoneyToMinor(targetAmount, currency)
@@ -71,7 +83,8 @@ export function ObjectiveStep({
 
     onContinue({
       name: name.trim(),
-      emoji: emoji.trim() || "🎯",
+      emoji: selectedEmoji,
+      color: selectedColor,
       targetAmountMinor: Number(parsedTarget),
       monthlyCommitmentMinor: Number(parsedCommitment),
     });
@@ -108,14 +121,59 @@ export function ObjectiveStep({
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {t("project.emojiLabel")}
             </p>
-            <input
-              type="text"
-              value={emoji}
-              onChange={(event) => onEmojiChange(event.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
-              placeholder="🎯"
-              maxLength={8}
-            />
+            <div className="flex flex-wrap gap-2">
+              {PROJECT_EMOJI_SUGGESTIONS.map((emojiOption) => {
+                const isSelected = selectedEmoji === emojiOption;
+                return (
+                  <button
+                    key={emojiOption}
+                    type="button"
+                    onClick={() => onEmojiChange(emojiOption)}
+                    className={cn(
+                      "inline-flex h-9 w-9 items-center justify-center rounded-md border text-lg transition-transform hover:scale-[1.04]",
+                      isSelected
+                        ? "border-primary bg-primary/10"
+                        : "border-border bg-background"
+                    )}
+                    aria-label={emojiOption}
+                    aria-pressed={isSelected}
+                  >
+                    {emojiOption}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {tGlobal("projects.colorLabel")}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {PROJECT_PALETTE.map((paletteColor) => {
+                const isSelected = selectedColor === paletteColor;
+                return (
+                  <button
+                    key={paletteColor}
+                    type="button"
+                    onClick={() => onColorChange(paletteColor)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full transition-transform hover:scale-[1.05]"
+                    style={{
+                      backgroundColor: paletteColor,
+                      border: isSelected
+                        ? "2px solid rgba(255, 255, 255, 0.8)"
+                        : "1px solid hsl(var(--border))",
+                    }}
+                    aria-label={`${tGlobal("projects.colorLabel")} ${paletteColor}`}
+                    aria-pressed={isSelected}
+                  >
+                    {isSelected ? (
+                      <span className="h-2.5 w-2.5 rounded-full border border-white/85" />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -132,7 +190,7 @@ export function ObjectiveStep({
                   onTargetAmountChange(sanitizeNumericInput(event.target.value))
                 }
                 className="w-full bg-transparent text-3xl font-bold text-foreground outline-none placeholder:text-muted-foreground"
-                placeholder="3000"
+                placeholder="25000"
               />
             </div>
             {!targetValid && targetAmount.trim() !== "" ? (
@@ -186,4 +244,3 @@ export function ObjectiveStep({
     </div>
   );
 }
-

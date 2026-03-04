@@ -14,7 +14,10 @@ import { useUserTheme } from "../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../src/lib/i18n";
 import {
   CURRENCIES,
+  DEFAULT_PROJECT_EMOJI,
   parseMoneyToMinor,
+  PROJECT_EMOJI_SUGGESTIONS,
+  PROJECT_PALETTE,
   type OnboardingFirstProjectInput,
 } from "@poleursus/shared";
 import { OnboardingProgress } from "./OnboardingProgress";
@@ -25,10 +28,12 @@ interface ObjectiveStepProps {
   currency: string;
   name: string;
   emoji: string;
+  color: string;
   targetAmount: string;
   monthlyCommitment: string;
   onNameChange: (value: string) => void;
   onEmojiChange: (value: string) => void;
+  onColorChange: (value: string) => void;
   onTargetAmountChange: (value: string) => void;
   onMonthlyCommitmentChange: (value: string) => void;
   onContinue: (project: OnboardingFirstProjectInput) => void;
@@ -42,10 +47,12 @@ export function ObjectiveStep({
   currency,
   name,
   emoji,
+  color,
   targetAmount,
   monthlyCommitment,
   onNameChange,
   onEmojiChange,
+  onColorChange,
   onTargetAmountChange,
   onMonthlyCommitmentChange,
   onContinue,
@@ -59,6 +66,10 @@ export function ObjectiveStep({
     () => CURRENCIES.find((curr) => curr.code === currency)?.symbol ?? currency,
     [currency]
   );
+  const selectedEmoji = emoji.trim() || DEFAULT_PROJECT_EMOJI;
+  const selectedColor = PROJECT_PALETTE.includes(color as (typeof PROJECT_PALETTE)[number])
+    ? color
+    : PROJECT_PALETTE[0];
 
   const parsedTarget = targetAmount.trim()
     ? parseMoneyToMinor(targetAmount, currency)
@@ -82,7 +93,8 @@ export function ObjectiveStep({
 
     onContinue({
       name: name.trim(),
-      emoji: emoji.trim() || "🎯",
+      emoji: selectedEmoji,
+      color: selectedColor,
       targetAmountMinor: Number(parsedTarget),
       monthlyCommitmentMinor: Number(parsedCommitment),
     });
@@ -123,7 +135,14 @@ export function ObjectiveStep({
               {t(dictionary, "onboarding.project.nameLabel")}
             </Text>
             <TextInput
-              style={[styles.input, { color: userTokens.textPrimary }]}
+              style={[
+                styles.input,
+                {
+                  color: userTokens.textPrimary,
+                  borderColor: userTokens.border,
+                  backgroundColor: userTokens.surface,
+                },
+              ]}
               value={name}
               onChangeText={onNameChange}
               placeholder={t(dictionary, "onboarding.project.namePlaceholder")}
@@ -133,14 +152,55 @@ export function ObjectiveStep({
             <Text style={[styles.sectionLabel, { color: userTokens.textSecondary }]}>
               {t(dictionary, "onboarding.project.emojiLabel")}
             </Text>
-            <TextInput
-              style={[styles.input, { color: userTokens.textPrimary }]}
-              value={emoji}
-              onChangeText={onEmojiChange}
-              placeholder="🎯"
-              placeholderTextColor={userTokens.textTertiary}
-              maxLength={8}
-            />
+            <View style={styles.pickerRow}>
+              {PROJECT_EMOJI_SUGGESTIONS.map((emojiOption) => {
+                const isSelected = selectedEmoji === emojiOption;
+                return (
+                  <TouchableOpacity
+                    key={emojiOption}
+                    onPress={() => onEmojiChange(emojiOption)}
+                    style={[
+                      styles.emojiOption,
+                      {
+                        borderColor: isSelected ? userTokens.primary : userTokens.border,
+                        backgroundColor: isSelected ? `${userTokens.primary}1A` : userTokens.surface,
+                      },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={emojiOption}
+                  >
+                    <Text style={styles.emojiOptionText}>{emojiOption}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.sectionLabel, { color: userTokens.textSecondary }]}>
+              {t(dictionary, "projects.colorLabel")}
+            </Text>
+            <View style={styles.pickerRow}>
+              {PROJECT_PALETTE.map((paletteColor) => {
+                const isSelected = selectedColor === paletteColor;
+                return (
+                  <TouchableOpacity
+                    key={paletteColor}
+                    onPress={() => onColorChange(paletteColor)}
+                    style={[
+                      styles.colorOption,
+                      {
+                        backgroundColor: paletteColor,
+                        borderColor: isSelected ? userTokens.textPrimary : userTokens.border,
+                        borderWidth: isSelected ? 2 : 1,
+                      },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t(dictionary, "projects.colorLabel")} ${paletteColor}`}
+                  >
+                    {isSelected ? <View style={styles.colorInnerDot} /> : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
             <Text style={[styles.sectionLabel, { color: userTokens.textSecondary }]}>
               {t(dictionary, "onboarding.project.targetLabel")}
@@ -154,7 +214,7 @@ export function ObjectiveStep({
                 value={targetAmount}
                 onChangeText={(value) => onTargetAmountChange(sanitizeNumericInput(value))}
                 keyboardType="decimal-pad"
-                placeholder="3000"
+                placeholder="25000"
                 placeholderTextColor={userTokens.textTertiary}
               />
             </View>
@@ -237,12 +297,42 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: "#2f2f2f",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
     fontWeight: "500",
+  },
+  pickerRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  emojiOption: {
+    width: 38,
+    height: 38,
+    borderRadius: onboardingRadii.sm,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emojiOptionText: {
+    fontSize: 20,
+    lineHeight: 22,
+  },
+  colorOption: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  colorInnerDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.9)",
   },
   amountRow: {
     flexDirection: "row",
@@ -270,4 +360,3 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 });
-

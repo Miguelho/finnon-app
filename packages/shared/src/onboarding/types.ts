@@ -39,6 +39,7 @@ export type OnboardingRecurrentInput = {
 export type OnboardingFirstProjectInput = {
   name: string;
   emoji: string;
+  color?: string;
   targetAmountMinor: number;
   monthlyCommitmentMinor: number;
 };
