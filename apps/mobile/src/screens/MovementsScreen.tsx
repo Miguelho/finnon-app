@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -60,6 +60,7 @@ export default function MovementsScreen() {
     currencyCode,
     profilesById,
     refresh,
+    deleteMovement,
     locale,
   } = useMovements();
 
@@ -84,6 +85,7 @@ export default function MovementsScreen() {
   } = useMovementsStore();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [deletingMovementId, setDeletingMovementId] = useState<string | null>(null);
   const [isPendingCollapsed, setIsPendingCollapsed] = useState(false);
   const [isDoneCollapsed, setIsDoneCollapsed] = useState(false);
 
@@ -177,6 +179,42 @@ export default function MovementsScreen() {
     await refresh();
     setIsRefreshing(false);
   };
+
+  const handleDeleteMovement = useCallback(
+    (id: string) => {
+      if (deletingMovementId) return;
+      Alert.alert(
+        t(dictionary, "transactions.deleteConfirmTitle"),
+        t(dictionary, "transactions.deleteConfirmDescription"),
+        [
+          {
+            text: t(dictionary, "common.cancel"),
+            style: "cancel",
+          },
+          {
+            text: t(dictionary, "common.delete"),
+            style: "destructive",
+            onPress: () => {
+              void (async () => {
+                try {
+                  setDeletingMovementId(id);
+                  await deleteMovement(id);
+                } catch (e: any) {
+                  Alert.alert(
+                    t(dictionary, "common.errorTitle"),
+                    e?.message || t(dictionary, "transactions.deleteError")
+                  );
+                } finally {
+                  setDeletingMovementId((current) => (current === id ? null : current));
+                }
+              })();
+            },
+          },
+        ]
+      );
+    },
+    [deleteMovement, deletingMovementId, dictionary]
+  );
 
   const showPendingGroup = groupedByStatus.pending.length > 0;
 
@@ -428,6 +466,7 @@ export default function MovementsScreen() {
             isCollapsed={isPendingCollapsed}
             onToggleCollapse={() => setIsPendingCollapsed((prev) => !prev)}
             onPressMovement={(id) => router.push(`/(auth)/transactions/${id}`)}
+            onDeleteMovement={handleDeleteMovement}
           />
         )}
 
@@ -448,6 +487,7 @@ export default function MovementsScreen() {
           profilesById={profilesById}
           locale={locale}
           onPressMovement={(id) => router.push(`/(auth)/transactions/${id}`)}
+          onDeleteMovement={handleDeleteMovement}
           isCollapsed={isDoneCollapsed}
           onToggleCollapse={() => setIsDoneCollapsed((prev) => !prev)}
         />

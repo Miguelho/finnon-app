@@ -126,7 +126,7 @@ const computeRange = (period: Period, monthKey: string) => {
 export function useMovements() {
   const isFocused = useIsFocused();
   const { selectedAccountId } = useAuth();
-  const { cache, userId } = useDataCache();
+  const { cache, userId, emitMutation } = useDataCache();
   const loadCachedTransactionsRange = useCachedTransactionsRange();
   const loadCachedRecurringRange = useCachedRecurringRange();
   const { locale, dictionary } = useCopy();
@@ -550,6 +550,38 @@ export function useMovements() {
     }
   }, [isSearchMode, loadPeriodData, loadSearchResults]);
 
+  const deleteMovement = useCallback(
+    async (movementId: string) => {
+      if (!selectedAccountId) {
+        throw new Error(t(dictionary, "transactions.noAccountSelected"));
+      }
+
+      const { error: deleteError } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", movementId)
+        .eq("account_id", selectedAccountId);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      await emitMutation("transactions", "delete");
+      await loadPeriodData({ force: true });
+      if (isSearchMode) {
+        await loadSearchResults();
+      }
+    },
+    [
+      dictionary,
+      emitMutation,
+      isSearchMode,
+      loadPeriodData,
+      loadSearchResults,
+      selectedAccountId,
+    ]
+  );
+
   return {
     loading,
     searchLoading,
@@ -566,6 +598,7 @@ export function useMovements() {
     currencyCode: baseCurrency,
     profilesById,
     refresh,
+    deleteMovement,
     locale,
   };
 }

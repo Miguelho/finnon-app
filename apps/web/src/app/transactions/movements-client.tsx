@@ -30,7 +30,7 @@ import {
   type AvatarColorToken,
   type UserAvatarColorId,
 } from "@poleursus/shared";
-import { ChevronDown, Check, X, Search, Repeat } from "lucide-react";
+import { ChevronDown, Check, X, Search, Repeat, Trash2 } from "lucide-react";
 import { AddTransactionForm } from "@/components/add-transaction";
 import { PageContainer } from "@/components/layout/page-container";
 import { CategoryIcon } from "@/components/category-icon";
@@ -54,7 +54,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useWebDataCache } from "@/cache/WebDataCacheProvider";
 import { useCachedRecurringRange, useCachedTransactionsRange } from "@/cache/hooks";
 import { formatCurrencyParts } from "@/components/home-redesign/utils";
-import { confirmRecurringTransaction, updateTransaction } from "./actions";
+import { confirmRecurringTransaction, deleteTransaction, updateTransaction } from "./actions";
 
 type Category = {
   id: string;
@@ -720,6 +720,9 @@ function MovementRow({
   currencyCode,
   variant,
   onClick,
+  canDelete = false,
+  onDelete,
+  isDeleting = false,
 }: {
   movement: Movement;
   profile?: Profile;
@@ -727,7 +730,21 @@ function MovementRow({
   currencyCode: string;
   variant: "default" | "pending";
   onClick?: (id: string) => void;
+  canDelete?: boolean;
+  onDelete?: (id: string) => void;
+  isDeleting?: boolean;
 }) {
+  const t = useTranslations();
+  const ACTION_WIDTH = 84;
+  const REVEAL_THRESHOLD = 54;
+  const DRAG_START_THRESHOLD = 6;
+  const startXRef = useRef<number | null>(null);
+  const startOffsetRef = useRef(0);
+  const dragDistanceRef = useRef(0);
+  const suppressClickRef = useRef(false);
+  const [offsetX, setOffsetX] = useState(0);
+  const [isDeleteRevealed, setIsDeleteRevealed] = useState(false);
+
   const amountColor =
     movement.type === "income" ? design.colors.incomeGreen : design.colors.expenseRed;
   const formatted = formatMinorToMoney(
@@ -739,50 +756,145 @@ function MovementRow({
       ? `-${currencySymbol}${formatted}`
       : `${currencySymbol}${formatted}`;
 
+  const resetDeleteReveal = useCallback(() => {
+    setOffsetX(0);
+    setIsDeleteRevealed(false);
+  }, []);
+
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (!canDelete || !onDelete || event.pointerType !== "mouse") return;
+      startXRef.current = event.clientX;
+      startOffsetRef.current = isDeleteRevealed ? -ACTION_WIDTH : 0;
+      dragDistanceRef.current = 0;
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [canDelete, isDeleteRevealed, onDelete]
+  );
+
+  const handlePointerMove = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (startXRef.current === null || !canDelete || !onDelete) return;
+      const delta = event.clientX - startXRef.current;
+      dragDistanceRef.current = Math.max(dragDistanceRef.current, Math.abs(delta));
+      const nextOffset = Math.max(
+        -ACTION_WIDTH,
+        Math.min(0, startOffsetRef.current + delta)
+      );
+      setOffsetX(nextOffset);
+    },
+    [canDelete, onDelete]
+  );
+
+  const finalizeDrag = useCallback(() => {
+    if (startXRef.current === null || !canDelete || !onDelete) return;
+    const draggedEnough = dragDistanceRef.current >= DRAG_START_THRESHOLD;
+    const shouldReveal = offsetX <= -REVEAL_THRESHOLD;
+    setOffsetX(shouldReveal ? -ACTION_WIDTH : 0);
+    setIsDeleteRevealed(shouldReveal);
+    suppressClickRef.current = draggedEnough;
+    startXRef.current = null;
+    dragDistanceRef.current = 0;
+  }, [canDelete, offsetX, onDelete]);
+
+  const handlePointerUp = useCallback(() => {
+    finalizeDrag();
+  }, [finalizeDrag]);
+
+  const handlePointerCancel = useCallback(() => {
+    finalizeDrag();
+  }, [finalizeDrag]);
+
+  const handleRowClick = useCallback(() => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    if (isDeleteRevealed) {
+      resetDeleteReveal();
+      return;
+    }
+    onClick?.(movement.id);
+  }, [isDeleteRevealed, movement.id, onClick, resetDeleteReveal]);
+
+  const handleDeleteClick = useCallback(() => {
+    if (!onDelete || isDeleting) return;
+    onDelete(movement.id);
+  }, [isDeleting, movement.id, onDelete]);
+
+  const translatedOffset = canDelete && onDelete ? offsetX : 0;
+
   return (
-    <button
-      type="button"
-      className={cn(
-        "flex w-full items-center justify-between gap-4 rounded-xl border border-border bg-card px-3 py-2 text-left transition hover:bg-muted/50",
-        variant === "pending" && "border-amber-500/35"
-      )}
-      onClick={() => onClick?.(movement.id)}
-    >
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-          <CategoryIcon
-            iconKey={movement.categoryIconId ?? "Receipt"}
-            size={18}
-            tone="muted"
-            accessibilityLabel={movement.categoryName}
+    <div className="relative overflow-hidden rounded-xl">
+      {canDelete && onDelete ? (
+        <button
+          type="button"
+          className="absolute right-0 top-0 flex h-full items-center justify-center gap-1.5 rounded-r-xl bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+          style={{ width: ACTION_WIDTH }}
+          onClick={handleDeleteClick}
+          aria-label={t("common.delete")}
+          disabled={isDeleting}
+        >
+          <Trash2 size={14} />
+          {t("common.delete")}
+        </button>
+      ) : null}
+
+      <button
+        type="button"
+        className={cn(
+          "relative z-[1] flex w-full items-center justify-between gap-4 rounded-xl border border-border bg-card px-3 py-2 text-left transition hover:bg-muted/50",
+          variant === "pending" && "border-amber-500/35"
+        )}
+        onClick={handleRowClick}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        style={{
+          transform: `translateX(${translatedOffset}px)`,
+          transition:
+            startXRef.current === null
+              ? "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)"
+              : undefined,
+        }}
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+            <CategoryIcon
+              iconKey={movement.categoryIconId ?? "Receipt"}
+              size={18}
+              tone="muted"
+              accessibilityLabel={movement.categoryName}
+            />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium text-foreground">
+              {movement.title}
+            </div>
+            <div className="truncate text-xs text-muted-foreground">
+              {movement.categoryName}
+              {movement.subcategory ? ` · ${movement.subcategory}` : ""}
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <span className="text-sm font-semibold" style={{ color: amountColor, opacity: variant === "pending" ? 0.7 : 1 }}>
+            {amountLabel}
+          </span>
+          <UserAvatar
+            email={profile?.email ?? null}
+            displayName={profile?.display_name ?? null}
+            userId={movement.userId}
+            avatarPath={profile?.avatar_path ?? null}
+            fallbackText={profile?.avatar_fallback_text ?? null}
+            fallbackBgToken={profile?.avatar_fallback_bg_token ?? null}
+            avatarColor={profile?.avatar_color ?? null}
+            size={20}
           />
         </div>
-        <div className="min-w-0">
-          <div className="truncate text-sm font-medium text-foreground">
-            {movement.title}
-          </div>
-          <div className="truncate text-xs text-muted-foreground">
-            {movement.categoryName}
-            {movement.subcategory ? ` · ${movement.subcategory}` : ""}
-          </div>
-        </div>
-      </div>
-      <div className="flex flex-col items-end gap-2">
-        <span className="text-sm font-semibold" style={{ color: amountColor, opacity: variant === "pending" ? 0.7 : 1 }}>
-          {amountLabel}
-        </span>
-        <UserAvatar
-          email={profile?.email ?? null}
-          displayName={profile?.display_name ?? null}
-          userId={movement.userId}
-          avatarPath={profile?.avatar_path ?? null}
-          fallbackText={profile?.avatar_fallback_text ?? null}
-          fallbackBgToken={profile?.avatar_fallback_bg_token ?? null}
-          avatarColor={profile?.avatar_color ?? null}
-          size={20}
-        />
-      </div>
-    </button>
+      </button>
+    </div>
   );
 }
 
@@ -799,6 +911,9 @@ function MovementGroup({
   isCollapsed = false,
   onToggleCollapse,
   onPressMovement,
+  onDeleteMovement,
+  canDelete = false,
+  deletingMovementId = null,
 }: {
   label: string;
   variant: "pending" | "done";
@@ -812,6 +927,9 @@ function MovementGroup({
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   onPressMovement?: (id: string) => void;
+  onDeleteMovement?: (id: string) => void;
+  canDelete?: boolean;
+  deletingMovementId?: string | null;
 }) {
   const t = useTranslations();
   const grouped = useMemo(() => groupByDate(movements), [movements]);
@@ -867,6 +985,9 @@ function MovementGroup({
                   currencyCode={currencyCode}
                   variant={variant === "pending" ? "pending" : "default"}
                   onClick={onPressMovement}
+                  canDelete={canDelete}
+                  onDelete={onDeleteMovement}
+                  isDeleting={deletingMovementId === movement.id}
                 />
               ))}
             </div>
@@ -1091,6 +1212,7 @@ export function MovementsClient({
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<TransactionDraft | null>(null);
+  const [deletingMovementId, setDeletingMovementId] = useState<string | null>(null);
   const loadPeriodRequestIdRef = useRef(0);
   const profilesByIdRef = useRef<Record<string, Profile>>(buildProfilesById(profiles));
 
@@ -1551,6 +1673,32 @@ export function MovementsClient({
     [canEdit, categories, emitMutation, selectedTransaction, t]
   );
 
+  const handleDeleteMovement = useCallback(
+    async (movementId: string) => {
+      if (!canEdit) return;
+      const shouldDelete = window.confirm(t("transactions.deleteConfirmDescription"));
+      if (!shouldDelete) return;
+
+      setDeletingMovementId(movementId);
+      try {
+        const result = await deleteTransaction(movementId);
+        if (!result.success) {
+          alert(t("transactions.deleteError"));
+          return;
+        }
+
+        setTransactions((prev) => prev.filter((item) => item.id !== movementId));
+        if (selectedTransactionId === movementId) {
+          handleCloseEdit();
+        }
+        await emitMutation("transactions", "delete");
+      } finally {
+        setDeletingMovementId((current) => (current === movementId ? null : current));
+      }
+    },
+    [canEdit, emitMutation, handleCloseEdit, selectedTransactionId, t]
+  );
+
   const handlePeriodChange = useCallback(
     (period: Period) => {
       setSelectedPeriod(period);
@@ -1796,6 +1944,9 @@ export function MovementsClient({
             isCollapsed={isPendingCollapsed}
             onToggleCollapse={() => setIsPendingCollapsed((prev) => !prev)}
             onPressMovement={canEdit ? handleOpenEdit : undefined}
+            onDeleteMovement={canEdit ? handleDeleteMovement : undefined}
+            canDelete={canEdit}
+            deletingMovementId={deletingMovementId}
           />
         )}
 
@@ -1816,6 +1967,9 @@ export function MovementsClient({
           isCollapsed={isDoneCollapsed}
           onToggleCollapse={() => setIsDoneCollapsed((prev) => !prev)}
           onPressMovement={canEdit ? handleOpenEdit : undefined}
+          onDeleteMovement={canEdit ? handleDeleteMovement : undefined}
+          canDelete={canEdit}
+          deletingMovementId={deletingMovementId}
         />
       </div>
 

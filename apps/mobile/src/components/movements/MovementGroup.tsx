@@ -17,6 +17,7 @@ type MovementGroupProps = {
   currencySymbol: string;
   profilesById: Record<string, UserProfile>;
   onPressMovement?: (id: string) => void;
+  onDeleteMovement?: (id: string) => void;
   locale?: string;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -40,6 +41,7 @@ export function MovementGroup({
   currencySymbol,
   profilesById,
   onPressMovement,
+  onDeleteMovement,
   locale,
   isCollapsed = false,
   onToggleCollapse,
@@ -105,6 +107,8 @@ export function MovementGroup({
                 currencySymbol={currencySymbol}
                 variant={variant === "pending" ? "pending" : "default"}
                 onPress={onPressMovement}
+                onDelete={onDeleteMovement}
+                deleteLabel={t(dictionary, "common.delete")}
               />
             ))}
           </View>

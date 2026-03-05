@@ -1,4 +1,7 @@
+import { useRef } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Trash2 } from "lucide-react-native";
+import Swipeable from "react-native-gesture-handler/Swipeable";
 import {
   isCategoryIconKey,
   formatMinorToMoney,
@@ -16,6 +19,8 @@ type MovementRowProps = {
   currencySymbol: string;
   variant?: "default" | "pending";
   onPress?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  deleteLabel?: string;
 };
 
 const movementColors = movementsDesignTokens.colors;
@@ -27,8 +32,11 @@ export function MovementRow({
   currencySymbol,
   variant = "default",
   onPress,
+  onDelete,
+  deleteLabel = "Eliminar",
 }: MovementRowProps) {
   const { tokens: userTokens } = useUserTheme();
+  const swipeableRef = useRef<Swipeable | null>(null);
   const amountColor =
     movement.type === "income"
       ? movementColors.incomeGreen
@@ -47,7 +55,7 @@ export function MovementRow({
     ? movement.categoryIconId
     : "Receipt";
 
-  return (
+  const rowContent = (
     <Pressable
       onPress={onPress ? () => onPress(movement.id) : undefined}
       style={({ pressed }) => [
@@ -96,9 +104,43 @@ export function MovementRow({
       </View>
     </Pressable>
   );
+
+  if (!onDelete) {
+    return <View style={styles.rowWrapper}>{rowContent}</View>;
+  }
+
+  return (
+    <View style={styles.rowWrapper}>
+      <Swipeable
+        ref={swipeableRef}
+        overshootRight={false}
+        renderRightActions={() => (
+          <Pressable
+            onPress={() => {
+              swipeableRef.current?.close();
+              onDelete(movement.id);
+            }}
+            style={styles.deleteAction}
+            accessibilityRole="button"
+            accessibilityLabel={deleteLabel}
+          >
+            <Trash2 size={16} color="#fff" />
+            <Text style={styles.deleteText}>{deleteLabel}</Text>
+          </Pressable>
+        )}
+      >
+        {rowContent}
+      </Swipeable>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
+  rowWrapper: {
+    marginBottom: 8,
+    borderRadius: movementsDesignTokens.radius.md,
+    overflow: "hidden",
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -107,7 +149,6 @@ const styles = StyleSheet.create({
     borderRadius: movementsDesignTokens.radius.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    marginBottom: 8,
   },
   rowPressed: {
     opacity: 0.85,
@@ -137,6 +178,19 @@ const styles = StyleSheet.create({
   },
   amount: {
     fontSize: movementsDesignTokens.typography.sizes.md,
+    fontFamily: "DMSans-SemiBold",
+  },
+  deleteAction: {
+    width: 96,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    backgroundColor: movementColors.expenseRed,
+    borderRadius: movementsDesignTokens.radius.md,
+  },
+  deleteText: {
+    color: "#fff",
+    fontSize: movementsDesignTokens.typography.sizes.xs,
     fontFamily: "DMSans-SemiBold",
   },
 });
