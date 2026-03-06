@@ -74,6 +74,7 @@ type Transaction = {
   fx_rate?: string | null;
   fx_date?: string | null;
   category_id: string | null;
+  project_id?: string | null;
   date: string;
   merchant: string | null;
   notes: string | null;
@@ -823,13 +824,18 @@ function MovementRow({
   }, [isDeleting, movement.id, onDelete]);
 
   const translatedOffset = canDelete && onDelete ? offsetX : 0;
+  const showDeleteAction =
+    Boolean(canDelete && onDelete) && (isDeleteRevealed || translatedOffset < -6);
 
   return (
     <div className="relative overflow-hidden rounded-xl">
       {canDelete && onDelete ? (
         <button
           type="button"
-          className="absolute right-0 top-0 flex h-full items-center justify-center gap-1.5 rounded-r-xl bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className={cn(
+            "absolute right-0 top-0 flex h-full items-center justify-center gap-1.5 rounded-r-xl bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60",
+            showDeleteAction ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+          )}
           style={{ width: ACTION_WIDTH }}
           onClick={handleDeleteClick}
           aria-label={t("common.delete")}
@@ -1599,6 +1605,7 @@ export function MovementsClient({
         ),
         currency: transaction.currency,
         categoryId: transaction.category_id ?? null,
+        projectId: transaction.project_id ?? null,
         suggestedCategoryId: null,
         merchant: transaction.merchant ?? "",
         notes: transaction.notes ?? "",
@@ -1638,6 +1645,7 @@ export function MovementsClient({
         amount: draft.amount,
         currency: draft.currency,
         category_id: draft.categoryId ?? null,
+        project_id: draft.type === "expense" ? draft.projectId ?? null : null,
         date: draft.date,
         merchant: draft.merchant.trim() || null,
         notes: draft.notes.trim() || null,

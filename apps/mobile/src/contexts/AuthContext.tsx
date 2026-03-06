@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import * as Linking from "expo-linking";
+import { useRouter } from "expo-router";
 import { Session, User } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { signOutAndReset } from "@poleursus/shared";
@@ -36,6 +37,7 @@ let hasWarnedMissingProvider = false;
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -220,6 +222,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearLocalSessionArtifacts: clearSelectedAccount,
       onReset: async () => {
         await mobileDataCacheClient.clearAll();
+      },
+      onNavigate: () => {
+        router.replace("/(auth)/login");
       },
     });
   };

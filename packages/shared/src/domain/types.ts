@@ -33,6 +33,7 @@ export type Transaction = {
   merchant?: string | null;
   notes?: string | null;
   category_id?: string | null;
+  project_id?: string | null;
   obligation_id?: string | null;
   category?: TransactionCategory | null;
   recurring_item_id?: string | null;

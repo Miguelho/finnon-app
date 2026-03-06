@@ -35,6 +35,8 @@ export type ProjectContribution = {
 
 export type ProjectProgress = {
   targetMinor: bigint;
+  monthlySavedMinor: bigint;
+  extraSavedMinor: bigint;
   savedMinor: bigint;
   remainingMinor: bigint;
   progressRatio: number;

@@ -89,6 +89,9 @@ export default function ProjectsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [contributions, setContributions] = useState<ProjectContribution[]>([]);
+  const [extraContributions, setExtraContributions] = useState<
+    Array<{ project_id: string | null; amount_base_minor: bigint | number | string | null }>
+  >([]);
   const [role, setRole] = useState<UserRole>("viewer");
   const [baseCurrency, setBaseCurrency] = useState("EUR");
   const [currencySymbol, setCurrencySymbol] = useState("€");
@@ -158,6 +161,24 @@ export default function ProjectsScreen() {
 
       if (contributionsError) throw contributionsError;
 
+      const { data: extraContributionRows, error: extraContributionsError } =
+        projectIds.length > 0
+          ? await supabase
+              .from("transactions")
+              .select("project_id, amount_base_minor")
+              .eq("account_id", selectedAccountId)
+              .eq("type", "expense")
+              .in("project_id", projectIds)
+          : {
+              data: [] as Array<{
+                project_id: string | null;
+                amount_base_minor: bigint | number | string | null;
+              }>,
+              error: null,
+            };
+
+      if (extraContributionsError) throw extraContributionsError;
+
       const currentMonthKey = toMonthKey(new Date());
       const currentPendingMonthKey = addMonths(currentMonthKey, -1);
 
@@ -189,6 +210,12 @@ export default function ProjectsScreen() {
       setCurrencySymbol(currentSymbol);
       setProjects(currentProjects);
       setContributions((contributionRows ?? []) as ProjectContribution[]);
+      setExtraContributions(
+        (extraContributionRows ?? []) as Array<{
+          project_id: string | null;
+          amount_base_minor: bigint | number | string | null;
+        }>
+      );
       setHasPendingMonthlyClose(pending);
       setPendingMonthKey(latestPendingMonthKey);
     } catch (loadError) {
@@ -196,6 +223,7 @@ export default function ProjectsScreen() {
       setError(t(dictionary, "errors.internalServer"));
       setProjects([]);
       setContributions([]);
+      setExtraContributions([]);
     } finally {
       setLoading(false);
     }
@@ -218,6 +246,16 @@ export default function ProjectsScreen() {
     });
     return byProject;
   }, [contributions]);
+
+  const extraContributionsByProject = useMemo(() => {
+    const byProject = new Map<string, bigint>();
+    extraContributions.forEach((entry) => {
+      if (!entry.project_id) return;
+      const current = byProject.get(entry.project_id) ?? 0n;
+      byProject.set(entry.project_id, current + toMinor(entry.amount_base_minor));
+    });
+    return byProject;
+  }, [extraContributions]);
 
   const totalCommitmentMinor = useMemo(
     () => getMonthlyProjectCommitmentTotal(projects, { activeOnly: true }),
@@ -516,6 +554,8 @@ export default function ProjectsScreen() {
                   const progress = computeProjectProgress({
                     project,
                     contributions: contributionsByProject.get(project.id) ?? [],
+                    extraContributedMinor:
+                      extraContributionsByProject.get(project.id) ?? 0n,
                   });
                   const progressPercent = Math.round(progress.progressRatio * 100);
 

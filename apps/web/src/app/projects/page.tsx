@@ -64,6 +64,16 @@ export default async function ProjectsPage() {
           .in("project_id", projectIds)
       : { data: [] };
 
+  const { data: extraContributions } =
+    projectIds.length > 0
+      ? await supabase
+          .from("transactions")
+          .select("project_id, amount_base_minor")
+          .eq("account_id", activeAccount.id)
+          .eq("type", "expense")
+          .in("project_id", projectIds)
+      : { data: [] };
+
   const currentMonthKey = toMonthKey(new Date());
   const projectsWithCommitment = (projects ?? []).filter((project) => {
     const raw = project.monthly_commitment_base_minor;
@@ -109,6 +119,12 @@ export default async function ProjectsPage() {
         currencySymbol={currencySymbol}
         initialProjects={projects ?? []}
         initialContributions={contributions ?? []}
+        initialExtraContributions={
+          (extraContributions ?? []) as Array<{
+            project_id: string | null;
+            amount_base_minor: string | number | bigint | null;
+          }>
+        }
         hasPendingMonthlyClose={hasPendingMonthlyClose}
         pendingMonthKey={pendingMonthKey}
       />

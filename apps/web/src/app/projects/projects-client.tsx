@@ -48,11 +48,29 @@ type ProjectsClientProps = {
   currencySymbol: string;
   initialProjects: Project[];
   initialContributions: ProjectContribution[];
+  initialExtraContributions: Array<{
+    project_id: string | null;
+    amount_base_minor: string | number | bigint | null;
+  }>;
   hasPendingMonthlyClose: boolean;
   pendingMonthKey: string;
 };
 
 const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
+
+const toMinor = (value: bigint | number | string | null | undefined): bigint => {
+  if (value === null || value === undefined) return 0n;
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return 0n;
+    return BigInt(Math.round(value));
+  }
+  try {
+    return BigInt(value);
+  } catch {
+    return 0n;
+  }
+};
 
 type TranslateFn = (
   key: any,
@@ -92,6 +110,7 @@ export function ProjectsClient({
   currencySymbol,
   initialProjects,
   initialContributions,
+  initialExtraContributions,
   hasPendingMonthlyClose,
   pendingMonthKey,
 }: ProjectsClientProps) {
@@ -108,6 +127,7 @@ export function ProjectsClient({
     [...initialProjects].sort((a, b) => a.priority - b.priority)
   );
   const [contributions] = useState<ProjectContribution[]>(initialContributions);
+  const [extraContributions] = useState(initialExtraContributions);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -128,6 +148,16 @@ export function ProjectsClient({
 
     return byProject;
   }, [contributions]);
+
+  const extraContributionsByProject = useMemo(() => {
+    const byProject = new Map<string, bigint>();
+    extraContributions.forEach((row) => {
+      if (!row.project_id) return;
+      const current = byProject.get(row.project_id) ?? 0n;
+      byProject.set(row.project_id, current + toMinor(row.amount_base_minor));
+    });
+    return byProject;
+  }, [extraContributions]);
 
   const totalCommitmentMinor = useMemo(
     () => getMonthlyProjectCommitmentTotal(projects, { activeOnly: true }),
@@ -357,6 +387,7 @@ export function ProjectsClient({
             const progress = computeProjectProgress({
               project,
               contributions: contributionsByProject.get(project.id) ?? [],
+              extraContributedMinor: extraContributionsByProject.get(project.id) ?? 0n,
             });
 
             return (

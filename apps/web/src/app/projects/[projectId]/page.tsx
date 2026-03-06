@@ -70,6 +70,15 @@ export default async function ProjectDetailPage({
     .order("period", { ascending: false })
     .order("created_at", { ascending: false });
 
+  const { data: extraContributions } = await supabase
+    .from("transactions")
+    .select("id, date, merchant, notes, amount_base_minor")
+    .eq("account_id", activeAccount.id)
+    .eq("type", "expense")
+    .eq("project_id", project.id)
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false });
+
   const { data: recurringExpenses } = await supabase
     .from("recurring_items")
     .select("id, merchant, notes, amount_minor, currency, is_paused, type")
@@ -108,6 +117,15 @@ export default async function ProjectDetailPage({
         initialProject={project}
         accountProjectsForColor={accountProjectsForColor ?? []}
         initialContributions={contributions ?? []}
+        initialExtraContributions={
+          (extraContributions ?? []) as Array<{
+            id: string;
+            date: string;
+            merchant: string | null;
+            notes: string | null;
+            amount_base_minor: string | number | bigint | null;
+          }>
+        }
         recurringExpenses={recurringExpenses ?? []}
         userLabels={userLabels}
       />

@@ -2,7 +2,11 @@ export { accountSchema, createAccountSchema } from "./schemas/account";
 export type { CreateAccount } from "./schemas/account";
 export * from "./schemas/category";
 export { transactionSchema, createTransactionSchema, transactionTypeSchema } from "./schemas/transaction";
-export type { TransactionType, CreateTransaction } from "./schemas/transaction";
+export type {
+  TransactionType,
+  TransactionSplitType,
+  CreateTransaction,
+} from "./schemas/transaction";
 export * from "./schemas/invite";
 export * from "./schemas/participant";
 export * from "./schemas/recurring";

@@ -52,6 +52,14 @@ type RecurringExpense = {
   type: "expense" | "income";
 };
 
+type ExtraContributionTransaction = {
+  id: string;
+  date: string;
+  merchant: string | null;
+  notes: string | null;
+  amount_base_minor: bigint | number | string | null;
+};
+
 type HistoryStatus = "fulfilled" | "deficit" | "no_plan" | "pending";
 
 const tokens = themeTokens.light;
@@ -138,6 +146,9 @@ export default function ProjectDetailScreen() {
   >([]);
   const [contributions, setContributions] = useState<ProjectContribution[]>([]);
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
+  const [extraContributions, setExtraContributions] = useState<
+    ExtraContributionTransaction[]
+  >([]);
   const [userLabels, setUserLabels] = useState<Record<string, string>>({});
   const [role, setRole] = useState<UserRole>("viewer");
   const [baseCurrency, setBaseCurrency] = useState("EUR");
@@ -145,6 +156,7 @@ export default function ProjectDetailScreen() {
 
   const [activeTab, setActiveTab] = useState<"simulator" | "history">("simulator");
   const [isExpensesOpen, setIsExpensesOpen] = useState(false);
+  const [isExtraContributionsOpen, setIsExtraContributionsOpen] = useState(false);
   const [disabledRecurringIds, setDisabledRecurringIds] = useState<Set<string>>(
     new Set()
   );
@@ -221,6 +233,18 @@ export default function ProjectDetailScreen() {
 
       if (recurringError) throw recurringError;
 
+      const { data: extraContributionRows, error: extraContributionsError } =
+        await supabase
+          .from("transactions")
+          .select("id, date, merchant, notes, amount_base_minor")
+          .eq("account_id", selectedAccountId)
+          .eq("type", "expense")
+          .eq("project_id", projectId)
+          .order("date", { ascending: false })
+          .order("created_at", { ascending: false });
+
+      if (extraContributionsError) throw extraContributionsError;
+
       const userIds = Array.from(
         new Set(
           ((contributionRows ?? []) as ProjectContribution[])
@@ -259,16 +283,21 @@ export default function ProjectDetailScreen() {
       );
       setContributions((contributionRows ?? []) as ProjectContribution[]);
       setRecurringExpenses((recurringRows ?? []) as RecurringExpense[]);
+      setExtraContributions(
+        (extraContributionRows ?? []) as ExtraContributionTransaction[]
+      );
       setUserLabels(labels);
       setRole(currentRole);
       setBaseCurrency(currentCurrency);
       setCurrencySymbol(currentCurrencySymbol);
       setSliderMinor(Number(toMinor(nextProject.monthly_commitment_base_minor ?? 0)));
       setDisabledRecurringIds(new Set());
+      setIsExtraContributionsOpen(false);
     } catch (loadError) {
       console.error("[Projects][mobile] detail load error", loadError);
       setError(t(dictionary, "errors.internalServer"));
       setAccountProjectsForColor([]);
+      setExtraContributions([]);
     } finally {
       setLoading(false);
     }
@@ -333,18 +362,46 @@ export default function ProjectDetailScreen() {
     return getProjectColor(project, projectColorMap);
   }, [project, projectColorMap]);
 
+  const monthlyAccumulatedMinor = useMemo(
+    () =>
+      contributions.reduce((total, entry) => {
+        if (!entry.confirmed) return total;
+        return total + toMinor(entry.actual_amount_base_minor);
+      }, 0n),
+    [contributions]
+  );
+
+  const extraContributedMinor = useMemo(
+    () =>
+      extraContributions.reduce(
+        (total, entry) => total + toMinor(entry.amount_base_minor),
+        0n
+      ),
+    [extraContributions]
+  );
+
+  const totalContributedMinor = useMemo(
+    () => monthlyAccumulatedMinor + extraContributedMinor,
+    [extraContributedMinor, monthlyAccumulatedMinor]
+  );
+
   const heroProgress = useMemo(() => {
     if (!project) return null;
-    return computeProjectProgress({ project, contributions });
-  }, [contributions, project]);
+    return computeProjectProgress({
+      project,
+      contributions,
+      extraContributedMinor,
+    });
+  }, [contributions, extraContributedMinor, project]);
 
   const simulatorProgress = useMemo(() => {
     if (!project) return null;
     return computeProjectProgress({
       project: { ...project, monthly_commitment_base_minor: effectiveMonthlyMinor },
       contributions,
+      extraContributedMinor,
     });
-  }, [contributions, effectiveMonthlyMinor, project]);
+  }, [contributions, effectiveMonthlyMinor, extraContributedMinor, project]);
 
   const sliderMax = useMemo(() => {
     if (!project) return sliderStep;
@@ -762,6 +819,133 @@ export default function ProjectDetailScreen() {
                     date: formatDateMonth(heroProgress.estimatedCompletionDate, locale),
                   })}
                 </Text>
+              ) : null}
+            </View>
+
+            <View
+              style={[
+                styles.breakdownCard,
+                { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+              ]}
+            >
+              <View style={styles.breakdownRow}>
+                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                  {t(dictionary, "projects.monthlyAccumulated")}
+                </Text>
+                <Text style={[styles.breakdownValue, { color: userTokens.textPrimary }]}>
+                  {formatMoneyWithSymbol(
+                    monthlyAccumulatedMinor,
+                    baseCurrency,
+                    currencySymbol
+                  )}
+                </Text>
+              </View>
+              <View style={styles.breakdownRow}>
+                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                  {t(dictionary, "projects.extraContributions")}
+                </Text>
+                <Text style={[styles.breakdownValue, { color: userTokens.textPrimary }]}>
+                  {formatMoneyWithSymbol(
+                    extraContributedMinor,
+                    baseCurrency,
+                    currencySymbol
+                  )}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.breakdownDivider,
+                  { backgroundColor: userTokens.border },
+                ]}
+              />
+              <View style={styles.breakdownRow}>
+                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                  {t(dictionary, "projects.totalContributed")}
+                </Text>
+                <Text style={[styles.breakdownTotal, { color: userTokens.textPrimary }]}>
+                  {formatMoneyWithSymbol(
+                    totalContributedMinor,
+                    baseCurrency,
+                    currencySymbol
+                  )}
+                </Text>
+              </View>
+              <View style={styles.breakdownRow}>
+                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                  {t(dictionary, "projects.timeRemaining")}
+                </Text>
+                <Text style={[styles.breakdownValue, { color: userTokens.textPrimary }]}>
+                  {heroProgress.monthsLeft === null
+                    ? t(dictionary, "projects.noPlan")
+                    : heroProgress.monthsLeft === 0
+                    ? t(dictionary, "projects.simulator.reached")
+                    : t(dictionary, "projects.monthsRemaining", {
+                        months: heroProgress.monthsLeft,
+                      })}
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.extraTransactionsCard, { borderColor: userTokens.border }]}>
+              <TouchableOpacity
+                style={styles.expensesToggle}
+                onPress={() => setIsExtraContributionsOpen((previous) => !previous)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.expensesTitle, { color: userTokens.textPrimary }]}>
+                  {t(dictionary, "projects.extraExpensesTitle")}
+                </Text>
+                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                  {isExtraContributionsOpen
+                    ? t(dictionary, "projects.extraExpensesCollapse")
+                    : t(dictionary, "projects.extraExpensesExpand")}
+                </Text>
+              </TouchableOpacity>
+
+              {isExtraContributionsOpen ? (
+                extraContributions.length > 0 ? (
+                  <View style={styles.extraTransactionsList}>
+                    {extraContributions.map((entry) => {
+                      const label =
+                        entry.merchant?.trim() ||
+                        entry.notes?.trim() ||
+                        t(dictionary, "projects.extraExpenseUnnamed");
+                      const dateLabel = formatDateLabel(entry.date, locale) ?? entry.date;
+                      return (
+                        <View
+                          key={entry.id}
+                          style={[
+                            styles.extraTransactionRow,
+                            { borderColor: userTokens.border },
+                          ]}
+                        >
+                          <View style={styles.expenseCopy}>
+                            <Text
+                              numberOfLines={1}
+                              style={[styles.expenseLabel, { color: userTokens.textPrimary }]}
+                            >
+                              {label}
+                            </Text>
+                            <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                              {dateLabel}
+                            </Text>
+                          </View>
+                          <Text style={[styles.breakdownValue, { color: userTokens.textPrimary }]}>
+                            {formatMoneyWithSymbol(
+                              toMinor(entry.amount_base_minor),
+                              baseCurrency,
+                              currencySymbol
+                            )}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                    {t(dictionary, "projects.extraExpensesEmpty")}
+                  </Text>
+                )
               ) : null}
             </View>
 
@@ -1284,6 +1468,51 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: tokens.typography.size.xs,
     fontFamily: "DMSans-Regular",
+  },
+  breakdownCard: {
+    marginTop: tokens.spacing.md,
+    borderRadius: tokens.radii.md,
+    borderWidth: 1,
+    padding: tokens.spacing.sm,
+    gap: tokens.spacing.xs,
+  },
+  breakdownRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: tokens.spacing.sm,
+  },
+  breakdownValue: {
+    fontSize: tokens.typography.size.sm,
+    fontFamily: "DMSans-SemiBold",
+  },
+  breakdownTotal: {
+    fontSize: tokens.typography.size.md,
+    fontFamily: "DMSans-Bold",
+  },
+  breakdownDivider: {
+    height: 1,
+    marginVertical: tokens.spacing.xs,
+  },
+  extraTransactionsCard: {
+    marginTop: tokens.spacing.md,
+    borderRadius: tokens.radii.md,
+    borderWidth: 1,
+    padding: tokens.spacing.sm,
+    gap: tokens.spacing.sm,
+  },
+  extraTransactionsList: {
+    gap: tokens.spacing.sm,
+  },
+  extraTransactionRow: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: tokens.spacing.sm,
   },
   colorPickerCard: {
     marginTop: tokens.spacing.md,

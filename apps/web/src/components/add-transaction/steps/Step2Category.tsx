@@ -23,6 +23,13 @@ interface Category {
   type: "income" | "expense";
 }
 
+type ProjectOption = {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
+};
+
 interface Step2CategoryProps {
   draft: TransactionDraft;
   errors: Record<string, string>;
@@ -31,12 +38,41 @@ interface Step2CategoryProps {
   categoryOccurrenceCounts: Record<string, number>;
   merchantSuggestions: MerchantSuggestion[];
   categoryMerchantOptions: Record<string, string[]>;
+  projectOptions: ProjectOption[];
+  showProjectAssignment?: boolean;
   onFieldChange: <K extends keyof TransactionDraft>(
     field: K,
     value: TransactionDraft[K]
   ) => void;
   onAddCategory?: (type: "income" | "expense") => void;
 }
+
+const LIGHT_TEXT_COLOR = "#FAFAF8";
+const DARK_TEXT_COLOR = "#1C1E21";
+
+const parseHexColor = (value: string): { r: number; g: number; b: number } | null => {
+  const hex = value.trim().replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(hex)) return null;
+
+  const normalized =
+    hex.length === 3
+      ? `${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`
+      : hex;
+
+  const r = Number.parseInt(normalized.slice(0, 2), 16);
+  const g = Number.parseInt(normalized.slice(2, 4), 16);
+  const b = Number.parseInt(normalized.slice(4, 6), 16);
+  if ([r, g, b].some((component) => Number.isNaN(component))) return null;
+
+  return { r, g, b };
+};
+
+const getReadableTextColor = (backgroundColor: string): string => {
+  const rgb = parseHexColor(backgroundColor);
+  if (!rgb) return DARK_TEXT_COLOR;
+  const luminance = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
+  return luminance > 128 ? DARK_TEXT_COLOR : LIGHT_TEXT_COLOR;
+};
 
 export function Step2Category({
   draft,
@@ -46,12 +82,15 @@ export function Step2Category({
   categoryOccurrenceCounts,
   merchantSuggestions,
   categoryMerchantOptions,
+  projectOptions,
+  showProjectAssignment = true,
   onFieldChange,
   onAddCategory,
 }: Step2CategoryProps) {
   const t = useTranslations("addTransaction");
   const [showAllCategories, setShowAllCategories] = React.useState(false);
   const [isSmUp, setIsSmUp] = React.useState(false);
+  const [isProjectListOpen, setIsProjectListOpen] = React.useState(false);
 
   // Filter categories by transaction type
   const filteredCategories = React.useMemo(
@@ -148,6 +187,12 @@ export function Step2Category({
   }, [draft.type]);
 
   React.useEffect(() => {
+    if (draft.type !== "expense" || !showProjectAssignment) {
+      setIsProjectListOpen(false);
+    }
+  }, [draft.type, showProjectAssignment]);
+
+  React.useEffect(() => {
     if (draft.categoryId || !draft.suggestedCategoryId) return;
     const exists = filteredCategories.some(
       (category) => category.id === draft.suggestedCategoryId
@@ -155,6 +200,13 @@ export function Step2Category({
     if (!exists) return;
     handleCategorySelect(draft.suggestedCategoryId, { clearMerchant: false });
   }, [draft.categoryId, draft.suggestedCategoryId, filteredCategories, handleCategorySelect]);
+
+  const selectedProject = draft.projectId
+    ? projectOptions.find((project) => project.id === draft.projectId) ?? null
+    : null;
+  const selectedProjectTextColor = selectedProject
+    ? getReadableTextColor(selectedProject.color)
+    : DARK_TEXT_COLOR;
 
   return (
     <div className="space-y-6">
@@ -319,6 +371,121 @@ export function Step2Category({
           rows={4}
         />
       </div>
+
+      {showProjectAssignment && draft.type === "expense" ? (
+        <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+          <Label htmlFor="project-id" className="text-base font-semibold">
+            {t("projectLabel")}
+          </Label>
+
+          <button
+            id="project-id"
+            type="button"
+            onClick={() => setIsProjectListOpen((current) => !current)}
+            className={cn(
+              "flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              selectedProject
+                ? "border-transparent"
+                : "border-border bg-background hover:bg-muted"
+            )}
+            style={
+              selectedProject
+                ? {
+                    backgroundColor: selectedProject.color,
+                    color: selectedProjectTextColor,
+                  }
+                : undefined
+            }
+          >
+            {selectedProject ? (
+              <span className="flex min-w-0 items-center gap-2">
+                <span aria-hidden>{selectedProject.emoji}</span>
+                <span
+                  className="truncate font-medium"
+                  style={{ color: selectedProjectTextColor }}
+                >
+                  {selectedProject.name}
+                </span>
+              </span>
+            ) : (
+              <span className="font-medium text-foreground">
+                {t("projectNoneOption")}
+              </span>
+            )}
+            {isProjectListOpen ? (
+              <CaretDown
+                size={16}
+                weight="bold"
+                color={selectedProject ? selectedProjectTextColor : undefined}
+              />
+            ) : (
+              <CaretRight
+                size={16}
+                weight="bold"
+                color={selectedProject ? selectedProjectTextColor : undefined}
+              />
+            )}
+          </button>
+
+          {isProjectListOpen ? (
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onFieldChange("projectId", null);
+                  setIsProjectListOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  draft.projectId === null
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-background text-foreground hover:bg-muted"
+                )}
+              >
+                {t("projectNoneOption")}
+              </button>
+
+              {projectOptions.map((project) => {
+                const isSelected = draft.projectId === project.id;
+                const textColor = getReadableTextColor(project.color);
+
+                return (
+                  <button
+                    key={project.id}
+                    type="button"
+                    onClick={() => {
+                      onFieldChange("projectId", project.id);
+                      setIsProjectListOpen(false);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm transition-opacity",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                      isSelected ? "opacity-100" : "opacity-95 hover:opacity-100"
+                    )}
+                    style={{
+                      backgroundColor: project.color,
+                      borderColor: isSelected ? textColor : "transparent",
+                    }}
+                  >
+                    <span aria-hidden style={{ color: textColor }}>
+                      {project.emoji}
+                    </span>
+                    <span className="truncate font-medium" style={{ color: textColor }}>
+                      {project.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {projectOptions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("projectEmpty")}</p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

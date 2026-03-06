@@ -92,6 +92,35 @@ const normalizeSplitDetails = (
     }));
 };
 
+const resolveProjectAssignment = async (params: {
+  supabase: any;
+  accountId: string;
+  type: TransactionType;
+  projectId?: string | null;
+}) => {
+  const { supabase, accountId, type, projectId } = params;
+  if (!projectId) {
+    return { projectId: null as string | null };
+  }
+
+  if (type !== "expense") {
+    return { error: { key: "errors.invalidRequest" as const } };
+  }
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("id", projectId)
+    .eq("account_id", accountId)
+    .maybeSingle();
+
+  if (!project) {
+    return { error: { key: "errors.invalidRequest" as const } };
+  }
+
+  return { projectId };
+};
+
 export async function createTransaction(input: {
   account_id: string;
   type: TransactionType;
@@ -101,6 +130,7 @@ export async function createTransaction(input: {
   date: string; // ISO date string
   merchant: string | null;
   notes: string | null;
+  project_id?: string | null;
   fx_rate?: string | null; // Optional for v1 multi-currency
   paid_by?: string | null;
   split_type?: TransactionSplitType;
@@ -144,6 +174,16 @@ export async function createTransaction(input: {
 
     if (!paidByMembership) {
       return { success: false, error: { key: "errors.invalidRequest" } };
+    }
+
+    const resolvedProject = await resolveProjectAssignment({
+      supabase,
+      accountId: input.account_id,
+      type: input.type,
+      projectId: input.project_id ?? null,
+    });
+    if ("error" in resolvedProject) {
+      return { success: false, error: resolvedProject.error };
     }
 
     // Get account to know base_currency
@@ -222,6 +262,7 @@ export async function createTransaction(input: {
           fx_rate: fxRate,
           fx_date: fxDate,
           category_id: input.category_id,
+          project_id: resolvedProject.projectId,
           date: input.date,
           merchant: input.merchant,
           notes: input.notes,
@@ -578,6 +619,7 @@ export async function updateTransaction(
     amount: string;
     currency: string;
     category_id: string | null;
+    project_id?: string | null;
     date: string;
     merchant: string | null;
     notes: string | null;
@@ -602,7 +644,7 @@ export async function updateTransaction(
     // Get the transaction to verify ownership
     const { data: transaction } = await supabase
       .from("transactions")
-      .select("account_id")
+      .select("account_id, project_id")
       .eq("id", transactionId)
       .single();
 
@@ -620,6 +662,21 @@ export async function updateTransaction(
 
     if (!membership) {
       return { success: false, error: { key: "errors.notMember" } };
+    }
+
+    const incomingProjectId =
+      input.project_id === undefined
+        ? ((transaction as { project_id?: string | null }).project_id ?? null)
+        : input.project_id;
+
+    const resolvedProject = await resolveProjectAssignment({
+      supabase,
+      accountId: transaction.account_id,
+      type: input.type,
+      projectId: incomingProjectId,
+    });
+    if ("error" in resolvedProject) {
+      return { success: false, error: resolvedProject.error };
     }
 
     const splitType = input.split_type;
@@ -712,6 +769,7 @@ export async function updateTransaction(
       fx_rate: fxRate,
       fx_date: fxDate,
       category_id: input.category_id,
+      project_id: resolvedProject.projectId,
       date: input.date,
       merchant: input.merchant,
       notes: input.notes,

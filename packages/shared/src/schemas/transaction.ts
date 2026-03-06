@@ -18,6 +18,7 @@ export const transactionSchema = z.object({
   fx_rate: z.string(),
   fx_date: z.date(),
   category_id: z.string().uuid().nullable(),
+  project_id: z.string().uuid().nullable().optional(),
   obligation_id: z.string().uuid().nullable().optional(),
   date: z.date(),
   merchant: z.string().max(255).nullable(),

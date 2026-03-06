@@ -43,6 +43,7 @@ interface Transaction {
   fx_rate: string | null;
   fx_date: string | null;
   category_id: string | null;
+  project_id?: string | null;
   date: string;
   merchant: string | null;
   notes: string | null;
@@ -106,6 +107,7 @@ export default function EditTransactionScreen(): React.JSX.Element {
       amount: formatMinorToMoney(amountMinor, row.currency, CURRENCY_MINOR_UNITS),
       currency: row.currency,
       categoryId: row.category_id,
+      projectId: row.project_id ?? null,
       suggestedCategoryId: null,
       merchant: row.merchant ?? "",
       notes: row.notes ?? "",
@@ -365,6 +367,7 @@ export default function EditTransactionScreen(): React.JSX.Element {
           fx_rate: fxRateValue,
           fx_date: draft.date,
           category_id: draft.categoryId,
+          project_id: draft.type === "expense" ? draft.projectId ?? null : null,
           date: draft.date,
           merchant: draft.merchant.trim() || null,
           notes: draft.notes.trim() || null,

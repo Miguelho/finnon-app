@@ -186,13 +186,23 @@ export const getProjectSavedMinor = (
 export const computeProjectProgress = (params: {
   project: Project;
   contributions?: ProjectContribution[];
+  extraContributedMinor?: bigint | number | string | null;
   now?: Date;
 }): ProjectProgress => {
-  const { project, contributions = [], now = new Date() } = params;
+  const {
+    project,
+    contributions = [],
+    extraContributedMinor = 0,
+    now = new Date(),
+  } = params;
 
   const targetMinor = toMinor(project.target_amount_base_minor);
   const commitmentMinor = toMinor(project.monthly_commitment_base_minor ?? 0);
-  const rawSaved = getProjectSavedMinor(contributions, { confirmedOnly: true });
+  const monthlySavedMinor = getProjectSavedMinor(contributions, {
+    confirmedOnly: true,
+  });
+  const extraSavedMinor = toMinor(extraContributedMinor);
+  const rawSaved = monthlySavedMinor + extraSavedMinor;
   const savedMinor = rawSaved > 0n ? rawSaved : 0n;
   const remainingMinor = targetMinor > savedMinor ? targetMinor - savedMinor : 0n;
   const progressRatio =
@@ -218,6 +228,8 @@ export const computeProjectProgress = (params: {
 
   return {
     targetMinor,
+    monthlySavedMinor,
+    extraSavedMinor,
     savedMinor,
     remainingMinor,
     progressRatio,

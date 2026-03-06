@@ -31,7 +31,9 @@ import {
   type MutationAction,
   type MutationEntity,
   buildEqualSplit,
+  buildProjectColorMap,
   createInitialDraft,
+  getProjectColor,
   validateStep1,
   validateStep2,
   parseMoneyToMinor,
@@ -118,6 +120,22 @@ type CategoryMerchantRow = {
   merchant: string | null;
 };
 
+type ProjectOption = {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
+};
+
+type ProjectRow = {
+  id: string;
+  name: string;
+  emoji: string | null;
+  color: string | null;
+  is_hucha: boolean | null;
+  created_at: string | null;
+};
+
 const EMPTY_CATEGORY_MERCHANTS: CategoryMerchantsByType = {
   expense: {},
   income: {},
@@ -160,6 +178,18 @@ const buildCategoryMerchantsByType = (
   });
 
   return grouped;
+};
+
+const mapProjectRowsToOptions = (rows: ProjectRow[]): ProjectOption[] => {
+  const colorMap = buildProjectColorMap(rows);
+  return rows
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      emoji: row.emoji?.trim() || "\u{1F3AF}",
+      color: getProjectColor(row, colorMap),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 };
 
 interface AddTransactionFormProps {
@@ -257,6 +287,7 @@ export function AddTransactionForm({
     useState<CategoryMerchantsByType>(EMPTY_CATEGORY_MERCHANTS);
   const [categoryOccurrencesByType, setCategoryOccurrencesByType] =
     useState<CategoryOccurrencesByType>(EMPTY_CATEGORY_OCCURRENCES_BY_TYPE);
+  const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -361,11 +392,78 @@ export function AddTransactionForm({
   }, [currency, defaultDate, initialDraft, type]);
 
   useEffect(() => {
+    if (draft.type !== "expense" || draft.projectId === null) return;
+    setDraft((prev) => ({ ...prev, projectId: null }));
+  }, [draft.projectId, draft.type]);
+
+  useEffect(() => {
     if (!isRecurringMode) return;
     setRecurringFrequency("monthly");
     setRecurringInterval("1");
     setRecurringEndDate("");
   }, [isRecurringMode, accountId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadProjects = async () => {
+      const { data: activeRows, error: activeError } = await supabase
+        .from("projects")
+        .select("id, name, emoji, color, is_hucha, created_at")
+        .eq("account_id", accountId)
+        .eq("status", "active")
+        .order("name", { ascending: true });
+
+      if (activeError) {
+        console.error("[AddTransactionForm] Error loading projects:", activeError);
+        if (!cancelled) setProjectOptions([]);
+        return;
+      }
+
+      const activeProjectRows = (activeRows ?? []) as ProjectRow[];
+      const activeOptions = mapProjectRowsToOptions(activeProjectRows);
+
+      const selectedProjectId = draft.projectId;
+      const hasSelected =
+        selectedProjectId &&
+        activeOptions.some((project) => project.id === selectedProjectId);
+
+      if (!selectedProjectId || hasSelected) {
+        if (!cancelled) setProjectOptions(activeOptions);
+        return;
+      }
+
+      const { data: selectedProject, error: selectedError } = await supabase
+        .from("projects")
+        .select("id, name, emoji, color, is_hucha, created_at")
+        .eq("account_id", accountId)
+        .eq("id", selectedProjectId)
+        .maybeSingle();
+
+      if (selectedError) {
+        console.error(
+          "[AddTransactionForm] Error loading selected project:",
+          selectedError
+        );
+      }
+
+      const mergedRows = selectedProject
+        ? [...activeProjectRows, selectedProject as ProjectRow]
+        : activeProjectRows;
+      const merged = mapProjectRowsToOptions(mergedRows);
+      const deduped = Array.from(
+        new Map(merged.map((project) => [project.id, project])).values()
+      );
+
+      if (!cancelled) setProjectOptions(deduped);
+    };
+
+    void loadProjects();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, draft.projectId]);
 
   useEffect(() => {
     if (allowObligation) return;
@@ -594,6 +692,9 @@ export function AddTransactionForm({
     }
 
     const normalizedDraft: TransactionDraft = { ...draft };
+    if (normalizedDraft.type !== "expense") {
+      normalizedDraft.projectId = null;
+    }
     normalizedDraft.paidByUserId =
       draft.paidByUserId ??
       user.id ??
@@ -752,6 +853,8 @@ export function AddTransactionForm({
           amount_base_minor: amountMinor, // Same if base currency
           currency: normalizedDraft.currency,
           category_id: normalizedDraft.categoryId,
+          project_id:
+            normalizedDraft.type === "expense" ? normalizedDraft.projectId : null,
           date: normalizedDraft.date,
           merchant: normalizedDraft.merchant || null,
           notes: normalizedDraft.notes || null,
@@ -977,6 +1080,8 @@ export function AddTransactionForm({
                   categoryOccurrenceCounts={categoryOccurrencesByType[draft.type]}
                   merchantSuggestions={currentMerchantSuggestions}
                   categoryMerchantOptions={categoryMerchantsByType[draft.type]}
+                  projectOptions={projectOptions}
+                  showProjectAssignment={!isRecurringMode}
                   onFieldChange={handleFieldChange}
                   onAddCategory={handleRequestAddCategory}
                 />
@@ -1077,6 +1182,8 @@ export function AddTransactionForm({
             categoryOccurrenceCounts={categoryOccurrencesByType[draft.type]}
             merchantSuggestions={currentMerchantSuggestions}
             categoryMerchantOptions={categoryMerchantsByType[draft.type]}
+            projectOptions={projectOptions}
+            showProjectAssignment={!isRecurringMode}
             onFieldChange={handleFieldChange}
             onAddCategory={handleRequestAddCategory}
           />

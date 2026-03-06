@@ -52,11 +52,49 @@ test("computeProjectProgress derives saved amount and ETA", () => {
   });
 
   assert.equal(progress.savedMinor, 185000n);
+  assert.equal(progress.monthlySavedMinor, 185000n);
+  assert.equal(progress.extraSavedMinor, 0n);
   assert.equal(progress.remainingMinor, 415000n);
   assert.equal(progress.monthsLeft, 12);
   assert.ok(progress.estimatedCompletionDate);
   assert.equal(progress.estimatedCompletionDate?.getFullYear(), 2027);
   assert.equal(progress.estimatedCompletionDate?.getMonth(), 1);
+});
+
+test("computeProjectProgress includes extra expense contributions", () => {
+  const project: Project = {
+    id: "project-1",
+    account_id: "acc-1",
+    name: "Eurodisney",
+    emoji: "🏰",
+    target_amount_base_minor: "600000",
+    monthly_commitment_base_minor: "35000",
+    priority: 1,
+    status: "active",
+  };
+
+  const contributions: ProjectContribution[] = [
+    {
+      id: "c-1",
+      project_id: "project-1",
+      period: "2026-01-01",
+      actual_amount_base_minor: "100000",
+      confirmed: true,
+    },
+  ];
+
+  const progress = computeProjectProgress({
+    project,
+    contributions,
+    extraContributedMinor: "50000",
+    now: new Date(2026, 1, 10),
+  });
+
+  assert.equal(progress.monthlySavedMinor, 100000n);
+  assert.equal(progress.extraSavedMinor, 50000n);
+  assert.equal(progress.savedMinor, 150000n);
+  assert.equal(progress.remainingMinor, 450000n);
+  assert.equal(progress.monthsLeft, 13);
 });
 
 test("computeProjectMonthlyAllocation respects strict priority in deficit", () => {

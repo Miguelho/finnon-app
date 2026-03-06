@@ -24,6 +24,40 @@ interface Category {
   type: "income" | "expense";
 }
 
+type ProjectOption = {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
+};
+
+const LIGHT_TEXT_COLOR = "#FAFAF8";
+const DARK_TEXT_COLOR = "#1C1E21";
+
+const parseHexColor = (value: string): { r: number; g: number; b: number } | null => {
+  const hex = value.trim().replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(hex)) return null;
+
+  const normalized =
+    hex.length === 3
+      ? `${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`
+      : hex;
+
+  const r = Number.parseInt(normalized.slice(0, 2), 16);
+  const g = Number.parseInt(normalized.slice(2, 4), 16);
+  const b = Number.parseInt(normalized.slice(4, 6), 16);
+  if ([r, g, b].some((component) => Number.isNaN(component))) return null;
+
+  return { r, g, b };
+};
+
+const getReadableTextColor = (backgroundColor: string): string => {
+  const rgb = parseHexColor(backgroundColor);
+  if (!rgb) return DARK_TEXT_COLOR;
+  const luminance = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
+  return luminance > 128 ? DARK_TEXT_COLOR : LIGHT_TEXT_COLOR;
+};
+
 interface Step2CategoryProps {
   draft: TransactionDraft;
   errors: Record<string, string>;
@@ -32,6 +66,8 @@ interface Step2CategoryProps {
   categoryOccurrenceCounts: Record<string, number>;
   merchantSuggestions: MerchantSuggestion[];
   categoryMerchantOptions: Record<string, string[]>;
+  projectOptions: ProjectOption[];
+  showProjectAssignment?: boolean;
   onFieldChange: <K extends keyof TransactionDraft>(
     field: K,
     value: TransactionDraft[K]
@@ -47,12 +83,15 @@ export function Step2Category({
   categoryOccurrenceCounts,
   merchantSuggestions,
   categoryMerchantOptions,
+  projectOptions,
+  showProjectAssignment = true,
   onFieldChange,
   onAddCategory,
 }: Step2CategoryProps) {
   const { dictionary } = useCopy();
   const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [isProjectListOpen, setIsProjectListOpen] = useState(false);
 
   // Filter categories by transaction type
   const filteredCategories = useMemo(
@@ -134,6 +173,12 @@ export function Step2Category({
   }, [draft.type]);
 
   useEffect(() => {
+    if (draft.type !== "expense" || !showProjectAssignment) {
+      setIsProjectListOpen(false);
+    }
+  }, [draft.type, showProjectAssignment]);
+
+  useEffect(() => {
     if (draft.categoryId || !draft.suggestedCategoryId) return;
     const exists = filteredCategories.some(
       (category) => category.id === draft.suggestedCategoryId
@@ -141,6 +186,13 @@ export function Step2Category({
     if (!exists) return;
     handleCategorySelect(draft.suggestedCategoryId, { clearMerchant: false });
   }, [draft.categoryId, draft.suggestedCategoryId, filteredCategories, handleCategorySelect]);
+
+  const selectedProject = draft.projectId
+    ? projectOptions.find((project) => project.id === draft.projectId) ?? null
+    : null;
+  const selectedProjectTextColor = selectedProject
+    ? getReadableTextColor(selectedProject.color)
+    : userTokens.textPrimary;
 
   return (
     <View style={styles.container}>
@@ -357,6 +409,149 @@ export function Step2Category({
           textAlignVertical="top"
         />
       </View>
+
+      {showProjectAssignment && draft.type === "expense" ? (
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+          ]}
+        >
+          <Text style={[styles.label, { color: userTokens.textPrimary }]}>
+            {t(dictionary, "addTransaction.projectLabel")}
+          </Text>
+
+          <Pressable
+            onPress={() => setIsProjectListOpen((current) => !current)}
+            accessibilityRole="button"
+            style={[
+              styles.projectSelectTrigger,
+              selectedProject
+                ? {
+                    borderColor: "transparent",
+                    backgroundColor: selectedProject.color,
+                  }
+                : {
+                    borderColor: userTokens.border,
+                    backgroundColor: userTokens.surface,
+                  },
+            ]}
+          >
+            <View style={styles.projectValueContent}>
+              {selectedProject ? (
+                <>
+                  <Text style={[styles.projectEmoji, { color: selectedProjectTextColor }]}>
+                    {selectedProject.emoji}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.projectSelectValue,
+                      { color: selectedProjectTextColor },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {selectedProject.name}
+                  </Text>
+                </>
+              ) : (
+                <Text
+                  style={[
+                    styles.projectSelectValue,
+                    { color: userTokens.textPrimary },
+                  ]}
+                >
+                  {t(dictionary, "addTransaction.projectNoneOption")}
+                </Text>
+              )}
+            </View>
+            {isProjectListOpen ? (
+              <ChevronDown
+                size={16}
+                color={selectedProject ? selectedProjectTextColor : userTokens.textSecondary}
+              />
+            ) : (
+              <ChevronRight
+                size={16}
+                color={selectedProject ? selectedProjectTextColor : userTokens.textSecondary}
+              />
+            )}
+          </Pressable>
+
+          {isProjectListOpen ? (
+            <View style={styles.projectOptionsList}>
+              <Pressable
+                onPress={() => {
+                  onFieldChange("projectId", null);
+                  setIsProjectListOpen(false);
+                }}
+                accessibilityRole="button"
+                style={[
+                  styles.projectOptionRow,
+                  {
+                    borderColor:
+                      draft.projectId === null ? primaryActionColor : userTokens.border,
+                    backgroundColor:
+                      draft.projectId === null
+                        ? userTokens.surfaceAlt
+                        : userTokens.surface,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.projectOptionText,
+                    {
+                      color:
+                        draft.projectId === null
+                          ? primaryActionColor
+                          : userTokens.textPrimary,
+                    },
+                  ]}
+                >
+                  {t(dictionary, "addTransaction.projectNoneOption")}
+                </Text>
+              </Pressable>
+              {projectOptions.map((project) => {
+                const isSelected = draft.projectId === project.id;
+                const textColor = getReadableTextColor(project.color);
+                return (
+                  <Pressable
+                    key={project.id}
+                    onPress={() => {
+                      onFieldChange("projectId", project.id);
+                      setIsProjectListOpen(false);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                    style={[
+                      styles.projectOptionRow,
+                      {
+                        borderColor: isSelected ? textColor : "transparent",
+                        backgroundColor: project.color,
+                      },
+                    ]}
+                  >
+                    <View style={styles.projectOptionContent}>
+                      <Text style={[styles.projectEmoji, { color: textColor }]}>
+                        {project.emoji}
+                      </Text>
+                      <Text style={[styles.projectOptionText, { color: textColor }]}>
+                        {project.name}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+
+          {projectOptions.length === 0 ? (
+            <Text style={[styles.emptyText, { color: userTokens.textTertiary }]}>
+              {t(dictionary, "addTransaction.projectEmpty")}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -475,5 +670,49 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.size.md,
     minHeight: 160,
     textAlignVertical: "top",
+  },
+  projectSelectTrigger: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: tokens.spacing.sm,
+  },
+  projectSelectValue: {
+    flex: 1,
+    fontSize: tokens.typography.size.md,
+    fontWeight: tokens.typography.weight.medium,
+  },
+  projectValueContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+    minWidth: 0,
+  },
+  projectEmoji: {
+    fontSize: tokens.typography.size.md,
+  },
+  projectOptionsList: {
+    gap: tokens.spacing.sm,
+  },
+  projectOptionRow: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.md,
+  },
+  projectOptionContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+  },
+  projectOptionText: {
+    fontSize: tokens.typography.size.sm,
+    fontWeight: tokens.typography.weight.medium,
+    flexShrink: 1,
   },
 });

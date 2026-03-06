@@ -36,6 +36,14 @@ type RecurringExpense = {
   type: "expense" | "income";
 };
 
+type ExtraContributionTransaction = {
+  id: string;
+  date: string;
+  merchant: string | null;
+  notes: string | null;
+  amount_base_minor: string | number | bigint | null;
+};
+
 type ProjectDetailClientProps = {
   accountId: string;
   role: UserRole;
@@ -49,6 +57,7 @@ type ProjectDetailClientProps = {
     created_at?: string | Date | null;
   }>;
   initialContributions: ProjectContribution[];
+  initialExtraContributions: ExtraContributionTransaction[];
   recurringExpenses: RecurringExpense[];
   userLabels: Record<string, string>;
 };
@@ -120,6 +129,7 @@ export function ProjectDetailClient({
   initialProject,
   accountProjectsForColor,
   initialContributions,
+  initialExtraContributions,
   recurringExpenses,
   userLabels,
 }: ProjectDetailClientProps) {
@@ -136,8 +146,12 @@ export function ProjectDetailClient({
 
   const [project, setProject] = useState<Project>(initialProject);
   const [contributions] = useState<ProjectContribution[]>(initialContributions);
+  const [extraContributions] = useState<ExtraContributionTransaction[]>(
+    initialExtraContributions
+  );
   const [activeTab, setActiveTab] = useState<"simulator" | "history">("simulator");
   const [isExpensesOpen, setIsExpensesOpen] = useState(false);
+  const [isExtraContributionsOpen, setIsExtraContributionsOpen] = useState(false);
   const [disabledRecurringIds, setDisabledRecurringIds] = useState<Set<string>>(
     new Set()
   );
@@ -175,9 +189,37 @@ export function ProjectDetailClient({
     [project, projectColorMap]
   );
 
+  const monthlyAccumulatedMinor = useMemo(
+    () =>
+      contributions.reduce((total, entry) => {
+        if (!entry.confirmed) return total;
+        return total + toMinor(entry.actual_amount_base_minor);
+      }, 0n),
+    [contributions]
+  );
+
+  const extraContributedMinor = useMemo(
+    () =>
+      extraContributions.reduce(
+        (total, entry) => total + toMinor(entry.amount_base_minor),
+        0n
+      ),
+    [extraContributions]
+  );
+
+  const totalContributedMinor = useMemo(
+    () => monthlyAccumulatedMinor + extraContributedMinor,
+    [extraContributedMinor, monthlyAccumulatedMinor]
+  );
+
   const heroProgress = useMemo(
-    () => computeProjectProgress({ project, contributions }),
-    [project, contributions]
+    () =>
+      computeProjectProgress({
+        project,
+        contributions,
+        extraContributedMinor,
+      }),
+    [contributions, extraContributedMinor, project]
   );
 
   const sortedRecurringExpenses = useMemo(
@@ -210,8 +252,9 @@ export function ProjectDetailClient({
         monthly_commitment_base_minor: effectiveMonthlyMinor,
       },
       contributions,
+      extraContributedMinor,
     });
-  }, [project, effectiveMonthlyMinor, contributions]);
+  }, [contributions, effectiveMonthlyMinor, extraContributedMinor, project]);
 
   const sliderMax = useMemo(() => {
     const targetMinor = Number(toMinor(project.target_amount_base_minor));
@@ -574,6 +617,100 @@ export function ProjectDetailClient({
                 </p>
               </div>
             </div>
+          </div>
+
+          <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+            <div className="grid gap-2 text-sm sm:grid-cols-[1fr_auto]">
+              <p className="text-muted-foreground">{tProjects("monthlyAccumulated")}</p>
+              <p className="font-semibold">
+                {formatMoneyWithSymbol(
+                  monthlyAccumulatedMinor,
+                  baseCurrency,
+                  currencySymbol
+                )}
+              </p>
+              <p className="text-muted-foreground">{tProjects("extraContributions")}</p>
+              <p className="font-semibold">
+                {formatMoneyWithSymbol(
+                  extraContributedMinor,
+                  baseCurrency,
+                  currencySymbol
+                )}
+              </p>
+            </div>
+            <div className="h-px bg-border" />
+            <div className="grid gap-2 text-sm sm:grid-cols-[1fr_auto]">
+              <p className="text-muted-foreground">{tProjects("totalContributed")}</p>
+              <p className="text-base font-semibold">
+                {formatMoneyWithSymbol(
+                  totalContributedMinor,
+                  baseCurrency,
+                  currencySymbol
+                )}
+              </p>
+              <p className="text-muted-foreground">{tProjects("timeRemaining")}</p>
+              <p className="font-semibold">
+                {heroProgress.monthsLeft === null
+                  ? tProjects("noPlan")
+                  : heroProgress.monthsLeft === 0
+                  ? tProjects("simulator.reached")
+                  : tProjects("monthsRemaining", { months: heroProgress.monthsLeft })}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3 rounded-lg border p-4">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between text-left"
+              onClick={() =>
+                setIsExtraContributionsOpen((previous) => !previous)
+              }
+            >
+              <span className="font-medium">{tProjects("extraExpensesTitle")}</span>
+              <span className="text-sm text-muted-foreground">
+                {isExtraContributionsOpen
+                  ? tProjects("extraExpensesCollapse")
+                  : tProjects("extraExpensesExpand")}
+              </span>
+            </button>
+
+            {isExtraContributionsOpen ? (
+              extraContributions.length > 0 ? (
+                <div className="space-y-2">
+                  {extraContributions.map((entry) => {
+                    const label =
+                      entry.merchant?.trim() ||
+                      entry.notes?.trim() ||
+                      tProjects("extraExpenseUnnamed");
+                    const dateLabel =
+                      formatDateLabel(entry.date, locale) ?? entry.date;
+                    return (
+                      <div
+                        key={entry.id}
+                        className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{label}</p>
+                          <p className="text-xs text-muted-foreground">{dateLabel}</p>
+                        </div>
+                        <p className="text-sm font-semibold">
+                          {formatMoneyWithSymbol(
+                            toMinor(entry.amount_base_minor),
+                            baseCurrency,
+                            currencySymbol
+                          )}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {tProjects("extraExpensesEmpty")}
+                </p>
+              )
+            ) : null}
           </div>
 
           <div className="rounded-lg border bg-muted/30 p-3">

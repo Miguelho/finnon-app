@@ -108,6 +108,7 @@ type Transaction = {
   fx_rate?: string | null;
   fx_date?: string | null;
   category_id: string | null;
+  project_id?: string | null;
   date: string;
   merchant: string | null;
   merchant_norm?: string | null;
@@ -1024,6 +1025,10 @@ export function TransactionsClient({
         currency: formData.currency,
         fx_rate: requiresFxRate ? formData.fx_rate : null,
         category_id: formData.category_id || null,
+        project_id:
+          formData.type === "expense"
+            ? (selectedTransaction.project_id ?? null)
+            : null,
         date: formData.date,
         merchant: formData.merchant || null,
         notes: formData.notes || null,
