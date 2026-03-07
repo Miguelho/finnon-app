@@ -3,17 +3,17 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
 import {
   addMonths,
-  computeProjectMonthlyAllocation,
-  distributeProjectSurplusProportionally,
   formatMinorToMoney,
   formatMoneyWithSymbol,
   formatMonthLabel,
+  getProjectMonthlyFundingTargetMinor,
   parseMoneyToMinor,
+  type MonthClose,
+  type MonthCloseAllocation,
   type Project,
-  type ProjectContribution,
+  type ReserveContainer,
   type UserRole,
 } from "@poleursus/shared";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
@@ -24,25 +24,38 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
+type SavingsMonthStateRow = {
+  period: string;
+  generated_saved_base_minor: string | number;
+  planned_to_projects_base_minor: string | number;
+  available_to_plan_minor: string | number;
+  needs_rebalance: boolean;
+  is_closed: boolean;
+  closed_at: string | null;
+  allocated_to_projects_base_minor: string | number | null;
+  allocated_to_reserves_base_minor: string | number | null;
+  plans: Array<{
+    project_id: string;
+    planned_amount_base_minor: string | number;
+  }>;
+};
+
 type MonthCloseClientProps = {
   accountId: string;
   role: UserRole;
-  currentUserId: string;
+  locale: "es" | "en";
   monthKey: string;
   pendingMonthKeys: string[];
-  monthStart: string;
   baseCurrency: string;
   currencySymbol: string;
-  actualSavedMinor: string;
   projects: Project[];
-  huchaProject: Project | null;
-  existingContributions: ProjectContribution[];
-  userLabels: Record<string, string>;
+  reserveContainers: ReserveContainer[];
+  monthState: SavingsMonthStateRow | null;
+  monthClose: MonthClose | null;
+  monthCloseAllocations: MonthCloseAllocation[];
 };
 
-type AllocationMode = "hucha" | "proportional" | "manual";
-
-type ParsedRow = {
+type ParsedPlanRow = {
   projectId: string;
   amountMinor: bigint;
   error: string | null;
@@ -64,202 +77,61 @@ const toMinor = (value: bigint | number | string | null | undefined): bigint => 
 
 const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
 
-const formatSignedMoney = (
-  value: bigint,
-  baseCurrency: string,
-  currencySymbol: string
-) => {
-  const abs = value < 0n ? -value : value;
-  const formatted = formatMoneyWithSymbol(abs, baseCurrency, currencySymbol);
-  if (value === 0n) return formatted;
-  return value > 0n ? `+${formatted}` : `-${formatted}`;
+const formatClosedAt = (value: string | null, locale: "es" | "en") => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(date);
 };
 
 export function MonthCloseClient({
   accountId,
   role,
-  currentUserId,
+  locale,
   monthKey,
   pendingMonthKeys,
-  monthStart,
   baseCurrency,
   currencySymbol,
-  actualSavedMinor,
   projects,
-  huchaProject,
-  existingContributions,
-  userLabels,
+  reserveContainers,
+  monthState,
+  monthClose,
+  monthCloseAllocations,
 }: MonthCloseClientProps) {
-  const locale = useLocale();
   const router = useRouter();
-  const tProjects = useTranslations("projects");
-  const tCommon = useTranslations("common");
-  const tGlobal = useTranslations();
   const supabase = useMemo(() => createClient(), []);
   const { emitMutation } = useWebDataCache();
-
   const canEdit = role !== "viewer";
-
-  const actualSaved = useMemo(() => {
-    try {
-      return BigInt(actualSavedMinor);
-    } catch {
-      return 0n;
-    }
-  }, [actualSavedMinor]);
-
-  const allocatableMinor = actualSaved > 0n ? actualSaved : 0n;
-
-  const commitments = useMemo(
-    () =>
-      projects.map((project) => ({
-        project,
-        commitmentMinor: toMinor(project.monthly_commitment_base_minor ?? 0),
-      })),
-    [projects]
-  );
-
-  const allocationResult = useMemo(
-    () =>
-      computeProjectMonthlyAllocation({
-        projects: commitments.map((row) => ({
-          projectId: row.project.id,
-          priority: row.project.priority,
-          commitmentMinor: row.commitmentMinor,
-        })),
-        actualSavedMinor: allocatableMinor,
-      }),
-    [allocatableMinor, commitments]
-  );
-
-  const surplusProportional = useMemo(
-    () =>
-      distributeProjectSurplusProportionally({
-        projects: commitments.map((row) => ({
-          projectId: row.project.id,
-          priority: row.project.priority,
-          commitmentMinor: row.commitmentMinor,
-        })),
-        surplusMinor: allocationResult.surplusMinor,
-      }),
-    [allocationResult.surplusMinor, commitments]
-  );
-
-  const suggestedByProject = useMemo(() => {
-    const map = new Map<string, bigint>();
-    allocationResult.allocations.forEach((row) => {
-      map.set(row.projectId, row.allocatedMinor);
-    });
-    return map;
-  }, [allocationResult.allocations]);
-
-  const proportionalByProject = useMemo(() => {
-    const map = new Map<string, bigint>();
-    surplusProportional.forEach((row) => {
-      map.set(row.projectId, row.allocatedSurplusMinor);
-    });
-    return map;
-  }, [surplusProportional]);
-
-  const groupedExisting = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        actualMinor: bigint;
-        committedMinor: bigint;
-        confirmed: boolean;
-        userId: string | null;
-        confirmedAt: string | null;
-      }
-    >();
-
-    existingContributions.forEach((entry) => {
-      const current =
-        map.get(entry.project_id) ??
-        {
-          actualMinor: 0n,
-          committedMinor: 0n,
-          confirmed: false,
-          userId: null,
-          confirmedAt: null,
-        };
-
-      const nextConfirmedAt =
-        typeof entry.confirmed_at === "string" ? entry.confirmed_at : null;
-
-      map.set(entry.project_id, {
-        actualMinor: current.actualMinor + toMinor(entry.actual_amount_base_minor),
-        committedMinor:
-          current.committedMinor + toMinor(entry.committed_amount_base_minor ?? 0),
-        confirmed: current.confirmed || Boolean(entry.confirmed),
-        userId: entry.user_id ?? current.userId,
-        confirmedAt: nextConfirmedAt ?? current.confirmedAt,
-      });
-    });
-
-    return map;
-  }, [existingContributions]);
-
-  const isInitiallyConfirmed = useMemo(() => {
-    if (projects.length === 0) return false;
-    return projects.every((project) => groupedExisting.get(project.id)?.confirmed);
-  }, [groupedExisting, projects]);
-
-  const initialMode: AllocationMode = isInitiallyConfirmed
-    ? "manual"
-    : "hucha";
+  const isClosed = monthState?.is_closed ?? Boolean(monthClose?.id);
+  const actualSavedMinor = toMinor(monthState?.generated_saved_base_minor ?? 0);
+  const positiveSavedMinor = actualSavedMinor > 0n ? actualSavedMinor : 0n;
+  const huchaReserve =
+    reserveContainers.find((reserveContainer) => reserveContainer.kind === "hucha") ?? null;
 
   const initialInputs = useMemo(() => {
-    const result: Record<string, string> = {};
-    commitments.forEach(({ project }) => {
-      const existing = groupedExisting.get(project.id);
-      const suggested = suggestedByProject.get(project.id) ?? 0n;
-      const value = existing?.actualMinor ?? suggested;
-      result[project.id] = formatMinorToMoney(value, baseCurrency);
+    const next: Record<string, string> = {};
+    projects.forEach((project) => {
+      const plan = monthState?.plans.find((entry) => entry.project_id === project.id);
+      next[project.id] = formatMinorToMoney(
+        toMinor(plan?.planned_amount_base_minor ?? 0),
+        baseCurrency
+      );
     });
-    return result;
-  }, [baseCurrency, commitments, groupedExisting, suggestedByProject]);
+    return next;
+  }, [baseCurrency, monthState?.plans, projects]);
 
-  const [allocationMode, setAllocationMode] = useState<AllocationMode>(initialMode);
-  const [inputsByProject, setInputsByProject] = useState<Record<string, string>>(
-    initialInputs
-  );
-  const [isSaving, setIsSaving] = useState(false);
+  const [inputsByProject, setInputsByProject] = useState<Record<string, string>>(initialInputs);
+  const [isSavingPlan, setIsSavingPlan] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [confirmedRows, setConfirmedRows] = useState<ProjectContribution[]>(
-    existingContributions
-  );
 
-  const isFullyConfirmed = useMemo(() => {
-    if (projects.length === 0) return false;
-
-    const confirmedProjectIds = new Set(
-      confirmedRows
-        .filter((row) => row.confirmed)
-        .map((row) => row.project_id)
-    );
-
-    return projects.every((project) => confirmedProjectIds.has(project.id));
-  }, [confirmedRows, projects]);
-
-  const applyAutomaticMode = (mode: Exclude<AllocationMode, "manual">) => {
-    const next: Record<string, string> = {};
-    commitments.forEach(({ project }) => {
-      const base = suggestedByProject.get(project.id) ?? 0n;
-      const extra =
-        mode === "proportional" ? proportionalByProject.get(project.id) ?? 0n : 0n;
-      next[project.id] = formatMinorToMoney(base + extra, baseCurrency);
-    });
-
-    setAllocationMode(mode);
-    setInputsByProject(next);
-    setErrorMessage(null);
-    setSuccessMessage(null);
-  };
-
-  const parsedAllocations = useMemo(() => {
-    const parsedRows: ParsedRow[] = commitments.map(({ project }) => {
+  const parsedPlans = useMemo(() => {
+    const rows: ParsedPlanRow[] = projects.map((project) => {
       const raw = (inputsByProject[project.id] ?? "").trim();
       if (!raw) {
         return { projectId: project.id, amountMinor: 0n, error: null };
@@ -270,7 +142,7 @@ export function MonthCloseClient({
         return {
           projectId: project.id,
           amountMinor: 0n,
-          error: tGlobal(parsed.error.key, parsed.error.params),
+          error: locale === "en" ? "Review this amount." : "Revisa este importe.",
         };
       }
 
@@ -281,56 +153,62 @@ export function MonthCloseClient({
       };
     });
 
-    const map = new Map(parsedRows.map((row) => [row.projectId, row]));
-    const totalAssignedMinor = parsedRows.reduce(
-      (total, row) => total + row.amountMinor,
-      0n
-    );
-    const hasErrors = parsedRows.some((row) => row.error !== null);
-
+    const totalMinor = rows.reduce((total, row) => total + row.amountMinor, 0n);
     return {
-      rows: parsedRows,
-      byProject: map,
-      totalAssignedMinor,
-      hasErrors,
+      rows,
+      totalMinor,
+      hasErrors: rows.some((row) => row.error !== null),
     };
-  }, [baseCurrency, commitments, inputsByProject, tGlobal]);
+  }, [baseCurrency, inputsByProject, locale, projects]);
 
-  const overAssignedMinor =
-    parsedAllocations.totalAssignedMinor > allocatableMinor
-      ? parsedAllocations.totalAssignedMinor - allocatableMinor
-      : 0n;
+  const needsRebalance = parsedPlans.totalMinor > positiveSavedMinor;
+  const projectedReserveMinor =
+    positiveSavedMinor > parsedPlans.totalMinor ? positiveSavedMinor - parsedPlans.totalMinor : 0n;
+  const canPersistPlan = canEdit && !isClosed && !parsedPlans.hasErrors && !needsRebalance;
+  const canConfirmClose = canPersistPlan && !isClosing;
 
-  const unassignedMinor =
-    allocatableMinor > parsedAllocations.totalAssignedMinor
-      ? allocatableMinor - parsedAllocations.totalAssignedMinor
-      : 0n;
+  const allocationLabels = useMemo(() => {
+    const projectsById = new Map(projects.map((project) => [project.id, project]));
+    const reservesById = new Map(
+      reserveContainers.map((reserveContainer) => [reserveContainer.id, reserveContainer])
+    );
 
-  const deficitAfterAssignMinor =
-    allocationResult.totalCommittedMinor > parsedAllocations.totalAssignedMinor
-      ? allocationResult.totalCommittedMinor - parsedAllocations.totalAssignedMinor
-      : 0n;
+    return monthCloseAllocations.map((allocation) => {
+      if (allocation.project_id) {
+        const project = projectsById.get(allocation.project_id);
+        return {
+          id: allocation.id,
+          label: project
+            ? `${project.emoji || "\u{1F3AF}"} ${project.name}`
+            : locale === "en"
+              ? "Project"
+              : "Proyecto",
+          amountMinor: toMinor(allocation.amount_base_minor),
+        };
+      }
 
-  const latestConfirmation = useMemo(() => {
-    const confirmed = confirmedRows
-      .filter((row) => row.confirmed)
-      .sort((a, b) => {
-        const aDate =
-          typeof a.confirmed_at === "string"
-            ? new Date(a.confirmed_at).getTime()
-            : 0;
-        const bDate =
-          typeof b.confirmed_at === "string"
-            ? new Date(b.confirmed_at).getTime()
-            : 0;
-        return bDate - aDate;
-      });
+      const reserve = allocation.reserve_container_id
+        ? reservesById.get(allocation.reserve_container_id)
+        : null;
+      return {
+        id: allocation.id,
+        label: reserve
+          ? `${reserve.emoji || "\u{1F437}"} ${reserve.name}`
+          : locale === "en"
+            ? "Reserve"
+            : "Reserva",
+        amountMinor: toMinor(allocation.amount_base_minor),
+      };
+    });
+  }, [locale, monthCloseAllocations, projects, reserveContainers]);
 
-    return confirmed[0] ?? null;
-  }, [confirmedRows]);
+  const closedAtLabel = formatClosedAt(
+    monthState?.closed_at ??
+      (typeof monthClose?.closed_at === "string" ? monthClose.closed_at : null),
+    locale
+  );
 
   const handleInputChange = (projectId: string, value: string) => {
-    setAllocationMode("manual");
     setInputsByProject((previous) => ({
       ...previous,
       [projectId]: sanitizeNumericInput(value),
@@ -339,97 +217,82 @@ export function MonthCloseClient({
     setSuccessMessage(null);
   };
 
-  const handleConfirm = async () => {
-    if (!canEdit || isSaving) return;
+  const persistPlans = async () => {
+    const payload = parsedPlans.rows.map((row) => ({
+      project_id: row.projectId,
+      planned_amount_base_minor: row.amountMinor.toString(),
+    }));
 
-    if (projects.length === 0 && !huchaProject) {
-      setErrorMessage(tProjects("monthClose.noProjects"));
-      return;
-    }
+    const { error } = await supabase.rpc("replace_monthly_project_funding_plans", {
+      p_account_id: accountId,
+      p_period: `${monthKey}-01`,
+      p_plans: payload,
+    });
 
-    if (parsedAllocations.hasErrors) {
-      setErrorMessage(tProjects("monthClose.fixErrors"));
-      return;
-    }
+    if (error) throw error;
 
-    if (overAssignedMinor > 0n) {
-      setErrorMessage(
-        tProjects("monthClose.overAssigned", {
-          amount: formatMoneyWithSymbol(overAssignedMinor, baseCurrency, currencySymbol),
-        })
-      );
-      return;
-    }
+    await emitMutation("monthly_project_funding_plans", "upsert");
+  };
 
-    if (unassignedMinor > 0n && !huchaProject) {
-      setErrorMessage(tProjects("monthClose.huchaMissing"));
-      return;
-    }
+  const handleSavePlan = async () => {
+    if (!canPersistPlan || isSavingPlan) return;
 
-    setIsSaving(true);
+    setIsSavingPlan(true);
     setErrorMessage(null);
     setSuccessMessage(null);
 
     try {
-      const nowIso = new Date().toISOString();
-      const payload = commitments.map(({ project, commitmentMinor }) => {
-        const parsed = parsedAllocations.byProject.get(project.id);
-        const assignedMinor = parsed?.amountMinor ?? 0n;
-        const suggestedMinor =
-          (suggestedByProject.get(project.id) ?? 0n) +
-          (allocationMode === "proportional"
-            ? proportionalByProject.get(project.id) ?? 0n
-            : 0n);
+      await persistPlans();
+      setSuccessMessage(
+        locale === "en" ? "Monthly plan updated." : "Plan mensual actualizado."
+      );
+      router.refresh();
+    } catch (error) {
+      console.error("[MonthClose][web] save plan error", error);
+      setErrorMessage(
+        locale === "en"
+          ? "Couldn't save the monthly plan."
+          : "No se pudo guardar el plan mensual."
+      );
+    } finally {
+      setIsSavingPlan(false);
+    }
+  };
 
-        return {
-          account_id: accountId,
-          project_id: project.id,
-          user_id: currentUserId,
-          period: monthStart,
-          committed_amount_base_minor: String(commitmentMinor),
-          actual_amount_base_minor: String(assignedMinor),
-          source: assignedMinor === suggestedMinor ? "automatic" : "manual",
-          confirmed: true,
-          confirmed_at: nowIso,
-          updated_at: nowIso,
-        };
+  const handleConfirmClose = async () => {
+    if (!canConfirmClose) return;
+
+    setIsClosing(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      await persistPlans();
+
+      const { error } = await supabase.rpc("close_savings_month", {
+        p_account_id: accountId,
+        p_period: `${monthKey}-01`,
       });
-
-      if (huchaProject && unassignedMinor > 0n) {
-        payload.push({
-          account_id: accountId,
-          project_id: huchaProject.id,
-          user_id: currentUserId,
-          period: monthStart,
-          committed_amount_base_minor: "0",
-          actual_amount_base_minor: String(unassignedMinor),
-          source: "automatic",
-          confirmed: true,
-          confirmed_at: nowIso,
-          updated_at: nowIso,
-        });
-      }
-
-      const { data, error } = await supabase
-        .from("project_contributions")
-        .upsert(payload, { onConflict: "project_id,period" })
-        .select("*");
 
       if (error) throw error;
 
-      setConfirmedRows((data as ProjectContribution[]) ?? []);
-      await emitMutation("project_contributions", "upsert");
-      setSuccessMessage(tProjects("monthClose.confirmed"));
-
-      // Redirigir a la pantalla de proyectos después de confirmar
-      setTimeout(() => {
-        router.push("/projects");
-      }, 1000);
+      await emitMutation("month_closes", "insert");
+      await emitMutation("month_close_allocations", "insert");
+      setSuccessMessage(
+        locale === "en"
+          ? "Month close confirmed."
+          : "Cierre mensual confirmado."
+      );
+      router.refresh();
     } catch (error) {
-      console.error("[Projects] Month close confirm error", error);
-      setErrorMessage(tGlobal("errors.internalServer"));
+      console.error("[MonthClose][web] close error", error);
+      setErrorMessage(
+        locale === "en"
+          ? "Couldn't close the month."
+          : "No se pudo cerrar el mes."
+      );
     } finally {
-      setIsSaving(false);
+      setIsClosing(false);
     }
   };
 
@@ -444,56 +307,46 @@ export function MonthCloseClient({
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          {tProjects("backToList")}
+          {locale === "en" ? "Back to projects" : "Volver a proyectos"}
         </Link>
       </div>
 
-      {/* Month Navigation - Always visible */}
       <Card>
         <CardContent className="space-y-3 p-4">
           <p className="text-sm font-medium">
-            {tProjects("monthClose.selectMonth")}
+            {locale === "en" ? "Select month to close" : "Seleccionar mes a cerrar"}
           </p>
-
-          {/* Month navigation buttons */}
           <div className="flex items-center justify-center gap-3">
-            <Button
-              asChild
-              size="icon"
-              variant="outline"
-              className="h-8 w-8"
-            >
+            <Button asChild size="icon" variant="outline" className="h-8 w-8">
               <Link href={`/projects/month-close?month=${previousMonth}`}>
                 <ChevronLeft className="h-4 w-4" />
               </Link>
             </Button>
-
-            <div className="text-center flex-shrink-0 px-2">
-              <p className="text-base sm:text-lg font-semibold whitespace-nowrap">
+            <div className="px-2 text-center">
+              <p className="text-base font-semibold sm:text-lg">
                 {formatMonthLabel(monthKey, locale)}
               </p>
-              <p className="text-xs text-muted-foreground whitespace-nowrap">
-                {tProjects("monthClose.currentMonth")}
+              <p className="text-xs text-muted-foreground">
+                {pendingMonthKeys.includes(monthKey)
+                  ? locale === "en"
+                    ? "Pending month"
+                    : "Mes pendiente"
+                  : locale === "en"
+                    ? "Month overview"
+                    : "Resumen del mes"}
               </p>
             </div>
-
-            <Button
-              asChild
-              size="icon"
-              variant="outline"
-              className="h-8 w-8"
-            >
+            <Button asChild size="icon" variant="outline" className="h-8 w-8">
               <Link href={`/projects/month-close?month=${nextMonth}`}>
                 <ChevronRight className="h-4 w-4" />
               </Link>
             </Button>
           </div>
 
-          {/* Pending months list */}
-          {pendingMonthKeys.length > 1 ? (
-            <div className="pt-3 border-t">
-              <p className="text-xs text-muted-foreground mb-2">
-                {tProjects("monthClose.pendingMonthsListHint")}
+          {pendingMonthKeys.length > 0 ? (
+            <div className="border-t pt-3">
+              <p className="mb-2 text-xs text-muted-foreground">
+                {locale === "en" ? "Pending closes" : "Cierres pendientes"}
               </p>
               <div className="flex flex-wrap gap-2">
                 {pendingMonthKeys.map((pendingKey) => (
@@ -515,149 +368,127 @@ export function MonthCloseClient({
       </Card>
 
       <Card>
-        <CardHeader>
-          <h1 className="text-2xl font-semibold">{tProjects("monthClose.title")}</h1>
+        <CardHeader className="space-y-2">
+          <h1 className="text-2xl font-semibold">
+            {locale === "en" ? "End-of-month ritual" : "Ritual de fin de mes"}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            {tProjects("monthClose.subtitle", {
-              month: formatMonthLabel(monthKey, locale),
-            })}
+            {locale === "en"
+              ? "Confirm how the real savings of the month are consolidated."
+              : "Confirma cómo se consolida el ahorro real del mes."}
           </p>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-lg border p-3">
-            <p className="text-sm text-muted-foreground">{tProjects("monthClose.actualSaved")}</p>
+            <p className="text-sm text-muted-foreground">
+              {locale === "en" ? "Generated savings" : "Ahorro generado"}
+            </p>
             <p className="text-xl font-semibold">
-              {formatSignedMoney(actualSaved, baseCurrency, currencySymbol)}
+              {formatMoneyWithSymbol(actualSavedMinor, baseCurrency, currencySymbol)}
             </p>
           </div>
           <div className="rounded-lg border p-3">
             <p className="text-sm text-muted-foreground">
-              {tProjects("monthClose.totalCommitted")}
+              {locale === "en" ? "Planned to projects" : "Planificado a proyectos"}
             </p>
             <p className="text-xl font-semibold">
-              {formatMoneyWithSymbol(
-                allocationResult.totalCommittedMinor,
-                baseCurrency,
-                currencySymbol
-              )}
+              {formatMoneyWithSymbol(parsedPlans.totalMinor, baseCurrency, currencySymbol)}
             </p>
           </div>
           <div className="rounded-lg border p-3">
-            <p className="text-sm text-muted-foreground">{tProjects("monthClose.allocatable")}</p>
+            <p className="text-sm text-muted-foreground">
+              {locale === "en" ? "Will go to piggy bank" : "Irá a la hucha"}
+            </p>
             <p className="text-xl font-semibold">
-              {formatMoneyWithSymbol(allocatableMinor, baseCurrency, currencySymbol)}
+              {formatMoneyWithSymbol(projectedReserveMinor, baseCurrency, currencySymbol)}
             </p>
           </div>
         </CardContent>
       </Card>
 
-      {isFullyConfirmed && latestConfirmation ? (
-        <Card>
-          <CardContent className="space-y-1 p-4 text-sm">
-            <p className="font-medium text-emerald-600">{tProjects("monthClose.alreadyConfirmed")}</p>
-            <p className="text-muted-foreground">
-              {tProjects("monthClose.confirmedBy", {
-                name:
-                  latestConfirmation.user_id
-                    ? userLabels[latestConfirmation.user_id] ?? latestConfirmation.user_id.slice(0, 8)
-                    : tProjects("history.unknownUser"),
-              })}
+      {isClosed ? (
+        <Card className="border-emerald-300/60 bg-emerald-50/40">
+          <CardContent className="space-y-1 p-4 text-sm text-emerald-900">
+            <p className="font-medium">
+              {locale === "en" ? "Month already closed" : "Mes ya cerrado"}
+            </p>
+            {closedAtLabel ? (
+              <p>
+                {locale === "en"
+                  ? `Closed on ${closedAtLabel}.`
+                  : `Cerrado el ${closedAtLabel}.`}
+              </p>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {!isClosed && needsRebalance ? (
+        <Card className="border-orange-300/60 bg-orange-50/50">
+          <CardContent className="space-y-1 p-4 text-sm text-orange-900">
+            <p className="font-medium">
+              {locale === "en" ? "Rebalance required" : "Necesita ajuste"}
+            </p>
+            <p>
+              {locale === "en"
+                ? "The plan exceeds the currently positive savings. Lower the planned amounts before closing."
+                : "El plan supera el ahorro positivo disponible. Baja los importes planificados antes de cerrar."}
             </p>
           </CardContent>
         </Card>
       ) : null}
 
-      {projects.length === 0 && !huchaProject ? (
+      {!isClosed && actualSavedMinor <= 0n ? (
+        <Card className="border-slate-300/60 bg-slate-50/50">
+          <CardContent className="space-y-1 p-4 text-sm text-slate-800">
+            <p className="font-medium">
+              {locale === "en" ? "No positive savings this month" : "No hay ahorro positivo este mes"}
+            </p>
+            <p>
+              {locale === "en"
+                ? "Closing the month will not allocate funds to projects or to the piggy bank."
+                : "Al cerrar el mes no se asignará financiación ni a proyectos ni a la hucha."}
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {projects.length === 0 ? (
         <Card>
-          <CardContent className="space-y-2 p-6">
-            <p className="text-sm text-muted-foreground">{tProjects("monthClose.noProjects")}</p>
-            <Button asChild variant="outline">
-              <Link href="/projects">{tProjects("backToList")}</Link>
-            </Button>
+          <CardContent className="space-y-2 p-6 text-sm text-muted-foreground">
+            <p>
+              {locale === "en"
+                ? "There are no active financial projects. You can still close the month and send any positive remainder to the piggy bank."
+                : "No hay proyectos financieros activos. Aun así puedes cerrar el mes y mandar el sobrante positivo a la hucha."}
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <>
-          {allocationResult.surplusMinor > 0n ? (
-            <Card>
-              <CardContent className="space-y-3 p-4">
-                <p className="text-sm font-medium">{tProjects("monthClose.surplusTitle")}</p>
-                <p className="text-sm text-muted-foreground">
-                  {tProjects("monthClose.surplusDescription", {
-                    amount: formatMoneyWithSymbol(
-                      allocationResult.surplusMinor,
-                      baseCurrency,
-                      currencySymbol
-                    ),
-                  })}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant={allocationMode === "hucha" ? "default" : "outline"}
-                    onClick={() => applyAutomaticMode("hucha")}
-                    disabled={!canEdit}
-                  >
-                    {tProjects("monthClose.surplusToHucha")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={allocationMode === "proportional" ? "default" : "outline"}
-                    onClick={() => applyAutomaticMode("proportional")}
-                    disabled={!canEdit}
-                  >
-                    {tProjects("monthClose.surplusProportional")}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
+        <Card>
+          <CardContent className="space-y-4 p-6">
+            {projects.map((project) => {
+              const parsedRow =
+                parsedPlans.rows.find((row) => row.projectId === project.id) ?? null;
 
-          <Card>
-            <CardContent className="space-y-4 p-6">
-              {commitments.map(({ project, commitmentMinor }) => {
-                const parsed = parsedAllocations.byProject.get(project.id);
-                const assignedMinor = parsed?.amountMinor ?? 0n;
-                const isFulfilled = commitmentMinor > 0n && assignedMinor >= commitmentMinor;
-                const hasDeficit = commitmentMinor > 0n && assignedMinor < commitmentMinor;
-
-                return (
-                  <div key={project.id} className="rounded-lg border p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-base font-semibold">
-                          {project.emoji} {project.name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {tProjects("monthClose.projectCommitment", {
-                            amount: formatMoneyWithSymbol(
-                              commitmentMinor,
-                              baseCurrency,
-                              currencySymbol
-                            ),
-                          })}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        {isFulfilled ? (
-                          <p className="text-xs font-medium text-emerald-600">
-                            {tProjects("history.statusFulfilled")}
-                          </p>
-                        ) : hasDeficit ? (
-                          <p className="text-xs font-medium text-amber-600">
-                            {tProjects("history.statusDeficit")}
-                          </p>
-                        ) : (
-                          <p className="text-xs font-medium text-muted-foreground">
-                            {tProjects("history.statusNoPlan")}
-                          </p>
+              return (
+                <div key={project.id} className="rounded-lg border p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-base font-semibold">
+                        {project.emoji || "\u{1F3AF}"} {project.name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {locale === "en" ? "Monthly funding target" : "Objetivo mensual"}:{" "}
+                        {formatMoneyWithSymbol(
+                          getProjectMonthlyFundingTargetMinor(project),
+                          baseCurrency,
+                          currencySymbol
                         )}
-                      </div>
+                      </p>
                     </div>
-
-                    <div className="mt-3 space-y-2">
+                    <div className="w-full sm:w-44">
                       <label className="text-xs text-muted-foreground">
-                        {tProjects("monthClose.projectAssigned")}
+                        {locale === "en" ? "Final amount for the month" : "Importe final del mes"}
                       </label>
                       <Input
                         value={inputsByProject[project.id] ?? ""}
@@ -666,54 +497,81 @@ export function MonthCloseClient({
                         }
                         inputMode="decimal"
                         placeholder="0"
-                        disabled={!canEdit}
+                        disabled={!canEdit || isClosed}
                       />
-                      {parsed?.error ? (
-                        <p className="text-xs text-destructive">{parsed.error}</p>
+                      {parsedRow?.error ? (
+                        <p className="mt-1 text-xs text-destructive">{parsedRow.error}</p>
                       ) : null}
                     </div>
                   </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="space-y-2 p-4 text-sm">
-              <p className="text-muted-foreground">
-                {tProjects("monthClose.toHucha", {
-                  amount: formatMoneyWithSymbol(unassignedMinor, baseCurrency, currencySymbol),
-                })}
-              </p>
-              <p className="text-muted-foreground">
-                {tProjects("monthClose.deficit", {
-                  amount: formatMoneyWithSymbol(
-                    deficitAfterAssignMinor,
-                    baseCurrency,
-                    currencySymbol
-                  ),
-                })}
-              </p>
-              {errorMessage ? <p className="text-destructive">{errorMessage}</p> : null}
-              {successMessage ? <p className="text-emerald-600">{successMessage}</p> : null}
-            </CardContent>
-          </Card>
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button
-              onClick={handleConfirm}
-              disabled={
-                !canEdit ||
-                isSaving ||
-                parsedAllocations.hasErrors ||
-                overAssignedMinor > 0n
-              }
-            >
-              {isSaving ? tProjects("monthClose.confirming") : tProjects("monthClose.confirmCta")}
-            </Button>
-          </div>
-        </>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
       )}
+
+      <Card>
+        <CardContent className="space-y-2 p-4 text-sm">
+          <p className="text-muted-foreground">
+            {locale === "en"
+              ? `Any unassigned amount will go to ${huchaReserve?.name ?? "the piggy bank"}.`
+              : `Lo no asignado irá a ${huchaReserve?.name ?? "la hucha"}.`}
+          </p>
+          {errorMessage ? <p className="text-destructive">{errorMessage}</p> : null}
+          {successMessage ? <p className="text-emerald-600">{successMessage}</p> : null}
+        </CardContent>
+      </Card>
+
+      {isClosed && allocationLabels.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <h2 className="text-lg font-semibold">
+              {locale === "en" ? "Confirmed allocations" : "Asignaciones confirmadas"}
+            </h2>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {allocationLabels.map((row) => (
+              <div
+                key={row.id}
+                className="flex items-center justify-between gap-3 rounded-lg border p-3"
+              >
+                <p className="text-sm font-medium">{row.label}</p>
+                <p className="text-sm font-semibold">
+                  {formatMoneyWithSymbol(row.amountMinor, baseCurrency, currencySymbol)}
+                </p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {!isClosed ? (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={handleSavePlan}
+            disabled={!canPersistPlan || isSavingPlan}
+          >
+            {isSavingPlan
+              ? locale === "en"
+                ? "Saving..."
+                : "Guardando..."
+              : locale === "en"
+                ? "Save plan"
+                : "Guardar plan"}
+          </Button>
+          <Button onClick={handleConfirmClose} disabled={!canConfirmClose}>
+            {isClosing
+              ? locale === "en"
+                ? "Closing..."
+                : "Cerrando..."
+              : locale === "en"
+                ? "Confirm month close"
+                : "Confirmar cierre mensual"}
+          </Button>
+        </div>
+      ) : null}
     </PageContainer>
   );
 }

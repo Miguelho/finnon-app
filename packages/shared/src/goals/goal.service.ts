@@ -1,6 +1,6 @@
 import type { FinancialGoal, GoalType, MonthKey } from "./types";
 
-export type SupabaseLikeClient = {
+type SupabaseLikeClient = {
   from: (table: string) => any;
 };
 

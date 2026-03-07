@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import {
   CATEGORY_PALETTE,
@@ -16,17 +15,23 @@ import {
   type AvatarColorToken,
   buildCalendarDayData,
   buildProjectColorMap,
+  computeSavingsMonthView,
   computeProjectProgress,
-  computeSavingsDistribution,
   getProjectColor,
   getMonthCalendarDisplayDays,
+  getReserveContainerBalanceMinor,
   getWeekCalendarDisplayDays,
   getWeekStartMonday,
   themeTokens,
   toDateKey,
+  toMonthKey,
+  type MonthClose,
+  type MonthCloseAllocation,
+  type MonthlyProjectFundingPlan,
   type Obligation,
   type Project,
-  type ProjectContribution,
+  type ReserveContainer,
+  type ReserveTransfer,
   type Transaction as SharedTransaction,
   type UserAvatarColorId,
   type UserRole,
@@ -105,6 +110,11 @@ type RpcSummary = {
   } | null;
 };
 
+type SavingsTransaction = Pick<
+  Transaction,
+  "id" | "type" | "amount_minor" | "amount_base_minor" | "date"
+>;
+
 const normalizeCategory = <T extends { category?: unknown }>(row: T) => ({
   ...row,
   category: Array.isArray(row.category)
@@ -182,12 +192,13 @@ export default function HomeScreen() {
   const { user, session, selectedAccountId, setSelectedAccountId } = useAuth();
   const { tokens: userTokens } = useUserTheme();
   const { dictionary, locale } = useCopy();
-  const isFocused = useIsFocused();
   const localeKey = locale === "en" ? "en" : "es";
   const programmedBadgeLabel = localeKey === "en" ? "Scheduled" : "Programado";
   const weekdayLabels = WEEKDAY_LABELS[localeKey];
   const monthsShort = MONTHS_SHORT[localeKey];
   const monthsLong = MONTHS_LONG[localeKey];
+  const currentMonthKey = useMemo(() => toMonthKey(new Date()), []);
+  const currentMonthStart = `${currentMonthKey}-01`;
 
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [accountBalances, setAccountBalances] = useState<Record<string, bigint>>({});
@@ -195,7 +206,12 @@ export default function HomeScreen() {
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [obligations, setObligations] = useState<Obligation[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [projectContributions, setProjectContributions] = useState<ProjectContribution[]>([]);
+  const [reserveContainers, setReserveContainers] = useState<ReserveContainer[]>([]);
+  const [fundingPlans, setFundingPlans] = useState<MonthlyProjectFundingPlan[]>([]);
+  const [monthCloses, setMonthCloses] = useState<MonthClose[]>([]);
+  const [monthCloseAllocations, setMonthCloseAllocations] = useState<MonthCloseAllocation[]>([]);
+  const [reserveTransfers, setReserveTransfers] = useState<ReserveTransfer[]>([]);
+  const [currentMonthTransactions, setCurrentMonthTransactions] = useState<SavingsTransaction[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -217,7 +233,7 @@ export default function HomeScreen() {
     let cancelled = false;
     const currentUserId = user?.id;
 
-    if (!session || !currentUserId || !isFocused) {
+    if (!session || !currentUserId) {
       setLoadingAccounts(false);
       return;
     }
@@ -250,7 +266,7 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [session?.access_token, user?.id, isFocused, dictionary, reloadSeed]);
+  }, [session?.access_token, user?.id, dictionary, reloadSeed]);
 
   useEffect(() => {
     if (accounts && accounts.length > 0 && !selectedAccountId) {
@@ -262,7 +278,7 @@ export default function HomeScreen() {
     let cancelled = false;
 
     const loadBalances = async () => {
-      if (!accounts || accounts.length === 0 || !isFocused) return;
+      if (!accounts || accounts.length === 0) return;
 
       const pairs = await Promise.all(
         accounts.map(async (account) => {
@@ -297,13 +313,13 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [accounts, isFocused, reloadSeed]);
+  }, [accounts, reloadSeed]);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadMainData = async () => {
-      if (!mainAccount || !isFocused) return;
+      if (!mainAccount) return;
 
       setLoadingData(true);
       setError(null);
@@ -397,56 +413,107 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [mainAccount?.id, isFocused, monthReference, weekReference, dictionary, reloadSeed]);
+  }, [mainAccount?.id, monthReference, weekReference, dictionary, reloadSeed]);
 
   useEffect(() => {
     let cancelled = false;
 
-    const loadProjects = async () => {
-      if (!mainAccount || !isFocused) return;
+    const loadSavingsData = async () => {
+      if (!mainAccount) return;
 
       try {
-        const { data: projectRows, error: projectsError } = await supabase
-          .from("projects")
-          .select("*")
-          .eq("account_id", mainAccount.id)
-          .in("status", ["active", "completed"])
-          .order("priority", { ascending: true });
+        const todayDateKey = toDateKey(new Date());
+        const [
+          projectsResult,
+          reserveContainersResult,
+          fundingPlansResult,
+          monthClosesResult,
+          monthCloseAllocationsResult,
+          reserveTransfersResult,
+          currentMonthTransactionsResult,
+        ] = await Promise.all([
+          supabase
+            .from("projects")
+            .select("*")
+            .eq("account_id", mainAccount.id)
+            .not("target_amount_base_minor", "is", null)
+            .in("status", ["active", "completed"])
+            .order("priority", { ascending: true }),
+          supabase
+            .from("reserve_containers")
+            .select("*")
+            .eq("account_id", mainAccount.id)
+            .eq("status", "active")
+            .order("created_at", { ascending: true }),
+          supabase
+            .from("monthly_project_funding_plans")
+            .select("*")
+            .eq("account_id", mainAccount.id)
+            .eq("period", currentMonthStart),
+          supabase
+            .from("month_closes")
+            .select("*")
+            .eq("account_id", mainAccount.id)
+            .order("period", { ascending: false }),
+          supabase
+            .from("month_close_allocations")
+            .select("*")
+            .eq("account_id", mainAccount.id),
+          supabase
+            .from("reserve_transfers")
+            .select("*")
+            .eq("account_id", mainAccount.id)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("transactions")
+            .select("id, type, amount_minor, amount_base_minor, date")
+            .eq("account_id", mainAccount.id)
+            .gte("date", currentMonthStart)
+            .lte("date", todayDateKey)
+            .order("date", { ascending: true }),
+        ]);
 
-        if (projectsError) throw projectsError;
-
-        const nextProjects = (projectRows as Project[]) ?? [];
-        const projectIds = nextProjects.map((project) => project.id);
-
-        const { data: contributionsRows, error: contributionsError } =
-          projectIds.length > 0
-            ? await supabase
-                .from("project_contributions")
-                .select("*")
-                .in("project_id", projectIds)
-            : { data: [] as ProjectContribution[], error: null };
-
-        if (contributionsError) throw contributionsError;
+        if (projectsResult.error) throw projectsResult.error;
+        if (reserveContainersResult.error) throw reserveContainersResult.error;
+        if (fundingPlansResult.error) throw fundingPlansResult.error;
+        if (monthClosesResult.error) throw monthClosesResult.error;
+        if (monthCloseAllocationsResult.error) throw monthCloseAllocationsResult.error;
+        if (reserveTransfersResult.error) throw reserveTransfersResult.error;
+        if (currentMonthTransactionsResult.error) throw currentMonthTransactionsResult.error;
 
         if (!cancelled) {
-          setProjects(nextProjects);
-          setProjectContributions((contributionsRows as ProjectContribution[]) ?? []);
+          setProjects((projectsResult.data as Project[]) ?? []);
+          setReserveContainers((reserveContainersResult.data as ReserveContainer[]) ?? []);
+          setFundingPlans((fundingPlansResult.data as MonthlyProjectFundingPlan[]) ?? []);
+          setMonthCloses((monthClosesResult.data as MonthClose[]) ?? []);
+          setMonthCloseAllocations(
+            (monthCloseAllocationsResult.data as MonthCloseAllocation[]) ?? []
+          );
+          setReserveTransfers((reserveTransfersResult.data as ReserveTransfer[]) ?? []);
+          setCurrentMonthTransactions(
+            (currentMonthTransactionsResult.data as SavingsTransaction[]) ?? []
+          );
         }
       } catch (loadError) {
-        console.warn("[Home] Could not load projects:", loadError);
+        console.warn("[Home] Could not load savings data:", loadError);
         if (!cancelled) {
           setProjects([]);
-          setProjectContributions([]);
+          setReserveContainers([]);
+          setFundingPlans([]);
+          setMonthCloses([]);
+          setMonthCloseAllocations([]);
+          setReserveTransfers([]);
+          setCurrentMonthTransactions([]);
         }
       }
     };
 
-    void loadProjects();
+    void loadSavingsData();
 
     return () => {
       cancelled = true;
     };
-  }, [mainAccount?.id, isFocused, reloadSeed]);
+  }, [currentMonthStart, mainAccount?.id, reloadSeed]);
 
   const showLoading = !session || !user || loadingAccounts || loadingData;
   const showError = Boolean(error);
@@ -458,29 +525,21 @@ export default function HomeScreen() {
 
   const today = new Date();
   const todayKey = toDateKey(today);
-
-  const monthTransactionsToDate = useMemo(() => {
-    const monthPrefix = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-    return transactions.filter((tx) => {
-      const dateKey = toDateKey(tx.date as string);
-      return Boolean(dateKey) && dateKey.startsWith(monthPrefix) && dateKey <= todayKey;
-    });
-  }, [transactions, today, todayKey]);
-
-  const monthlyBalanceMinor = useMemo(() => {
-    return monthTransactionsToDate.reduce((total, tx) => {
-      const amount = toMinor(tx.amount_base_minor ?? tx.amount_minor);
-      return tx.type === "income" ? total + amount : total - amount;
-    }, 0n);
-  }, [monthTransactionsToDate]);
-
-  const savingsDistribution = useMemo(
+  const currentMonthClose = useMemo(
     () =>
-      computeSavingsDistribution({
-        projects,
-        savingsMinor: monthlyBalanceMinor,
+      monthCloses.find((monthClose) => String(monthClose.period).slice(0, 7) === currentMonthKey) ??
+      null,
+    [currentMonthKey, monthCloses]
+  );
+  const savingsState = useMemo(
+    () =>
+      computeSavingsMonthView({
+        period: currentMonthKey,
+        transactions: currentMonthTransactions,
+        fundingPlans,
+        monthClose: currentMonthClose,
       }),
-    [monthlyBalanceMinor, projects]
+    [currentMonthClose, currentMonthKey, currentMonthTransactions, fundingPlans]
   );
 
   const calendarMap = useMemo(() => {
@@ -610,20 +669,36 @@ export default function HomeScreen() {
     [profiles]
   );
 
-  const projectsById = useMemo(() => {
-    const map = new Map<string, ProjectContribution[]>();
-    projectContributions.forEach((contribution) => {
-      const list = map.get(contribution.project_id) ?? [];
-      list.push(contribution);
-      map.set(contribution.project_id, list);
+  const fundedByProject = useMemo(() => {
+    const byProject = new Map<string, bigint>();
+    monthCloseAllocations.forEach((allocation) => {
+      if (!allocation.project_id) return;
+      byProject.set(
+        allocation.project_id,
+        (byProject.get(allocation.project_id) ?? 0n) + toMinor(allocation.amount_base_minor)
+      );
     });
-    return map;
-  }, [projectContributions]);
+    reserveTransfers.forEach((transfer) => {
+      byProject.set(
+        transfer.destination_project_id,
+        (byProject.get(transfer.destination_project_id) ?? 0n) +
+          toMinor(transfer.amount_base_minor)
+      );
+    });
+    return byProject;
+  }, [monthCloseAllocations, reserveTransfers]);
+  const plannedByProject = useMemo(() => {
+    const byProject = new Map<string, bigint>();
+    fundingPlans.forEach((plan) => {
+      byProject.set(
+        plan.project_id,
+        (byProject.get(plan.project_id) ?? 0n) + toMinor(plan.planned_amount_base_minor)
+      );
+    });
+    return byProject;
+  }, [fundingPlans]);
 
-  const activeProjects = useMemo(
-    () => projects.filter((project) => !project.is_hucha && (project.status === "active" || project.status === "completed")),
-    [projects]
-  );
+  const activeProjects = useMemo(() => projects, [projects]);
   const projectColorMap = useMemo(() => buildProjectColorMap(projects), [projects]);
 
   const projectsRowData = useMemo(
@@ -631,7 +706,8 @@ export default function HomeScreen() {
       activeProjects.map((project) => {
         const progress = computeProjectProgress({
           project,
-          contributions: projectsById.get(project.id) ?? [],
+          fundedMinor: fundedByProject.get(project.id) ?? 0n,
+          plannedThisMonthMinor: plannedByProject.get(project.id) ?? 0n,
         });
 
         return {
@@ -643,22 +719,21 @@ export default function HomeScreen() {
           color: getProjectColor(project, projectColorMap),
         };
       }),
-    [activeProjects, projectColorMap, projectsById]
+    [activeProjects, fundedByProject, plannedByProject, projectColorMap]
   );
 
-  const huchaProject = useMemo(
-    () => projects.find((project) => project.is_hucha) ?? null,
-    [projects]
+  const huchaReserve = useMemo(
+    () => reserveContainers.find((reserveContainer) => reserveContainer.kind === "hucha") ?? null,
+    [reserveContainers]
   );
 
   const huchaAmountMinor = useMemo(() => {
-    if (!huchaProject) return savingsDistribution.huchaMinor;
-    const rows = projectsById.get(huchaProject.id) ?? [];
-    return rows.reduce((total, row) => {
-      if (!(row.confirmed ?? false)) return total;
-      return total + toMinor(row.actual_amount_base_minor);
-    }, 0n);
-  }, [huchaProject, projectsById, savingsDistribution.huchaMinor]);
+    return getReserveContainerBalanceMinor({
+      reserveContainerId: huchaReserve?.id,
+      closeAllocations: monthCloseAllocations,
+      reserveTransfers,
+    });
+  }, [huchaReserve?.id, monthCloseAllocations, reserveTransfers]);
 
   const accountItems = useMemo(
     () =>
@@ -753,10 +828,14 @@ export default function HomeScreen() {
         <ProjectsRow
           projects={projectsRowData}
           huchaAmountMinor={huchaAmountMinor}
-          totalSavingsMinor={savingsDistribution.savingsMinor}
+          totalSavingsMinor={savingsState.generatedSavedMinor}
+          plannedMinor={savingsState.plannedToProjectsMinor}
+          availableMinor={savingsState.availableToPlanMinor}
+          needsRebalance={savingsState.needsRebalance}
           currentMonth={monthPeriodLabel}
           currencySymbol={currencySymbol}
-          onPress={() => router.push("/(auth)/(tabs)/projects")}
+          locale={localeKey}
+          onPress={() => router.push("/(auth)/(tabs)/projects/savings")}
         />
 
         <Calendar

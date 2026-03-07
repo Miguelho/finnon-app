@@ -16,7 +16,7 @@ export default async function SavingsPage() {
 
   const { data: accounts } = await supabase
     .from("accounts")
-    .select("id, base_currency, account_members!inner(user_id)")
+    .select("id, base_currency, account_members!inner(user_id, role)")
     .eq("account_members.user_id", user.id);
 
   if (!accounts || accounts.length === 0) redirect("/select-account");
@@ -32,6 +32,7 @@ export default async function SavingsPage() {
   const currencySymbol =
     CURRENCIES.find((currency) => currency.code === activeAccount.base_currency)?.symbol ??
     activeAccount.base_currency;
+  const canEdit = (activeAccount.account_members?.[0] as { role?: string } | undefined)?.role !== "viewer";
 
   return (
     <div className="min-h-screen bg-background">
@@ -41,6 +42,7 @@ export default async function SavingsPage() {
         baseCurrency={activeAccount.base_currency}
         currencySymbol={currencySymbol}
         locale={locale}
+        canEdit={canEdit}
       />
       <div className="h-16 sm:hidden" />
       <BottomNavWrapper />

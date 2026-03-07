@@ -183,33 +183,60 @@ export const getProjectSavedMinor = (
   }, 0n);
 };
 
+export const isFinancialProject = (project: Pick<Project, "target_amount_base_minor">) =>
+  toMinor(project.target_amount_base_minor) > 0n;
+
+export const getProjectMonthlyFundingTargetMinor = (
+  project: Pick<Project, "monthly_commitment_base_minor" | "monthly_funding_target_base_minor">
+) =>
+  toMinor(
+    project.monthly_funding_target_base_minor ?? project.monthly_commitment_base_minor ?? 0
+  );
+
 export const computeProjectProgress = (params: {
   project: Project;
   contributions?: ProjectContribution[];
+  fundedMinor?: bigint | number | string | null;
+  reserveTransferredMinor?: bigint | number | string | null;
+  plannedThisMonthMinor?: bigint | number | string | null;
+  spentMinor?: bigint | number | string | null;
   extraContributedMinor?: bigint | number | string | null;
   now?: Date;
 }): ProjectProgress => {
   const {
     project,
     contributions = [],
+    fundedMinor = null,
+    reserveTransferredMinor = 0,
+    plannedThisMonthMinor = 0,
+    spentMinor = null,
     extraContributedMinor = 0,
     now = new Date(),
   } = params;
 
   const targetMinor = toMinor(project.target_amount_base_minor);
-  const commitmentMinor = toMinor(project.monthly_commitment_base_minor ?? 0);
-  const monthlySavedMinor = getProjectSavedMinor(contributions, {
+  const monthlyFundingTargetMinor = getProjectMonthlyFundingTargetMinor(project);
+  const fundedFromMonthCloseMinor = getProjectSavedMinor(contributions, {
     confirmedOnly: true,
   });
-  const extraSavedMinor = toMinor(extraContributedMinor);
-  const rawSaved = monthlySavedMinor + extraSavedMinor;
-  const savedMinor = rawSaved > 0n ? rawSaved : 0n;
-  const remainingMinor = targetMinor > savedMinor ? targetMinor - savedMinor : 0n;
+  const transferredFromReservesMinor = toMinor(reserveTransferredMinor);
+  const resolvedFundedMinor =
+    fundedMinor === null || fundedMinor === undefined
+      ? fundedFromMonthCloseMinor + transferredFromReservesMinor
+      : toMinor(fundedMinor);
+  const resolvedSpentMinor =
+    spentMinor === null || spentMinor === undefined
+      ? toMinor(extraContributedMinor)
+      : toMinor(spentMinor);
+  const resolvedPlannedMinor = toMinor(plannedThisMonthMinor);
+  const fundedReservedMinor = resolvedFundedMinor > 0n ? resolvedFundedMinor : 0n;
+  const remainingMinor =
+    targetMinor > fundedReservedMinor ? targetMinor - fundedReservedMinor : 0n;
   const progressRatio =
     targetMinor > 0n
-      ? clampNumber(Number(savedMinor) / Number(targetMinor), 0, 1)
+      ? clampNumber(Number(fundedReservedMinor) / Number(targetMinor), 0, 1)
       : 0;
-  const hasPlan = commitmentMinor > 0n;
+  const hasPlan = monthlyFundingTargetMinor > 0n;
 
   let monthsLeft: number | null = null;
   let estimatedCompletionDate: Date | null = null;
@@ -218,7 +245,7 @@ export const computeProjectProgress = (params: {
     monthsLeft = 0;
     estimatedCompletionDate = new Date(now.getTime());
   } else if (hasPlan) {
-    const months = ceilDiv(remainingMinor, commitmentMinor);
+    const months = ceilDiv(remainingMinor, monthlyFundingTargetMinor);
     const monthsNumber = Number(months);
     if (Number.isFinite(monthsNumber) && monthsNumber >= 0) {
       monthsLeft = monthsNumber;
@@ -228,12 +255,18 @@ export const computeProjectProgress = (params: {
 
   return {
     targetMinor,
-    monthlySavedMinor,
-    extraSavedMinor,
-    savedMinor,
+    fundedReservedMinor,
+    fundedFromMonthCloseMinor,
+    transferredFromReservesMinor,
+    plannedThisMonthMinor: resolvedPlannedMinor,
+    spentMinor: resolvedSpentMinor,
+    monthlySavedMinor: fundedFromMonthCloseMinor,
+    extraSavedMinor: transferredFromReservesMinor,
+    savedMinor: fundedReservedMinor,
     remainingMinor,
     progressRatio,
-    commitmentMinor,
+    monthlyFundingTargetMinor,
+    commitmentMinor: monthlyFundingTargetMinor,
     monthsLeft,
     estimatedCompletionDate,
     hasPlan,
@@ -249,9 +282,56 @@ export const getMonthlyProjectCommitmentTotal = (
 
   return projects.reduce((total, project) => {
     if (activeOnly && project.status !== "active") return total;
-    if (project.is_hucha) return total;
-    return total + toMinor(project.monthly_commitment_base_minor ?? 0);
+    if (!isFinancialProject(project)) return total;
+    return total + getProjectMonthlyFundingTargetMinor(project);
   }, 0n);
+};
+
+export const computePendingMonthCloseKeysFromMonthCloses = (params: {
+  commitmentProjects: Array<{
+    projectId: string;
+    createdAt?: string | Date | null;
+  }>;
+  closedMonths: Array<{
+    period: string | Date;
+  }>;
+  currentMonthKey?: string;
+}) => {
+  const { commitmentProjects, closedMonths, currentMonthKey } = params;
+
+  if (commitmentProjects.length === 0) return [];
+
+  const resolvedCurrentMonthKey =
+    typeof currentMonthKey === "string" && MONTH_KEY_PATTERN.test(currentMonthKey)
+      ? currentMonthKey
+      : toMonthKey(new Date());
+  const latestClosableMonthKey = addMonthsToKey(resolvedCurrentMonthKey, -1);
+
+  const earliestProjectMonth = commitmentProjects
+    .map((project) => toMonthKeyFromInput(project.createdAt ?? null) ?? latestClosableMonthKey)
+    .filter((monthKey) => monthKey <= latestClosableMonthKey)
+    .sort()[0];
+
+  if (!earliestProjectMonth) return [];
+
+  const closedMonthKeys = new Set(
+    closedMonths
+      .map((row) => toMonthKeyFromInput(row.period))
+      .filter((monthKey): monthKey is string => Boolean(monthKey))
+  );
+
+  const pendingMonthKeys: string[] = [];
+  for (
+    let monthKey = earliestProjectMonth;
+    monthKey <= latestClosableMonthKey;
+    monthKey = addMonthsToKey(monthKey, 1)
+  ) {
+    if (!closedMonthKeys.has(monthKey)) {
+      pendingMonthKeys.push(monthKey);
+    }
+  }
+
+  return pendingMonthKeys.sort().reverse();
 };
 
 const allocateProportionally = (totalMinor: bigint, weights: bigint[]) => {

@@ -9,6 +9,7 @@ import {
   CATEGORY_PALETTE,
   CURRENCIES,
   getExpandedMonthRange,
+  toMonthKey,
 } from "@poleursus/shared";
 import { cn } from "@/lib/utils";
 
@@ -159,7 +160,9 @@ export default async function DashboardPage() {
       return [];
     }
 
-    const rows = (data ?? []) as Array<HomeTransactionRow & { category?: unknown }>;
+    const rows = (data ?? []) as unknown as Array<
+      HomeTransactionRow & { category?: unknown }
+    >;
     return rows.map(normalizeCategory) as HomeTransactionRow[];
   };
 
@@ -198,25 +201,63 @@ export default async function DashboardPage() {
     .from("projects")
     .select("*")
     .eq("account_id", mainAccount.id)
+    .not("target_amount_base_minor", "is", null)
     .in("status", ["active", "completed"])
     .order("priority", { ascending: true });
   if (projectsError) {
     console.error("[HomePage][web] projects query error:", projectsError);
   }
 
-  const projectIds = (projects ?? []).map((project) => project.id);
-  const { data: projectContributions, error: projectContributionsError } =
-    projectIds.length > 0
-      ? await supabase
-          .from("project_contributions")
-          .select("*")
-          .in("project_id", projectIds)
-      : { data: [], error: null };
-  if (projectContributionsError) {
-    console.error(
-      "[HomePage][web] project contributions query error:",
-      projectContributionsError
-    );
+  const currentPeriodStart = `${toMonthKey(today)}-01`;
+
+  const [
+    reserveContainersResult,
+    fundingPlansResult,
+    monthClosesResult,
+    monthCloseAllocationsResult,
+    reserveTransfersResult,
+  ] = await Promise.all([
+    supabase
+      .from("reserve_containers")
+      .select("*")
+      .eq("account_id", mainAccount.id)
+      .eq("status", "active")
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("monthly_project_funding_plans")
+      .select("*")
+      .eq("account_id", mainAccount.id)
+      .eq("period", currentPeriodStart),
+    supabase
+      .from("month_closes")
+      .select("*")
+      .eq("account_id", mainAccount.id)
+      .order("period", { ascending: false }),
+    supabase
+      .from("month_close_allocations")
+      .select("*")
+      .eq("account_id", mainAccount.id),
+    supabase
+      .from("reserve_transfers")
+      .select("*")
+      .eq("account_id", mainAccount.id)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (reserveContainersResult.error) {
+    console.error("[HomePage][web] reserve containers query error:", reserveContainersResult.error);
+  }
+  if (fundingPlansResult.error) {
+    console.error("[HomePage][web] funding plans query error:", fundingPlansResult.error);
+  }
+  if (monthClosesResult.error) {
+    console.error("[HomePage][web] month closes query error:", monthClosesResult.error);
+  }
+  if (monthCloseAllocationsResult.error) {
+    console.error("[HomePage][web] month close allocations query error:", monthCloseAllocationsResult.error);
+  }
+  if (reserveTransfersResult.error) {
+    console.error("[HomePage][web] reserve transfers query error:", reserveTransfersResult.error);
   }
 
   const creatorUserIds = Array.from(
@@ -283,7 +324,11 @@ export default async function DashboardPage() {
         obligations={obligations ?? []}
         profiles={profiles ?? []}
         projects={projects ?? []}
-        projectContributions={projectContributions ?? []}
+        reserveContainers={reserveContainersResult.data ?? []}
+        fundingPlans={fundingPlansResult.data ?? []}
+        monthCloses={monthClosesResult.data ?? []}
+        monthCloseAllocations={monthCloseAllocationsResult.data ?? []}
+        reserveTransfers={reserveTransfersResult.data ?? []}
       />
       <div className="h-16 sm:hidden" />
       <BottomNavWrapper />

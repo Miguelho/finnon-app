@@ -10,15 +10,19 @@ import {
   computeProjectProgress,
   formatMoneyWithSymbol,
   getProjectColor,
-  getHuchaStats,
+  getReserveContainerStats,
   HUCHA_PROJECT_COLOR,
   getMonthlyProjectCommitmentTotal,
   DEFAULT_PROJECT_EMOJI,
   PROJECT_EMOJI_SUGGESTIONS,
   parseMoneyToMinor,
   toMonthKey,
+  type MonthClose,
+  type MonthCloseAllocation,
+  type MonthlyProjectFundingPlan,
   type Project,
-  type ProjectContribution,
+  type ReserveContainer,
+  type ReserveTransfer,
   type UserRole,
 } from "@poleursus/shared";
 import { ChevronRight } from "lucide-react";
@@ -47,7 +51,11 @@ type ProjectsClientProps = {
   baseCurrency: string;
   currencySymbol: string;
   initialProjects: Project[];
-  initialContributions: ProjectContribution[];
+  reserveContainers: ReserveContainer[];
+  fundingPlans: MonthlyProjectFundingPlan[];
+  monthCloses: MonthClose[];
+  monthCloseAllocations: MonthCloseAllocation[];
+  reserveTransfers: ReserveTransfer[];
   initialExtraContributions: Array<{
     project_id: string | null;
     amount_base_minor: string | number | bigint | null;
@@ -109,7 +117,11 @@ export function ProjectsClient({
   baseCurrency,
   currencySymbol,
   initialProjects,
-  initialContributions,
+  reserveContainers,
+  fundingPlans,
+  monthCloses,
+  monthCloseAllocations,
+  reserveTransfers,
   initialExtraContributions,
   hasPendingMonthlyClose,
   pendingMonthKey,
@@ -126,9 +138,7 @@ export function ProjectsClient({
   const [projects, setProjects] = useState<Project[]>(
     [...initialProjects].sort((a, b) => a.priority - b.priority)
   );
-  const [contributions] = useState<ProjectContribution[]>(initialContributions);
   const [extraContributions] = useState(initialExtraContributions);
-
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -137,17 +147,35 @@ export function ProjectsClient({
   const [targetInput, setTargetInput] = useState("");
   const [priorityInput, setPriorityInput] = useState("");
 
-  const contributionsByProject = useMemo(() => {
-    const byProject = new Map<string, ProjectContribution[]>();
-
-    contributions.forEach((contribution) => {
-      const current = byProject.get(contribution.project_id) ?? [];
-      current.push(contribution);
-      byProject.set(contribution.project_id, current);
+  const fundedByProject = useMemo(() => {
+    const byProject = new Map<string, bigint>();
+    monthCloseAllocations.forEach((allocation) => {
+      if (!allocation.project_id) return;
+      byProject.set(
+        allocation.project_id,
+        (byProject.get(allocation.project_id) ?? 0n) + toMinor(allocation.amount_base_minor)
+      );
     });
-
+    reserveTransfers.forEach((transfer) => {
+      byProject.set(
+        transfer.destination_project_id,
+        (byProject.get(transfer.destination_project_id) ?? 0n) +
+          toMinor(transfer.amount_base_minor)
+      );
+    });
     return byProject;
-  }, [contributions]);
+  }, [monthCloseAllocations, reserveTransfers]);
+
+  const plannedByProject = useMemo(() => {
+    const byProject = new Map<string, bigint>();
+    fundingPlans.forEach((plan) => {
+      byProject.set(
+        plan.project_id,
+        (byProject.get(plan.project_id) ?? 0n) + toMinor(plan.planned_amount_base_minor)
+      );
+    });
+    return byProject;
+  }, [fundingPlans]);
 
   const extraContributionsByProject = useMemo(() => {
     const byProject = new Map<string, bigint>();
@@ -164,25 +192,28 @@ export function ProjectsClient({
     [projects]
   );
 
-  const huchaProject = useMemo(
-    () => projects.find((project) => project.is_hucha) ?? null,
-    [projects]
+  const huchaReserve = useMemo(
+    () => reserveContainers.find((reserveContainer) => reserveContainer.kind === "hucha") ?? null,
+    [reserveContainers]
   );
 
-  const activeProjects = useMemo(
-    () => projects.filter((project) => !project.is_hucha),
-    [projects]
-  );
+  const activeProjects = useMemo(() => projects, [projects]);
   const projectColorMap = useMemo(() => buildProjectColorMap(projects), [projects]);
+  const monthClosesById = useMemo(
+    () => new Map<string, MonthClose>(monthCloses.map((monthClose) => [monthClose.id, monthClose])),
+    [monthCloses]
+  );
 
   const huchaStats = useMemo(
     () =>
-      getHuchaStats({
-        huchaProjectId: huchaProject?.id,
-        contributions,
+      getReserveContainerStats({
+        reserveContainerId: huchaReserve?.id,
+        closeAllocations: monthCloseAllocations,
+        reserveTransfers,
+        monthClosesById,
         currentPeriod: toMonthKey(new Date()),
       }),
-    [contributions, huchaProject?.id]
+    [huchaReserve?.id, monthCloseAllocations, monthClosesById, reserveTransfers]
   );
 
   const nextPriority = useMemo(() => {
@@ -229,9 +260,7 @@ export function ProjectsClient({
 
     setIsCreating(true);
     setCreateError(null);
-    const nextColor = assignProjectColor(
-      projects.filter((project) => !project.is_hucha)
-    );
+    const nextColor = assignProjectColor(projects);
 
     try {
       const { data, error } = await supabase
@@ -241,7 +270,6 @@ export function ProjectsClient({
           name: trimmedName,
           emoji: emojiInput.trim() || DEFAULT_PROJECT_EMOJI,
           color: nextColor,
-          is_hucha: false,
           target_amount_base_minor: String(parsedTarget),
           priority: safePriority,
           status: "active",
@@ -283,9 +311,9 @@ export function ProjectsClient({
         </div>
       </div>
 
-      {huchaProject ? (
+      {huchaReserve ? (
         <Link
-          href={`/projects/${huchaProject.id}`}
+          href={`/reserves/${huchaReserve.id}`}
           className="block overflow-hidden rounded-xl border bg-card transition-colors hover:bg-muted/30"
           style={{ borderColor: "rgba(109, 201, 160, 0.45)" }}
         >
@@ -297,7 +325,7 @@ export function ProjectsClient({
             <div className="flex min-w-0 items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-base font-semibold">
-                  {huchaProject.emoji || "🐷"} {tGlobal("home.savings.hucha")}
+                  {huchaReserve.emoji || "🐷"} {tGlobal("home.savings.hucha")}
                 </p>
                 <p className="break-words text-sm text-muted-foreground">
                   {tProjects("hucha.subtitle")}
@@ -386,8 +414,9 @@ export function ProjectsClient({
             const projectColor = getProjectColor(project, projectColorMap);
             const progress = computeProjectProgress({
               project,
-              contributions: contributionsByProject.get(project.id) ?? [],
-              extraContributedMinor: extraContributionsByProject.get(project.id) ?? 0n,
+              fundedMinor: fundedByProject.get(project.id) ?? 0n,
+              plannedThisMonthMinor: plannedByProject.get(project.id) ?? 0n,
+              spentMinor: extraContributionsByProject.get(project.id) ?? 0n,
             });
 
             return (
@@ -413,13 +442,27 @@ export function ProjectsClient({
                       <p className="truncate text-base font-semibold">{project.name}</p>
                       <p className="text-sm text-muted-foreground">
                         {formatMoneyWithSymbol(
-                          progress.savedMinor,
+                          progress.fundedReservedMinor,
                           baseCurrency,
                           currencySymbol
                         )}{" "}
                         {tProjects("of")}{" "}
                         {formatMoneyWithSymbol(
                           progress.targetMinor,
+                          baseCurrency,
+                          currencySymbol
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {locale === "en" ? "Planned this month" : "Planificado este mes"}:{" "}
+                        {formatMoneyWithSymbol(
+                          progress.plannedThisMonthMinor,
+                          baseCurrency,
+                          currencySymbol
+                        )}{" "}
+                        · {locale === "en" ? "Spent" : "Gastado"}:{" "}
+                        {formatMoneyWithSymbol(
+                          progress.spentMinor,
                           baseCurrency,
                           currencySymbol
                         )}

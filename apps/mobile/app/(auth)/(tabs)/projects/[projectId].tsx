@@ -9,22 +9,24 @@ import {
   View,
 } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
-import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   buildProjectColorMap,
-  CURRENCIES,
   computeProjectProgress,
+  CURRENCIES,
   formatMoneyWithSymbol,
-  getProjectColor,
-  getHuchaStats,
-  HUCHA_PROJECT_COLOR,
+  formatMonthLabel,
   getMinorUnits,
+  getProjectColor,
+  getProjectMonthlyFundingTargetMinor,
   PROJECT_PALETTE,
   themeTokens,
   toMonthKey,
+  type MonthClose,
+  type MonthCloseAllocation,
+  type MonthlyProjectFundingPlan,
   type Project,
-  type ProjectContribution,
+  type ReserveTransfer,
   type UserRole,
 } from "@poleursus/shared";
 import { useAuth } from "../../../../src/contexts/AuthContext";
@@ -35,6 +37,8 @@ import { Button } from "../../../../src/components/Button";
 import { Card } from "../../../../src/components/Card";
 import { ProjectAmountSlider } from "../../../../src/components/projects/ProjectAmountSlider";
 import { ProjectProgressRing } from "../../../../src/components/projects/ProjectProgressRing";
+
+const tokens = themeTokens.light;
 
 type AccountRow = {
   id: string;
@@ -52,17 +56,13 @@ type RecurringExpense = {
   type: "expense" | "income";
 };
 
-type ExtraContributionTransaction = {
+type SpendingTransaction = {
   id: string;
   date: string;
   merchant: string | null;
   notes: string | null;
   amount_base_minor: bigint | number | string | null;
 };
-
-type HistoryStatus = "fulfilled" | "deficit" | "no_plan" | "pending";
-
-const tokens = themeTokens.light;
 
 const toMinor = (value: bigint | number | string | null | undefined): bigint => {
   if (value === null || value === undefined) return 0n;
@@ -78,46 +78,23 @@ const toMinor = (value: bigint | number | string | null | undefined): bigint => 
   }
 };
 
-const formatDuration = (
-  months: number,
-  dictionary: ReturnType<typeof import("@poleursus/shared").getDictionary>
-) => {
-  if (months <= 0) return t(dictionary, "projects.simulator.reached");
+const formatDuration = (months: number, locale: "es" | "en") => {
+  if (months <= 0) return locale === "en" ? "Reached" : "Alcanzado";
   const years = Math.floor(months / 12);
   const remainingMonths = months % 12;
 
   if (years > 0 && remainingMonths > 0) {
-    return t(dictionary, "projects.simulator.durationYearMonth", {
-      years,
-      months: remainingMonths,
-    });
+    return locale === "en"
+      ? `${years}y ${remainingMonths}m`
+      : `${years}a ${remainingMonths}m`;
   }
-  if (years > 0) {
-    return t(dictionary, "projects.simulator.durationYears", { years });
-  }
-  return t(dictionary, "projects.simulator.durationMonths", {
-    months: remainingMonths,
-  });
+  if (years > 0) return locale === "en" ? `${years}y` : `${years}a`;
+  return `${remainingMonths}m`;
 };
 
-const formatDateMonth = (date: Date, locale: string) =>
-  new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
-    month: "long",
-    year: "numeric",
-  }).format(date);
-
-const formatPeriodLabel = (period: string, locale: string) => {
-  const monthDate = new Date(`${period.slice(0, 10)}T00:00:00`);
-  if (Number.isNaN(monthDate.getTime())) return period;
-  return new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
-    month: "long",
-    year: "numeric",
-  }).format(monthDate);
-};
-
-const formatDateLabel = (value: string | null | undefined, locale: string) => {
+const formatDateLabel = (value: string | Date | null | undefined, locale: "es" | "en") => {
   if (!value) return null;
-  const date = new Date(value);
+  const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
     day: "2-digit",
@@ -130,36 +107,30 @@ export default function ProjectDetailScreen() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
   const { user, selectedAccountId } = useAuth();
   const { dictionary, locale } = useCopy();
-  const {
-    tokens: userTokens,
-    primaryActionColor,
-    primaryActionTextColor,
-  } = useUserTheme();
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const insets = useSafeAreaInsets();
-  const isFocused = useIsFocused();
+  const localeCode: "es" | "en" = locale === "en" ? "en" : "es";
+  const currentMonthKey = useMemo(() => toMonthKey(new Date()), []);
+  const currentMonthStart = `${currentMonthKey}-01`;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [accountProjectsForColor, setAccountProjectsForColor] = useState<
-    Array<{ id: string; color?: string | null; is_hucha?: boolean | null; created_at?: string | Date | null }>
+    Array<{ id: string; color?: string | null; created_at?: string | Date | null }>
   >([]);
-  const [contributions, setContributions] = useState<ProjectContribution[]>([]);
+  const [monthCloses, setMonthCloses] = useState<MonthClose[]>([]);
+  const [monthCloseAllocations, setMonthCloseAllocations] = useState<MonthCloseAllocation[]>([]);
+  const [reserveTransfers, setReserveTransfers] = useState<ReserveTransfer[]>([]);
+  const [fundingPlans, setFundingPlans] = useState<MonthlyProjectFundingPlan[]>([]);
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
-  const [extraContributions, setExtraContributions] = useState<
-    ExtraContributionTransaction[]
-  >([]);
-  const [userLabels, setUserLabels] = useState<Record<string, string>>({});
+  const [spendingTransactions, setSpendingTransactions] = useState<SpendingTransaction[]>([]);
   const [role, setRole] = useState<UserRole>("viewer");
   const [baseCurrency, setBaseCurrency] = useState("EUR");
   const [currencySymbol, setCurrencySymbol] = useState("€");
-
   const [activeTab, setActiveTab] = useState<"simulator" | "history">("simulator");
-  const [isExpensesOpen, setIsExpensesOpen] = useState(false);
-  const [isExtraContributionsOpen, setIsExtraContributionsOpen] = useState(false);
-  const [disabledRecurringIds, setDisabledRecurringIds] = useState<Set<string>>(
-    new Set()
-  );
+  const [isSpendingOpen, setIsSpendingOpen] = useState(false);
+  const [disabledRecurringIds, setDisabledRecurringIds] = useState<Set<string>>(new Set());
   const [sliderMinor, setSliderMinor] = useState(0);
   const [sliderTrackWidth, setSliderTrackWidth] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
@@ -178,141 +149,201 @@ export default function ProjectDetailScreen() {
     setError(null);
 
     try {
-      const { data: account, error: accountError } = await supabase
-        .from("accounts")
-        .select("id, base_currency, account_members!inner(role, user_id)")
-        .eq("id", selectedAccountId)
-        .eq("account_members.user_id", user.id)
-        .maybeSingle();
-
-      if (accountError || !account) {
-        throw accountError ?? new Error("account-not-found");
-      }
-
-      const accountRow = account as AccountRow;
-      const currentRole = accountRow.account_members?.[0]?.role ?? "viewer";
-      const currentCurrency = accountRow.base_currency;
-      const currentCurrencySymbol =
-        CURRENCIES.find((item) => item.code === currentCurrency)?.symbol ??
-        currentCurrency;
-
-      const { data: projectRow, error: projectError } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("id", projectId)
-        .eq("account_id", selectedAccountId)
-        .maybeSingle();
-
-      if (projectError || !projectRow) {
-        throw projectError ?? new Error("project-not-found");
-      }
-
-      const { data: projectColorsRows, error: projectColorsError } = await supabase
-        .from("projects")
-        .select("id, color, is_hucha, created_at")
-        .eq("account_id", selectedAccountId);
-      if (projectColorsError) throw projectColorsError;
-
-      const { data: contributionRows, error: contributionsError } = await supabase
-        .from("project_contributions")
-        .select("*")
-        .eq("project_id", projectId)
-        .order("period", { ascending: false })
-        .order("created_at", { ascending: false });
-
-      if (contributionsError) throw contributionsError;
-
-      const { data: recurringRows, error: recurringError } = await supabase
-        .from("recurring_items")
-        .select("id, merchant, notes, amount_minor, currency, is_paused, type")
-        .eq("account_id", selectedAccountId)
-        .eq("type", "expense")
-        .eq("currency", currentCurrency)
-        .eq("is_paused", false)
-        .order("amount_minor", { ascending: false });
-
-      if (recurringError) throw recurringError;
-
-      const { data: extraContributionRows, error: extraContributionsError } =
-        await supabase
+      const [
+        accountResult,
+        projectResult,
+        projectColorsResult,
+        monthClosesResult,
+        monthCloseAllocationsResult,
+        reserveTransfersResult,
+        fundingPlansResult,
+        recurringExpensesResult,
+        spendingTransactionsResult,
+      ] = await Promise.all([
+        supabase
+          .from("accounts")
+          .select("id, base_currency, account_members!inner(role, user_id)")
+          .eq("id", selectedAccountId)
+          .eq("account_members.user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("projects")
+          .select("*")
+          .eq("id", projectId)
+          .eq("account_id", selectedAccountId)
+          .maybeSingle(),
+        supabase
+          .from("projects")
+          .select("id, color, created_at")
+          .eq("account_id", selectedAccountId)
+          .not("target_amount_base_minor", "is", null),
+        supabase
+          .from("month_closes")
+          .select("*")
+          .eq("account_id", selectedAccountId)
+          .order("period", { ascending: false }),
+        supabase
+          .from("month_close_allocations")
+          .select("*")
+          .eq("account_id", selectedAccountId)
+          .eq("project_id", projectId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("reserve_transfers")
+          .select("*")
+          .eq("account_id", selectedAccountId)
+          .eq("destination_project_id", projectId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("monthly_project_funding_plans")
+          .select("*")
+          .eq("account_id", selectedAccountId)
+          .eq("period", currentMonthStart)
+          .eq("project_id", projectId),
+        supabase
+          .from("recurring_items")
+          .select("id, merchant, notes, amount_minor, currency, is_paused, type")
+          .eq("account_id", selectedAccountId)
+          .eq("type", "expense")
+          .eq("is_paused", false)
+          .order("amount_minor", { ascending: false }),
+        supabase
           .from("transactions")
           .select("id, date, merchant, notes, amount_base_minor")
           .eq("account_id", selectedAccountId)
           .eq("type", "expense")
           .eq("project_id", projectId)
           .order("date", { ascending: false })
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false }),
+      ]);
 
-      if (extraContributionsError) throw extraContributionsError;
+      if (accountResult.error || !accountResult.data) {
+        throw accountResult.error ?? new Error("account-not-found");
+      }
+      if (projectResult.error || !projectResult.data) {
+        throw projectResult.error ?? new Error("project-not-found");
+      }
+      if (projectColorsResult.error) throw projectColorsResult.error;
+      if (monthClosesResult.error) throw monthClosesResult.error;
+      if (monthCloseAllocationsResult.error) throw monthCloseAllocationsResult.error;
+      if (reserveTransfersResult.error) throw reserveTransfersResult.error;
+      if (fundingPlansResult.error) throw fundingPlansResult.error;
+      if (recurringExpensesResult.error) throw recurringExpensesResult.error;
+      if (spendingTransactionsResult.error) throw spendingTransactionsResult.error;
 
-      const userIds = Array.from(
-        new Set(
-          ((contributionRows ?? []) as ProjectContribution[])
-            .map((entry) => entry.user_id)
-            .filter(Boolean)
-        )
-      ) as string[];
+      const account = accountResult.data as AccountRow;
+      const accountCurrency = account.base_currency;
+      const symbol =
+        CURRENCIES.find((item) => item.code === accountCurrency)?.symbol ?? accountCurrency;
+      const nextProject = projectResult.data as Project;
 
-      const { data: profiles, error: profilesError } =
-        userIds.length > 0
-          ? await supabase
-              .from("profiles")
-              .select("user_id, display_name, email")
-              .in("user_id", userIds)
-          : { data: [], error: null };
-
-      if (profilesError) throw profilesError;
-
-      const labels = (profiles ?? []).reduce<Record<string, string>>((acc, profile) => {
-        acc[profile.user_id] =
-          profile.display_name?.trim() ||
-          profile.email?.trim() ||
-          profile.user_id.slice(0, 8);
-        return acc;
-      }, {});
-
-      const nextProject = projectRow as Project;
       setProject(nextProject);
       setAccountProjectsForColor(
-        (projectColorsRows as Array<{
+        (projectColorsResult.data as Array<{
           id: string;
           color?: string | null;
-          is_hucha?: boolean | null;
           created_at?: string | Date | null;
         }>) ?? []
       );
-      setContributions((contributionRows ?? []) as ProjectContribution[]);
-      setRecurringExpenses((recurringRows ?? []) as RecurringExpense[]);
-      setExtraContributions(
-        (extraContributionRows ?? []) as ExtraContributionTransaction[]
-      );
-      setUserLabels(labels);
-      setRole(currentRole);
-      setBaseCurrency(currentCurrency);
-      setCurrencySymbol(currentCurrencySymbol);
-      setSliderMinor(Number(toMinor(nextProject.monthly_commitment_base_minor ?? 0)));
+      setMonthCloses((monthClosesResult.data as MonthClose[]) ?? []);
+      setMonthCloseAllocations((monthCloseAllocationsResult.data as MonthCloseAllocation[]) ?? []);
+      setReserveTransfers((reserveTransfersResult.data as ReserveTransfer[]) ?? []);
+      setFundingPlans((fundingPlansResult.data as MonthlyProjectFundingPlan[]) ?? []);
+      setRecurringExpenses((recurringExpensesResult.data as RecurringExpense[]) ?? []);
+      setSpendingTransactions((spendingTransactionsResult.data as SpendingTransaction[]) ?? []);
+      setRole(account.account_members?.[0]?.role ?? "viewer");
+      setBaseCurrency(accountCurrency);
+      setCurrencySymbol(symbol);
+      setSliderMinor(Number(getProjectMonthlyFundingTargetMinor(nextProject)));
       setDisabledRecurringIds(new Set());
-      setIsExtraContributionsOpen(false);
+      setSaveError(null);
+      setSaveMessage(null);
     } catch (loadError) {
       console.error("[Projects][mobile] detail load error", loadError);
       setError(t(dictionary, "errors.internalServer"));
-      setAccountProjectsForColor([]);
-      setExtraContributions([]);
     } finally {
       setLoading(false);
     }
-  }, [dictionary, projectId, selectedAccountId, user]);
+  }, [currentMonthStart, dictionary, projectId, selectedAccountId, user]);
 
   useEffect(() => {
-    if (isFocused) {
-      void loadData();
-    }
-  }, [isFocused, loadData]);
+    void loadData();
+  }, [loadData]);
 
   const canEdit = role !== "viewer";
   const minorUnits = getMinorUnits(baseCurrency);
   const minorFactor = 10 ** minorUnits;
   const sliderStep = Math.max(1, 25 * minorFactor);
+
+  const projectColorMap = useMemo(() => {
+    if (!project) return new Map<string, string>();
+    const hasCurrentProject = accountProjectsForColor.some((entry) => entry.id === project.id);
+    const projectsForColor = hasCurrentProject
+      ? accountProjectsForColor.map((entry) =>
+          entry.id === project.id ? { ...entry, color: project.color } : entry
+        )
+      : [
+          ...accountProjectsForColor,
+          {
+            id: project.id,
+            color: project.color,
+            created_at: project.created_at,
+          },
+        ];
+
+    return buildProjectColorMap(projectsForColor);
+  }, [accountProjectsForColor, project]);
+
+  const resolvedProjectColor = useMemo(() => {
+    if (!project) return PROJECT_PALETTE[0];
+    return getProjectColor(project, projectColorMap);
+  }, [project, projectColorMap]);
+
+  const monthClosesById = useMemo(
+    () => new Map<string, MonthClose>(monthCloses.map((monthClose) => [monthClose.id, monthClose])),
+    [monthCloses]
+  );
+
+  const fundingFromMonthClosesMinor = useMemo(
+    () =>
+      monthCloseAllocations.reduce(
+        (total, entry) => total + toMinor(entry.amount_base_minor),
+        0n
+      ),
+    [monthCloseAllocations]
+  );
+
+  const fundingFromReservesMinor = useMemo(
+    () =>
+      reserveTransfers.reduce(
+        (total, entry) => total + toMinor(entry.amount_base_minor),
+        0n
+      ),
+    [reserveTransfers]
+  );
+
+  const plannedThisMonthMinor = useMemo(
+    () =>
+      fundingPlans.reduce(
+        (total, entry) => total + toMinor(entry.planned_amount_base_minor),
+        0n
+      ),
+    [fundingPlans]
+  );
+
+  const spentMinor = useMemo(
+    () =>
+      spendingTransactions.reduce(
+        (total, entry) => total + toMinor(entry.amount_base_minor),
+        0n
+      ),
+    [spendingTransactions]
+  );
+
+  const totalFundedMinor = useMemo(
+    () => fundingFromMonthClosesMinor + fundingFromReservesMinor,
+    [fundingFromMonthClosesMinor, fundingFromReservesMinor]
+  );
 
   const sortedRecurringExpenses = useMemo(
     () =>
@@ -337,76 +368,42 @@ export default function ProjectDetailScreen() {
     [releasedFromRecurringMinor, sliderMinor]
   );
 
-  const projectColorMap = useMemo(() => {
-    if (!project) return new Map<string, string>();
-    const hasCurrentProject = accountProjectsForColor.some((entry) => entry.id === project.id);
-    const projectsForColor = hasCurrentProject
-      ? accountProjectsForColor.map((entry) =>
-          entry.id === project.id ? { ...entry, color: project.color } : entry
-        )
-      : [
-          ...accountProjectsForColor,
-          {
-            id: project.id,
-            color: project.color,
-            is_hucha: project.is_hucha,
-            created_at: project.created_at,
-          },
-        ];
-
-    return buildProjectColorMap(projectsForColor);
-  }, [accountProjectsForColor, project]);
-
-  const resolvedProjectColor = useMemo(() => {
-    if (!project) return PROJECT_PALETTE[0];
-    return getProjectColor(project, projectColorMap);
-  }, [project, projectColorMap]);
-
-  const monthlyAccumulatedMinor = useMemo(
-    () =>
-      contributions.reduce((total, entry) => {
-        if (!entry.confirmed) return total;
-        return total + toMinor(entry.actual_amount_base_minor);
-      }, 0n),
-    [contributions]
-  );
-
-  const extraContributedMinor = useMemo(
-    () =>
-      extraContributions.reduce(
-        (total, entry) => total + toMinor(entry.amount_base_minor),
-        0n
-      ),
-    [extraContributions]
-  );
-
-  const totalContributedMinor = useMemo(
-    () => monthlyAccumulatedMinor + extraContributedMinor,
-    [extraContributedMinor, monthlyAccumulatedMinor]
-  );
-
   const heroProgress = useMemo(() => {
     if (!project) return null;
     return computeProjectProgress({
       project,
-      contributions,
-      extraContributedMinor,
+      fundedMinor: totalFundedMinor,
+      reserveTransferredMinor: fundingFromReservesMinor,
+      plannedThisMonthMinor,
+      spentMinor,
     });
-  }, [contributions, extraContributedMinor, project]);
+  }, [fundingFromReservesMinor, plannedThisMonthMinor, project, spentMinor, totalFundedMinor]);
 
   const simulatorProgress = useMemo(() => {
     if (!project) return null;
     return computeProjectProgress({
-      project: { ...project, monthly_commitment_base_minor: effectiveMonthlyMinor },
-      contributions,
-      extraContributedMinor,
+      project: {
+        ...project,
+        monthly_commitment_base_minor: effectiveMonthlyMinor,
+      },
+      fundedMinor: totalFundedMinor,
+      reserveTransferredMinor: fundingFromReservesMinor,
+      plannedThisMonthMinor,
+      spentMinor,
     });
-  }, [contributions, effectiveMonthlyMinor, extraContributedMinor, project]);
+  }, [
+    effectiveMonthlyMinor,
+    fundingFromReservesMinor,
+    plannedThisMonthMinor,
+    project,
+    spentMinor,
+    totalFundedMinor,
+  ]);
 
   const sliderMax = useMemo(() => {
     if (!project) return sliderStep;
     const targetMinor = Number(toMinor(project.target_amount_base_minor));
-    const currentMinor = Number(toMinor(project.monthly_commitment_base_minor ?? 0));
+    const currentMinor = Number(getProjectMonthlyFundingTargetMinor(project));
     const base = 1500 * minorFactor;
     return Math.max(base, targetMinor, currentMinor + 500 * minorFactor, sliderStep);
   }, [minorFactor, project, sliderStep]);
@@ -416,34 +413,29 @@ export default function ProjectDetailScreen() {
       string,
       {
         periodKey: string;
-        committedMinor: bigint;
         actualMinor: bigint;
-        confirmed: boolean;
         confirmedAt: string | null;
-        userId: string | null;
       }
     >();
 
-    contributions.forEach((entry) => {
-      const rawPeriod = typeof entry.period === "string" ? entry.period : String(entry.period);
-      const periodKey = rawPeriod.slice(0, 10);
+    monthCloseAllocations.forEach((entry) => {
+      const monthClose = monthClosesById.get(entry.month_close_id);
+      const periodKey = String(monthClose?.period ?? entry.created_at ?? "").slice(0, 7);
+      if (!periodKey) return;
+
       const current = grouped.get(periodKey) ?? {
         periodKey,
-        committedMinor: 0n,
         actualMinor: 0n,
-        confirmed: false,
         confirmedAt: null,
-        userId: null,
       };
-      const confirmedAt = typeof entry.confirmed_at === "string" ? entry.confirmed_at : null;
 
       grouped.set(periodKey, {
         periodKey,
-        committedMinor: current.committedMinor + toMinor(entry.committed_amount_base_minor ?? 0),
-        actualMinor: current.actualMinor + toMinor(entry.actual_amount_base_minor),
-        confirmed: current.confirmed || Boolean(entry.confirmed),
-        confirmedAt: confirmedAt ?? current.confirmedAt,
-        userId: entry.user_id ?? current.userId,
+        actualMinor: current.actualMinor + toMinor(entry.amount_base_minor),
+        confirmedAt:
+          (typeof monthClose?.closed_at === "string" ? monthClose.closed_at : null) ??
+          (typeof entry.created_at === "string" ? entry.created_at : null) ??
+          current.confirmedAt,
       });
     });
 
@@ -452,34 +444,27 @@ export default function ProjectDetailScreen() {
     );
 
     let cumulativeMinor = 0n;
-    const withCumulative = chronological.map((row) => {
-      cumulativeMinor += row.actualMinor;
-      return { ...row, cumulativeMinor };
-    });
-
-    return withCumulative.reverse();
-  }, [contributions]);
-
-  const huchaStats = useMemo(() => {
-    if (!project?.is_hucha) return null;
-    return getHuchaStats({
-      huchaProjectId: project.id,
-      contributions,
-      currentPeriod: toMonthKey(new Date()),
-    });
-  }, [contributions, project?.id, project?.is_hucha]);
+    return chronological
+      .map((row) => {
+        cumulativeMinor += row.actualMinor;
+        return {
+          ...row,
+          cumulativeMinor,
+        };
+      })
+      .reverse();
+  }, [monthCloseAllocations, monthClosesById]);
 
   const createdAtLabel = useMemo(() => {
     if (!project?.created_at) return null;
-    const date =
-      project.created_at instanceof Date ? project.created_at : new Date(project.created_at);
+    const date = project.created_at instanceof Date ? project.created_at : new Date(project.created_at);
     if (Number.isNaN(date.getTime())) return null;
-    return new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
+    return new Intl.DateTimeFormat(localeCode === "en" ? "en-US" : "es-ES", {
       day: "2-digit",
       month: "long",
       year: "numeric",
     }).format(date);
-  }, [locale, project?.created_at]);
+  }, [localeCode, project?.created_at]);
 
   const toggleRecurringExpense = (id: string) => {
     setDisabledRecurringIds((previous) => {
@@ -505,6 +490,7 @@ export default function ProjectDetailScreen() {
     setIsSaving(true);
     setSaveError(null);
     setSaveMessage(null);
+
     try {
       const { data, error: updateError } = await supabase
         .from("projects")
@@ -536,12 +522,13 @@ export default function ProjectDetailScreen() {
   };
 
   const handleSetProjectColor = async (color: string) => {
-    if (!canEdit || !project || project.is_hucha || !selectedAccountId || isSavingColor) return;
+    if (!canEdit || !project || !selectedAccountId || isSavingColor) return;
     if (resolvedProjectColor === color && project.color) return;
 
     setIsSavingColor(true);
     setSaveError(null);
     setSaveMessage(null);
+
     try {
       const { data, error: updateError } = await supabase
         .from("projects")
@@ -587,134 +574,6 @@ export default function ProjectDetailScreen() {
               <Button onPress={() => void loadData()} title={t(dictionary, "common.retry")} />
             </Card>
           </View>
-        </View>
-      </>
-    );
-  }
-
-  if (project.is_hucha && huchaStats) {
-    return (
-      <>
-        <Stack.Screen options={{ title: project.name }} />
-        <View style={[styles.screen, { backgroundColor: userTokens.background }]}>
-          <ScrollView
-            contentContainerStyle={[
-              styles.container,
-              { paddingBottom: tokens.spacing.xxl + insets.bottom + 64 },
-            ]}
-          >
-            <Card>
-              <View style={styles.projectHeader}>
-                <View style={styles.projectHeaderMain}>
-                  <Text style={styles.projectEmoji}>{project.emoji || "🐷"}</Text>
-                  <View style={styles.projectHeaderText}>
-                    <Text style={[styles.projectName, { color: userTokens.textPrimary }]}>
-                      {project.name}
-                    </Text>
-                    <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                      {t(dictionary, "projects.hucha.subtitle")}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.huchaHero}>
-                <Text style={[styles.huchaAmount, { color: HUCHA_PROJECT_COLOR }]}>
-                  {formatMoneyWithSymbol(
-                    huchaStats.accumulatedMinor,
-                    baseCurrency,
-                    currencySymbol
-                  )}
-                </Text>
-                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "projects.hucha.accumulated")}
-                </Text>
-              </View>
-
-              <View style={styles.huchaStatsGrid}>
-                <View style={styles.huchaStatCard}>
-                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {t(dictionary, "projects.hucha.thisMonth")}
-                  </Text>
-                  <Text style={[styles.huchaStatValue, { color: HUCHA_PROJECT_COLOR }]}>
-                    +
-                    {formatMoneyWithSymbol(
-                      huchaStats.currentMonthContributionMinor,
-                      baseCurrency,
-                      currencySymbol
-                    )}
-                  </Text>
-                </View>
-                <View style={styles.huchaStatCard}>
-                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {t(dictionary, "projects.hucha.monthlyAverage")}
-                  </Text>
-                  <Text style={[styles.huchaStatValue, { color: HUCHA_PROJECT_COLOR }]}>
-                    {formatMoneyWithSymbol(huchaStats.averageMinor, baseCurrency, currencySymbol)}
-                  </Text>
-                </View>
-                <View style={styles.huchaStatCard}>
-                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {t(dictionary, "projects.hucha.bestMonth")}
-                  </Text>
-                  <Text style={[styles.huchaStatValue, { color: HUCHA_PROJECT_COLOR }]}>
-                    {huchaStats.bestMonth
-                      ? formatMoneyWithSymbol(
-                          huchaStats.bestMonth.amountMinor,
-                          baseCurrency,
-                          currencySymbol
-                        )
-                      : t(dictionary, "common.noneOption")}
-                  </Text>
-                  {huchaStats.bestMonth ? (
-                    <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                      {formatPeriodLabel(`${huchaStats.bestMonth.period}-01`, locale)}
-                    </Text>
-                  ) : null}
-                </View>
-                <View style={styles.huchaStatCard}>
-                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {t(dictionary, "projects.hucha.monthsWithContribution")}
-                  </Text>
-                  <Text style={[styles.huchaStatValue, { color: userTokens.textPrimary }]}>
-                    {huchaStats.monthsWithContribution}
-                  </Text>
-                </View>
-              </View>
-            </Card>
-
-            <Card>
-              <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
-                {t(dictionary, "projects.hucha.historyTitle")}
-              </Text>
-              <View style={styles.historyList}>
-                {contributions.length === 0 ? (
-                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {t(dictionary, "projects.hucha.emptyHistory")}
-                  </Text>
-                ) : (
-                  contributions.map((entry) => {
-                    const periodLabel = formatPeriodLabel(String(entry.period), locale);
-                    return (
-                      <View key={entry.id} style={styles.historyRow}>
-                        <Text style={[styles.historyPeriod, { color: userTokens.textSecondary }]}>
-                          {periodLabel}
-                        </Text>
-                        <Text style={[styles.historyAmount, { color: HUCHA_PROJECT_COLOR }]}>
-                          +
-                          {formatMoneyWithSymbol(
-                            toMinor(entry.actual_amount_base_minor),
-                            baseCurrency,
-                            currencySymbol
-                          )}
-                        </Text>
-                      </View>
-                    );
-                  })
-                )}
-              </View>
-            </Card>
-          </ScrollView>
         </View>
       </>
     );
@@ -781,45 +640,37 @@ export default function ProjectDetailScreen() {
                 </View>
                 <View>
                   <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {t(dictionary, "projects.saved")}
+                    {localeCode === "en" ? "Funded" : "Financiado"}
                   </Text>
                   <Text style={[styles.amountValue, { color: userTokens.textPrimary }]}>
-                    {formatMoneyWithSymbol(heroProgress.savedMinor, baseCurrency, currencySymbol)}
+                    {formatMoneyWithSymbol(
+                      heroProgress.fundedReservedMinor,
+                      baseCurrency,
+                      currencySymbol
+                    )}
                   </Text>
                 </View>
                 <View>
                   <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {t(dictionary, "projects.remaining")}
+                    {localeCode === "en" ? "Planned this month" : "Planificado este mes"}
                   </Text>
                   <Text style={[styles.amountValue, { color: userTokens.textPrimary }]}>
-                    {formatMoneyWithSymbol(heroProgress.remainingMinor, baseCurrency, currencySymbol)}
+                    {formatMoneyWithSymbol(
+                      heroProgress.plannedThisMonthMinor,
+                      baseCurrency,
+                      currencySymbol
+                    )}
+                  </Text>
+                </View>
+                <View>
+                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                    {localeCode === "en" ? "Spent" : "Gastado"}
+                  </Text>
+                  <Text style={[styles.amountValue, { color: userTokens.textPrimary }]}>
+                    {formatMoneyWithSymbol(heroProgress.spentMinor, baseCurrency, currencySymbol)}
                   </Text>
                 </View>
               </View>
-            </View>
-
-            <View
-              style={[
-                styles.commitmentCard,
-                { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
-              ]}
-            >
-              <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                {t(dictionary, "projects.currentCommitment")}
-              </Text>
-              <Text style={[styles.commitmentValue, { color: userTokens.textPrimary }]}>
-                {heroProgress.commitmentMinor > 0n
-                  ? `${formatMoneyWithSymbol(heroProgress.commitmentMinor, baseCurrency, currencySymbol)} ${t(dictionary, "projects.perMonth")}`
-                  : t(dictionary, "projects.noPlan")}
-              </Text>
-              {heroProgress.monthsLeft !== null && heroProgress.estimatedCompletionDate ? (
-                <Text style={[styles.commitmentEta, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "projects.simulator.estimatedDate", {
-                    duration: formatDuration(heroProgress.monthsLeft, dictionary),
-                    date: formatDateMonth(heroProgress.estimatedCompletionDate, locale),
-                  })}
-                </Text>
-              ) : null}
             </View>
 
             <View
@@ -830,11 +681,11 @@ export default function ProjectDetailScreen() {
             >
               <View style={styles.breakdownRow}>
                 <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "projects.monthlyAccumulated")}
+                  {localeCode === "en" ? "From month closes" : "Desde cierres"}
                 </Text>
                 <Text style={[styles.breakdownValue, { color: userTokens.textPrimary }]}>
                   {formatMoneyWithSymbol(
-                    monthlyAccumulatedMinor,
+                    fundingFromMonthClosesMinor,
                     baseCurrency,
                     currencySymbol
                   )}
@@ -842,29 +693,13 @@ export default function ProjectDetailScreen() {
               </View>
               <View style={styles.breakdownRow}>
                 <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "projects.extraContributions")}
+                  {localeCode === "en"
+                    ? "From piggy bank transfers"
+                    : "Desde transferencias de hucha"}
                 </Text>
                 <Text style={[styles.breakdownValue, { color: userTokens.textPrimary }]}>
                   {formatMoneyWithSymbol(
-                    extraContributedMinor,
-                    baseCurrency,
-                    currencySymbol
-                  )}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.breakdownDivider,
-                  { backgroundColor: userTokens.border },
-                ]}
-              />
-              <View style={styles.breakdownRow}>
-                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "projects.totalContributed")}
-                </Text>
-                <Text style={[styles.breakdownTotal, { color: userTokens.textPrimary }]}>
-                  {formatMoneyWithSymbol(
-                    totalContributedMinor,
+                    fundingFromReservesMinor,
                     baseCurrency,
                     currencySymbol
                   )}
@@ -872,16 +707,10 @@ export default function ProjectDetailScreen() {
               </View>
               <View style={styles.breakdownRow}>
                 <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "projects.timeRemaining")}
+                  {t(dictionary, "projects.remaining")}
                 </Text>
                 <Text style={[styles.breakdownValue, { color: userTokens.textPrimary }]}>
-                  {heroProgress.monthsLeft === null
-                    ? t(dictionary, "projects.noPlan")
-                    : heroProgress.monthsLeft === 0
-                    ? t(dictionary, "projects.simulator.reached")
-                    : t(dictionary, "projects.monthsRemaining", {
-                        months: heroProgress.monthsLeft,
-                      })}
+                  {formatMoneyWithSymbol(heroProgress.remainingMinor, baseCurrency, currencySymbol)}
                 </Text>
               </View>
             </View>
@@ -889,28 +718,28 @@ export default function ProjectDetailScreen() {
             <View style={[styles.extraTransactionsCard, { borderColor: userTokens.border }]}>
               <TouchableOpacity
                 style={styles.expensesToggle}
-                onPress={() => setIsExtraContributionsOpen((previous) => !previous)}
+                onPress={() => setIsSpendingOpen((previous) => !previous)}
                 activeOpacity={0.8}
               >
                 <Text style={[styles.expensesTitle, { color: userTokens.textPrimary }]}>
-                  {t(dictionary, "projects.extraExpensesTitle")}
+                  {localeCode === "en" ? "Associated spending" : "Gasto asociado"}
                 </Text>
                 <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                  {isExtraContributionsOpen
-                    ? t(dictionary, "projects.extraExpensesCollapse")
-                    : t(dictionary, "projects.extraExpensesExpand")}
+                  {isSpendingOpen
+                    ? t(dictionary, "projects.simulator.collapse")
+                    : t(dictionary, "projects.simulator.expand")}
                 </Text>
               </TouchableOpacity>
 
-              {isExtraContributionsOpen ? (
-                extraContributions.length > 0 ? (
+              {isSpendingOpen ? (
+                spendingTransactions.length > 0 ? (
                   <View style={styles.extraTransactionsList}>
-                    {extraContributions.map((entry) => {
+                    {spendingTransactions.map((entry) => {
                       const label =
                         entry.merchant?.trim() ||
                         entry.notes?.trim() ||
-                        t(dictionary, "projects.extraExpenseUnnamed");
-                      const dateLabel = formatDateLabel(entry.date, locale) ?? entry.date;
+                        (localeCode === "en" ? "Expense" : "Gasto");
+                      const dateLabel = formatDateLabel(entry.date, localeCode) ?? entry.date;
                       return (
                         <View
                           key={entry.id}
@@ -943,412 +772,259 @@ export default function ProjectDetailScreen() {
                   </View>
                 ) : (
                   <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {t(dictionary, "projects.extraExpensesEmpty")}
+                    {localeCode === "en"
+                      ? "No associated spending yet."
+                      : "Todavia no hay gasto asociado."}
                   </Text>
                 )
               ) : null}
             </View>
-
-            {canEdit ? (
-              <View style={[styles.colorPickerCard, { borderColor: userTokens.border }]}>
-                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "projects.colorLabel")}
-                </Text>
-                <View style={styles.colorSwatches}>
-                  {PROJECT_PALETTE.map((color) => {
-                    const isSelected = resolvedProjectColor === color;
-                    return (
-                      <TouchableOpacity
-                        key={color}
-                        onPress={() => void handleSetProjectColor(color)}
-                        disabled={isSavingColor}
-                        activeOpacity={0.85}
-                        style={[
-                          styles.colorSwatch,
-                          { backgroundColor: color, borderColor: userTokens.border },
-                          isSelected && styles.colorSwatchSelected,
-                          isSavingColor && styles.colorSwatchDisabled,
-                        ]}
-                      >
-                        {isSelected ? <View style={styles.colorSwatchInner} /> : null}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            ) : null}
           </Card>
 
-          <View style={[styles.tabs, { borderColor: userTokens.border }]}>
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                activeTab === "simulator" && { backgroundColor: primaryActionColor },
-              ]}
-              onPress={() => setActiveTab("simulator")}
-            >
-              <Text
+          <Card>
+            <View style={styles.tabRow}>
+              <TouchableOpacity
+                onPress={() => setActiveTab("simulator")}
                 style={[
-                  styles.tabText,
+                  styles.tabButton,
                   {
-                    color:
-                      activeTab === "simulator"
-                        ? primaryActionTextColor
-                        : userTokens.textSecondary,
+                    backgroundColor:
+                      activeTab === "simulator" ? userTokens.surfaceAlt : "transparent",
+                    borderColor: userTokens.border,
                   },
                 ]}
               >
-                {t(dictionary, "projects.simulator.tab")}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                activeTab === "history" && { backgroundColor: primaryActionColor },
-              ]}
-              onPress={() => setActiveTab("history")}
-            >
-              <Text
+                <Text style={[styles.tabText, { color: userTokens.textPrimary }]}>
+                  {localeCode === "en" ? "Simulator" : "Simulador"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setActiveTab("history")}
                 style={[
-                  styles.tabText,
+                  styles.tabButton,
                   {
-                    color:
-                      activeTab === "history"
-                        ? primaryActionTextColor
-                        : userTokens.textSecondary,
+                    backgroundColor:
+                      activeTab === "history" ? userTokens.surfaceAlt : "transparent",
+                    borderColor: userTokens.border,
                   },
                 ]}
               >
-                {t(dictionary, "projects.history.tab")}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {activeTab === "simulator" ? (
-            <Card>
-              <View style={styles.sliderHeader}>
-                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "projects.simulator.sliderLabel")}
+                <Text style={[styles.tabText, { color: userTokens.textPrimary }]}>
+                  {localeCode === "en" ? "History" : "Historial"}
                 </Text>
-                <Text style={[styles.sliderAmount, { color: userTokens.textPrimary }]}>
-                  {formatMoneyWithSymbol(BigInt(sliderMinor), baseCurrency, currencySymbol)}
-                  <Text style={[styles.sliderSuffix, { color: userTokens.textSecondary }]}>
-                    {" "}
-                    {t(dictionary, "projects.perMonth")}
-                  </Text>
-                </Text>
-              </View>
+              </TouchableOpacity>
+            </View>
 
-              <ProjectAmountSlider
-                min={0}
-                max={sliderMax}
-                step={sliderStep}
-                value={sliderMinor}
-                onChange={setSliderMinor}
-                trackColor={userTokens.border}
-                fillColor={primaryActionColor}
-                thumbColor={primaryActionColor}
-                trackWidth={sliderTrackWidth}
-                onTrackLayout={setSliderTrackWidth}
-              />
-              <Text style={[styles.sliderHint, { color: userTokens.textSecondary }]}>
-                {t(dictionary, "projects.simulator.sliderHint")}
-              </Text>
-
-              <View
-                style={[
-                  styles.effectiveCard,
-                  { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
-                ]}
-              >
-                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "projects.simulator.effectiveSaving")}
-                </Text>
-                <Text style={[styles.effectiveValue, { color: userTokens.textPrimary }]}>
-                  {formatMoneyWithSymbol(effectiveMonthlyMinor, baseCurrency, currencySymbol)}
-                  <Text style={[styles.sliderSuffix, { color: userTokens.textSecondary }]}>
-                    {" "}
-                    {t(dictionary, "projects.perMonth")}
-                  </Text>
-                </Text>
-                {simulatorProgress.monthsLeft !== null &&
-                simulatorProgress.estimatedCompletionDate ? (
-                  <Text style={[styles.commitmentEta, { color: userTokens.textSecondary }]}>
-                    {t(dictionary, "projects.simulator.estimatedDate", {
-                      duration: formatDuration(simulatorProgress.monthsLeft, dictionary),
-                      date: formatDateMonth(simulatorProgress.estimatedCompletionDate, locale),
-                    })}
-                  </Text>
-                ) : (
-                  <Text style={[styles.commitmentEta, { color: userTokens.textSecondary }]}>
-                    {t(dictionary, "projects.noPlan")}
-                  </Text>
-                )}
-              </View>
-
-              <View style={[styles.expensesCard, { borderColor: userTokens.border }]}>
-                <TouchableOpacity
-                  style={styles.expensesToggle}
-                  onPress={() => setIsExpensesOpen((previous) => !previous)}
-                  activeOpacity={0.8}
+            {activeTab === "simulator" ? (
+              <View style={styles.simulatorBody}>
+                <View
+                  style={[
+                    styles.commitmentCard,
+                    { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+                  ]}
                 >
-                  <Text style={[styles.expensesTitle, { color: userTokens.textPrimary }]}>
-                    {t(dictionary, "projects.simulator.cutExpensesTitle")}
-                  </Text>
                   <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {isExpensesOpen
-                      ? t(dictionary, "projects.simulator.collapse")
-                      : t(dictionary, "projects.simulator.expand")}
+                    {localeCode === "en" ? "Current monthly target" : "Objetivo mensual actual"}
                   </Text>
-                </TouchableOpacity>
-
-                {isExpensesOpen ? (
-                  sortedRecurringExpenses.length > 0 ? (
-                    <View style={styles.expensesList}>
-                      {sortedRecurringExpenses.map((expense) => {
-                        const disabled = disabledRecurringIds.has(expense.id);
-                        const label =
-                          expense.merchant?.trim() ||
-                          expense.notes?.trim() ||
-                          t(dictionary, "projects.simulator.unnamedExpense");
-
-                        return (
-                          <View
-                            key={expense.id}
-                            style={[
-                              styles.expenseRow,
-                              { borderBottomColor: userTokens.border },
-                            ]}
-                          >
-                            <View style={styles.expenseCopy}>
-                              <Text
-                                style={[styles.expenseLabel, { color: userTokens.textPrimary }]}
-                              >
-                                {label}
-                              </Text>
-                              <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                                {formatMoneyWithSymbol(
-                                  toMinor(expense.amount_minor),
-                                  baseCurrency,
-                                  currencySymbol
-                                )}{" "}
-                                {t(dictionary, "projects.perMonth")}
-                              </Text>
-                            </View>
-                            <Switch
-                              value={disabled}
-                              onValueChange={() => toggleRecurringExpense(expense.id)}
-                            />
-                          </View>
-                        );
+                  <Text style={[styles.commitmentValue, { color: userTokens.textPrimary }]}>
+                    {getProjectMonthlyFundingTargetMinor(project) > 0n
+                      ? `${formatMoneyWithSymbol(
+                          getProjectMonthlyFundingTargetMinor(project),
+                          baseCurrency,
+                          currencySymbol
+                        )} ${t(dictionary, "projects.perMonth")}`
+                      : t(dictionary, "projects.noPlan")}
+                  </Text>
+                  {heroProgress.monthsLeft !== null && heroProgress.estimatedCompletionDate ? (
+                    <Text style={[styles.commitmentEta, { color: userTokens.textSecondary }]}>
+                      {t(dictionary, "projects.simulator.estimatedDate", {
+                        duration: formatDuration(heroProgress.monthsLeft, localeCode),
+                        date: new Intl.DateTimeFormat(
+                          localeCode === "en" ? "en-US" : "es-ES",
+                          { month: "long", year: "numeric" }
+                        ).format(heroProgress.estimatedCompletionDate),
                       })}
-                      <View
-                        style={[
-                          styles.releasedChip,
-                          { backgroundColor: userTokens.surfaceAlt },
-                        ]}
-                      >
+                    </Text>
+                  ) : null}
+                </View>
+
+                <View style={styles.simulatorSummary}>
+                  <View>
+                    <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                      {t(dictionary, "projects.simulator.sliderLabel")}
+                    </Text>
+                    <Text style={[styles.simulatorAmount, { color: userTokens.textPrimary }]}>
+                      {formatMoneyWithSymbol(effectiveMonthlyMinor, baseCurrency, currencySymbol)}
+                    </Text>
+                  </View>
+                  <View style={styles.simulatorSummaryRight}>
+                    <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                      {localeCode === "en" ? "Estimated finish" : "Fin estimado"}
+                    </Text>
+                    <Text style={[styles.summaryInlineValue, { color: userTokens.textPrimary }]}>
+                      {simulatorProgress.monthsLeft === null ||
+                      !simulatorProgress.estimatedCompletionDate
+                        ? t(dictionary, "projects.noPlan")
+                        : `${formatDuration(simulatorProgress.monthsLeft, localeCode)} · ${new Intl.DateTimeFormat(
+                            localeCode === "en" ? "en-US" : "es-ES",
+                            { month: "long", year: "numeric" }
+                          ).format(simulatorProgress.estimatedCompletionDate)}`}
+                    </Text>
+                  </View>
+                </View>
+
+                <ProjectAmountSlider
+                  min={0}
+                  max={sliderMax}
+                  step={sliderStep}
+                  value={sliderMinor}
+                  onChange={setSliderMinor}
+                  trackColor={userTokens.border}
+                  fillColor={resolvedProjectColor}
+                  thumbColor={resolvedProjectColor}
+                  trackWidth={sliderTrackWidth}
+                  onTrackLayout={setSliderTrackWidth}
+                />
+
+                {sortedRecurringExpenses.length > 0 ? (
+                  <View style={styles.recurringList}>
+                    <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
+                      {localeCode === "en"
+                        ? "Switch off recurring expenses"
+                        : "Apaga gastos recurrentes"}
+                    </Text>
+                    {sortedRecurringExpenses.map((expense) => {
+                      const amountMinor = toMinor(expense.amount_minor);
+                      const label =
+                        expense.merchant?.trim() ||
+                        expense.notes?.trim() ||
+                        (localeCode === "en" ? "Recurring expense" : "Gasto recurrente");
+                      const isEnabled = disabledRecurringIds.has(expense.id);
+                      return (
+                        <View
+                          key={expense.id}
+                          style={[
+                            styles.recurringRow,
+                            { borderColor: userTokens.border },
+                          ]}
+                        >
+                          <View style={styles.recurringCopy}>
+                            <Text style={[styles.recurringLabel, { color: userTokens.textPrimary }]}>
+                              {label}
+                            </Text>
+                            <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                              {formatMoneyWithSymbol(amountMinor, baseCurrency, currencySymbol)}
+                            </Text>
+                          </View>
+                          <Switch
+                            value={isEnabled}
+                            onValueChange={() => toggleRecurringExpense(expense.id)}
+                            trackColor={{
+                              false: userTokens.border,
+                              true: resolvedProjectColor,
+                            }}
+                            thumbColor={isEnabled ? "#FFFFFF" : "#F1F5F9"}
+                          />
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : null}
+
+                {saveError ? (
+                  <Text style={[styles.feedbackError, { color: "#E0956A" }]}>{saveError}</Text>
+                ) : null}
+                {saveMessage ? (
+                  <Text style={[styles.feedbackSuccess, { color: resolvedProjectColor }]}>
+                    {saveMessage}
+                  </Text>
+                ) : null}
+
+                {canEdit ? (
+                  <Button
+                    onPress={() => void handleSetCommitment()}
+                    title={localeCode === "en" ? "Save monthly target" : "Guardar objetivo mensual"}
+                    loading={isSaving}
+                  />
+                ) : null}
+              </View>
+            ) : (
+              <View style={styles.historyList}>
+                {historyRows.length > 0 ? (
+                  historyRows.map((row) => (
+                    <View
+                      key={row.periodKey}
+                      style={[
+                        styles.historyRow,
+                        { borderColor: userTokens.border },
+                      ]}
+                    >
+                      <View style={styles.historyCopy}>
+                        <Text style={[styles.historyPeriod, { color: userTokens.textPrimary }]}>
+                          {formatMonthLabel(row.periodKey, localeCode)}
+                        </Text>
                         <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                          {t(dictionary, "projects.simulator.releasedFromExpenses")}{" "}
-                          <Text style={[styles.releasedValue, { color: userTokens.textPrimary }]}>
-                            {formatMoneyWithSymbol(
-                              releasedFromRecurringMinor,
-                              baseCurrency,
-                              currencySymbol
-                            )}
-                          </Text>
+                          {row.confirmedAt
+                            ? formatDateLabel(row.confirmedAt, localeCode)
+                            : localeCode === "en"
+                              ? "Confirmed month close"
+                              : "Cierre confirmado"}
+                        </Text>
+                      </View>
+                      <View style={styles.historyAmounts}>
+                        <Text style={[styles.historyAmount, { color: userTokens.textPrimary }]}>
+                          {formatMoneyWithSymbol(row.actualMinor, baseCurrency, currencySymbol)}
+                        </Text>
+                        <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                          {localeCode === "en" ? "Funded total" : "Financiado total"}:{" "}
+                          {formatMoneyWithSymbol(
+                            row.cumulativeMinor,
+                            baseCurrency,
+                            currencySymbol
+                          )}
                         </Text>
                       </View>
                     </View>
-                  ) : (
-                    <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                      {t(dictionary, "projects.simulator.noRecurringExpenses")}
-                    </Text>
-                  )
-                ) : null}
+                  ))
+                ) : (
+                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                    {localeCode === "en"
+                      ? "No funding history yet."
+                      : "Todavia no hay historial de financiacion."}
+                  </Text>
+                )}
               </View>
+            )}
+          </Card>
 
-              {saveError ? (
-                <Text style={[styles.feedbackError]}>{saveError}</Text>
-              ) : null}
-              {saveMessage ? (
-                <Text style={[styles.feedbackSuccess]}>{saveMessage}</Text>
-              ) : null}
-
-              <Button
-                title={
-                  isSaving
-                    ? t(dictionary, "projects.simulator.saving")
-                    : t(dictionary, "projects.simulator.setCommitment", {
-                        amount: formatMoneyWithSymbol(
-                          effectiveMonthlyMinor,
-                          baseCurrency,
-                          currencySymbol
-                        ),
-                      })
-                }
-                onPress={handleSetCommitment}
-                loading={isSaving}
-                disabled={!canEdit || isSaving || effectiveMonthlyMinor <= 0n}
-              />
-            </Card>
-          ) : (
+          {canEdit ? (
             <Card>
-              {historyRows.length === 0 ? (
-                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "projects.history.empty")}
-                </Text>
-              ) : (
-                <View style={styles.historyList}>
-                  {historyRows.map((entry) => {
-                    const committedMinor = entry.committedMinor;
-                    const actualMinor = entry.actualMinor;
-
-                    let status: HistoryStatus = "pending";
-                    if (!entry.confirmed) {
-                      status = "pending";
-                    } else if (committedMinor > 0n && actualMinor >= committedMinor) {
-                      status = "fulfilled";
-                    } else if (committedMinor > 0n) {
-                      status = "deficit";
-                    } else {
-                      status = "no_plan";
-                    }
-
-                    const statusCopy =
-                      status === "pending"
-                        ? t(dictionary, "projects.history.statusPending")
-                        : status === "fulfilled"
-                        ? t(dictionary, "projects.history.statusFulfilled")
-                        : status === "deficit"
-                        ? t(dictionary, "projects.history.statusDeficit")
-                        : t(dictionary, "projects.history.statusNoPlan");
-
-                    const statusColor =
-                      status === "fulfilled"
-                        ? "#059669"
-                        : status === "deficit"
-                        ? "#D97706"
-                        : status === "pending"
-                        ? primaryActionColor
-                        : userTokens.textSecondary;
-
-                    const contributorLabel = entry.userId
-                      ? userLabels[entry.userId] ?? entry.userId.slice(0, 8)
-                      : t(dictionary, "projects.history.unknownUser");
-
-                    const confirmedDateLabel = formatDateLabel(entry.confirmedAt, locale);
-
-                    const maxMinor =
-                      committedMinor > actualMinor
-                        ? committedMinor > 0n
-                          ? committedMinor
-                          : 1n
-                        : actualMinor > 0n
-                        ? actualMinor
-                        : 1n;
-
-                    const actualPercent = Math.min(
-                      100,
-                      Math.max(0, (Number(actualMinor) / Number(maxMinor)) * 100)
-                    );
-                    const commitmentPercent = Math.min(
-                      100,
-                      Math.max(0, (Number(committedMinor) / Number(maxMinor)) * 100)
-                    );
-
-                    return (
-                      <View
-                        key={entry.periodKey}
-                        style={[
-                          styles.historyCard,
-                          { borderColor: userTokens.border, backgroundColor: userTokens.surface },
-                        ]}
-                      >
-                        <View style={styles.historyHeader}>
-                          <View style={styles.historyLeft}>
-                            <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                              {formatPeriodLabel(entry.periodKey, locale)}
-                            </Text>
-                            <Text style={[styles.historyStatus, { color: statusColor }]}>
-                              {statusCopy}
-                            </Text>
-                            <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                              {t(dictionary, "projects.history.contributor", {
-                                name: contributorLabel,
-                              })}
-                            </Text>
-                            {confirmedDateLabel ? (
-                              <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                                {t(dictionary, "projects.history.confirmedAt", {
-                                  date: confirmedDateLabel,
-                                })}
-                              </Text>
-                            ) : null}
-                          </View>
-                          <View style={styles.historyRight}>
-                            <Text style={[styles.historyAmount, { color: userTokens.textPrimary }]}>
-                              {t(dictionary, "projects.history.actual")}:{" "}
-                              {formatMoneyWithSymbol(actualMinor, baseCurrency, currencySymbol)}
-                            </Text>
-                            <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                              {t(dictionary, "projects.history.committed")}:{" "}
-                              {formatMoneyWithSymbol(
-                                committedMinor,
-                                baseCurrency,
-                                currencySymbol
-                              )}
-                            </Text>
-                            <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                              {t(dictionary, "projects.history.cumulative")}:{" "}
-                              {formatMoneyWithSymbol(
-                                entry.cumulativeMinor,
-                                baseCurrency,
-                                currencySymbol
-                              )}
-                            </Text>
-                          </View>
-                        </View>
-
-                        <View style={styles.historyBarWrap}>
-                          <View
-                            style={[styles.historyBarTrack, { backgroundColor: userTokens.border }]}
-                          >
-                            <View
-                              style={[
-                                styles.historyBarActual,
-                                {
-                                  backgroundColor: primaryActionColor,
-                                  width: `${actualPercent}%`,
-                                },
-                              ]}
-                            />
-                            <View
-                              style={[
-                                styles.historyBarCommitment,
-                                {
-                                  backgroundColor: userTokens.textPrimary,
-                                  left: `${commitmentPercent}%`,
-                                },
-                              ]}
-                            />
-                          </View>
-                          <View style={styles.historyBarLegend}>
-                            <Text style={[styles.legendText, { color: userTokens.textSecondary }]}>
-                              {t(dictionary, "projects.history.barActual")}
-                            </Text>
-                            <Text style={[styles.legendText, { color: userTokens.textSecondary }]}>
-                              {t(dictionary, "projects.history.barCommitted")}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
+              <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
+                {t(dictionary, "projects.colorLabel")}
+              </Text>
+              <View style={styles.colorSwatches}>
+                {PROJECT_PALETTE.map((color) => {
+                  const isSelected = resolvedProjectColor === color;
+                  return (
+                    <TouchableOpacity
+                      key={color}
+                      onPress={() => void handleSetProjectColor(color)}
+                      disabled={isSavingColor}
+                      activeOpacity={0.85}
+                      style={[
+                        styles.colorSwatch,
+                        { backgroundColor: color, borderColor: userTokens.border },
+                        isSelected && styles.colorSwatchSelected,
+                        isSavingColor && styles.colorSwatchDisabled,
+                      ]}
+                    >
+                      {isSelected ? <View style={styles.colorSwatchInner} /> : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </Card>
-          )}
+          ) : null}
         </ScrollView>
       </View>
     </>
@@ -1365,367 +1041,270 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   container: {
-    padding: tokens.spacing.lg,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingTop: tokens.spacing.lg,
     gap: tokens.spacing.md,
   },
   projectHeader: {
     flexDirection: "row",
-    alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: tokens.spacing.sm,
+    gap: tokens.spacing.md,
   },
   projectHeaderMain: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: tokens.spacing.sm,
     flex: 1,
-    minWidth: 0,
+    flexDirection: "row",
+    gap: tokens.spacing.md,
+  },
+  projectEmoji: {
+    fontSize: 34,
   },
   projectHeaderText: {
     flex: 1,
-    minWidth: 0,
-  },
-  projectEmoji: {
-    fontSize: 36,
+    gap: 4,
   },
   projectName: {
-    fontSize: tokens.typography.size.xl,
-    fontFamily: "DMSans-Bold",
-  },
-  metaText: {
-    fontSize: tokens.typography.size.xs,
-    fontFamily: "DMSans-Regular",
-  },
-  sectionTitle: {
-    fontSize: tokens.typography.size.md,
-    fontFamily: "DMSans-SemiBold",
-    marginBottom: tokens.spacing.sm,
-  },
-  huchaHero: {
-    marginTop: tokens.spacing.md,
-    marginBottom: tokens.spacing.md,
-    alignItems: "flex-start",
-  },
-  huchaAmount: {
-    fontSize: 32,
-    fontFamily: "DMSans-Bold",
-  },
-  huchaStatsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: tokens.spacing.sm,
-  },
-  huchaStatCard: {
-    width: "48%",
-    borderRadius: tokens.radii.md,
-    borderWidth: 1,
-    borderColor: "#2f2f2f",
-    padding: tokens.spacing.sm,
-  },
-  huchaStatValue: {
-    marginTop: 2,
-    fontSize: tokens.typography.size.md,
+    fontSize: 24,
+    lineHeight: 30,
     fontFamily: "DMSans-SemiBold",
   },
   priorityBlock: {
     alignItems: "flex-end",
+    gap: 4,
   },
   priorityValue: {
-    fontSize: tokens.typography.size.lg,
-    fontFamily: "DMSans-Bold",
+    fontSize: 18,
+    fontFamily: "JetBrainsMono-Medium",
+  },
+  metaText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: "DMSans-Medium",
   },
   heroRow: {
-    marginTop: tokens.spacing.md,
-    flexDirection: "row",
-    gap: tokens.spacing.md,
+    marginTop: tokens.spacing.lg,
+    gap: tokens.spacing.lg,
     alignItems: "center",
   },
-  heroPercent: {
-    fontSize: tokens.typography.size.lg,
-    fontFamily: "DMSans-Bold",
-  },
   heroNumbers: {
-    flex: 1,
-    gap: tokens.spacing.sm,
+    width: "100%",
+    gap: tokens.spacing.md,
+  },
+  heroPercent: {
+    fontSize: 26,
+    lineHeight: 32,
+    fontFamily: "JetBrainsMono-Medium",
   },
   amountValue: {
-    marginTop: 2,
-    fontSize: tokens.typography.size.lg,
-    fontFamily: "DMSans-Bold",
-  },
-  commitmentCard: {
-    marginTop: tokens.spacing.md,
-    borderRadius: tokens.radii.md,
-    borderWidth: 1,
-    padding: tokens.spacing.sm,
-  },
-  commitmentValue: {
-    marginTop: 2,
-    fontSize: tokens.typography.size.md,
-    fontFamily: "DMSans-SemiBold",
-  },
-  commitmentEta: {
-    marginTop: 2,
-    fontSize: tokens.typography.size.xs,
-    fontFamily: "DMSans-Regular",
+    fontSize: 19,
+    lineHeight: 24,
+    fontFamily: "JetBrainsMono-Medium",
   },
   breakdownCard: {
-    marginTop: tokens.spacing.md,
-    borderRadius: tokens.radii.md,
+    marginTop: tokens.spacing.lg,
     borderWidth: 1,
-    padding: tokens.spacing.sm,
-    gap: tokens.spacing.xs,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.md,
+    gap: tokens.spacing.sm,
   },
   breakdownRow: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    gap: tokens.spacing.sm,
+    gap: tokens.spacing.md,
   },
   breakdownValue: {
-    fontSize: tokens.typography.size.sm,
-    fontFamily: "DMSans-SemiBold",
-  },
-  breakdownTotal: {
-    fontSize: tokens.typography.size.md,
-    fontFamily: "DMSans-Bold",
-  },
-  breakdownDivider: {
-    height: 1,
-    marginVertical: tokens.spacing.xs,
+    fontSize: 14,
+    lineHeight: 18,
+    fontFamily: "JetBrainsMono-Medium",
+    textAlign: "right",
   },
   extraTransactionsCard: {
-    marginTop: tokens.spacing.md,
-    borderRadius: tokens.radii.md,
+    marginTop: tokens.spacing.lg,
     borderWidth: 1,
-    padding: tokens.spacing.sm,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.md,
     gap: tokens.spacing.sm,
+  },
+  expensesToggle: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: tokens.spacing.md,
+  },
+  expensesTitle: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontFamily: "DMSans-SemiBold",
   },
   extraTransactionsList: {
     gap: tokens.spacing.sm,
   },
   extraTransactionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: tokens.spacing.md,
     borderWidth: 1,
     borderRadius: tokens.radii.md,
+    paddingHorizontal: tokens.spacing.md,
     paddingVertical: tokens.spacing.sm,
-    paddingHorizontal: tokens.spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: tokens.spacing.sm,
-  },
-  colorPickerCard: {
-    marginTop: tokens.spacing.md,
-    borderRadius: tokens.radii.md,
-    borderWidth: 1,
-    padding: tokens.spacing.sm,
-    gap: tokens.spacing.sm,
-  },
-  colorSwatches: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  colorSwatch: {
-    width: 30,
-    height: 30,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  colorSwatchSelected: {
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.5)",
-  },
-  colorSwatchInner: {
-    width: 11,
-    height: 11,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.85)",
-  },
-  colorSwatchDisabled: {
-    opacity: 0.55,
-  },
-  tabs: {
-    flexDirection: "row",
-    borderWidth: 1,
-    borderRadius: tokens.radii.lg,
-    padding: 3,
-  },
-  tab: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: tokens.radii.md,
-    paddingVertical: 9,
-  },
-  tabText: {
-    fontSize: tokens.typography.size.sm,
-    fontFamily: "DMSans-SemiBold",
-  },
-  sliderHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: tokens.spacing.sm,
-  },
-  sliderAmount: {
-    fontSize: tokens.typography.size.lg,
-    fontFamily: "DMSans-Bold",
-  },
-  sliderSuffix: {
-    fontSize: tokens.typography.size.sm,
-    fontFamily: "DMSans-Medium",
-  },
-  sliderHint: {
-    marginTop: tokens.spacing.xs,
-    fontSize: tokens.typography.size.xs,
-    fontFamily: "DMSans-Regular",
-    marginBottom: tokens.spacing.sm,
-  },
-  effectiveCard: {
-    borderRadius: tokens.radii.md,
-    borderWidth: 1,
-    padding: tokens.spacing.sm,
-    marginBottom: tokens.spacing.sm,
-  },
-  effectiveValue: {
-    fontSize: tokens.typography.size.xl,
-    fontFamily: "DMSans-Bold",
-  },
-  expensesCard: {
-    borderRadius: tokens.radii.md,
-    borderWidth: 1,
-    padding: tokens.spacing.sm,
-    marginBottom: tokens.spacing.sm,
-  },
-  expensesToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  expensesTitle: {
-    fontSize: tokens.typography.size.md,
-    fontFamily: "DMSans-SemiBold",
-  },
-  expensesList: {
-    marginTop: tokens.spacing.sm,
-    gap: tokens.spacing.sm,
-  },
-  expenseRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: tokens.spacing.sm,
-    borderBottomWidth: 1,
-    paddingBottom: tokens.spacing.sm,
   },
   expenseCopy: {
     flex: 1,
-    minWidth: 0,
+    gap: 2,
   },
   expenseLabel: {
-    fontSize: tokens.typography.size.sm,
+    fontSize: 14,
+    lineHeight: 18,
     fontFamily: "DMSans-Medium",
   },
-  releasedChip: {
-    borderRadius: tokens.radii.sm,
-    paddingHorizontal: tokens.spacing.sm,
-    paddingVertical: tokens.spacing.xs,
+  tabRow: {
+    flexDirection: "row",
+    gap: tokens.spacing.sm,
   },
-  releasedValue: {
-    fontFamily: "DMSans-Bold",
+  tabButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    paddingVertical: tokens.spacing.sm,
+    alignItems: "center",
+  },
+  tabText: {
+    fontSize: 13,
+    lineHeight: 17,
+    fontFamily: "DMSans-SemiBold",
+  },
+  simulatorBody: {
+    marginTop: tokens.spacing.lg,
+    gap: tokens.spacing.md,
+  },
+  commitmentCard: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.md,
+    gap: tokens.spacing.xs,
+  },
+  commitmentValue: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontFamily: "JetBrainsMono-Medium",
+  },
+  commitmentEta: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: "DMSans-Medium",
+  },
+  simulatorSummary: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: tokens.spacing.md,
+  },
+  simulatorSummaryRight: {
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  simulatorAmount: {
+    fontSize: 20,
+    lineHeight: 26,
+    fontFamily: "JetBrainsMono-Medium",
+  },
+  summaryInlineValue: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: "DMSans-Medium",
+    textAlign: "right",
+  },
+  recurringList: {
+    gap: tokens.spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontFamily: "DMSans-SemiBold",
+  },
+  recurringRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: tokens.spacing.md,
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+  },
+  recurringCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  recurringLabel: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontFamily: "DMSans-Medium",
   },
   feedbackError: {
-    color: "#DC2626",
-    fontSize: tokens.typography.size.sm,
-    marginBottom: tokens.spacing.xs,
+    fontSize: 12,
+    lineHeight: 16,
     fontFamily: "DMSans-Medium",
   },
   feedbackSuccess: {
-    color: "#059669",
-    fontSize: tokens.typography.size.sm,
-    marginBottom: tokens.spacing.xs,
+    fontSize: 12,
+    lineHeight: 16,
     fontFamily: "DMSans-Medium",
   },
   historyList: {
+    marginTop: tokens.spacing.lg,
     gap: tokens.spacing.sm,
   },
   historyRow: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
+    gap: tokens.spacing.md,
     borderWidth: 1,
     borderRadius: tokens.radii.md,
-    paddingHorizontal: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.md,
     paddingVertical: tokens.spacing.sm,
-    gap: tokens.spacing.sm,
   },
-  historyPeriod: {
-    fontSize: tokens.typography.size.sm,
-    fontFamily: "DMSans-Medium",
-  },
-  historyCard: {
-    borderWidth: 1,
-    borderRadius: tokens.radii.md,
-    padding: tokens.spacing.sm,
-    gap: tokens.spacing.sm,
-  },
-  historyHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: tokens.spacing.sm,
-  },
-  historyLeft: {
+  historyCopy: {
     flex: 1,
-    minWidth: 0,
     gap: 2,
   },
-  historyStatus: {
-    fontSize: tokens.typography.size.sm,
+  historyPeriod: {
+    fontSize: 14,
+    lineHeight: 18,
     fontFamily: "DMSans-SemiBold",
   },
-  historyRight: {
+  historyAmounts: {
     alignItems: "flex-end",
-    maxWidth: "52%",
     gap: 2,
   },
   historyAmount: {
-    fontSize: tokens.typography.size.xs,
-    fontFamily: "DMSans-SemiBold",
-    textAlign: "right",
+    fontSize: 14,
+    lineHeight: 18,
+    fontFamily: "JetBrainsMono-Medium",
   },
-  historyBarWrap: {
-    gap: 4,
-  },
-  historyBarTrack: {
-    height: 8,
-    borderRadius: 999,
-    overflow: "hidden",
-    position: "relative",
-  },
-  historyBarActual: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    borderRadius: 999,
-  },
-  historyBarCommitment: {
-    position: "absolute",
-    top: 0,
-    width: 2,
-    height: 8,
-    marginLeft: -1,
-  },
-  historyBarLegend: {
+  colorSwatches: {
+    marginTop: tokens.spacing.md,
     flexDirection: "row",
-    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: tokens.spacing.sm,
   },
-  legendText: {
-    fontSize: 11,
-    fontFamily: "DMSans-Regular",
+  colorSwatch: {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  colorSwatchSelected: {
+    transform: [{ scale: 1.05 }],
+  },
+  colorSwatchDisabled: {
+    opacity: 0.5,
+  },
+  colorSwatchInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 999,
+    backgroundColor: "#FFFFFF",
   },
 });

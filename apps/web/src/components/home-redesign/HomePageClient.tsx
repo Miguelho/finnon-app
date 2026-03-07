@@ -7,14 +7,20 @@ import {
   buildCalendarDayData,
   buildProjectColorMap,
   computeProjectProgress,
-  computeSavingsDistribution,
+  computeSavingsMonthView,
   getProjectColor,
   getMonthCalendarDisplayDays,
+  getReserveContainerBalanceMinor,
   getWeekCalendarDisplayDays,
   getWeekStartMonday,
+  toMonthKey,
   type AvatarColorToken,
+  type MonthClose,
+  type MonthCloseAllocation,
+  type MonthlyProjectFundingPlan,
   type Project,
-  type ProjectContribution,
+  type ReserveContainer,
+  type ReserveTransfer,
   type UserAvatarColorId,
 } from "@poleursus/shared";
 import { PageContainer } from "@/components/layout/page-container";
@@ -103,7 +109,11 @@ type HomePageClientProps = {
   obligations: ObligationRow[];
   profiles: ProfileRow[];
   projects: Project[];
-  projectContributions: ProjectContribution[];
+  reserveContainers: ReserveContainer[];
+  fundingPlans: MonthlyProjectFundingPlan[];
+  monthCloses: MonthClose[];
+  monthCloseAllocations: MonthCloseAllocation[];
+  reserveTransfers: ReserveTransfer[];
 };
 
 const plusDays = (date: Date, days: number) => {
@@ -179,7 +189,11 @@ export function HomePageClient({
   obligations,
   profiles,
   projects,
-  projectContributions,
+  reserveContainers,
+  fundingPlans,
+  monthCloses,
+  monthCloseAllocations,
+  reserveTransfers,
 }: HomePageClientProps) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -263,7 +277,9 @@ export function HomePageClient({
 
           if (error) throw error;
 
-          const rows = (data ?? []) as Array<TransactionRow & { category?: unknown }>;
+          const rows = (data ?? []) as unknown as Array<
+            TransactionRow & { category?: unknown }
+          >;
           return rows.map(normalizeCategory) as TransactionRow[];
         };
 
@@ -342,22 +358,22 @@ export function HomePageClient({
     });
   }, [transactions, today, todayKey]);
 
-  const monthlyBalanceMinor = useMemo(
+  const currentPeriod = useMemo(() => toMonthKey(today), [today]);
+  const currentMonthClose = useMemo(
     () =>
-      monthTransactionsToDate.reduce((total, tx) => {
-        const amount = toMinor(tx.amount_base_minor ?? tx.amount_minor);
-        return tx.type === "income" ? total + amount : total - amount;
-      }, 0n),
-    [monthTransactionsToDate]
+      monthCloses.find((monthClose) => String(monthClose.period).slice(0, 7) === currentPeriod) ??
+      null,
+    [currentPeriod, monthCloses]
   );
-
-  const savingsDistribution = useMemo(
+  const savingsState = useMemo(
     () =>
-      computeSavingsDistribution({
-        projects,
-        savingsMinor: monthlyBalanceMinor,
+      computeSavingsMonthView({
+        period: currentPeriod,
+        transactions: monthTransactionsToDate,
+        fundingPlans,
+        monthClose: currentMonthClose,
       }),
-    [projects, monthlyBalanceMinor]
+    [currentMonthClose, currentPeriod, fundingPlans, monthTransactionsToDate]
   );
 
   const calendarMap = useMemo(() => {
@@ -487,20 +503,37 @@ export function HomePageClient({
     [creatorProfiles]
   );
 
-  const contributionsByProject = useMemo(() => {
-    const byProject = new Map<string, ProjectContribution[]>();
-    projectContributions.forEach((entry) => {
-      const list = byProject.get(entry.project_id) ?? [];
-      list.push(entry);
-      byProject.set(entry.project_id, list);
+  const fundedByProject = useMemo(() => {
+    const byProject = new Map<string, bigint>();
+    monthCloseAllocations.forEach((allocation) => {
+      if (!allocation.project_id) return;
+      byProject.set(
+        allocation.project_id,
+        (byProject.get(allocation.project_id) ?? 0n) + toMinor(allocation.amount_base_minor)
+      );
+    });
+    reserveTransfers.forEach((transfer) => {
+      byProject.set(
+        transfer.destination_project_id,
+        (byProject.get(transfer.destination_project_id) ?? 0n) +
+          toMinor(transfer.amount_base_minor)
+      );
     });
     return byProject;
-  }, [projectContributions]);
+  }, [monthCloseAllocations, reserveTransfers]);
 
-  const activeProjects = useMemo(
-    () => projects.filter((project) => !project.is_hucha && (project.status === "active" || project.status === "completed")),
-    [projects]
-  );
+  const plannedByProject = useMemo(() => {
+    const byProject = new Map<string, bigint>();
+    fundingPlans.forEach((plan) => {
+      byProject.set(
+        plan.project_id,
+        (byProject.get(plan.project_id) ?? 0n) + toMinor(plan.planned_amount_base_minor)
+      );
+    });
+    return byProject;
+  }, [fundingPlans]);
+
+  const activeProjects = useMemo(() => projects, [projects]);
   const projectColorMap = useMemo(() => buildProjectColorMap(projects), [projects]);
 
   const projectsRowData = useMemo(
@@ -508,7 +541,8 @@ export function HomePageClient({
       activeProjects.map((project) => {
         const progress = computeProjectProgress({
           project,
-          contributions: contributionsByProject.get(project.id) ?? [],
+          fundedMinor: fundedByProject.get(project.id) ?? 0n,
+          plannedThisMonthMinor: plannedByProject.get(project.id) ?? 0n,
         });
         return {
           id: project.id,
@@ -519,22 +553,21 @@ export function HomePageClient({
           color: getProjectColor(project, projectColorMap),
         };
       }),
-    [activeProjects, contributionsByProject, projectColorMap]
+    [activeProjects, fundedByProject, plannedByProject, projectColorMap]
   );
 
-  const huchaProject = useMemo(
-    () => projects.find((project) => project.is_hucha) ?? null,
-    [projects]
+  const huchaReserve = useMemo(
+    () => reserveContainers.find((reserveContainer) => reserveContainer.kind === "hucha") ?? null,
+    [reserveContainers]
   );
 
   const huchaAmountMinor = useMemo(() => {
-    if (!huchaProject) return savingsDistribution.huchaMinor;
-    const rows = contributionsByProject.get(huchaProject.id) ?? [];
-    return rows.reduce((total, row) => {
-      if (!(row.confirmed ?? false)) return total;
-      return total + toMinor(row.actual_amount_base_minor);
-    }, 0n);
-  }, [huchaProject, contributionsByProject, savingsDistribution.huchaMinor]);
+    return getReserveContainerBalanceMinor({
+      reserveContainerId: huchaReserve?.id,
+      closeAllocations: monthCloseAllocations,
+      reserveTransfers,
+    });
+  }, [huchaReserve?.id, monthCloseAllocations, reserveTransfers]);
 
   const accountItems = useMemo(
     () =>
@@ -604,11 +637,14 @@ export function HomePageClient({
         <ProjectsRow
           projects={projectsRowData}
           huchaAmountMinor={huchaAmountMinor}
-          totalSavingsMinor={savingsDistribution.savingsMinor}
+          totalSavingsMinor={savingsState.generatedSavedMinor}
+          plannedMinor={savingsState.plannedToProjectsMinor}
+          availableMinor={savingsState.availableToPlanMinor}
+          needsRebalance={savingsState.needsRebalance}
           currentMonth={monthPeriodLabel}
           currencySymbol={account.currencySymbol}
           locale={locale}
-          onPress={() => router.push("/projects")}
+          onPress={() => router.push("/savings")}
         />
 
         <Calendar

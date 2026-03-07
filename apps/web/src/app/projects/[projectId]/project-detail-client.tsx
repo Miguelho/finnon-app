@@ -7,14 +7,15 @@ import {
   buildProjectColorMap,
   computeProjectProgress,
   formatMoneyWithSymbol,
-  getProjectColor,
-  getHuchaStats,
-  HUCHA_PROJECT_COLOR,
   getMinorUnits,
+  getProjectColor,
+  getProjectMonthlyFundingTargetMinor,
   PROJECT_PALETTE,
-  toMonthKey,
+  type MonthClose,
+  type MonthCloseAllocation,
+  type MonthlyProjectFundingPlan,
   type Project,
-  type ProjectContribution,
+  type ReserveTransfer,
   type UserRole,
 } from "@poleursus/shared";
 import { ArrowLeft } from "lucide-react";
@@ -53,16 +54,17 @@ type ProjectDetailClientProps = {
   accountProjectsForColor: Array<{
     id: string;
     color?: string | null;
-    is_hucha?: boolean | null;
     created_at?: string | Date | null;
   }>;
-  initialContributions: ProjectContribution[];
+  monthCloses: MonthClose[];
+  monthCloseAllocations: MonthCloseAllocation[];
+  reserveTransfers: ReserveTransfer[];
+  fundingPlans: MonthlyProjectFundingPlan[];
   initialExtraContributions: ExtraContributionTransaction[];
   recurringExpenses: RecurringExpense[];
   userLabels: Record<string, string>;
 };
 
-type HistoryStatus = "fulfilled" | "deficit" | "no_plan" | "pending";
 type TranslateFn = (
   key: any,
   values?: Record<string, string | number | Date>
@@ -128,7 +130,10 @@ export function ProjectDetailClient({
   currencySymbol,
   initialProject,
   accountProjectsForColor,
-  initialContributions,
+  monthCloses,
+  monthCloseAllocations,
+  reserveTransfers,
+  fundingPlans,
   initialExtraContributions,
   recurringExpenses,
   userLabels,
@@ -145,16 +150,13 @@ export function ProjectDetailClient({
   const sliderStep = Math.max(1, 25 * minorFactor);
 
   const [project, setProject] = useState<Project>(initialProject);
-  const [contributions] = useState<ProjectContribution[]>(initialContributions);
   const [extraContributions] = useState<ExtraContributionTransaction[]>(
     initialExtraContributions
   );
   const [activeTab, setActiveTab] = useState<"simulator" | "history">("simulator");
   const [isExpensesOpen, setIsExpensesOpen] = useState(false);
-  const [isExtraContributionsOpen, setIsExtraContributionsOpen] = useState(false);
-  const [disabledRecurringIds, setDisabledRecurringIds] = useState<Set<string>>(
-    new Set()
-  );
+  const [isSpendingOpen, setIsSpendingOpen] = useState(false);
+  const [disabledRecurringIds, setDisabledRecurringIds] = useState<Set<string>>(new Set());
   const [sliderMinor, setSliderMinor] = useState<number>(() => {
     const initial = Number(toMinor(initialProject.monthly_commitment_base_minor ?? 0));
     return Number.isFinite(initial) && initial > 0 ? Math.round(initial) : 0;
@@ -165,22 +167,13 @@ export function ProjectDetailClient({
   const [isSavingColor, setIsSavingColor] = useState(false);
 
   const projectColorMap = useMemo(() => {
-    const hasCurrentProject = accountProjectsForColor.some(
-      (entry) => entry.id === project.id
-    );
+    const hasCurrentProject = accountProjectsForColor.some((entry) => entry.id === project.id);
     const projectsForColor = hasCurrentProject
       ? accountProjectsForColor.map((entry) =>
           entry.id === project.id ? { ...entry, color: project.color } : entry
         )
-      : [
-          ...accountProjectsForColor,
-          {
-            id: project.id,
-            color: project.color,
-            is_hucha: project.is_hucha,
-            created_at: project.created_at,
-          },
-        ];
+      : [...accountProjectsForColor, { id: project.id, color: project.color, created_at: project.created_at }];
+
     return buildProjectColorMap(projectsForColor);
   }, [accountProjectsForColor, project]);
 
@@ -189,16 +182,39 @@ export function ProjectDetailClient({
     [project, projectColorMap]
   );
 
-  const monthlyAccumulatedMinor = useMemo(
-    () =>
-      contributions.reduce((total, entry) => {
-        if (!entry.confirmed) return total;
-        return total + toMinor(entry.actual_amount_base_minor);
-      }, 0n),
-    [contributions]
+  const monthClosesById = useMemo(
+    () => new Map<string, MonthClose>(monthCloses.map((monthClose) => [monthClose.id, monthClose])),
+    [monthCloses]
   );
 
-  const extraContributedMinor = useMemo(
+  const fundingFromMonthClosesMinor = useMemo(
+    () =>
+      monthCloseAllocations.reduce(
+        (total, entry) => total + toMinor(entry.amount_base_minor),
+        0n
+      ),
+    [monthCloseAllocations]
+  );
+
+  const fundingFromReservesMinor = useMemo(
+    () =>
+      reserveTransfers.reduce(
+        (total, entry) => total + toMinor(entry.amount_base_minor),
+        0n
+      ),
+    [reserveTransfers]
+  );
+
+  const plannedThisMonthMinor = useMemo(
+    () =>
+      fundingPlans.reduce(
+        (total, entry) => total + toMinor(entry.planned_amount_base_minor),
+        0n
+      ),
+    [fundingPlans]
+  );
+
+  const spentMinor = useMemo(
     () =>
       extraContributions.reduce(
         (total, entry) => total + toMinor(entry.amount_base_minor),
@@ -207,19 +223,21 @@ export function ProjectDetailClient({
     [extraContributions]
   );
 
-  const totalContributedMinor = useMemo(
-    () => monthlyAccumulatedMinor + extraContributedMinor,
-    [extraContributedMinor, monthlyAccumulatedMinor]
+  const totalFundedMinor = useMemo(
+    () => fundingFromMonthClosesMinor + fundingFromReservesMinor,
+    [fundingFromMonthClosesMinor, fundingFromReservesMinor]
   );
 
   const heroProgress = useMemo(
     () =>
       computeProjectProgress({
         project,
-        contributions,
-        extraContributedMinor,
+        fundedMinor: totalFundedMinor,
+        reserveTransferredMinor: fundingFromReservesMinor,
+        plannedThisMonthMinor,
+        spentMinor,
       }),
-    [contributions, extraContributedMinor, project]
+    [fundingFromReservesMinor, plannedThisMonthMinor, project, spentMinor, totalFundedMinor]
   );
 
   const sortedRecurringExpenses = useMemo(
@@ -245,16 +263,27 @@ export function ProjectDetailClient({
     [sliderMinor, releasedFromRecurringMinor]
   );
 
-  const simulatorProgress = useMemo(() => {
-    return computeProjectProgress({
-      project: {
-        ...project,
-        monthly_commitment_base_minor: effectiveMonthlyMinor,
-      },
-      contributions,
-      extraContributedMinor,
-    });
-  }, [contributions, effectiveMonthlyMinor, extraContributedMinor, project]);
+  const simulatorProgress = useMemo(
+    () =>
+      computeProjectProgress({
+        project: {
+          ...project,
+          monthly_commitment_base_minor: effectiveMonthlyMinor,
+        },
+        fundedMinor: totalFundedMinor,
+        reserveTransferredMinor: fundingFromReservesMinor,
+        plannedThisMonthMinor,
+        spentMinor,
+      }),
+    [
+      effectiveMonthlyMinor,
+      fundingFromReservesMinor,
+      plannedThisMonthMinor,
+      project,
+      spentMinor,
+      totalFundedMinor,
+    ]
+  );
 
   const sliderMax = useMemo(() => {
     const targetMinor = Number(toMinor(project.target_amount_base_minor));
@@ -268,38 +297,34 @@ export function ProjectDetailClient({
       string,
       {
         periodKey: string;
-        committedMinor: bigint;
         actualMinor: bigint;
-        confirmed: boolean;
         confirmedAt: string | null;
         userId: string | null;
       }
     >();
 
-    contributions.forEach((entry) => {
-      const periodKey =
-        typeof entry.period === "string" ? entry.period : String(entry.period);
+    monthCloseAllocations.forEach((entry) => {
+      const monthClose = monthClosesById.get(entry.month_close_id);
+      const periodKey = String(monthClose?.period ?? entry.created_at ?? "").slice(0, 10);
+      if (!periodKey) return;
+
       const current =
         grouped.get(periodKey) ??
         ({
           periodKey,
-          committedMinor: 0n,
           actualMinor: 0n,
-          confirmed: false,
           confirmedAt: null,
           userId: null,
         } as const);
 
-      const confirmedAt =
-        typeof entry.confirmed_at === "string" ? entry.confirmed_at : null;
-
       grouped.set(periodKey, {
         periodKey,
-        committedMinor: current.committedMinor + toMinor(entry.committed_amount_base_minor ?? 0),
-        actualMinor: current.actualMinor + toMinor(entry.actual_amount_base_minor),
-        confirmed: current.confirmed || Boolean(entry.confirmed),
-        confirmedAt: confirmedAt ?? current.confirmedAt,
-        userId: entry.user_id ?? current.userId,
+        actualMinor: current.actualMinor + toMinor(entry.amount_base_minor),
+        confirmedAt:
+          (typeof monthClose?.closed_at === "string" ? monthClose.closed_at : null) ??
+          (typeof entry.created_at === "string" ? entry.created_at : null) ??
+          current.confirmedAt,
+        userId: monthClose?.closed_by ?? current.userId,
       });
     });
 
@@ -308,16 +333,16 @@ export function ProjectDetailClient({
     );
 
     let cumulativeMinor = 0n;
-    const withCumulative = chronological.map((row) => {
-      cumulativeMinor += row.actualMinor;
-      return {
-        ...row,
-        cumulativeMinor,
-      };
-    });
-
-    return withCumulative.reverse();
-  }, [contributions]);
+    return chronological
+      .map((row) => {
+        cumulativeMinor += row.actualMinor;
+        return {
+          ...row,
+          cumulativeMinor,
+        };
+      })
+      .reverse();
+  }, [monthCloseAllocations, monthClosesById]);
 
   const createdAtLabel = useMemo(() => {
     const raw = project.created_at;
@@ -330,15 +355,6 @@ export function ProjectDetailClient({
       year: "numeric",
     }).format(date);
   }, [project.created_at, locale]);
-
-  const huchaStats = useMemo(() => {
-    if (!project.is_hucha) return null;
-    return getHuchaStats({
-      huchaProjectId: project.id,
-      contributions,
-      currentPeriod: toMonthKey(new Date()),
-    });
-  }, [contributions, project.id, project.is_hucha]);
 
   const toggleRecurringExpense = (id: string) => {
     setDisabledRecurringIds((previous) => {
@@ -397,7 +413,7 @@ export function ProjectDetailClient({
   };
 
   const handleSetColor = async (color: string) => {
-    if (!canEdit || project.is_hucha || isSavingColor) return;
+    if (!canEdit || isSavingColor) return;
     if (resolvedProjectColor === color && project.color) return;
 
     setIsSavingColor(true);
@@ -428,125 +444,6 @@ export function ProjectDetailClient({
       setIsSavingColor(false);
     }
   };
-
-  if (project.is_hucha && huchaStats) {
-    return (
-      <PageContainer className="space-y-6">
-        <div className="flex items-center justify-between gap-3">
-          <Link
-            href="/projects"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {tProjects("backToList")}
-          </Link>
-        </div>
-
-        <Card>
-          <CardHeader className="space-y-2">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="text-4xl">{project.emoji || "🐷"}</span>
-                <div className="min-w-0">
-                  <h1 className="truncate text-2xl font-semibold">{project.name}</h1>
-                  <p className="text-sm text-muted-foreground">
-                    {tProjects("hucha.subtitle")}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p
-                className="font-balance text-4xl font-bold"
-                style={{ color: HUCHA_PROJECT_COLOR }}
-              >
-                {formatMoneyWithSymbol(huchaStats.accumulatedMinor, baseCurrency, currencySymbol)}
-              </p>
-              <p className="text-sm text-muted-foreground">{tProjects("hucha.accumulated")}</p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">{tProjects("hucha.thisMonth")}</p>
-                <p className="text-lg font-semibold" style={{ color: HUCHA_PROJECT_COLOR }}>
-                  +
-                  {formatMoneyWithSymbol(
-                    huchaStats.currentMonthContributionMinor,
-                    baseCurrency,
-                    currencySymbol
-                  )}
-                </p>
-              </div>
-              <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">
-                  {tProjects("hucha.monthlyAverage")}
-                </p>
-                <p className="text-lg font-semibold" style={{ color: HUCHA_PROJECT_COLOR }}>
-                  {formatMoneyWithSymbol(huchaStats.averageMinor, baseCurrency, currencySymbol)}
-                </p>
-              </div>
-              <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">{tProjects("hucha.bestMonth")}</p>
-                <p className="text-lg font-semibold" style={{ color: HUCHA_PROJECT_COLOR }}>
-                  {huchaStats.bestMonth
-                    ? formatMoneyWithSymbol(
-                        huchaStats.bestMonth.amountMinor,
-                        baseCurrency,
-                        currencySymbol
-                      )
-                    : tGlobal("common.noneOption")}
-                </p>
-                {huchaStats.bestMonth ? (
-                  <p className="text-xs text-muted-foreground">
-                    {formatMonthLabel(`${huchaStats.bestMonth.period}-01`, locale)}
-                  </p>
-                ) : null}
-              </div>
-              <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">
-                  {tProjects("hucha.monthsWithContribution")}
-                </p>
-                <p className="text-lg font-semibold">
-                  {huchaStats.monthsWithContribution}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <h2 className="text-lg font-semibold">{tProjects("hucha.historyTitle")}</h2>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {contributions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{tProjects("hucha.emptyHistory")}</p>
-            ) : (
-              contributions.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
-                >
-                  <p className="text-sm text-muted-foreground">
-                    {formatMonthLabel(String(entry.period).slice(0, 10), locale)}
-                  </p>
-                  <p className="text-sm font-semibold" style={{ color: HUCHA_PROJECT_COLOR }}>
-                    +
-                    {formatMoneyWithSymbol(
-                      toMinor(entry.actual_amount_base_minor),
-                      baseCurrency,
-                      currencySymbol
-                    )}
-                  </p>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </PageContainer>
-    );
-  }
 
   return (
     <PageContainer className="space-y-6">
@@ -597,7 +494,7 @@ export function ProjectDetailClient({
                 }
               />
             </div>
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-4">
               <div>
                 <p className="text-sm text-muted-foreground">{tProjects("target")}</p>
                 <p className="text-xl font-semibold">
@@ -605,15 +502,27 @@ export function ProjectDetailClient({
                 </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">{tProjects("saved")}</p>
+                <p className="text-sm text-muted-foreground">
+                  {locale === "en" ? "Funded" : "Financiado"}
+                </p>
                 <p className="text-xl font-semibold">
-                  {formatMoneyWithSymbol(heroProgress.savedMinor, baseCurrency, currencySymbol)}
+                  {formatMoneyWithSymbol(heroProgress.fundedReservedMinor, baseCurrency, currencySymbol)}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">{tProjects("remaining")}</p>
+                <p className="text-sm text-muted-foreground">
+                  {locale === "en" ? "Planned this month" : "Planificado este mes"}
+                </p>
                 <p className="text-xl font-semibold">
-                  {formatMoneyWithSymbol(heroProgress.remainingMinor, baseCurrency, currencySymbol)}
+                  {formatMoneyWithSymbol(heroProgress.plannedThisMonthMinor, baseCurrency, currencySymbol)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  {locale === "en" ? "Spent" : "Gastado"}
+                </p>
+                <p className="text-xl font-semibold">
+                  {formatMoneyWithSymbol(heroProgress.spentMinor, baseCurrency, currencySymbol)}
                 </p>
               </div>
             </div>
@@ -621,18 +530,26 @@ export function ProjectDetailClient({
 
           <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
             <div className="grid gap-2 text-sm sm:grid-cols-[1fr_auto]">
-              <p className="text-muted-foreground">{tProjects("monthlyAccumulated")}</p>
+              <p className="text-muted-foreground">{locale === "en" ? "From month closes" : "Desde cierres"}</p>
               <p className="font-semibold">
                 {formatMoneyWithSymbol(
-                  monthlyAccumulatedMinor,
+                  fundingFromMonthClosesMinor,
                   baseCurrency,
                   currencySymbol
                 )}
               </p>
-              <p className="text-muted-foreground">{tProjects("extraContributions")}</p>
+              <p className="text-muted-foreground">{locale === "en" ? "From piggy bank transfers" : "Desde transferencias de hucha"}</p>
               <p className="font-semibold">
                 {formatMoneyWithSymbol(
-                  extraContributedMinor,
+                  fundingFromReservesMinor,
+                  baseCurrency,
+                  currencySymbol
+                )}
+              </p>
+              <p className="text-muted-foreground">{tProjects("remaining")}</p>
+              <p className="font-semibold">
+                {formatMoneyWithSymbol(
+                  heroProgress.remainingMinor,
                   baseCurrency,
                   currencySymbol
                 )}
@@ -640,21 +557,23 @@ export function ProjectDetailClient({
             </div>
             <div className="h-px bg-border" />
             <div className="grid gap-2 text-sm sm:grid-cols-[1fr_auto]">
-              <p className="text-muted-foreground">{tProjects("totalContributed")}</p>
-              <p className="text-base font-semibold">
-                {formatMoneyWithSymbol(
-                  totalContributedMinor,
-                  baseCurrency,
-                  currencySymbol
-                )}
-              </p>
-              <p className="text-muted-foreground">{tProjects("timeRemaining")}</p>
+              <p className="text-muted-foreground">{locale === "en" ? "Current monthly target" : "Objetivo mensual actual"}</p>
               <p className="font-semibold">
-                {heroProgress.monthsLeft === null
+                {getProjectMonthlyFundingTargetMinor(project) > 0n
+                  ? `${formatMoneyWithSymbol(getProjectMonthlyFundingTargetMinor(project), baseCurrency, currencySymbol)} ${tProjects("perMonth")}`
+                  : tProjects("noPlan")}
+              </p>
+              <p className="text-muted-foreground">{locale === "en" ? "Estimated finish" : "Fin estimado"}</p>
+              <p className="font-semibold">
+                {heroProgress.monthsLeft === null || !heroProgress.estimatedCompletionDate
                   ? tProjects("noPlan")
-                  : heroProgress.monthsLeft === 0
-                  ? tProjects("simulator.reached")
-                  : tProjects("monthsRemaining", { months: heroProgress.monthsLeft })}
+                  : tProjects("simulator.estimatedDate", {
+                      duration: formatDuration(heroProgress.monthsLeft, tProjects),
+                      date: new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
+                        month: "long",
+                        year: "numeric",
+                      }).format(heroProgress.estimatedCompletionDate),
+                    })}
               </p>
             </div>
           </div>
@@ -663,26 +582,26 @@ export function ProjectDetailClient({
             <button
               type="button"
               className="flex w-full items-center justify-between text-left"
-              onClick={() =>
-                setIsExtraContributionsOpen((previous) => !previous)
-              }
+              onClick={() => setIsSpendingOpen((previous) => !previous)}
             >
-              <span className="font-medium">{tProjects("extraExpensesTitle")}</span>
+              <span className="font-medium">
+                {locale === "en" ? "Associated spending" : "Gasto asociado"}
+              </span>
               <span className="text-sm text-muted-foreground">
-                {isExtraContributionsOpen
-                  ? tProjects("extraExpensesCollapse")
-                  : tProjects("extraExpensesExpand")}
+                {isSpendingOpen
+                  ? tProjects("simulator.collapse")
+                  : tProjects("simulator.expand")}
               </span>
             </button>
 
-            {isExtraContributionsOpen ? (
+            {isSpendingOpen ? (
               extraContributions.length > 0 ? (
                 <div className="space-y-2">
                   {extraContributions.map((entry) => {
                     const label =
                       entry.merchant?.trim() ||
                       entry.notes?.trim() ||
-                      tProjects("extraExpenseUnnamed");
+                      (locale === "en" ? "Expense" : "Gasto");
                     const dateLabel =
                       formatDateLabel(entry.date, locale) ?? entry.date;
                     return (
@@ -707,29 +626,11 @@ export function ProjectDetailClient({
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  {tProjects("extraExpensesEmpty")}
+                  {locale === "en"
+                    ? "There is no associated spending yet."
+                    : "Todavía no hay gasto asociado."}
                 </p>
               )
-            ) : null}
-          </div>
-
-          <div className="rounded-lg border bg-muted/30 p-3">
-            <p className="text-sm text-muted-foreground">{tProjects("currentCommitment")}</p>
-            <p className="text-lg font-semibold">
-              {heroProgress.commitmentMinor > 0n
-                ? `${formatMoneyWithSymbol(heroProgress.commitmentMinor, baseCurrency, currencySymbol)} ${tProjects("perMonth")}`
-                : tProjects("noPlan")}
-            </p>
-            {heroProgress.monthsLeft !== null && heroProgress.estimatedCompletionDate ? (
-              <p className="text-sm text-muted-foreground">
-                {tProjects("simulator.estimatedDate", {
-                  duration: formatDuration(heroProgress.monthsLeft, tProjects),
-                  date: new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
-                    month: "long",
-                    year: "numeric",
-                  }).format(heroProgress.estimatedCompletionDate),
-                })}
-              </p>
             ) : null}
           </div>
 
@@ -831,13 +732,10 @@ export function ProjectDetailClient({
                 <p className="mt-1 text-sm text-muted-foreground">
                   {tProjects("simulator.estimatedDate", {
                     duration: formatDuration(simulatorProgress.monthsLeft, tProjects),
-                    date: new Intl.DateTimeFormat(
-                      locale === "en" ? "en-US" : "es-ES",
-                      {
-                        month: "long",
-                        year: "numeric",
-                      }
-                    ).format(simulatorProgress.estimatedCompletionDate),
+                    date: new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
+                      month: "long",
+                      year: "numeric",
+                    }).format(simulatorProgress.estimatedCompletionDate),
                   })}
                 </p>
               ) : (
@@ -881,8 +779,7 @@ export function ProjectDetailClient({
                                 toMinor(expense.amount_minor),
                                 baseCurrency,
                                 currencySymbol
-                              )}
-                              {" "}
+                              )}{" "}
                               {tProjects("perMonth")}
                             </p>
                           </div>
@@ -941,59 +838,10 @@ export function ProjectDetailClient({
               <p className="text-sm text-muted-foreground">{tProjects("history.empty")}</p>
             ) : (
               historyRows.map((entry) => {
-                const committedMinor = entry.committedMinor;
-                const actualMinor = entry.actualMinor;
-
-                let status: HistoryStatus = "pending";
-                if (!entry.confirmed) {
-                  status = "pending";
-                } else if (committedMinor > 0n && actualMinor >= committedMinor) {
-                  status = "fulfilled";
-                } else if (committedMinor > 0n) {
-                  status = "deficit";
-                } else {
-                  status = "no_plan";
-                }
-
-                const statusCopy =
-                  status === "pending"
-                    ? tProjects("history.statusPending")
-                    : status === "fulfilled"
-                    ? tProjects("history.statusFulfilled")
-                    : status === "deficit"
-                    ? tProjects("history.statusDeficit")
-                    : tProjects("history.statusNoPlan");
-
                 const contributorLabel = entry.userId
                   ? userLabels[entry.userId] ?? entry.userId.slice(0, 8)
                   : tProjects("history.unknownUser");
                 const confirmedDateLabel = formatDateLabel(entry.confirmedAt, locale);
-
-                const maxMinor =
-                  committedMinor > actualMinor
-                    ? committedMinor > 0n
-                      ? committedMinor
-                      : 1n
-                    : actualMinor > 0n
-                    ? actualMinor
-                    : 1n;
-                const actualPercent = Math.min(
-                  100,
-                  Math.max(0, Number(actualMinor) / Number(maxMinor) * 100)
-                );
-                const commitmentPercent = Math.min(
-                  100,
-                  Math.max(0, Number(committedMinor) / Number(maxMinor) * 100)
-                );
-
-                const statusColorClass =
-                  status === "fulfilled"
-                    ? "text-emerald-600"
-                    : status === "deficit"
-                    ? "text-amber-600"
-                    : status === "pending"
-                    ? "text-primary"
-                    : "text-muted-foreground";
 
                 return (
                   <div key={entry.periodKey} className="rounded-lg border p-4">
@@ -1002,7 +850,9 @@ export function ProjectDetailClient({
                         <p className="text-sm text-muted-foreground">
                           {formatMonthLabel(entry.periodKey, locale)}
                         </p>
-                        <p className={`text-base font-semibold ${statusColorClass}`}>{statusCopy}</p>
+                        <p className="text-base font-semibold">
+                          {locale === "en" ? "Month close" : "Cierre mensual"}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {tProjects("history.contributor", { name: contributorLabel })}
                         </p>
@@ -1014,18 +864,10 @@ export function ProjectDetailClient({
                       </div>
                       <div className="text-right">
                         <p className="text-sm">
-                          {tProjects("history.actual")}: {" "}
+                          {locale === "en" ? "Funded" : "Financiado"}:{" "}
                           <span className="font-semibold">
-                            {formatMoneyWithSymbol(actualMinor, baseCurrency, currencySymbol)}
+                            {formatMoneyWithSymbol(entry.actualMinor, baseCurrency, currencySymbol)}
                           </span>
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {tProjects("history.committed")}: {" "}
-                          {formatMoneyWithSymbol(
-                            committedMinor,
-                            baseCurrency,
-                            currencySymbol
-                          )}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {tProjects("history.cumulative")}:{" "}
@@ -1035,23 +877,6 @@ export function ProjectDetailClient({
                             currencySymbol
                           )}
                         </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 space-y-1">
-                      <div className="relative h-2 rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-primary/80"
-                          style={{ width: `${actualPercent}%` }}
-                        />
-                        <div
-                          className="absolute top-0 h-2 w-[2px] bg-foreground/70"
-                          style={{ left: `calc(${commitmentPercent}% - 1px)` }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                        <span>{tProjects("history.barActual")}</span>
-                        <span>{tProjects("history.barCommitted")}</span>
                       </div>
                     </div>
                   </div>

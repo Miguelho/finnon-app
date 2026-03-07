@@ -1,8 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
-  addMonths,
-  computePendingMonthCloseKeys,
+  computePendingMonthCloseKeysFromMonthCloses,
   CURRENCIES,
   toMonthKey,
 } from "@poleursus/shared";
@@ -51,18 +50,42 @@ export default async function ProjectsPage() {
     .from("projects")
     .select("*")
     .eq("account_id", activeAccount.id)
+    .not("target_amount_base_minor", "is", null)
     .eq("status", "active")
     .order("priority", { ascending: true })
     .order("created_at", { ascending: true });
 
   const projectIds = (projects ?? []).map((project) => project.id);
-  const { data: contributions } =
-    projectIds.length > 0
-      ? await supabase
-          .from("project_contributions")
-          .select("*")
-          .in("project_id", projectIds)
-      : { data: [] };
+  const [
+    reserveContainersResult,
+    fundingPlansResult,
+    monthClosesResult,
+    monthCloseAllocationsResult,
+    reserveTransfersResult,
+  ] = await Promise.all([
+    supabase
+      .from("reserve_containers")
+      .select("*")
+      .eq("account_id", activeAccount.id)
+      .eq("status", "active"),
+    supabase
+      .from("monthly_project_funding_plans")
+      .select("*")
+      .eq("account_id", activeAccount.id)
+      .eq("period", `${toMonthKey(new Date())}-01`),
+    supabase
+      .from("month_closes")
+      .select("*")
+      .eq("account_id", activeAccount.id),
+    supabase
+      .from("month_close_allocations")
+      .select("*")
+      .eq("account_id", activeAccount.id),
+    supabase
+      .from("reserve_transfers")
+      .select("*")
+      .eq("account_id", activeAccount.id),
+  ]);
 
   const { data: extraContributions } =
     projectIds.length > 0
@@ -75,38 +98,19 @@ export default async function ProjectsPage() {
       : { data: [] };
 
   const currentMonthKey = toMonthKey(new Date());
-  const projectsWithCommitment = (projects ?? []).filter((project) => {
-    const raw = project.monthly_commitment_base_minor;
-    if (project.is_hucha) return false;
-    if (raw === null || raw === undefined) return false;
-    try {
-      return BigInt(raw) > 0n;
-    } catch {
-      return false;
-    }
-  });
-
-  const pendingMonthKeys = computePendingMonthCloseKeys({
-    commitmentProjects: projectsWithCommitment.map((project) => ({
+  const pendingMonthKeys = computePendingMonthCloseKeysFromMonthCloses({
+    commitmentProjects: (projects ?? []).map((project) => ({
       projectId: project.id,
       createdAt: project.created_at ?? null,
     })),
-    confirmedContributions: ((contributions ?? []) as Array<{
-      project_id: string;
-      confirmed?: boolean;
-      period: string | Date;
-    }>)
-      .filter((row) => Boolean(row.confirmed))
-      .map((row) => ({
-        projectId: row.project_id,
-        period: row.period,
-      })),
+    closedMonths: ((monthClosesResult.data ?? []) as Array<{ period: string | Date }>).map((row) => ({
+      period: row.period,
+    })),
     currentMonthKey,
   });
 
   const hasPendingMonthlyClose = pendingMonthKeys.length > 0;
-  const pendingMonthKey =
-    pendingMonthKeys[0] ?? addMonths(currentMonthKey, -1);
+  const pendingMonthKey = pendingMonthKeys[0] ?? null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -118,7 +122,11 @@ export default async function ProjectsPage() {
         baseCurrency={activeAccount.base_currency}
         currencySymbol={currencySymbol}
         initialProjects={projects ?? []}
-        initialContributions={contributions ?? []}
+        reserveContainers={reserveContainersResult.data ?? []}
+        fundingPlans={fundingPlansResult.data ?? []}
+        monthCloses={monthClosesResult.data ?? []}
+        monthCloseAllocations={monthCloseAllocationsResult.data ?? []}
+        reserveTransfers={reserveTransfersResult.data ?? []}
         initialExtraContributions={
           (extraContributions ?? []) as Array<{
             project_id: string | null;
@@ -126,7 +134,7 @@ export default async function ProjectsPage() {
           }>
         }
         hasPendingMonthlyClose={hasPendingMonthlyClose}
-        pendingMonthKey={pendingMonthKey}
+        pendingMonthKey={pendingMonthKey ?? ""}
       />
       <div className="h-16 sm:hidden" />
       <BottomNavWrapper />

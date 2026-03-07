@@ -21,9 +21,13 @@ type ProjectsRowProps = {
   projects: ProjectRowItem[];
   huchaAmountMinor: bigint;
   totalSavingsMinor: bigint;
+  plannedMinor?: bigint;
+  availableMinor?: bigint;
+  needsRebalance?: boolean;
   currentMonth: string;
   currencySymbol: string;
   onPress: () => void;
+  locale?: "es" | "en";
 };
 
 const clampProgress = (value: number) => {
@@ -106,9 +110,13 @@ export function ProjectsRow({
   projects,
   huchaAmountMinor,
   totalSavingsMinor,
+  plannedMinor = 0n,
+  availableMinor = 0n,
+  needsRebalance = false,
   currentMonth,
   currencySymbol,
   onPress,
+  locale = "es",
 }: ProjectsRowProps) {
   const { tokens: userTokens, resolvedMode } = useUserTheme();
   const { dictionary } = useCopy();
@@ -117,6 +125,8 @@ export function ProjectsRow({
     resolvedMode === "dark" ? "rgba(255,255,255,0.06)" : withAlpha(userTokens.textPrimary, 0.1);
   const totalParts = formatCurrencyParts(totalSavingsMinor, currencySymbol);
   const huchaParts = formatCurrencyParts(huchaAmountMinor, currencySymbol);
+  const plannedParts = formatCurrencyParts(plannedMinor, currencySymbol);
+  const availableParts = formatCurrencyParts(availableMinor, currencySymbol);
   const hero = projects[0] ?? null;
 
   return (
@@ -182,6 +192,16 @@ export function ProjectsRow({
                 <Text style={[styles.huchaAmount, { color: userTokens.textPrimary }]}>{totalParts.full}</Text>
               </Text>
             </View>
+            <Text
+              style={[
+                styles.statusLine,
+                { color: needsRebalance ? "#E0956A" : userTokens.textSecondary },
+              ]}
+            >
+              {needsRebalance
+                ? `${t(dictionary, "projects.monthClose.deficit", { amount: plannedParts.full })}`
+                : `${t(dictionary, "home.savings.savedThisMonth")}: ${totalParts.full} · ${t(dictionary, "projects.monthClose.projectAssigned")}: ${plannedParts.full} · ${t(dictionary, "projects.monthClose.allocatable")}: ${availableParts.full}`}
+            </Text>
           </>
         ) : (
           <>
@@ -222,6 +242,16 @@ export function ProjectsRow({
             <Text style={[styles.huchaText, { color: userTokens.textSecondary }]}>
               🐷 {t(dictionary, "home.savings.hucha")}:{" "}
               <Text style={[styles.huchaAmount, { color: HUCHA_PROJECT_COLOR }]}>{huchaParts.full}</Text>
+            </Text>
+            <Text
+              style={[
+                styles.statusLine,
+                { color: needsRebalance ? "#E0956A" : userTokens.textSecondary },
+              ]}
+            >
+              {needsRebalance
+                ? `${t(dictionary, "home.savings.statusPending")} · ${plannedParts.full}`
+                : `${t(dictionary, "home.savings.savedThisMonth")}: ${totalParts.full} · ${t(dictionary, "projects.monthClose.projectAssigned")}: ${plannedParts.full} · ${t(dictionary, "projects.monthClose.allocatable")}: ${availableParts.full}`}
             </Text>
           </>
         )}
@@ -402,5 +432,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
+  },
+  statusLine: {
+    marginTop: 6,
+    fontSize: 10,
+    fontFamily: "DMSans-Medium",
   },
 });

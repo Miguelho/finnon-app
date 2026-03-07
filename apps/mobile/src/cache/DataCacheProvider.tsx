@@ -26,7 +26,11 @@ const REALTIME_TABLES: MutationEntity[] = [
   "recurring_items",
   "categories",
   "projects",
-  "project_contributions",
+  "reserve_containers",
+  "monthly_project_funding_plans",
+  "month_closes",
+  "month_close_allocations",
+  "reserve_transfers",
 ];
 
 export function DataCacheProvider({ children }: { children: ReactNode }) {

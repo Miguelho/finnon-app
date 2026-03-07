@@ -9,6 +9,7 @@ export type Project = {
   is_hucha?: boolean;
   target_amount_base_minor?: bigint | number | string | null;
   monthly_commitment_base_minor?: bigint | number | string | null;
+  monthly_funding_target_base_minor?: bigint | number | string | null;
   priority: number;
   status: ProjectStatus;
   created_by?: string;
@@ -35,11 +36,17 @@ export type ProjectContribution = {
 
 export type ProjectProgress = {
   targetMinor: bigint;
+  fundedReservedMinor: bigint;
+  fundedFromMonthCloseMinor: bigint;
+  transferredFromReservesMinor: bigint;
+  plannedThisMonthMinor: bigint;
+  spentMinor: bigint;
   monthlySavedMinor: bigint;
   extraSavedMinor: bigint;
   savedMinor: bigint;
   remainingMinor: bigint;
   progressRatio: number;
+  monthlyFundingTargetMinor: bigint;
   commitmentMinor: bigint;
   monthsLeft: number | null;
   estimatedCompletionDate: Date | null;

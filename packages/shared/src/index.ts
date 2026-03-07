@@ -35,6 +35,7 @@ export * from "./home/calendar-marker";
 export * from "./home/project-widget";
 export * from "./goals";
 export * from "./projects";
+export * from "./reserves";
 export * from "./savings";
 export * from "./account/account.viewmodel";
 export * from "./recurring";

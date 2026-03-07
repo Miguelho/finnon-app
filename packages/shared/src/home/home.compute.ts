@@ -1,9 +1,5 @@
 import type { Obligation, Transaction } from "../domain/types";
-
-export type DateRange = {
-  start: Date;
-  end: Date;
-};
+import type { DateRange } from "../types/period";
 
 export type MonthlySummary = {
   committedMinor: bigint;
@@ -433,23 +429,23 @@ export function getUpcomingItems(
   range: DateRange
 ): UpcomingItem[] {
   const rangeStart = startOfDay(range.start).getTime();
-  return obligations
-    .map((obligation) => {
+  const items = obligations.reduce<UpcomingItem[]>((acc, obligation) => {
       const dueDate = toDate(obligation.due_date);
-      if (!dueDate || !isWithinRange(dueDate, range)) return null;
-      if (startOfDay(dueDate).getTime() <= rangeStart) return null;
+      if (!dueDate || !isWithinRange(dueDate, range)) return acc;
+      if (startOfDay(dueDate).getTime() <= rangeStart) return acc;
 
-      return {
+      acc.push({
         id: obligation.id,
         name: obligation.name,
         dueDate,
         amountMinor: toMinor(obligation.amount_base_minor ?? obligation.amount_minor),
         currency: obligation.currency,
         status: obligation.status ?? "pending",
-      };
-    })
-    .filter((item): item is UpcomingItem => Boolean(item))
-    .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+      });
+      return acc;
+    }, []);
+
+  return items.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
 }
 
 export function getRecentActivity(

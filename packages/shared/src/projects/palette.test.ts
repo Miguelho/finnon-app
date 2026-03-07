@@ -2,7 +2,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   PROJECT_PALETTE,
-  HUCHA_PROJECT_COLOR,
   assignProjectColor,
   buildProjectColorMap,
   getProjectColor,
@@ -35,7 +34,7 @@ test("buildProjectColorMap assigns fallback colors in creation order", () => {
   assert.equal(map.get("c"), PROJECT_PALETTE[1]);
 });
 
-test("getProjectColor returns fixed mint for hucha", () => {
-  const color = getProjectColor({ id: "h", is_hucha: true, color: null });
-  assert.equal(color, HUCHA_PROJECT_COLOR);
+test("getProjectColor falls back to the first palette color", () => {
+  const color = getProjectColor({ id: "p", color: null });
+  assert.equal(color, PROJECT_PALETTE[0]);
 });

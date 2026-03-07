@@ -204,14 +204,16 @@ export async function persistOnboarding(
       if (targetMinor > 0 && commitmentMinor > 0) {
         const { data: existingProjects, error: existingProjectsError } = await client
           .from("projects")
-          .select("priority, is_hucha, color")
+          .select("priority, color, target_amount_base_minor")
           .eq("account_id", payload.accountId)
           .order("priority", { ascending: true });
 
         if (existingProjectsError) throw existingProjectsError;
 
         const usedPriorities = (existingProjects ?? [])
-          .filter((project: { is_hucha?: boolean }) => !project.is_hucha)
+          .filter((project: { target_amount_base_minor?: bigint | number | string | null }) =>
+            project.target_amount_base_minor !== null
+          )
           .map((project: { priority?: number }) => Number(project.priority ?? 0))
           .filter((value: number) => Number.isFinite(value) && value > 0);
 
@@ -224,8 +226,8 @@ export async function persistOnboarding(
             : assignProjectColor(
                 ((existingProjects ?? []) as Array<{
                   color?: string | null;
-                  is_hucha?: boolean;
-                }>).filter((project) => !project.is_hucha)
+                  target_amount_base_minor?: bigint | number | string | null;
+                }>).filter((project) => project.target_amount_base_minor !== null)
               );
 
         const { error: firstProjectError } = await client

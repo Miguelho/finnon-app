@@ -5,6 +5,7 @@ import type {
   Transaction,
   UserRole,
 } from "../domain/types";
+import type { DateRange } from "../types/period";
 import type { CopyDictionary } from "../copy";
 import { t } from "../copy";
 import {
@@ -23,7 +24,6 @@ import {
   type AccountGlobalState,
   type CashflowItem,
   type CalendarEvent,
-  type DateRange,
   type RecentActivityItem,
   type UpcomingItem,
   type WeekStripData,

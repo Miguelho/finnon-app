@@ -8,7 +8,12 @@ export type MutationEntity =
   | "recurring_items"
   | "categories"
   | "projects"
-  | "project_contributions";
+  | "project_contributions"
+  | "reserve_containers"
+  | "monthly_project_funding_plans"
+  | "month_closes"
+  | "month_close_allocations"
+  | "reserve_transfers";
 
 const tableToTags: Record<MutationEntity, string[]> = {
   transactions: [
@@ -48,6 +53,37 @@ const tableToTags: Record<MutationEntity, string[]> = {
     cacheTags.hucha,
     cacheTags.projectContributions,
     cacheTags.projects,
+  ],
+  reserve_containers: [
+    cacheTags.hucha,
+    cacheTags.projects,
+    cacheTags.reserveContainers,
+    cacheTags.savingsSummary,
+  ],
+  monthly_project_funding_plans: [
+    cacheTags.savingsSummary,
+    cacheTags.projectsMonthCloseInputs,
+    cacheTags.projects,
+  ],
+  month_closes: [
+    cacheTags.savingsSummary,
+    cacheTags.savingsHistory,
+    cacheTags.savingsGamification,
+    cacheTags.hucha,
+    cacheTags.projects,
+  ],
+  month_close_allocations: [
+    cacheTags.savingsSummary,
+    cacheTags.savingsHistory,
+    cacheTags.savingsGamification,
+    cacheTags.hucha,
+    cacheTags.projects,
+  ],
+  reserve_transfers: [
+    cacheTags.hucha,
+    cacheTags.projects,
+    cacheTags.savingsHistory,
+    cacheTags.reserveContainers,
   ],
 };
 

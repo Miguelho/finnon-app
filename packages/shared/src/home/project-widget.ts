@@ -1,4 +1,5 @@
 import type { Project } from "../projects/types";
+import { isFinancialProject } from "../projects/compute";
 
 export type HomeProjectWidgetState =
   | { state: "empty" }
@@ -27,10 +28,10 @@ export function getProjectWidgetState(
   now: Date = new Date()
 ): HomeProjectWidgetState {
   const activeProjects = sortByPriority(
-    projects.filter((project) => project.status === "active" && !project.is_hucha)
+    projects.filter((project) => project.status === "active" && isFinancialProject(project))
   );
   const completedProjects = sortByUpdatedDesc(
-    projects.filter((project) => project.status === "completed" && !project.is_hucha)
+    projects.filter((project) => project.status === "completed" && isFinancialProject(project))
   );
 
   if (activeProjects.length === 0 && completedProjects.length === 0) {

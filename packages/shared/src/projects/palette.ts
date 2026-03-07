@@ -12,11 +12,11 @@ export const PROJECT_PALETTE = [
 ] as const;
 
 export const HUCHA_PROJECT_COLOR = "#6DC9A0";
+export const HUCHA_RESERVE_COLOR = HUCHA_PROJECT_COLOR;
 
 type ProjectColorLike = {
   id?: string | null;
   color?: string | null;
-  is_hucha?: boolean | null;
   created_at?: string | Date | null;
 };
 
@@ -58,7 +58,6 @@ export function buildProjectColorMap(
   const assigned: Array<{ color?: string | null }> = [];
 
   const ordered = [...projects]
-    .filter((project) => !project.is_hucha)
     .sort((a, b) => {
       const byCreatedAt = toMillis(a.created_at) - toMillis(b.created_at);
       if (byCreatedAt !== 0) return byCreatedAt;
@@ -78,11 +77,9 @@ export function buildProjectColorMap(
 }
 
 export function getProjectColor(
-  project: Pick<ProjectColorLike, "id" | "color" | "is_hucha">,
+  project: Pick<ProjectColorLike, "id" | "color">,
   colorMap?: Map<string, string>
 ): string {
-  if (project.is_hucha) return HUCHA_PROJECT_COLOR;
-
   const normalized = normalizeProjectColor(project.color);
   if (normalized) return normalized;
 

@@ -10,9 +10,8 @@ import {
 import { Mail } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import {
-  addMonths,
+  computePendingMonthCloseKeysFromMonthCloses,
   formatMonthLabel,
-  getMonthRangeFromKey,
   themeTokens,
   toMonthKey,
 } from "@poleursus/shared";
@@ -68,20 +67,6 @@ function formatTimeAgo(
   return (t(dictionary, key) as string).replace("{count}", String(diffDays));
 }
 
-const toMinor = (value: bigint | number | string | null | undefined): bigint => {
-  if (value === null || value === undefined) return 0n;
-  if (typeof value === "bigint") return value;
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) return 0n;
-    return BigInt(Math.round(value));
-  }
-  try {
-    return BigInt(value);
-  } catch {
-    return 0n;
-  }
-};
-
 export function AppHeaderActivityButton() {
   const { user, selectedAccountId } = useAuth();
   const { tokens: userTokens } = useUserTheme();
@@ -106,44 +91,34 @@ export function AppHeaderActivityButton() {
 
     try {
       const currentMonthKey = toMonthKey(new Date());
-      const pendingMonthKey = addMonths(currentMonthKey, -1);
-      const pendingRange = getMonthRangeFromKey(pendingMonthKey);
-
-      const { data: projectRows } = await supabase
-        .from("projects")
-        .select("id, monthly_commitment_base_minor")
-        .eq("account_id", selectedAccountId)
-        .eq("status", "active")
-        .not("monthly_commitment_base_minor", "is", null);
-
-      const commitmentProjectIds = (projectRows ?? [])
-        .filter((project) => toMinor(project.monthly_commitment_base_minor) > 0n)
-        .map((project) => project.id);
-
-      if (commitmentProjectIds.length > 0) {
-        const { data: confirmedRows } = await supabase
-          .from("project_contributions")
-          .select("project_id")
+      const [{ data: projectRows }, { data: monthClosesRows }] = await Promise.all([
+        supabase
+          .from("projects")
+          .select("id, created_at")
           .eq("account_id", selectedAccountId)
-          .eq("period", pendingRange.start)
-          .eq("confirmed", true)
-          .in("project_id", commitmentProjectIds);
+          .not("target_amount_base_minor", "is", null)
+          .eq("status", "active"),
+        supabase
+          .from("month_closes")
+          .select("period")
+          .eq("account_id", selectedAccountId),
+      ]);
 
-        const confirmedProjectIds = new Set(
-          (confirmedRows ?? []).map((row) => row.project_id)
-        );
-        const hasPendingMonthlyClose = commitmentProjectIds.some(
-          (projectId) => !confirmedProjectIds.has(projectId)
-        );
+      const pendingMonthKeys = computePendingMonthCloseKeysFromMonthCloses({
+        commitmentProjects: (projectRows ?? []).map((project) => ({
+          projectId: project.id,
+          createdAt: project.created_at ?? null,
+        })),
+        closedMonths: (monthClosesRows ?? []).map((row) => ({ period: row.period })),
+        currentMonthKey,
+      });
 
-        if (hasPendingMonthlyClose) {
-          setPendingMonthClose({
-            monthKey: pendingMonthKey,
-            monthLabel: formatMonthLabel(pendingMonthKey, locale),
-          });
-        } else {
-          setPendingMonthClose(null);
-        }
+      if (pendingMonthKeys.length > 0) {
+        const pendingMonthKey = pendingMonthKeys[0]!;
+        setPendingMonthClose({
+          monthKey: pendingMonthKey,
+          monthLabel: formatMonthLabel(pendingMonthKey, locale),
+        });
       } else {
         setPendingMonthClose(null);
       }

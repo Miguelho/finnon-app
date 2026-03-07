@@ -132,7 +132,6 @@ type ProjectRow = {
   name: string;
   emoji: string | null;
   color: string | null;
-  is_hucha: boolean | null;
   created_at: string | null;
 };
 
@@ -409,8 +408,9 @@ export function AddTransactionForm({
     const loadProjects = async () => {
       const { data: activeRows, error: activeError } = await supabase
         .from("projects")
-        .select("id, name, emoji, color, is_hucha, created_at")
+        .select("id, name, emoji, color, created_at")
         .eq("account_id", accountId)
+        .not("target_amount_base_minor", "is", null)
         .eq("status", "active")
         .order("name", { ascending: true });
 
@@ -435,9 +435,10 @@ export function AddTransactionForm({
 
       const { data: selectedProject, error: selectedError } = await supabase
         .from("projects")
-        .select("id, name, emoji, color, is_hucha, created_at")
+        .select("id, name, emoji, color, created_at")
         .eq("account_id", accountId)
         .eq("id", selectedProjectId)
+        .not("target_amount_base_minor", "is", null)
         .maybeSingle();
 
       if (selectedError) {

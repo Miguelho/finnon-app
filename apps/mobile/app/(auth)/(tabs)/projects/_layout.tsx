@@ -24,6 +24,10 @@ export default function ProjectsStackLayout() {
         name="[projectId]"
         options={{ title: t(dictionary, "navigation.projects") }}
       />
+      <Stack.Screen
+        name="reserves/[reserveId]"
+        options={{ title: t(dictionary, "home.savings.hucha") }}
+      />
     </Stack>
   );
 }

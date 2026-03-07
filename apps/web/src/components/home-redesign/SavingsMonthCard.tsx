@@ -17,6 +17,9 @@ type ProjectsRowProps = {
   projects: ProjectRowItem[];
   huchaAmountMinor: bigint;
   totalSavingsMinor: bigint;
+  plannedMinor?: bigint;
+  availableMinor?: bigint;
+  needsRebalance?: boolean;
   currentMonth: string;
   currencySymbol: string;
   onPress: () => void;
@@ -94,6 +97,9 @@ export function ProjectsRow({
   projects,
   huchaAmountMinor,
   totalSavingsMinor,
+  plannedMinor = 0n,
+  availableMinor = 0n,
+  needsRebalance = false,
   currentMonth,
   currencySymbol,
   onPress,
@@ -104,6 +110,8 @@ export function ProjectsRow({
   const ringTrack = "rgba(255,255,255,0.06)";
   const totalParts = formatCurrencyParts(totalSavingsMinor, currencySymbol, locale);
   const huchaParts = formatCurrencyParts(huchaAmountMinor, currencySymbol, locale);
+  const plannedParts = formatCurrencyParts(plannedMinor, currencySymbol, locale);
+  const availableParts = formatCurrencyParts(availableMinor, currencySymbol, locale);
   const hero = projects[0] ?? null;
   const heroCurrentParts = hero
     ? formatCurrencyParts(hero.currentAmountMinor, currencySymbol, locale)
@@ -172,6 +180,18 @@ export function ProjectsRow({
                 </span>
               </p>
             </div>
+            <p
+              className="mt-2 text-[10px]"
+              style={{
+                color: needsRebalance
+                  ? "#E0956A"
+                  : "var(--account-text-secondary)",
+              }}
+            >
+              {needsRebalance
+                ? `${t("projects.monthClose.deficit", { amount: plannedParts.full })}`
+                : `${t("home.savings.savedThisMonth")}: ${totalParts.full} · ${t("projects.monthClose.projectAssigned")}: ${plannedParts.full} · ${t("projects.monthClose.allocatable")}: ${availableParts.full}`}
+            </p>
           </>
         ) : (
           <>
@@ -210,11 +230,11 @@ export function ProjectsRow({
                   {totalParts.integer}
                   <span className="font-balance text-[13px]">,{totalParts.decimals}</span>
                 </p>
-                <p className="mt-[2px] text-[10px] text-[var(--account-text-secondary)]">{currentMonth}</p>
-              </div>
+            <p className="mt-[2px] text-[10px] text-[var(--account-text-secondary)]">{currentMonth}</p>
+          </div>
 
-              <ChevronRight className="mt-1 h-4 w-4 text-[var(--account-text-tertiary)]" />
-            </div>
+          <ChevronRight className="mt-1 h-4 w-4 text-[var(--account-text-tertiary)]" />
+        </div>
 
             <p className="mt-[6px] text-[10px] text-[var(--account-text-secondary)]">
               🐷 {t("home.savings.hucha")}:{" "}
@@ -224,6 +244,18 @@ export function ProjectsRow({
               >
                 {huchaParts.full}
               </span>
+            </p>
+            <p
+              className="mt-[4px] text-[10px]"
+              style={{
+                color: needsRebalance
+                  ? "#E0956A"
+                  : "var(--account-text-secondary)",
+              }}
+            >
+              {needsRebalance
+                ? `${t("home.savings.statusPending")} · ${plannedParts.full}`
+                : `${t("home.savings.savedThisMonth")}: ${totalParts.full} · ${t("projects.monthClose.projectAssigned")}: ${plannedParts.full} · ${t("projects.monthClose.allocatable")}: ${availableParts.full}`}
             </p>
           </>
         )}
@@ -237,6 +269,9 @@ export const SavingsMonthCard = ({
   projectsMinor,
   huchaMinor,
   savingsMinor,
+  plannedMinor = 0,
+  availableMinor = 0,
+  needsRebalance = false,
   onPress,
   monthLabel,
   currencySymbol,
@@ -245,6 +280,9 @@ export const SavingsMonthCard = ({
   projectsMinor: bigint | number | string;
   huchaMinor: bigint | number | string;
   savingsMinor: bigint | number | string;
+  plannedMinor?: bigint | number | string;
+  availableMinor?: bigint | number | string;
+  needsRebalance?: boolean;
   onPress: () => void;
   monthLabel: string;
   currencySymbol: string;
@@ -266,6 +304,9 @@ export const SavingsMonthCard = ({
       ]}
       huchaAmountMinor={toMinor(huchaMinor)}
       totalSavingsMinor={toMinor(savingsMinor)}
+      plannedMinor={toMinor(plannedMinor)}
+      availableMinor={toMinor(availableMinor)}
+      needsRebalance={needsRebalance}
       currentMonth={monthLabel}
       currencySymbol={currencySymbol}
       onPress={onPress}

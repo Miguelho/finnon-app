@@ -4,9 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, Loader2 } from "lucide-react";
 import {
-  addMonths,
+  computePendingMonthCloseKeysFromMonthCloses,
   formatMonthLabel,
-  getMonthRangeFromKey,
   toMonthKey,
 } from "@poleursus/shared";
 import { createClient } from "@/lib/supabase/client";
@@ -60,20 +59,6 @@ function formatTimeAgo(date: Date, locale: string): string {
     : `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
 }
 
-const toMinor = (value: bigint | number | string | null | undefined): bigint => {
-  if (value === null || value === undefined) return 0n;
-  if (typeof value === "bigint") return value;
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) return 0n;
-    return BigInt(Math.round(value));
-  }
-  try {
-    return BigInt(value);
-  } catch {
-    return 0n;
-  }
-};
-
 export function NotificationDropdown({
   userId,
   accountId,
@@ -105,51 +90,43 @@ export function NotificationDropdown({
       const isEs = locale.startsWith("es");
 
       const currentMonthKey = toMonthKey(new Date());
-      const pendingMonthKey = addMonths(currentMonthKey, -1);
-      const pendingRange = getMonthRangeFromKey(pendingMonthKey);
+      const [{ data: projectRows }, { data: monthClosesRows }] = await Promise.all([
+        supabase
+          .from("projects")
+          .select("id, created_at")
+          .eq("account_id", accountId)
+          .not("target_amount_base_minor", "is", null)
+          .eq("status", "active"),
+        supabase
+          .from("month_closes")
+          .select("period")
+          .eq("account_id", accountId),
+      ]);
 
-      const { data: projectRows } = await supabase
-        .from("projects")
-        .select("id, monthly_commitment_base_minor")
-        .eq("account_id", accountId)
-        .eq("status", "active")
-        .not("monthly_commitment_base_minor", "is", null);
-
-      const commitmentProjectIds = (projectRows ?? [])
-        .filter((project) => toMinor(project.monthly_commitment_base_minor) > 0n)
-        .map((project) => project.id);
+      const pendingMonthKeys = computePendingMonthCloseKeysFromMonthCloses({
+        commitmentProjects: (projectRows ?? []).map((project) => ({
+          projectId: project.id,
+          createdAt: project.created_at ?? null,
+        })),
+        closedMonths: (monthClosesRows ?? []).map((row) => ({ period: row.period })),
+        currentMonthKey,
+      });
 
       let monthCloseNotification: MonthCloseNotificationItem | null = null;
-      if (commitmentProjectIds.length > 0) {
-        const { data: confirmedRows } = await supabase
-          .from("project_contributions")
-          .select("project_id")
-          .eq("account_id", accountId)
-          .eq("period", pendingRange.start)
-          .eq("confirmed", true)
-          .in("project_id", commitmentProjectIds);
-
-        const confirmedProjectIds = new Set(
-          (confirmedRows ?? []).map((row) => row.project_id)
-        );
-        const hasPendingMonthlyClose = commitmentProjectIds.some(
-          (projectId) => !confirmedProjectIds.has(projectId)
-        );
-
-        if (hasPendingMonthlyClose) {
-          const monthLabel = formatMonthLabel(pendingMonthKey, locale);
-          monthCloseNotification = {
-            id: `month-close-${pendingMonthKey}`,
-            kind: "month-close",
-            monthKey: pendingMonthKey,
-            title: isEs
-              ? `Cierre mensual pendiente (${monthLabel})`
-              : `Pending month close (${monthLabel})`,
-            subtitle: isEs
-              ? "Confirma el reparto del ahorro de ese mes."
-              : "Confirm that month's savings allocation.",
-          };
-        }
+      if (pendingMonthKeys.length > 0) {
+        const pendingMonthKey = pendingMonthKeys[0]!;
+        const monthLabel = formatMonthLabel(pendingMonthKey, locale);
+        monthCloseNotification = {
+          id: `month-close-${pendingMonthKey}`,
+          kind: "month-close",
+          monthKey: pendingMonthKey,
+          title: isEs
+            ? `Cierre mensual pendiente (${monthLabel})`
+            : `Pending month close (${monthLabel})`,
+          subtitle: isEs
+            ? "Confirma el reparto del ahorro de ese mes."
+            : "Confirm that month's savings allocation.",
+        };
       }
 
       const since = new Date();

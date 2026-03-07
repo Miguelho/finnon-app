@@ -52,6 +52,7 @@ export default async function ProjectDetailPage({
     .select("*")
     .eq("id", projectId)
     .eq("account_id", activeAccount.id)
+    .not("target_amount_base_minor", "is", null)
     .maybeSingle();
 
   if (!project) {
@@ -60,15 +61,41 @@ export default async function ProjectDetailPage({
 
   const { data: accountProjectsForColor } = await supabase
     .from("projects")
-    .select("id, color, is_hucha, created_at")
-    .eq("account_id", activeAccount.id);
+    .select("id, color, created_at")
+    .eq("account_id", activeAccount.id)
+    .not("target_amount_base_minor", "is", null);
 
-  const { data: contributions } = await supabase
-    .from("project_contributions")
+  const { data: monthCloseAllocations } = await supabase
+    .from("month_close_allocations")
     .select("*")
     .eq("project_id", project.id)
-    .order("period", { ascending: false })
     .order("created_at", { ascending: false });
+
+  const monthCloseIds = Array.from(
+    new Set((monthCloseAllocations ?? []).map((item) => item.month_close_id).filter(Boolean))
+  );
+
+  const { data: monthCloses } =
+    monthCloseIds.length > 0
+      ? await supabase
+          .from("month_closes")
+          .select("*")
+          .in("id", monthCloseIds)
+      : { data: [] };
+
+  const { data: reserveTransfers } = await supabase
+    .from("reserve_transfers")
+    .select("*")
+    .eq("destination_project_id", project.id)
+    .order("created_at", { ascending: false });
+
+  const currentPeriod = `${new Date().toISOString().slice(0, 7)}-01`;
+  const { data: fundingPlans } = await supabase
+    .from("monthly_project_funding_plans")
+    .select("*")
+    .eq("account_id", activeAccount.id)
+    .eq("project_id", project.id)
+    .eq("period", currentPeriod);
 
   const { data: extraContributions } = await supabase
     .from("transactions")
@@ -89,7 +116,7 @@ export default async function ProjectDetailPage({
     .order("amount_minor", { ascending: false });
 
   const userIds = Array.from(
-    new Set((contributions ?? []).map((item) => item.user_id).filter(Boolean))
+    new Set((monthCloses ?? []).map((item) => item.closed_by).filter(Boolean))
   );
 
   const { data: profiles } =
@@ -116,7 +143,10 @@ export default async function ProjectDetailPage({
         currencySymbol={currencySymbol}
         initialProject={project}
         accountProjectsForColor={accountProjectsForColor ?? []}
-        initialContributions={contributions ?? []}
+        monthCloses={monthCloses ?? []}
+        monthCloseAllocations={monthCloseAllocations ?? []}
+        reserveTransfers={reserveTransfers ?? []}
+        fundingPlans={fundingPlans ?? []}
         initialExtraContributions={
           (extraContributions ?? []) as Array<{
             id: string;

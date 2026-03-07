@@ -1,46 +1,83 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Stack } from "expo-router";
-import { useIsFocused } from "@react-navigation/native";
-import { Info } from "lucide-react-native";
 import {
-  addMonths,
-  buildProjectColorMap,
-  ConfirmationModal,
-  CURRENCIES,
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Stack, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  computePendingMonthCloseKeysFromMonthCloses,
   computeProjectProgress,
-  computeSavingsDistribution,
-  computeSavingsHistoryStats,
-  computeSavingsMonthFromTransactions,
+  computeSavingsMonthView,
+  CURRENCIES,
+  formatMinorToMoney,
   formatMoneyWithSymbol,
-  formatMonthLabel,
   getProjectColor,
+  getProjectMonthlyFundingTargetMinor,
+  getReserveContainerBalanceMinor,
   getMonthRangeFromKey,
-  HUCHA_PROJECT_COLOR,
+  parseMoneyToMinor,
   themeTokens,
   toMonthKey,
+  type MonthClose,
+  type MonthCloseAllocation,
+  type MonthlyProjectFundingPlan,
   type Project,
-  type ProjectContribution,
+  type ReserveContainer,
+  type ReserveTransfer,
+  type UserRole,
 } from "@poleursus/shared";
-import { Card } from "../../../../src/components/Card";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { useUserTheme } from "../../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../../src/lib/i18n";
 import { supabase } from "../../../../src/lib/supabase";
+import { Button } from "../../../../src/components/Button";
+import { Card } from "../../../../src/components/Card";
+import { Input } from "../../../../src/components/Input";
 
 const tokens = themeTokens.light;
 
-type TxRow = {
+type AccountRow = {
+  id: string;
+  base_currency: string;
+  account_members?: Array<{ role: UserRole; user_id: string }>;
+};
+
+type TransactionRow = {
+  id: string;
   type: "income" | "expense";
-  amount_minor: bigint | number | string | null;
-  amount_base_minor: bigint | number | string | null;
+  amount_minor: string | number | null;
+  amount_base_minor: string | number | null;
   date: string;
+};
+
+type SavingsMonthStateRow = {
+  period: string;
+  generated_saved_base_minor: string | number;
+  planned_to_projects_base_minor: string | number;
+  available_to_plan_minor: string | number;
+  needs_rebalance: boolean;
+  is_closed: boolean;
+  closed_at: string | null;
+  allocated_to_projects_base_minor: string | number | null;
+  allocated_to_reserves_base_minor: string | number | null;
+  plans: Array<{
+    project_id: string;
+    planned_amount_base_minor: string | number;
+  }>;
 };
 
 const toMinor = (value: bigint | number | string | null | undefined): bigint => {
   if (value === null || value === undefined) return 0n;
   if (typeof value === "bigint") return value;
-  if (typeof value === "number") return BigInt(Math.round(value));
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return 0n;
+    return BigInt(Math.round(value));
+  }
   try {
     return BigInt(value);
   } catch {
@@ -48,354 +85,310 @@ const toMinor = (value: bigint | number | string | null | undefined): bigint => 
   }
 };
 
-const toPeriodKey = (value: string | Date | null | undefined) => {
-  if (!value) return null;
-  if (value instanceof Date) {
-    if (Number.isNaN(value.getTime())) return null;
-    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}`;
-  }
-  if (typeof value !== "string") return null;
-  if (/^\d{4}-\d{2}$/.test(value)) return value;
-  if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 7);
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
-};
-
-const buildMonthKeysEndingAt = (endMonthKey: string, count: number) =>
-  Array.from({ length: count }, (_, index) => addMonths(endMonthKey, -(count - 1 - index)));
-
-const formatSignedMoney = (value: bigint, baseCurrency: string, currencySymbol: string) => {
-  const abs = value < 0n ? -value : value;
-  const formatted = formatMoneyWithSymbol(abs, baseCurrency, currencySymbol);
-  if (value === 0n) return formatted;
-  return value > 0n ? `+${formatted}` : `-${formatted}`;
-};
+const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
 
 export default function SavingsDetailScreen() {
-  const { selectedAccountId } = useAuth();
+  const router = useRouter();
+  const { user, selectedAccountId } = useAuth();
   const { dictionary, locale } = useCopy();
   const { tokens: userTokens, primaryActionColor } = useUserTheme();
-  const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
+  const localeCode: "es" | "en" = locale === "en" ? "en" : "es";
+  const currentMonthKey = useMemo(() => toMonthKey(new Date()), []);
+  const currentMonthStart = `${currentMonthKey}-01`;
 
-  const [monthKey, setMonthKey] = useState(toMonthKey(new Date()));
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [isSavingPlan, setIsSavingPlan] = useState(false);
+  const [role, setRole] = useState<UserRole>("viewer");
   const [baseCurrency, setBaseCurrency] = useState("EUR");
   const [currencySymbol, setCurrencySymbol] = useState("€");
   const [projects, setProjects] = useState<Project[]>([]);
-  const [periodContributions, setPeriodContributions] = useState<ProjectContribution[]>([]);
-  const [historyContributions, setHistoryContributions] = useState<ProjectContribution[]>([]);
-  const [historyTransactions, setHistoryTransactions] = useState<TxRow[]>([]);
-  const [savingsMinor, setSavingsMinor] = useState(0n);
-  const [error, setError] = useState<string | null>(null);
-  const [isSpeedTooltipOpen, setIsSpeedTooltipOpen] = useState(false);
+  const [reserveContainers, setReserveContainers] = useState<ReserveContainer[]>([]);
+  const [monthCloses, setMonthCloses] = useState<MonthClose[]>([]);
+  const [monthCloseAllocations, setMonthCloseAllocations] = useState<MonthCloseAllocation[]>([]);
+  const [reserveTransfers, setReserveTransfers] = useState<ReserveTransfer[]>([]);
+  const [transactions, setTransactions] = useState<TransactionRow[]>([]);
+  const [monthState, setMonthState] = useState<SavingsMonthStateRow | null>(null);
+  const [inputsByProject, setInputsByProject] = useState<Record<string, string>>({});
+
+  const loadMonthState = useCallback(async () => {
+    if (!selectedAccountId) return null;
+    const { data, error: rpcError } = await supabase.rpc("get_savings_month_state", {
+      p_account_id: selectedAccountId,
+      p_period: currentMonthStart,
+    });
+    if (rpcError) throw rpcError;
+    return (data ?? null) as SavingsMonthStateRow | null;
+  }, [currentMonthStart, selectedAccountId]);
 
   const loadData = useCallback(async () => {
-    if (!selectedAccountId || !isFocused) {
+    if (!user || !selectedAccountId) {
       setLoading(false);
       return;
     }
 
     setLoading(true);
     setError(null);
+
     try {
-      const range = getMonthRangeFromKey(monthKey);
-      const txHistoryStart = getMonthRangeFromKey(addMonths(monthKey, -11));
+      const monthRange = getMonthRangeFromKey(currentMonthKey);
 
-      const { data: account, error: accountError } = await supabase
-        .from("accounts")
-        .select("base_currency")
-        .eq("id", selectedAccountId)
-        .maybeSingle();
-      if (accountError || !account) throw accountError ?? new Error("account-not-found");
+      const [
+        accountResult,
+        projectsResult,
+        reserveContainersResult,
+        monthClosesResult,
+        monthCloseAllocationsResult,
+        reserveTransfersResult,
+        transactionsResult,
+        monthStateResult,
+      ] = await Promise.all([
+        supabase
+          .from("accounts")
+          .select("id, base_currency, account_members!inner(role, user_id)")
+          .eq("id", selectedAccountId)
+          .eq("account_members.user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("projects")
+          .select("*")
+          .eq("account_id", selectedAccountId)
+          .not("target_amount_base_minor", "is", null)
+          .eq("status", "active")
+          .order("priority", { ascending: true })
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("reserve_containers")
+          .select("*")
+          .eq("account_id", selectedAccountId)
+          .eq("status", "active")
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("month_closes")
+          .select("*")
+          .eq("account_id", selectedAccountId)
+          .order("period", { ascending: false }),
+        supabase
+          .from("month_close_allocations")
+          .select("*")
+          .eq("account_id", selectedAccountId),
+        supabase
+          .from("reserve_transfers")
+          .select("*")
+          .eq("account_id", selectedAccountId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("transactions")
+          .select("id, type, amount_minor, amount_base_minor, date")
+          .eq("account_id", selectedAccountId)
+          .gte("date", monthRange.start)
+          .lte("date", monthRange.end)
+          .order("date", { ascending: true }),
+        loadMonthState(),
+      ]);
 
+      if (accountResult.error || !accountResult.data) {
+        throw accountResult.error ?? new Error("account-not-found");
+      }
+      if (projectsResult.error) throw projectsResult.error;
+      if (reserveContainersResult.error) throw reserveContainersResult.error;
+      if (monthClosesResult.error) throw monthClosesResult.error;
+      if (monthCloseAllocationsResult.error) throw monthCloseAllocationsResult.error;
+      if (reserveTransfersResult.error) throw reserveTransfersResult.error;
+      if (transactionsResult.error) throw transactionsResult.error;
+
+      const account = accountResult.data as AccountRow;
       const accountCurrency = account.base_currency;
       const symbol =
         CURRENCIES.find((item) => item.code === accountCurrency)?.symbol ??
         accountCurrency;
 
-      const { data: txRows, error: txError } = await supabase
-        .from("transactions")
-        .select("type, amount_minor, amount_base_minor, date")
-        .eq("account_id", selectedAccountId)
-        .gte("date", txHistoryStart.start)
-        .lte("date", range.end);
-      if (txError) throw txError;
+      const nextProjects = (projectsResult.data ?? []) as Project[];
+      const nextMonthState = monthStateResult;
 
-      const monthTxRows = ((txRows ?? []) as TxRow[]).filter(
-        (tx) => toPeriodKey(tx.date) === monthKey
-      );
-      const monthSavings = computeSavingsMonthFromTransactions(
-        (monthTxRows as Array<{
-          type: "income" | "expense";
-          amount_minor: bigint | number | string | null;
-          amount_base_minor: bigint | number | string | null;
-        }>) ?? []
-      );
-
-      const { data: projectRows, error: projectsError } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("account_id", selectedAccountId)
-        .eq("status", "active")
-        .order("priority", { ascending: true });
-      if (projectsError) throw projectsError;
-
-      const { data: periodRows, error: periodError } = await supabase
-        .from("project_contributions")
-        .select("*")
-        .eq("account_id", selectedAccountId)
-        .eq("period", range.start)
-        .eq("confirmed", true);
-      if (periodError) throw periodError;
-
-      const { data: historyRows, error: historyError } = await supabase
-        .from("project_contributions")
-        .select("*")
-        .eq("account_id", selectedAccountId)
-        .eq("confirmed", true)
-        .order("period", { ascending: false })
-        .limit(72);
-      if (historyError) throw historyError;
-
+      setRole(account.account_members?.[0]?.role ?? "viewer");
       setBaseCurrency(accountCurrency);
       setCurrencySymbol(symbol);
-      setSavingsMinor(monthSavings.savingsMinor);
-      setProjects((projectRows ?? []) as Project[]);
-      setPeriodContributions((periodRows ?? []) as ProjectContribution[]);
-      setHistoryContributions((historyRows ?? []) as ProjectContribution[]);
-      setHistoryTransactions((txRows ?? []) as TxRow[]);
+      setProjects(nextProjects);
+      setReserveContainers((reserveContainersResult.data ?? []) as ReserveContainer[]);
+      setMonthCloses((monthClosesResult.data ?? []) as MonthClose[]);
+      setMonthCloseAllocations(
+        (monthCloseAllocationsResult.data ?? []) as MonthCloseAllocation[]
+      );
+      setReserveTransfers((reserveTransfersResult.data ?? []) as ReserveTransfer[]);
+      setTransactions((transactionsResult.data ?? []) as TransactionRow[]);
+      setMonthState(nextMonthState);
+      setInputsByProject(() => {
+        const next: Record<string, string> = {};
+        nextProjects.forEach((project) => {
+          const plan = nextMonthState?.plans.find((row) => row.project_id === project.id);
+          next[project.id] = formatMinorToMoney(
+            toMinor(plan?.planned_amount_base_minor ?? 0),
+            accountCurrency
+          );
+        });
+        return next;
+      });
     } catch (loadError) {
       console.error("[Savings][mobile] load error", loadError);
       setError(t(dictionary, "home.savings.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [dictionary, isFocused, monthKey, selectedAccountId]);
+  }, [currentMonthKey, currentMonthStart, dictionary, loadMonthState, selectedAccountId, user]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
 
-  const distribution = useMemo(
-    () =>
-      computeSavingsDistribution({
-        projects,
-        savingsMinor,
-      }),
-    [projects, savingsMinor]
+  const canEdit = role !== "viewer";
+  const huchaReserve = useMemo(
+    () => reserveContainers.find((reserveContainer) => reserveContainer.kind === "hucha") ?? null,
+    [reserveContainers]
   );
 
-  const actualByProject = useMemo(() => {
+  const savingsView = useMemo(
+    () =>
+      computeSavingsMonthView({
+        period: currentMonthKey,
+        transactions,
+        fundingPlans:
+          (monthState?.plans ?? []).map((plan) => ({
+            id: `${currentMonthKey}:${plan.project_id}`,
+            account_id: selectedAccountId ?? "",
+            period: currentMonthStart,
+            project_id: plan.project_id,
+            planned_amount_base_minor: plan.planned_amount_base_minor,
+          })) as MonthlyProjectFundingPlan[],
+        monthClose:
+          monthCloses.find((monthClose) => String(monthClose.period).slice(0, 7) === currentMonthKey) ??
+          null,
+      }),
+    [currentMonthKey, currentMonthStart, monthCloses, monthState?.plans, selectedAccountId, transactions]
+  );
+
+  const fundedByProject = useMemo(() => {
     const map = new Map<string, bigint>();
-    periodContributions.forEach((row) => {
-      map.set(row.project_id, (map.get(row.project_id) ?? 0n) + toMinor(row.actual_amount_base_minor));
-    });
-    return map;
-  }, [periodContributions]);
-
-  const historyStats = useMemo(
-    () =>
-      computeSavingsHistoryStats({
-        projects,
-        contributions: historyContributions,
-      }),
-    [historyContributions, projects]
-  );
-  const projectColorMap = useMemo(() => buildProjectColorMap(projects), [projects]);
-
-  const progressByProject = useMemo(() => {
-    const byProject = new Map<string, ReturnType<typeof computeProjectProgress>>();
-    const byContributions = new Map<string, ProjectContribution[]>();
-    historyContributions.forEach((entry) => {
-      const list = byContributions.get(entry.project_id) ?? [];
-      list.push(entry);
-      byContributions.set(entry.project_id, list);
-    });
-    projects.forEach((project) => {
-      if (project.is_hucha) return;
-      byProject.set(
-        project.id,
-        computeProjectProgress({
-          project,
-          contributions: byContributions.get(project.id) ?? [],
-        })
+    monthCloseAllocations.forEach((allocation) => {
+      if (!allocation.project_id) return;
+      map.set(
+        allocation.project_id,
+        (map.get(allocation.project_id) ?? 0n) + toMinor(allocation.amount_base_minor)
       );
     });
-    return byProject;
-  }, [historyContributions, projects]);
-
-  const monthlySavings = useMemo(() => {
-    const map = new Map<string, bigint>();
-    historyTransactions.forEach((tx) => {
-      const period = toPeriodKey(tx.date);
-      if (!period) return;
-      const amount = toMinor(tx.amount_base_minor ?? tx.amount_minor);
-      map.set(period, (map.get(period) ?? 0n) + (tx.type === "income" ? amount : -amount));
+    reserveTransfers.forEach((transfer) => {
+      map.set(
+        transfer.destination_project_id,
+        (map.get(transfer.destination_project_id) ?? 0n) +
+          toMinor(transfer.amount_base_minor)
+      );
     });
     return map;
-  }, [historyTransactions]);
+  }, [monthCloseAllocations, reserveTransfers]);
 
-  const chartPeriods = useMemo(() => buildMonthKeysEndingAt(monthKey, 6), [monthKey]);
+  const huchaBalanceMinor = useMemo(
+    () =>
+      getReserveContainerBalanceMinor({
+        reserveContainerId: huchaReserve?.id,
+        closeAllocations: monthCloseAllocations,
+        reserveTransfers,
+      }),
+    [huchaReserve?.id, monthCloseAllocations, reserveTransfers]
+  );
 
-  const evolutionRows = useMemo(() => {
-    const achievedByPeriod = new Map(
-      historyStats.periods.map((row) => [row.period, row.achieved] as const)
-    );
-    return chartPeriods.map((period) => ({
-      period,
-      amountMinor: monthlySavings.get(period) ?? 0n,
-      achieved: achievedByPeriod.get(period) ?? false,
-      isCurrent: period === monthKey,
-    }));
-  }, [chartPeriods, historyStats.periods, monthlySavings, monthKey]);
+  const pendingMonthKeys = useMemo(
+    () =>
+      computePendingMonthCloseKeysFromMonthCloses({
+        commitmentProjects: projects.map((project) => ({
+          projectId: project.id,
+          createdAt: project.created_at ?? null,
+        })),
+        closedMonths: monthCloses.map((monthClose) => ({ period: monthClose.period })),
+        currentMonthKey,
+      }),
+    [currentMonthKey, monthCloses, projects]
+  );
 
-  const chartSegmentsByPeriod = useMemo(() => {
-    const byPeriod = new Map<string, Map<string, bigint>>();
-    historyContributions.forEach((entry) => {
-      const period = toPeriodKey(entry.period);
-      if (!period) return;
-      const projectMap = byPeriod.get(period) ?? new Map<string, bigint>();
-      const current = projectMap.get(entry.project_id) ?? 0n;
-      projectMap.set(entry.project_id, current + toMinor(entry.actual_amount_base_minor));
-      byPeriod.set(period, projectMap);
-    });
-    return byPeriod;
-  }, [historyContributions]);
+  const pendingCloseMonthKey = pendingMonthKeys[0] ?? null;
 
-  const chartScaleMinor = useMemo(() => {
-    let maxMinor = distribution.objectiveMinor > 0n ? distribution.objectiveMinor : 1n;
-    evolutionRows.forEach((row) => {
-      if (row.amountMinor > maxMinor) maxMinor = row.amountMinor;
-    });
-    return maxMinor > 0n ? maxMinor : 1n;
-  }, [distribution.objectiveMinor, evolutionRows]);
-
-  const goalLinePercent = useMemo(() => {
-    if (distribution.objectiveMinor <= 0n) return 0;
-    return Math.min(100, (Number(distribution.objectiveMinor) / Number(chartScaleMinor)) * 100);
-  }, [chartScaleMinor, distribution.objectiveMinor]);
-  const chartBarMaxHeightPx = 120;
-  const chartBarMinHeightPx = 8;
-
-  const reachedDayByPeriod = useMemo(() => {
-    const objectiveMinor = distribution.objectiveMinor;
-    const byPeriod = new Map<string, TxRow[]>();
-    historyTransactions.forEach((tx) => {
-      const period = toPeriodKey(tx.date);
-      if (!period) return;
-      const list = byPeriod.get(period) ?? [];
-      list.push(tx);
-      byPeriod.set(period, list);
-    });
-
-    const reached = new Map<string, number | null>();
-    byPeriod.forEach((rows, period) => {
-      if (objectiveMinor <= 0n) {
-        reached.set(period, null);
-        return;
+  const parsedPlans = useMemo(() => {
+    const rows = projects.map((project) => {
+      const raw = (inputsByProject[project.id] ?? "").trim();
+      if (!raw) {
+        return { projectId: project.id, amountMinor: 0n, error: null as string | null };
       }
-      const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
-      let cumulative = 0n;
-      let dayReached: number | null = null;
-      for (const row of sorted) {
-        const amount = toMinor(row.amount_base_minor ?? row.amount_minor);
-        cumulative += row.type === "income" ? amount : -amount;
-        if (cumulative >= objectiveMinor) {
-          const parsedDate = new Date(`${row.date}T00:00:00`);
-          dayReached = Number.isNaN(parsedDate.getTime()) ? null : parsedDate.getDate();
-          break;
-        }
+
+      const parsed = parseMoneyToMinor(raw, baseCurrency);
+      if (typeof parsed === "object" && "error" in parsed) {
+        return {
+          projectId: project.id,
+          amountMinor: 0n,
+          error: localeCode === "en" ? "Review this amount." : "Revisa este importe.",
+        };
       }
-      reached.set(period, dayReached);
-    });
 
-    return reached;
-  }, [distribution.objectiveMinor, historyTransactions]);
-
-  const comparison = useMemo<{
-    averageMinor: bigint;
-    savingsDiffMinor: bigint;
-    velocityLabel: string;
-    velocityPositive: boolean;
-    bestMonth: { period: string; amountMinor: bigint } | null;
-  }>(() => {
-    const previousRows = evolutionRows.filter((row) => row.period !== monthKey);
-    const averageMinor =
-      previousRows.length > 0
-        ? previousRows.reduce((total, row) => total + row.amountMinor, 0n) /
-          BigInt(previousRows.length)
-        : 0n;
-    const savingsDiffMinor = savingsMinor - averageMinor;
-
-    const currentDay = reachedDayByPeriod.get(monthKey) ?? null;
-    const previousDays = previousRows
-      .map((row) => reachedDayByPeriod.get(row.period) ?? null)
-      .filter((day): day is number => day !== null);
-    const averageReachedDay =
-      previousDays.length > 0
-        ? Math.round(previousDays.reduce((sum, day) => sum + day, 0) / previousDays.length)
-        : null;
-
-    let velocityLabel = t(dictionary, "home.savings.velocityPending");
-    let velocityPositive = false;
-    if (currentDay !== null && averageReachedDay !== null) {
-      const delta = currentDay - averageReachedDay;
-      if (delta === 0) {
-        velocityLabel = t(dictionary, "home.savings.velocityAverage");
-      } else if (delta < 0) {
-        velocityPositive = true;
-        velocityLabel = t(dictionary, "home.savings.velocityEarlier", {
-          days: Math.abs(delta),
-        });
-      } else {
-        velocityLabel = t(dictionary, "home.savings.velocityLater", { days: delta });
-      }
-    } else if (currentDay !== null && averageReachedDay === null) {
-      velocityLabel = t(dictionary, "home.savings.velocityDay", { day: currentDay });
-    }
-
-    let bestMonth: { period: string; amountMinor: bigint } | null = null;
-    monthlySavings.forEach((amountMinor, period) => {
-      if (bestMonth === null || amountMinor > bestMonth.amountMinor) {
-        bestMonth = { period, amountMinor };
-      }
+      return { projectId: project.id, amountMinor: parsed, error: null as string | null };
     });
 
     return {
-      averageMinor,
-      savingsDiffMinor,
-      velocityLabel,
-      velocityPositive,
-      bestMonth,
+      rows,
+      totalMinor: rows.reduce((total, row) => total + row.amountMinor, 0n),
+      hasErrors: rows.some((row) => row.error !== null),
     };
-  }, [dictionary, evolutionRows, monthKey, monthlySavings, reachedDayByPeriod, savingsMinor]);
+  }, [baseCurrency, inputsByProject, localeCode, projects]);
 
-  const monthDate = new Date(`${monthKey}-01T00:00:00`);
-  const monthLabel = new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
-    month: "long",
-    year: "numeric",
-  }).format(monthDate);
-  const monthLabelCapitalized = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
-  const positiveSavings = savingsMinor > 0n ? savingsMinor : 0n;
-  const progressScaleMinor =
-    positiveSavings > distribution.objectiveMinor
-      ? positiveSavings
-      : distribution.objectiveMinor > 0n
-      ? distribution.objectiveMinor
-      : 1n;
-  const projectsPercent =
-    progressScaleMinor > 0n
-      ? (Number(distribution.projectCoveredMinor) / Number(progressScaleMinor)) * 100
-      : 0;
-  const huchaPercent =
-    progressScaleMinor > 0n
-      ? (Number(distribution.huchaMinor) / Number(progressScaleMinor)) * 100
-      : 0;
-  const objectiveMarkerPercent =
-    progressScaleMinor > 0n
-      ? (Number(distribution.objectiveMinor) / Number(progressScaleMinor)) * 100
-      : 0;
+  const canSavePlan =
+    canEdit &&
+    !parsedPlans.hasErrors &&
+    parsedPlans.totalMinor <=
+      (savingsView.generatedSavedMinor > 0n ? savingsView.generatedSavedMinor : 0n) &&
+    !savingsView.isClosed;
+
+  const handleInputChange = (projectId: string, value: string) => {
+    setInputsByProject((previous) => ({
+      ...previous,
+      [projectId]: sanitizeNumericInput(value),
+    }));
+    setError(null);
+    setMessage(null);
+  };
+
+  const handleSavePlan = async () => {
+    if (!selectedAccountId || !canSavePlan || isSavingPlan) return;
+
+    setIsSavingPlan(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const payload = parsedPlans.rows.map((row) => ({
+        project_id: row.projectId,
+        planned_amount_base_minor: row.amountMinor.toString(),
+      }));
+
+      const { error: rpcError } = await supabase.rpc("replace_monthly_project_funding_plans", {
+        p_account_id: selectedAccountId,
+        p_period: currentMonthStart,
+        p_plans: payload,
+      });
+
+      if (rpcError) throw rpcError;
+
+      setMessage(locale === "en" ? "Monthly plan updated." : "Plan mensual actualizado.");
+      await loadData();
+    } catch (saveError) {
+      console.error("[Savings][mobile] save plan error", saveError);
+      setError(
+        locale === "en"
+          ? "Couldn't save the monthly plan."
+          : "No se pudo guardar el plan mensual."
+      );
+    } finally {
+      setIsSavingPlan(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -412,7 +405,12 @@ export default function SavingsDetailScreen() {
     <>
       <Stack.Screen options={{ title: t(dictionary, "home.savings.title") }} />
       <View style={[styles.screen, { backgroundColor: userTokens.background }]}>
-        <ScrollView contentContainerStyle={styles.container}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.container,
+            { paddingBottom: tokens.spacing.xxl + insets.bottom + 64 },
+          ]}
+        >
           {error ? (
             <Card>
               <Text style={[styles.errorText, { color: userTokens.textPrimary }]}>{error}</Text>
@@ -420,327 +418,235 @@ export default function SavingsDetailScreen() {
           ) : null}
 
           <Card>
+            <Text style={[styles.eyebrow, { color: userTokens.textSecondary }]}>
+              {locale === "en" ? "Savings of the month" : "Ahorro del mes"}
+            </Text>
             <Text style={[styles.heroAmount, { color: userTokens.textPrimary }]}>
-              {formatMoneyWithSymbol(savingsMinor, baseCurrency, currencySymbol)}
+              {formatMoneyWithSymbol(
+                savingsView.generatedSavedMinor,
+                baseCurrency,
+                currencySymbol
+              )}
             </Text>
-            <Text style={[styles.meta, { color: userTokens.textSecondary }]}>
-              {t(dictionary, "home.savings.savedThisMonth")}
+            <Text style={[styles.helper, { color: userTokens.textSecondary }]}>
+              {locale === "en"
+                ? "Whatever you do not assign will go to the piggy bank when you close the month."
+                : "Lo que no asignes irá a la hucha al cerrar el mes."}
             </Text>
-
-            <View style={styles.monthNav}>
-              <TouchableOpacity
-                onPress={() => setMonthKey((prev) => addMonths(prev, -1))}
-                style={[styles.monthNavBtn, { borderColor: userTokens.border }]}
-              >
-                <Text style={[styles.monthNavBtnText, { color: userTokens.textSecondary }]}>‹</Text>
-              </TouchableOpacity>
-              <Text style={[styles.monthLabel, { color: userTokens.textSecondary }]}>
-                {monthLabelCapitalized}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setMonthKey((prev) => addMonths(prev, 1))}
-                style={[styles.monthNavBtn, { borderColor: userTokens.border }]}
-              >
-                <Text style={[styles.monthNavBtnText, { color: userTokens.textSecondary }]}>›</Text>
-              </TouchableOpacity>
-            </View>
           </Card>
 
-          <Card>
-            <View style={[styles.progressTrack, { backgroundColor: userTokens.surfaceAlt }]}>
-              {positiveSavings > 0n ? (
-                <>
-                  {(() => {
-                    let cumulativePercent = 0;
-                    return distribution.allocations.map((row) => {
-                      const actualMinor = actualByProject.get(row.project.id) ?? row.allocatedMinor;
-                      const segmentPercent = progressScaleMinor > 0n
-                        ? (Number(actualMinor) / Number(progressScaleMinor)) * 100
-                        : 0;
-                      const projectColor = getProjectColor(row.project, projectColorMap);
-                      const leftPercent = cumulativePercent;
-                      cumulativePercent += segmentPercent;
-                      return (
-                        <View
-                          key={row.project.id}
-                          style={{
-                            position: "absolute",
-                            left: `${Math.max(0, Math.min(100, leftPercent))}%`,
-                            width: `${Math.max(0, Math.min(100, segmentPercent))}%`,
-                            top: 0,
-                            bottom: 0,
-                            backgroundColor: projectColor,
-                          }}
-                        />
-                      );
-                    });
-                  })()}
-                  <View
-                    style={[
-                      styles.progressHucha,
-                      {
-                        width: `${Math.max(0, Math.min(100, huchaPercent))}%`,
-                        left: `${Math.max(0, Math.min(100, projectsPercent))}%`,
-                        backgroundColor: "rgba(109, 201, 160, 0.85)",
-                      },
-                    ]}
-                  />
-                  <View
-                    style={[
-                      styles.progressMarker,
-                      {
-                        left: `${Math.max(0, Math.min(100, objectiveMarkerPercent))}%`,
-                        backgroundColor: userTokens.textPrimary,
-                      },
-                    ]}
-                  />
-                </>
-              ) : null}
-            </View>
-
-            <View style={styles.progressLabels}>
-              <Text style={[styles.meta, { color: userTokens.textSecondary }]}>
-                {distribution.projectCoveredMinor >= distribution.objectiveMinor &&
-                distribution.objectiveMinor > 0n
-                  ? t(dictionary, "home.savings.statusCovered")
-                  : t(dictionary, "home.savings.statusPending")}
+          <View style={styles.summaryGrid}>
+            <Card style={styles.summaryCard}>
+              <Text style={[styles.summaryLabel, { color: userTokens.textSecondary }]}>
+                {locale === "en" ? "Planned" : "Planificado"}
               </Text>
-              <Text style={[styles.meta, { color: userTokens.textSecondary }]}>
-                {t(dictionary, "home.savings.total")}:{" "}
-                {formatMoneyWithSymbol(savingsMinor, baseCurrency, currencySymbol)}
+              <Text style={[styles.summaryValue, { color: userTokens.textPrimary }]}>
+                {formatMoneyWithSymbol(
+                  savingsView.plannedToProjectsMinor,
+                  baseCurrency,
+                  currencySymbol
+                )}
               </Text>
-            </View>
-          </Card>
+            </Card>
+            <Card style={styles.summaryCard}>
+              <Text style={[styles.summaryLabel, { color: userTokens.textSecondary }]}>
+                {locale === "en" ? "Available" : "Disponible"}
+              </Text>
+              <Text style={[styles.summaryValue, { color: userTokens.textPrimary }]}>
+                {formatMoneyWithSymbol(
+                  savingsView.availableToPlanMinor,
+                  baseCurrency,
+                  currencySymbol
+                )}
+              </Text>
+            </Card>
+            <Card style={styles.summaryCard}>
+              <Text style={[styles.summaryLabel, { color: userTokens.textSecondary }]}>
+                {locale === "en" ? "Piggy bank" : "Hucha"}
+              </Text>
+              <Text style={[styles.summaryValue, { color: userTokens.textPrimary }]}>
+                {formatMoneyWithSymbol(huchaBalanceMinor, baseCurrency, currencySymbol)}
+              </Text>
+            </Card>
+          </View>
+
+          {pendingCloseMonthKey ? (
+            <Card>
+              <Text style={[styles.cardTitle, { color: userTokens.textPrimary }]}>
+                {locale === "en" ? "Pending month close" : "Cierre mensual pendiente"}
+              </Text>
+              <Text style={[styles.helper, { color: userTokens.textSecondary }]}>
+                {locale === "en"
+                  ? `You still need to close ${pendingCloseMonthKey}.`
+                  : `Todavía te falta cerrar ${pendingCloseMonthKey}.`}
+              </Text>
+              <View style={styles.cardActions}>
+                <Button
+                  title={locale === "en" ? "Review close" : "Revisar cierre"}
+                  onPress={() =>
+                    router.push(`/(auth)/(tabs)/projects/month-close?month=${pendingCloseMonthKey}`)
+                  }
+                />
+              </View>
+            </Card>
+          ) : null}
+
+          {savingsView.needsRebalance ? (
+            <Card>
+              <Text style={[styles.warningTitle, { color: "#C2410C" }]}>
+                {locale === "en" ? "Rebalance required" : "Necesita ajuste"}
+              </Text>
+              <Text style={[styles.helper, { color: userTokens.textSecondary }]}>
+                {locale === "en"
+                  ? "Recent spending reduced the available savings. Lower the monthly plan before closing."
+                  : "Nuevos gastos han reducido el ahorro disponible. Baja el plan mensual antes de cerrar."}
+              </Text>
+            </Card>
+          ) : null}
 
           <Card>
-            <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
-              {t(dictionary, "home.savings.distributionTitle")}
+            <Text style={[styles.cardTitle, { color: userTokens.textPrimary }]}>
+              {locale === "en" ? "Assign savings" : "Asignar ahorro"}
             </Text>
-            {distribution.allocations.map((row) => {
-              const actualMinor = actualByProject.get(row.project.id) ?? row.allocatedMinor;
-              const progress = progressByProject.get(row.project.id);
-              const progressPct = Math.round((progress?.progressRatio ?? 0) * 100);
-              const projectColor = getProjectColor(row.project, projectColorMap);
-              return (
-                <View key={row.project.id} style={styles.distRow}>
-                  <View style={styles.distRowLeft}>
+            <View style={styles.projectList}>
+              {projects.length === 0 ? (
+                <Text style={[styles.helper, { color: userTokens.textSecondary }]}>
+                  {locale === "en"
+                    ? "Create at least one financial project to start assigning savings."
+                    : "Crea al menos un proyecto financiero para empezar a asignar ahorro."}
+                </Text>
+              ) : (
+                projects.map((project) => {
+                  const progress = computeProjectProgress({
+                    project,
+                    fundedMinor: fundedByProject.get(project.id) ?? 0n,
+                    plannedThisMonthMinor:
+                      parsedPlans.rows.find((row) => row.projectId === project.id)?.amountMinor ??
+                      0n,
+                  });
+
+                  return (
                     <View
+                      key={project.id}
                       style={[
-                        styles.distProjectIcon,
-                        { backgroundColor: `${projectColor}26` },
+                        styles.projectCard,
+                        {
+                          borderColor: userTokens.border,
+                          backgroundColor: userTokens.surface,
+                        },
                       ]}
                     >
-                      <Text style={styles.distProjectIconText}>{row.project.emoji}</Text>
-                    </View>
-                    <View style={styles.distRowCopy}>
-                      <Text style={[styles.rowLabel, { color: userTokens.textPrimary }]}>
-                        {row.project.name}
-                      </Text>
-                      <Text style={[styles.rowMeta, { color: userTokens.textSecondary }]}>
-                        {t(dictionary, "home.savings.commitmentProgress", {
-                          commitment: formatMoneyWithSymbol(
-                            row.commitmentMinor,
-                            baseCurrency,
-                            currencySymbol
-                          ),
-                          progress: progressPct,
-                        })}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={[styles.rowValue, { color: projectColor }]}>
-                    {formatMoneyWithSymbol(actualMinor, baseCurrency, currencySymbol)}
-                  </Text>
-                </View>
-              );
-            })}
-            <View style={styles.distRow}>
-              <View style={styles.distRowLeft}>
-                <View
-                  style={[
-                    styles.distHuchaIcon,
-                    { backgroundColor: `${HUCHA_PROJECT_COLOR}26` },
-                  ]}
-                >
-                  <Text style={styles.distProjectIconText}>🐷</Text>
-                </View>
-                <View style={styles.distRowCopy}>
-                  <Text style={[styles.rowLabel, { color: userTokens.textPrimary }]}>
-                    {t(dictionary, "home.savings.hucha")}
-                  </Text>
-                  <Text style={[styles.rowMeta, { color: userTokens.textSecondary }]}>
-                    {t(dictionary, "home.savings.monthlySurplus")}
-                  </Text>
-                </View>
-              </View>
-              <Text style={[styles.rowValue, { color: HUCHA_PROJECT_COLOR }]}>
-                {formatMoneyWithSymbol(distribution.huchaMinor, baseCurrency, currencySymbol)}
-              </Text>
-            </View>
-          </Card>
-
-          <Card>
-            <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
-              {t(dictionary, "home.savings.progressTitle")}
-            </Text>
-            <View style={styles.historyGrid}>
-              <View style={[styles.historyCard, { backgroundColor: userTokens.surfaceAlt }]}>
-                <Text style={[styles.historyLabel, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "home.savings.monthsCompletedLabel")}
-                </Text>
-                <Text style={[styles.historyValueGreen, { color: "#4ade80" }]}>
-                  {t(dictionary, "home.savings.monthsCompletedValue", {
-                    completed: historyStats.achievedMonths,
-                    total: historyStats.totalMonths,
-                  })}
-                </Text>
-              </View>
-              <View style={[styles.historyCard, { backgroundColor: userTokens.surfaceAlt }]}>
-                <Text style={[styles.historyLabel, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "home.savings.currentStreakLabel")}
-                </Text>
-                <Text style={[styles.historyValue, { color: userTokens.textPrimary }]}>
-                  {t(dictionary, "home.savings.currentStreakValue", {
-                    count: historyStats.currentStreak,
-                  })}
-                </Text>
-              </View>
-            </View>
-          </Card>
-
-          <Card>
-            <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
-              {t(dictionary, "home.savings.evolutionTitle")}
-            </Text>
-            <View style={styles.chartWrap}>
-              {distribution.objectiveMinor > 0n ? (
-                <View
-                  style={[
-                    styles.chartGoalLine,
-                    {
-                      bottom: `${goalLinePercent}%`,
-                      borderTopColor: userTokens.textSecondary,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.chartGoalLabel, { color: userTokens.textSecondary }]}>
-                    {t(dictionary, "home.savings.goalLabel")}{" "}
-                    {formatMoneyWithSymbol(distribution.objectiveMinor, baseCurrency, currencySymbol)}
-                  </Text>
-                </View>
-              ) : null}
-              <View style={styles.chartBarsRow}>
-                {evolutionRows.map((row) => {
-                  const positiveAmount = row.amountMinor > 0n ? row.amountMinor : 0n;
-                  const heightPx = Math.max(
-                    positiveAmount > 0n ? 10 : chartBarMinHeightPx,
-                    (Number(positiveAmount) / Number(chartScaleMinor)) * chartBarMaxHeightPx
-                  );
-                  const periodContribs = chartSegmentsByPeriod.get(row.period);
-                  const segments: Array<{ color: string; ratio: number }> = [];
-                  if (periodContribs && positiveAmount > 0n) {
-                    projects.forEach((project) => {
-                      const amount = periodContribs.get(project.id) ?? 0n;
-                      if (amount <= 0n) return;
-                      segments.push({
-                        color: project.is_hucha
-                          ? HUCHA_PROJECT_COLOR
-                          : getProjectColor(project, projectColorMap),
-                        ratio: Number(amount) / Number(positiveAmount),
-                      });
-                    });
-                  }
-                  const hasSegments = segments.length > 0;
-                  return (
-                    <View key={row.period} style={styles.chartGroup}>
-                      <View
-                        style={[
-                          styles.chartBar,
-                          {
-                            height: Math.min(chartBarMaxHeightPx, heightPx),
-                            backgroundColor: "transparent",
-                          },
-                        ]}
-                      >
-                        {hasSegments
-                          ? segments.map((seg, index) => (
-                              <View
-                                key={index}
-                                style={{ backgroundColor: seg.color, flex: seg.ratio }}
-                              />
-                            ))
-                          : (
-                              <View style={{ backgroundColor: HUCHA_PROJECT_COLOR, flex: 1 }} />
+                      <View style={styles.projectHeader}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.projectTitle, { color: userTokens.textPrimary }]}>
+                            {project.emoji || "🎯"} {project.name}
+                          </Text>
+                          <Text style={[styles.helper, { color: userTokens.textSecondary }]}>
+                            {formatMoneyWithSymbol(
+                              progress.savedMinor,
+                              baseCurrency,
+                              currencySymbol
+                            )}{" "}
+                            /{" "}
+                            {formatMoneyWithSymbol(
+                              progress.targetMinor,
+                              baseCurrency,
+                              currencySymbol
                             )}
+                          </Text>
+                          <Text style={[styles.projectMeta, { color: userTokens.textSecondary }]}>
+                            {locale === "en" ? "Funding target" : "Objetivo mensual"}:{" "}
+                            {formatMoneyWithSymbol(
+                              getProjectMonthlyFundingTargetMinor(project),
+                              baseCurrency,
+                              currencySymbol
+                            )}
+                          </Text>
+                        </View>
+                        <Text
+                          style={[
+                            styles.projectPercent,
+                            { color: getProjectColor(project) },
+                          ]}
+                        >
+                          {Math.round(progress.progressRatio * 100)}%
+                        </Text>
                       </View>
-                      <Text style={[styles.chartMonthLabel, { color: userTokens.textSecondary }]}>
-                        {new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
-                          month: "short",
-                        })
-                          .format(new Date(`${row.period}-01T00:00:00`))
-                          .replace(".", "")}
-                      </Text>
+                      <Input
+                        label={locale === "en" ? "Planned this month" : "Planificado este mes"}
+                        value={inputsByProject[project.id] ?? ""}
+                        onChangeText={(value) => handleInputChange(project.id, value)}
+                        keyboardType="numeric"
+                        placeholder="0"
+                        disabled={!canEdit || savingsView.isClosed}
+                        error={
+                          parsedPlans.rows.find((row) => row.projectId === project.id)?.error ??
+                          undefined
+                        }
+                      />
                     </View>
                   );
-                })}
-              </View>
+                })
+              )}
+            </View>
+
+            {message ? <Text style={styles.successText}>{message}</Text> : null}
+
+            <View style={styles.footerSummary}>
+              <Text style={[styles.helper, { color: userTokens.textSecondary }]}>
+                {locale === "en" ? "Planned total" : "Total planificado"}:{" "}
+                {formatMoneyWithSymbol(parsedPlans.totalMinor, baseCurrency, currencySymbol)}
+              </Text>
+              <Text style={[styles.helper, { color: userTokens.textSecondary }]}>
+                {locale === "en" ? "Projected to piggy bank" : "Previsto para la hucha"}:{" "}
+                {formatMoneyWithSymbol(
+                  savingsView.generatedSavedMinor > parsedPlans.totalMinor
+                    ? savingsView.generatedSavedMinor - parsedPlans.totalMinor
+                    : 0n,
+                  baseCurrency,
+                  currencySymbol
+                )}
+              </Text>
+            </View>
+
+            <View style={styles.cardActions}>
+              <Button
+                title={
+                  isSavingPlan
+                    ? locale === "en"
+                      ? "Saving..."
+                      : "Guardando..."
+                    : locale === "en"
+                      ? "Save plan"
+                      : "Guardar plan"
+                }
+                onPress={() => void handleSavePlan()}
+                disabled={!canSavePlan || isSavingPlan}
+                loading={isSavingPlan}
+              />
             </View>
           </Card>
 
-          <Card>
-            <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
-              {t(dictionary, "home.savings.comparisonTitle")}
-            </Text>
-            <View style={styles.compRow}>
-              <Text style={[styles.compLabel, { color: userTokens.textSecondary }]}>
-                {t(dictionary, "home.savings.comparisonSavings")}
-              </Text>
-              <Text style={[styles.compValue, { color: comparison.savingsDiffMinor >= 0n ? "#4ade80" : "#fb923c" }]}>
-                {formatSignedMoney(comparison.savingsDiffMinor, baseCurrency, currencySymbol)}
-              </Text>
-            </View>
-            <View style={styles.compRow}>
-              <View style={styles.compLabelWithInfo}>
-                <Text style={[styles.compLabel, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "home.savings.comparisonSpeed")}
+          {huchaReserve ? (
+            <TouchableOpacity
+              onPress={() =>
+                router.push(`/(auth)/(tabs)/projects/reserves/${huchaReserve.id}`)
+              }
+              activeOpacity={0.82}
+            >
+              <Card>
+                <Text style={[styles.cardTitle, { color: userTokens.textPrimary }]}>
+                  {huchaReserve.emoji || "🐷"} {huchaReserve.name}
                 </Text>
-                <TouchableOpacity
-                  onPress={() => setIsSpeedTooltipOpen(true)}
-                  style={styles.infoButton}
-                  accessibilityLabel={t(dictionary, "home.savings.comparisonSpeedTooltip")}
-                >
-                  <Info size={14} color={userTokens.textSecondary} opacity={0.6} />
-                </TouchableOpacity>
-              </View>
-              <Text style={[styles.compValue, { color: comparison.velocityPositive ? "#4ade80" : "#fb923c" }]}>
-                {comparison.velocityLabel}
-              </Text>
-            </View>
-            <View style={[styles.compRow, styles.compLastRow]}>
-              <Text style={[styles.compLabel, { color: userTokens.textSecondary }]}>
-                {t(dictionary, "home.savings.comparisonBestMonth")}
-              </Text>
-              <Text style={[styles.compValue, { color: userTokens.textPrimary }]}>
-                {comparison.bestMonth
-                  ? `${formatMonthLabel(comparison.bestMonth.period, locale === "en" ? "en-US" : "es-ES")} · ${formatMoneyWithSymbol(
-                      comparison.bestMonth.amountMinor,
-                      baseCurrency,
-                      currencySymbol
-                    )}`
-                  : t(dictionary, "home.savings.noData")}
-              </Text>
-            </View>
-          </Card>
+                <Text style={[styles.helper, { color: userTokens.textSecondary }]}>
+                  {locale === "en"
+                    ? "Open the reserve to review its balance and move money to a project."
+                    : "Abre la reserva para revisar su saldo y mover dinero a un proyecto."}
+                </Text>
+              </Card>
+            </TouchableOpacity>
+          ) : null}
         </ScrollView>
-
-        <ConfirmationModal
-          open={isSpeedTooltipOpen}
-          title={t(dictionary, "home.savings.comparisonSpeed")}
-          description={t(dictionary, "home.savings.comparisonSpeedTooltip")}
-          confirmLabel={t(dictionary, "common.ok")}
-          onConfirm={() => setIsSpeedTooltipOpen(false)}
-          onCancel={() => setIsSpeedTooltipOpen(false)}
-        />
       </View>
     </>
   );
@@ -756,231 +662,89 @@ const styles = StyleSheet.create({
   container: {
     padding: tokens.spacing.lg,
     gap: tokens.spacing.md,
-    paddingBottom: 120,
   },
-  heroAmount: {
-    fontSize: 38,
-    fontFamily: "JetBrainsMono-Medium",
-  },
-  meta: {
-    marginTop: 4,
-    fontSize: tokens.typography.size.sm,
-    fontFamily: "DMSans-Regular",
-  },
-  monthNav: {
-    marginTop: tokens.spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: tokens.spacing.md,
-  },
-  monthNavBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 999,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  monthNavBtnText: {
-    fontSize: 16,
-    fontFamily: "DMSans-SemiBold",
-  },
-  monthLabel: {
-    fontSize: tokens.typography.size.sm,
-    fontFamily: "DMSans-Regular",
-  },
-  progressTrack: {
-    height: 36,
-    borderRadius: 8,
-    overflow: "hidden",
-    position: "relative",
-  },
-  progressProjects: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: "#4ade80",
-  },
-  progressHucha: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    backgroundColor: "rgba(251, 146, 60, 0.85)",
-  },
-  progressMarker: {
-    position: "absolute",
-    top: -2,
-    height: 40,
-    width: 2,
-  },
-  progressLabels: {
-    marginTop: tokens.spacing.sm,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: tokens.spacing.sm,
-  },
-  sectionTitle: {
-    fontSize: tokens.typography.size.md,
-    fontFamily: "DMSans-SemiBold",
-    marginBottom: tokens.spacing.xs,
-  },
-  distRow: {
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#2a2a2a",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: tokens.spacing.sm,
-  },
-  distRowLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: tokens.spacing.sm,
-    flex: 1,
-    minWidth: 0,
-  },
-  distProjectIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "rgba(96, 165, 250, 0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  distHuchaIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "rgba(251, 146, 60, 0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  distProjectIconText: {
-    fontSize: 16,
-  },
-  distRowCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  rowLabel: {
+  eyebrow: {
     fontSize: tokens.typography.size.sm,
     fontFamily: "DMSans-Medium",
+    marginBottom: tokens.spacing.xs,
   },
-  rowMeta: {
+  heroAmount: {
+    fontSize: 30,
+    fontFamily: "DMSans-Bold",
+  },
+  helper: {
+    marginTop: tokens.spacing.xs,
+    fontSize: tokens.typography.size.sm,
+    lineHeight: 20,
+    fontFamily: "DMSans-Regular",
+  },
+  summaryGrid: {
+    gap: tokens.spacing.sm,
+  },
+  summaryCard: {
+    paddingVertical: tokens.spacing.sm,
+  },
+  summaryLabel: {
+    fontSize: tokens.typography.size.xs,
+    fontFamily: "DMSans-Medium",
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: tokens.typography.size.lg,
+    fontFamily: "DMSans-Bold",
+  },
+  cardTitle: {
+    fontSize: tokens.typography.size.lg,
+    fontFamily: "DMSans-Bold",
+    marginBottom: tokens.spacing.xs,
+  },
+  cardActions: {
+    marginTop: tokens.spacing.md,
+  },
+  warningTitle: {
+    fontSize: tokens.typography.size.md,
+    fontFamily: "DMSans-Bold",
+    marginBottom: 4,
+  },
+  projectList: {
+    gap: tokens.spacing.sm,
+  },
+  projectCard: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    padding: tokens.spacing.md,
+  },
+  projectHeader: {
+    flexDirection: "row",
+    gap: tokens.spacing.sm,
+    alignItems: "flex-start",
+    marginBottom: tokens.spacing.sm,
+  },
+  projectTitle: {
+    fontSize: tokens.typography.size.md,
+    fontFamily: "DMSans-Bold",
+  },
+  projectMeta: {
     marginTop: 2,
     fontSize: tokens.typography.size.xs,
     fontFamily: "DMSans-Regular",
   },
-  rowValue: {
-    fontSize: tokens.typography.size.sm,
-    fontFamily: "JetBrainsMono-Medium",
+  projectPercent: {
+    fontSize: tokens.typography.size.md,
+    fontFamily: "DMSans-Bold",
   },
-  historyGrid: {
-    flexDirection: "row",
-    gap: tokens.spacing.sm,
-  },
-  historyCard: {
-    flex: 1,
-    borderRadius: tokens.radii.md,
-    padding: tokens.spacing.sm,
-  },
-  historyLabel: {
-    fontSize: tokens.typography.size.xs,
-    fontFamily: "DMSans-Regular",
-  },
-  historyValue: {
-    marginTop: 6,
-    fontSize: 22,
-    fontFamily: "DMSans-SemiBold",
-  },
-  historyValueGreen: {
-    marginTop: 6,
-    fontSize: 22,
-    fontFamily: "DMSans-SemiBold",
-  },
-  chartWrap: {
+  footerSummary: {
     marginTop: tokens.spacing.sm,
-    height: 144,
-    position: "relative",
-  },
-  chartGoalLine: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    borderTopWidth: 2,
-    borderStyle: "dashed",
-  },
-  chartGoalLabel: {
-    position: "absolute",
-    right: 0,
-    top: -16,
-    fontSize: 10,
-    fontFamily: "DMSans-Regular",
-  },
-  chartBarsRow: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-  },
-  chartGroup: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 8,
-  },
-  chartBar: {
-    width: "100%",
-    maxWidth: 32,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
-    flexDirection: "column-reverse",
-    overflow: "hidden",
-  },
-  chartMonthLabel: {
-    fontSize: 10,
-    fontFamily: "DMSans-Regular",
-  },
-  compRow: {
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#2a2a2a",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: tokens.spacing.sm,
-  },
-  compLastRow: {
-    borderBottomWidth: 0,
-  },
-  compLabelWithInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  compLabel: {
-    fontSize: tokens.typography.size.sm,
-    fontFamily: "DMSans-Regular",
-  },
-  infoButton: {
-    padding: 2,
-    borderRadius: 4,
-  },
-  compValue: {
-    fontSize: tokens.typography.size.sm,
-    fontFamily: "DMSans-SemiBold",
-    textAlign: "right",
-    flexShrink: 1,
+    gap: 4,
   },
   errorText: {
     fontSize: tokens.typography.size.sm,
-    fontFamily: "DMSans-Regular",
+    fontFamily: "DMSans-Medium",
+  },
+  successText: {
+    marginTop: tokens.spacing.sm,
+    color: "#15803D",
+    fontSize: tokens.typography.size.sm,
+    fontFamily: "DMSans-Medium",
   },
 });

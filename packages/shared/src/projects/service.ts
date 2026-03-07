@@ -73,15 +73,15 @@ export async function createProject(params: {
   if (!nextColor) {
     const { data: existingProjects, error: existingProjectsError } = await client
       .from("projects")
-      .select("color, is_hucha")
+      .select("color, target_amount_base_minor")
       .eq("account_id", accountId);
 
     if (existingProjectsError) throw existingProjectsError;
 
     const projectsForColor = ((existingProjects ?? []) as Array<{
       color?: string | null;
-      is_hucha?: boolean;
-    }>).filter((project) => !project.is_hucha);
+      target_amount_base_minor?: bigint | number | string | null;
+    }>).filter((project) => project.target_amount_base_minor !== null);
 
     nextColor = assignProjectColor(projectsForColor);
   }

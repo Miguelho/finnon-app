@@ -24,6 +24,7 @@ export const cacheKeys = {
   savingsGamification: (accountId: string) =>
     join("savings_gamification", accountId),
   huchaAccumulated: (accountId: string) => join("hucha_accumulated", accountId),
+  reserveContainers: (accountId: string) => join("reserve_containers", accountId),
   projects: (accountId: string) => join("projects", accountId),
   projectContributions: (accountId: string, scope: string) =>
     join("project_contributions", accountId, scope),
@@ -43,6 +44,7 @@ export const cacheTags = {
   savingsHistory: "savings_history",
   savingsGamification: "savings_gamification",
   hucha: "hucha",
+  reserveContainers: "reserve_containers",
   projects: "projects",
   homeProjectWidget: "home_project_widget",
   projectContributions: "project_contributions",

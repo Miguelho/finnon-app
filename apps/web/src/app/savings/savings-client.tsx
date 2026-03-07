@@ -1,35 +1,74 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
-  addMonths,
-  buildProjectColorMap,
+  computePendingMonthCloseKeysFromMonthCloses,
   computeProjectProgress,
-  computeSavingsDistribution,
-  computeSavingsHistoryStats,
-  computeSavingsMonthFromTransactions,
-  ConfirmationModal,
+  computeSavingsMonthView,
+  formatMinorToMoney,
   formatMoneyWithSymbol,
-  formatMonthLabel,
   getProjectColor,
+  getProjectMonthlyFundingTargetMinor,
+  getReserveContainerBalanceMinor,
   getMonthRangeFromKey,
-  HUCHA_PROJECT_COLOR,
+  parseMoneyToMinor,
   toMonthKey,
+  type MonthClose,
+  type MonthCloseAllocation,
+  type MonthlyProjectFundingPlan,
   type Project,
-  type ProjectContribution,
+  type ReserveContainer,
+  type ReserveTransfer,
 } from "@poleursus/shared";
-import { ArrowLeft, ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { ArrowLeft, PiggyBank, RefreshCcw, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useWebDataCache } from "@/cache/WebDataCacheProvider";
 import { PageContainer } from "@/components/layout/page-container";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+
+type SavingsClientProps = {
+  accountId: string;
+  baseCurrency: string;
+  currencySymbol: string;
+  locale: "es" | "en";
+  canEdit: boolean;
+};
+
+type TransactionRow = {
+  id: string;
+  type: "income" | "expense";
+  amount_minor: string | number | null;
+  amount_base_minor: string | number | null;
+  date: string;
+};
+
+type SavingsMonthStateRow = {
+  period: string;
+  generated_saved_base_minor: string | number;
+  planned_to_projects_base_minor: string | number;
+  available_to_plan_minor: string | number;
+  needs_rebalance: boolean;
+  is_closed: boolean;
+  closed_at: string | null;
+  allocated_to_projects_base_minor: string | number | null;
+  allocated_to_reserves_base_minor: string | number | null;
+  plans: Array<{
+    project_id: string;
+    planned_amount_base_minor: string | number;
+  }>;
+};
 
 const toMinor = (value: bigint | number | string | null | undefined): bigint => {
   if (value === null || value === undefined) return 0n;
   if (typeof value === "bigint") return value;
-  if (typeof value === "number") return BigInt(Math.round(value));
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return 0n;
+    return BigInt(Math.round(value));
+  }
   try {
     return BigInt(value);
   } catch {
@@ -37,718 +76,539 @@ const toMinor = (value: bigint | number | string | null | undefined): bigint => 
   }
 };
 
-type SavingsClientProps = {
-  accountId: string;
-  baseCurrency: string;
-  currencySymbol: string;
-  locale: "es" | "en";
-};
-
-type TxRow = {
-  type: "income" | "expense";
-  amount_minor: bigint | number | string | null;
-  amount_base_minor: bigint | number | string | null;
-  date: string;
-};
-
-const toPeriodKey = (value: string | Date | null | undefined) => {
-  if (!value) return null;
-  if (value instanceof Date) {
-    if (Number.isNaN(value.getTime())) return null;
-    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}`;
-  }
-  if (typeof value !== "string") return null;
-  if (/^\d{4}-\d{2}$/.test(value)) return value;
-  if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 7);
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
-};
-
-const buildMonthKeysEndingAt = (endMonthKey: string, count: number) =>
-  Array.from({ length: count }, (_, index) => addMonths(endMonthKey, -(count - 1 - index)));
-
-const formatSignedMoney = (value: bigint, baseCurrency: string, currencySymbol: string) => {
-  const abs = value < 0n ? -value : value;
-  const formatted = formatMoneyWithSymbol(abs, baseCurrency, currencySymbol);
-  if (value === 0n) return formatted;
-  return value > 0n ? `+${formatted}` : `-${formatted}`;
-};
+const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
 
 export function SavingsClient({
   accountId,
   baseCurrency,
   currencySymbol,
   locale,
+  canEdit,
 }: SavingsClientProps) {
   const supabase = useMemo(() => createClient(), []);
+  const { emitMutation } = useWebDataCache();
   const t = useTranslations();
-  const [monthKey, setMonthKey] = useState(toMonthKey(new Date()));
+  const currentMonthKey = useMemo(() => toMonthKey(new Date()), []);
+  const previousMonthKey = useMemo(() => {
+    const date = new Date(`${currentMonthKey}-01T00:00:00`);
+    date.setMonth(date.getMonth() - 1);
+    return toMonthKey(date);
+  }, [currentMonthKey]);
+  const currentMonthStart = `${currentMonthKey}-01`;
+
   const [projects, setProjects] = useState<Project[]>([]);
-  const [periodContributions, setPeriodContributions] = useState<ProjectContribution[]>([]);
-  const [historyContributions, setHistoryContributions] = useState<ProjectContribution[]>([]);
-  const [historyTransactions, setHistoryTransactions] = useState<TxRow[]>([]);
-  const [savingsMinor, setSavingsMinor] = useState(0n);
+  const [reserveContainers, setReserveContainers] = useState<ReserveContainer[]>([]);
+  const [monthCloses, setMonthCloses] = useState<MonthClose[]>([]);
+  const [monthCloseAllocations, setMonthCloseAllocations] = useState<MonthCloseAllocation[]>([]);
+  const [reserveTransfers, setReserveTransfers] = useState<ReserveTransfer[]>([]);
+  const [transactions, setTransactions] = useState<TransactionRow[]>([]);
+  const [monthState, setMonthState] = useState<SavingsMonthStateRow | null>(null);
+  const [inputsByProject, setInputsByProject] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [isSavingPlan, setIsSavingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isSpeedTooltipOpen, setIsSpeedTooltipOpen] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const loadMonthState = useCallback(async () => {
+    const { data, error: rpcError } = await supabase.rpc("get_savings_month_state", {
+      p_account_id: accountId,
+      p_period: currentMonthStart,
+    });
+
+    if (rpcError) throw rpcError;
+    return data as SavingsMonthStateRow | null;
+  }, [accountId, currentMonthStart, supabase]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
-      const range = getMonthRangeFromKey(monthKey);
-      const txHistoryStart = getMonthRangeFromKey(addMonths(monthKey, -11));
+      const monthRange = getMonthRangeFromKey(currentMonthKey);
 
-      const { data: txRows, error: txError } = await supabase
-        .from("transactions")
-        .select("type, amount_minor, amount_base_minor, date")
-        .eq("account_id", accountId)
-        .gte("date", txHistoryStart.start)
-        .lte("date", range.end);
-      if (txError) throw txError;
+      const [
+        projectsResult,
+        reserveContainersResult,
+        monthClosesResult,
+        monthCloseAllocationsResult,
+        reserveTransfersResult,
+        transactionsResult,
+        monthStateResult,
+      ] = await Promise.all([
+        supabase
+          .from("projects")
+          .select("*")
+          .eq("account_id", accountId)
+          .not("target_amount_base_minor", "is", null)
+          .eq("status", "active")
+          .order("priority", { ascending: true })
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("reserve_containers")
+          .select("*")
+          .eq("account_id", accountId)
+          .eq("status", "active")
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("month_closes")
+          .select("*")
+          .eq("account_id", accountId)
+          .order("period", { ascending: false }),
+        supabase
+          .from("month_close_allocations")
+          .select("*")
+          .eq("account_id", accountId),
+        supabase
+          .from("reserve_transfers")
+          .select("*")
+          .eq("account_id", accountId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("transactions")
+          .select("id, type, amount_minor, amount_base_minor, date")
+          .eq("account_id", accountId)
+          .gte("date", monthRange.start)
+          .lte("date", monthRange.end)
+          .order("date", { ascending: true }),
+        loadMonthState(),
+      ]);
 
-      const selectedMonthTxRows = ((txRows ?? []) as TxRow[]).filter((tx) => {
-        return toPeriodKey(tx.date) === monthKey;
+      if (projectsResult.error) throw projectsResult.error;
+      if (reserveContainersResult.error) throw reserveContainersResult.error;
+      if (monthClosesResult.error) throw monthClosesResult.error;
+      if (monthCloseAllocationsResult.error) throw monthCloseAllocationsResult.error;
+      if (reserveTransfersResult.error) throw reserveTransfersResult.error;
+      if (transactionsResult.error) throw transactionsResult.error;
+
+      const nextProjects = (projectsResult.data ?? []) as Project[];
+      const nextMonthState = monthStateResult;
+
+      setProjects(nextProjects);
+      setReserveContainers((reserveContainersResult.data ?? []) as ReserveContainer[]);
+      setMonthCloses((monthClosesResult.data ?? []) as MonthClose[]);
+      setMonthCloseAllocations((monthCloseAllocationsResult.data ?? []) as MonthCloseAllocation[]);
+      setReserveTransfers((reserveTransfersResult.data ?? []) as ReserveTransfer[]);
+      setTransactions((transactionsResult.data ?? []) as TransactionRow[]);
+      setMonthState(nextMonthState);
+      setInputsByProject(() => {
+        const next: Record<string, string> = {};
+        nextProjects.forEach((project) => {
+          const plan = nextMonthState?.plans.find((row) => row.project_id === project.id);
+          next[project.id] = formatMinorToMoney(
+            toMinor(plan?.planned_amount_base_minor ?? 0),
+            baseCurrency
+          );
+        });
+        return next;
       });
-
-      const monthSavings = computeSavingsMonthFromTransactions(
-        (selectedMonthTxRows as Array<{
-          type: "income" | "expense";
-          amount_minor: bigint | number | string | null;
-          amount_base_minor: bigint | number | string | null;
-        }>) ?? []
-      );
-
-      const { data: projectRows, error: projectsError } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("account_id", accountId)
-        .eq("status", "active")
-        .order("priority", { ascending: true });
-      if (projectsError) throw projectsError;
-
-      const { data: periodRows, error: periodError } = await supabase
-        .from("project_contributions")
-        .select("*")
-        .eq("account_id", accountId)
-        .eq("period", range.start)
-        .eq("confirmed", true);
-      if (periodError) throw periodError;
-
-      const { data: historyRows, error: historyError } = await supabase
-        .from("project_contributions")
-        .select("*")
-        .eq("account_id", accountId)
-        .eq("confirmed", true)
-        .order("period", { ascending: false })
-        .limit(72);
-      if (historyError) throw historyError;
-
-      setSavingsMinor(monthSavings.savingsMinor);
-      setProjects((projectRows ?? []) as Project[]);
-      setPeriodContributions((periodRows ?? []) as ProjectContribution[]);
-      setHistoryContributions((historyRows ?? []) as ProjectContribution[]);
-      setHistoryTransactions((txRows ?? []) as TxRow[]);
     } catch (loadError) {
       console.error("[Savings][web] load error", loadError);
       setError(t("home.savings.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [accountId, monthKey, supabase, t]);
+  }, [accountId, baseCurrency, currentMonthKey, loadMonthState, supabase, t]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
 
-  const distribution = useMemo(
-    () =>
-      computeSavingsDistribution({
-        projects,
-        savingsMinor,
-      }),
-    [projects, savingsMinor]
+  const huchaReserve = useMemo(
+    () => reserveContainers.find((reserveContainer) => reserveContainer.kind === "hucha") ?? null,
+    [reserveContainers]
   );
 
-  const actualByProject = useMemo(() => {
+  const savingsView = useMemo(
+    () =>
+      computeSavingsMonthView({
+        period: currentMonthKey,
+        transactions,
+        fundingPlans:
+          (monthState?.plans ?? []).map((plan) => ({
+            id: `${currentMonthKey}:${plan.project_id}`,
+            account_id: accountId,
+            period: currentMonthStart,
+            project_id: plan.project_id,
+            planned_amount_base_minor: plan.planned_amount_base_minor,
+          })) as MonthlyProjectFundingPlan[],
+        monthClose:
+          monthCloses.find((monthClose) => String(monthClose.period).slice(0, 7) === currentMonthKey) ??
+          null,
+      }),
+    [accountId, currentMonthKey, currentMonthStart, monthCloses, monthState?.plans, transactions]
+  );
+
+  const fundedByProject = useMemo(() => {
     const map = new Map<string, bigint>();
-    periodContributions.forEach((entry) => {
-      map.set(entry.project_id, (map.get(entry.project_id) ?? 0n) + toMinor(entry.actual_amount_base_minor));
-    });
-    return map;
-  }, [periodContributions]);
-
-  const historyStats = useMemo(
-    () =>
-      computeSavingsHistoryStats({
-        projects,
-        contributions: historyContributions,
-      }),
-    [historyContributions, projects]
-  );
-  const projectColorMap = useMemo(() => buildProjectColorMap(projects), [projects]);
-
-  const progressByProject = useMemo(() => {
-    const byProject = new Map<string, ReturnType<typeof computeProjectProgress>>();
-    const contributionsMap = new Map<string, ProjectContribution[]>();
-    historyContributions.forEach((entry) => {
-      const list = contributionsMap.get(entry.project_id) ?? [];
-      list.push(entry);
-      contributionsMap.set(entry.project_id, list);
-    });
-
-    projects.forEach((project) => {
-      if (project.is_hucha) return;
-      byProject.set(
-        project.id,
-        computeProjectProgress({
-          project,
-          contributions: contributionsMap.get(project.id) ?? [],
-        })
+    monthCloseAllocations.forEach((allocation) => {
+      if (!allocation.project_id) return;
+      map.set(
+        allocation.project_id,
+        (map.get(allocation.project_id) ?? 0n) + toMinor(allocation.amount_base_minor)
       );
     });
-    return byProject;
-  }, [historyContributions, projects]);
-
-  const monthlySavings = useMemo(() => {
-    const map = new Map<string, bigint>();
-    historyTransactions.forEach((tx) => {
-      const period = toPeriodKey(tx.date);
-      if (!period) return;
-      const amount = toMinor(tx.amount_base_minor ?? tx.amount_minor);
-      const signedAmount = tx.type === "income" ? amount : -amount;
-      map.set(period, (map.get(period) ?? 0n) + signedAmount);
+    reserveTransfers.forEach((transfer) => {
+      map.set(
+        transfer.destination_project_id,
+        (map.get(transfer.destination_project_id) ?? 0n) + toMinor(transfer.amount_base_minor)
+      );
     });
     return map;
-  }, [historyTransactions]);
+  }, [monthCloseAllocations, reserveTransfers]);
 
-  const chartPeriods = useMemo(() => buildMonthKeysEndingAt(monthKey, 6), [monthKey]);
+  const huchaBalanceMinor = useMemo(
+    () =>
+      getReserveContainerBalanceMinor({
+        reserveContainerId: huchaReserve?.id,
+        closeAllocations: monthCloseAllocations,
+        reserveTransfers,
+      }),
+    [huchaReserve?.id, monthCloseAllocations, reserveTransfers]
+  );
 
-  const evolutionRows = useMemo(() => {
-    const achievedByPeriod = new Map(
-      historyStats.periods.map((row) => [row.period, row.achieved] as const)
-    );
-    return chartPeriods.map((period) => ({
-      period,
-      amountMinor: monthlySavings.get(period) ?? 0n,
-      achieved: achievedByPeriod.get(period) ?? false,
-      isCurrent: period === monthKey,
-    }));
-  }, [chartPeriods, historyStats.periods, monthlySavings, monthKey]);
+  const pendingMonthKeys = useMemo(
+    () =>
+      computePendingMonthCloseKeysFromMonthCloses({
+        commitmentProjects: projects.map((project) => ({
+          projectId: project.id,
+          createdAt: project.created_at ?? null,
+        })),
+        closedMonths: monthCloses.map((monthClose) => ({ period: monthClose.period })),
+        currentMonthKey,
+      }),
+    [currentMonthKey, monthCloses, projects]
+  );
 
-  const chartSegmentsByPeriod = useMemo(() => {
-    const byPeriod = new Map<string, Map<string, bigint>>();
-    historyContributions.forEach((entry) => {
-      const period = toPeriodKey(entry.period);
-      if (!period) return;
-      const projectMap = byPeriod.get(period) ?? new Map<string, bigint>();
-      const current = projectMap.get(entry.project_id) ?? 0n;
-      projectMap.set(entry.project_id, current + toMinor(entry.actual_amount_base_minor));
-      byPeriod.set(period, projectMap);
-    });
-    return byPeriod;
-  }, [historyContributions]);
+  const pendingCloseMonthKey = pendingMonthKeys[0] ?? null;
 
-  const chartScaleMinor = useMemo(() => {
-    let maxMinor = distribution.objectiveMinor > 0n ? distribution.objectiveMinor : 1n;
-    evolutionRows.forEach((row) => {
-      if (row.amountMinor > maxMinor) maxMinor = row.amountMinor;
-    });
-    return maxMinor > 0n ? maxMinor : 1n;
-  }, [distribution.objectiveMinor, evolutionRows]);
-
-  const goalLinePercent = useMemo(() => {
-    if (distribution.objectiveMinor <= 0n) return 0;
-    return Math.min(100, (Number(distribution.objectiveMinor) / Number(chartScaleMinor)) * 100);
-  }, [chartScaleMinor, distribution.objectiveMinor]);
-  const chartBarMaxHeightPx = 120;
-  const chartBarMinHeightPx = 8;
-
-  const reachedDayByPeriod = useMemo(() => {
-    const objectiveMinor = distribution.objectiveMinor;
-    const byPeriod = new Map<string, TxRow[]>();
-    historyTransactions.forEach((tx) => {
-      const period = toPeriodKey(tx.date);
-      if (!period) return;
-      const list = byPeriod.get(period) ?? [];
-      list.push(tx);
-      byPeriod.set(period, list);
-    });
-
-    const reached = new Map<string, number | null>();
-    byPeriod.forEach((rows, period) => {
-      if (objectiveMinor <= 0n) {
-        reached.set(period, null);
-        return;
+  const parsedPlans = useMemo(() => {
+    const rows = projects.map((project) => {
+      const raw = (inputsByProject[project.id] ?? "").trim();
+      if (!raw) {
+        return { projectId: project.id, amountMinor: 0n, error: null as string | null };
       }
-      const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
-      let cumulative = 0n;
-      let dayReached: number | null = null;
-      for (const row of sorted) {
-        const amount = toMinor(row.amount_base_minor ?? row.amount_minor);
-        cumulative += row.type === "income" ? amount : -amount;
-        if (cumulative >= objectiveMinor) {
-          const parsedDate = new Date(`${row.date}T00:00:00`);
-          dayReached = Number.isNaN(parsedDate.getTime()) ? null : parsedDate.getDate();
-          break;
-        }
+
+      const parsed = parseMoneyToMinor(raw, baseCurrency);
+      if (typeof parsed === "object" && "error" in parsed) {
+        return {
+          projectId: project.id,
+          amountMinor: 0n,
+          error: t(parsed.error.key, parsed.error.params),
+        };
       }
-      reached.set(period, dayReached);
+
+      return { projectId: project.id, amountMinor: parsed, error: null as string | null };
     });
 
-    return reached;
-  }, [distribution.objectiveMinor, historyTransactions]);
-
-  const comparison = useMemo<{
-    averageMinor: bigint;
-    savingsDiffMinor: bigint;
-    velocityLabel: string;
-    velocityPositive: boolean;
-    bestMonth: { period: string; amountMinor: bigint } | null;
-  }>(() => {
-    const previousRows = evolutionRows.filter((row) => row.period !== monthKey);
-    const averageMinor =
-      previousRows.length > 0
-        ? previousRows.reduce((total, row) => total + row.amountMinor, 0n) /
-          BigInt(previousRows.length)
-        : 0n;
-
-    const savingsDiffMinor = savingsMinor - averageMinor;
-    const currentDay = reachedDayByPeriod.get(monthKey) ?? null;
-    const previousDays = previousRows
-      .map((row) => reachedDayByPeriod.get(row.period) ?? null)
-      .filter((day): day is number => day !== null);
-    const averageReachedDay =
-      previousDays.length > 0
-        ? Math.round(previousDays.reduce((sum, day) => sum + day, 0) / previousDays.length)
-        : null;
-
-    let velocityLabel = t("home.savings.velocityPending");
-    let velocityPositive = false;
-    if (currentDay !== null && averageReachedDay !== null) {
-      const delta = currentDay - averageReachedDay;
-      if (delta === 0) {
-        velocityLabel = t("home.savings.velocityAverage");
-      } else if (delta < 0) {
-        velocityPositive = true;
-        velocityLabel = t("home.savings.velocityEarlier", {
-          days: Math.abs(delta),
-        });
-      } else {
-        velocityLabel = t("home.savings.velocityLater", { days: delta });
-      }
-    } else if (currentDay !== null && averageReachedDay === null) {
-      velocityLabel = t("home.savings.velocityDay", { day: currentDay });
-    }
-
-    let bestMonth: { period: string; amountMinor: bigint } | null = null;
-    monthlySavings.forEach((amountMinor, period) => {
-      if (bestMonth === null || amountMinor > bestMonth.amountMinor) {
-        bestMonth = { period, amountMinor };
-      }
-    });
-
+    const totalMinor = rows.reduce((total, row) => total + row.amountMinor, 0n);
     return {
-      averageMinor,
-      savingsDiffMinor,
-      velocityLabel,
-      velocityPositive,
-      bestMonth,
+      rows,
+      totalMinor,
+      hasErrors: rows.some((row) => row.error !== null),
     };
-  }, [evolutionRows, monthKey, monthlySavings, reachedDayByPeriod, savingsMinor, t]);
+  }, [baseCurrency, inputsByProject, projects, t]);
 
-  const monthDate = new Date(`${monthKey}-01T00:00:00`);
-  const monthLabel = new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
-    month: "long",
-    year: "numeric",
-  }).format(monthDate);
-  const monthLabelCapitalized = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
-  const positiveSavings = savingsMinor > 0n ? savingsMinor : 0n;
-  const progressScaleMinor =
-    positiveSavings > distribution.objectiveMinor
-      ? positiveSavings
-      : distribution.objectiveMinor > 0n
-      ? distribution.objectiveMinor
-      : 1n;
-  const projectsPercent =
-    progressScaleMinor > 0n
-      ? (Number(distribution.projectCoveredMinor) / Number(progressScaleMinor)) * 100
-      : 0;
-  const huchaPercent =
-    progressScaleMinor > 0n
-      ? (Number(distribution.huchaMinor) / Number(progressScaleMinor)) * 100
-      : 0;
+  const canSavePlan =
+    canEdit &&
+    !parsedPlans.hasErrors &&
+    parsedPlans.totalMinor <= (savingsView.generatedSavedMinor > 0n ? savingsView.generatedSavedMinor : 0n) &&
+    !savingsView.isClosed;
+
+  const handleInputChange = (projectId: string, value: string) => {
+    setInputsByProject((previous) => ({
+      ...previous,
+      [projectId]: sanitizeNumericInput(value),
+    }));
+    setError(null);
+    setMessage(null);
+  };
+
+  const handleSavePlan = async () => {
+    if (!canSavePlan || isSavingPlan) return;
+
+    setIsSavingPlan(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const payload = parsedPlans.rows.map((row) => ({
+        project_id: row.projectId,
+        planned_amount_base_minor: row.amountMinor.toString(),
+      }));
+
+      const { error: rpcError } = await supabase.rpc("replace_monthly_project_funding_plans", {
+        p_account_id: accountId,
+        p_period: currentMonthStart,
+        p_plans: payload,
+      });
+
+      if (rpcError) throw rpcError;
+
+      await emitMutation("monthly_project_funding_plans", "upsert");
+      setMessage(
+        locale === "en"
+          ? "Monthly plan updated."
+          : "Plan mensual actualizado."
+      );
+      await loadData();
+    } catch (saveError) {
+      console.error("[Savings][web] save plan error", saveError);
+      setError(
+        locale === "en"
+          ? "Couldn't save the monthly plan."
+          : "No se pudo guardar el plan mensual."
+      );
+    } finally {
+      setIsSavingPlan(false);
+    }
+  };
 
   return (
     <PageContainer className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <Link
-          href="/projects"
+          href="/"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          {t("navigation.projects")}
+          {locale === "en" ? "Home" : "Inicio"}
         </Link>
-        <div className="inline-flex items-center gap-2 rounded-lg border p-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              const date = new Date(`${monthKey}-01T00:00:00`);
-              date.setMonth(date.getMonth() - 1);
-              setMonthKey(toMonthKey(date));
-            }}
-          >
-            <ChevronLeft className="h-4 w-4" />
+        {pendingCloseMonthKey ? (
+          <Button asChild>
+            <Link href={`/projects/month-close?month=${pendingCloseMonthKey}`}>
+              {t("projects.monthClose.reviewCta")}
+            </Link>
           </Button>
-          <span className="min-w-40 text-center text-sm">{monthLabelCapitalized}</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              const date = new Date(`${monthKey}-01T00:00:00`);
-              date.setMonth(date.getMonth() + 1);
-              setMonthKey(toMonthKey(date));
-            }}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        ) : null}
       </div>
 
-      {loading ? (
+      <Card>
+        <CardHeader className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            {locale === "en" ? "Savings of the month" : "Ahorro del mes"}
+          </p>
+          <h1 className="text-3xl font-semibold">
+            {formatMoneyWithSymbol(
+              savingsView.generatedSavedMinor,
+              baseCurrency,
+              currencySymbol
+            )}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {locale === "en"
+              ? "Whatever you do not assign will go to the piggy bank when you close the month."
+              : "Lo que no asignes irá a la hucha al cerrar el mes."}
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border p-4">
+            <p className="text-xs text-muted-foreground">
+              {locale === "en" ? "Planned to projects" : "Planificado a proyectos"}
+            </p>
+            <p className="text-xl font-semibold">
+              {formatMoneyWithSymbol(
+                savingsView.plannedToProjectsMinor,
+                baseCurrency,
+                currencySymbol
+              )}
+            </p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="text-xs text-muted-foreground">
+              {locale === "en" ? "Available to plan" : "Disponible para planificar"}
+            </p>
+            <p className="text-xl font-semibold">
+              {formatMoneyWithSymbol(
+                savingsView.availableToPlanMinor,
+                baseCurrency,
+                currencySymbol
+              )}
+            </p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="text-xs text-muted-foreground">
+              {locale === "en" ? "Piggy bank balance" : "Saldo de la hucha"}
+            </p>
+            <p className="text-xl font-semibold">
+              {formatMoneyWithSymbol(huchaBalanceMinor, baseCurrency, currencySymbol)}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {pendingCloseMonthKey ? (
         <Card>
-          <CardContent className="p-6 text-sm text-muted-foreground">
-            {t("common.loading")}
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div>
+              <p className="text-sm font-medium">{t("projects.monthClose.pendingTitle")}</p>
+              <p className="text-sm text-muted-foreground">
+                {t("projects.monthClose.pendingDescription", {
+                  month: pendingCloseMonthKey,
+                })}
+              </p>
+            </div>
+            <Button asChild variant="outline">
+              <Link href={`/projects/month-close?month=${pendingCloseMonthKey}`}>
+                <RefreshCcw className="mr-2 h-4 w-4" />
+                {t("projects.monthClose.reviewCta")}
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       ) : null}
-      {error ? (
-        <Card>
-          <CardContent className="p-6 text-sm text-destructive">{error}</CardContent>
+
+      {savingsView.needsRebalance ? (
+        <Card className="border-orange-300/60 bg-orange-50/50">
+          <CardContent className="space-y-1 p-4 text-sm text-orange-900">
+            <p className="font-medium">
+              {locale === "en" ? "Rebalance required" : "Necesita ajuste"}
+            </p>
+            <p>
+              {locale === "en"
+                ? "Recent spending reduced the available savings. Lower the monthly plan before closing."
+                : "Nuevos gastos han reducido el ahorro disponible. Baja el plan mensual antes de cerrar."}
+            </p>
+          </CardContent>
         </Card>
       ) : null}
 
       <Card>
         <CardHeader>
-          <h1 className="text-4xl font-semibold">
-            {formatMoneyWithSymbol(savingsMinor, baseCurrency, currencySymbol)}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {t("home.savings.savedThisMonth")}
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="relative h-9 overflow-hidden rounded-lg bg-secondary">
-            {positiveSavings > 0n ? (
-              <>
-                {(() => {
-                  let cumulativePercent = 0;
-                  const segments = distribution.allocations.map((row) => {
-                    const actualMinor = actualByProject.get(row.project.id) ?? row.allocatedMinor;
-                    const segmentPercent = progressScaleMinor > 0n
-                      ? (Number(actualMinor) / Number(progressScaleMinor)) * 100
-                      : 0;
-                    const projectColor = getProjectColor(row.project, projectColorMap);
-                    const leftPercent = cumulativePercent;
-                    cumulativePercent += segmentPercent;
-                    return {
-                      leftPercent,
-                      widthPercent: segmentPercent,
-                      color: projectColor,
-                      amount: actualMinor,
-                    };
-                  });
-
-                  return (
-                    <>
-                      {segments.map((segment, index) => (
-                        <div
-                          key={index}
-                          className="absolute inset-y-0 flex items-center px-2 text-[11px] font-semibold text-black"
-                          style={{
-                            left: `${Math.max(0, Math.min(100, segment.leftPercent))}%`,
-                            width: `${Math.max(0, Math.min(100, segment.widthPercent))}%`,
-                            backgroundColor: segment.color,
-                          }}
-                        />
-                      ))}
-                    </>
-                  );
-                })()}
-                <div
-                  className="absolute inset-y-0 flex items-center justify-end bg-[#fb923c]/85 px-2 text-[11px] font-semibold text-black"
-                  style={{
-                    width: `${Math.max(0, Math.min(100, huchaPercent))}%`,
-                    left: `${Math.max(0, Math.min(100, projectsPercent))}%`,
-                    backgroundColor: "rgba(109, 201, 160, 0.85)",
-                  }}
-                >
-                  {huchaPercent > 14
-                    ? formatMoneyWithSymbol(distribution.huchaMinor, baseCurrency, currencySymbol)
-                    : null}
-                </div>
-                <div
-                  className="absolute -top-1 h-11 w-[2px] bg-white"
-                  style={{
-                    left: `${Math.max(
-                      0,
-                      Math.min(
-                        100,
-                        (Number(distribution.objectiveMinor) / Number(progressScaleMinor)) * 100
-                      )
-                    )}%`,
-                  }}
-                />
-              </>
-            ) : null}
-          </div>
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <p>
-              {distribution.projectCoveredMinor >= distribution.objectiveMinor &&
-              distribution.objectiveMinor > 0n
-                  ? t("home.savings.statusCovered")
-                : t("home.savings.statusPending")}
-            </p>
-            <p>
-              {t("home.savings.total")}:{" "}
-              {formatMoneyWithSymbol(savingsMinor, baseCurrency, currencySymbol)}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <h2 className="text-lg font-semibold">
-            {t("home.savings.distributionTitle")}
+            {locale === "en" ? "Assign savings" : "Asignar ahorro"}
           </h2>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {distribution.allocations.map((row) => {
-            const actualMinor = actualByProject.get(row.project.id) ?? row.allocatedMinor;
-            const progress = progressByProject.get(row.project.id);
-            const progressPct = Math.round((progress?.progressRatio ?? 0) * 100);
-            const projectColor = getProjectColor(row.project, projectColorMap);
-            return (
-              <div
-                key={row.project.id}
-                className="flex items-center justify-between gap-3 border-b pb-3 last:border-b-0"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <div
-                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-sm"
-                    style={{ backgroundColor: `${projectColor}26` }}
-                  >
-                    {row.project.emoji}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{row.project.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {t("home.savings.commitmentProgress", {
-                        commitment: formatMoneyWithSymbol(
-                          row.commitmentMinor,
-                          baseCurrency,
-                          currencySymbol
-                        ),
-                        progress: progressPct,
-                      })}
+        <CardContent className="space-y-4">
+          {loading ? (
+            <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+          ) : projects.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {locale === "en"
+                ? "Create at least one project to start assigning savings."
+                : "Crea al menos un proyecto para empezar a asignar ahorro."}
+            </p>
+          ) : (
+            projects.map((project) => {
+              const progress = computeProjectProgress({
+                project,
+                fundedMinor: fundedByProject.get(project.id) ?? 0n,
+                plannedThisMonthMinor:
+                  parsedPlans.rows.find((row) => row.projectId === project.id)?.amountMinor ??
+                  0n,
+              });
+
+              return (
+                <div key={project.id} className="rounded-lg border p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-base font-semibold">
+                        {project.emoji} {project.name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatMoneyWithSymbol(progress.savedMinor, baseCurrency, currencySymbol)} /{" "}
+                        {formatMoneyWithSymbol(progress.targetMinor, baseCurrency, currencySymbol)}
+                      </p>
+                    </div>
+                    <p
+                      className="text-sm font-semibold"
+                      style={{ color: getProjectColor(project) }}
+                    >
+                      {Math.round(progress.progressRatio * 100)}%
                     </p>
                   </div>
-                </div>
-                <p className="text-sm font-semibold" style={{ color: projectColor }}>
-                  {formatMoneyWithSymbol(actualMinor, baseCurrency, currencySymbol)}
-                </p>
-              </div>
-            );
-          })}
-          <div className="flex items-center justify-between gap-3 pt-2">
-            <div className="flex items-center gap-3">
-              <div
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-sm"
-                style={{ backgroundColor: `${HUCHA_PROJECT_COLOR}26` }}
-              >
-                🐷
-              </div>
-              <div>
-                <p className="text-sm font-medium">{t("home.savings.hucha")}</p>
-                <p className="text-xs text-muted-foreground">
-                  {t("home.savings.monthlySurplus")}
-                </p>
-              </div>
-            </div>
-            <p className="text-sm font-semibold" style={{ color: HUCHA_PROJECT_COLOR }}>
-              {formatMoneyWithSymbol(distribution.huchaMinor, baseCurrency, currencySymbol)}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <h2 className="text-lg font-semibold">
-            {t("home.savings.progressTitle")}
-          </h2>
-        </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-lg border bg-card p-4">
-            <p className="text-xs text-muted-foreground">
-              {t("home.savings.monthsCompletedLabel")}
-            </p>
-            <p className="text-2xl font-semibold text-emerald-500">
-              {t("home.savings.monthsCompletedValue", {
-                completed: historyStats.achievedMonths,
-                total: historyStats.totalMonths,
-              })}
-            </p>
-          </div>
-          <div className="rounded-lg border bg-card p-4">
-            <p className="text-xs text-muted-foreground">
-              {t("home.savings.currentStreakLabel")}
-            </p>
-            <p className="text-2xl font-semibold">
-              {t("home.savings.currentStreakValue", {
-                count: historyStats.currentStreak,
-              })}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <h2 className="text-lg font-semibold">
-            {t("home.savings.evolutionTitle")}
-          </h2>
-        </CardHeader>
-        <CardContent>
-          <div className="relative h-36">
-            {distribution.objectiveMinor > 0n ? (
-              <div
-                className="pointer-events-none absolute left-0 right-0 border-t-2 border-dashed border-muted-foreground/70"
-                style={{ bottom: `${goalLinePercent}%` }}
-              >
-                <span className="absolute right-0 -translate-y-4 text-[10px] text-muted-foreground">
-                  {t("home.savings.goalLabel")}{" "}
-                  {formatMoneyWithSymbol(distribution.objectiveMinor, baseCurrency, currencySymbol)}
-                </span>
-              </div>
-            ) : null}
-            <div className="absolute inset-0 flex items-end gap-2">
-              {evolutionRows.map((row) => {
-                const positiveAmount = row.amountMinor > 0n ? row.amountMinor : 0n;
-                const heightPx = Math.max(
-                  positiveAmount > 0n ? 10 : chartBarMinHeightPx,
-                  (Number(positiveAmount) / Number(chartScaleMinor)) * chartBarMaxHeightPx
-                );
-                const periodContribs = chartSegmentsByPeriod.get(row.period);
-                const segments: Array<{ color: string; ratio: number }> = [];
-                if (periodContribs && positiveAmount > 0n) {
-                  projects.forEach((project) => {
-                    const amount = periodContribs.get(project.id) ?? 0n;
-                    if (amount <= 0n) return;
-                    segments.push({
-                      color: project.is_hucha
-                        ? HUCHA_PROJECT_COLOR
-                        : getProjectColor(project, projectColorMap),
-                      ratio: Number(amount) / Number(positiveAmount),
-                    });
-                  });
-                }
-                const hasSegments = segments.length > 0;
-                return (
-                  <div key={row.period} className="flex flex-1 flex-col items-center gap-2">
-                    <div
-                      className={`flex w-full max-w-8 flex-col-reverse overflow-hidden rounded-t-sm ${
-                        row.isCurrent ? "shadow-[0_0_14px_rgba(74,222,128,0.35)]" : ""
-                      }`}
-                      style={{ height: `${Math.min(chartBarMaxHeightPx, heightPx)}px` }}
-                    >
-                      {hasSegments
-                        ? segments.map((seg, index) => (
-                            <div
-                              key={index}
-                              style={{
-                                backgroundColor: seg.color,
-                                flex: seg.ratio,
-                              }}
-                            />
-                          ))
-                        : (
-                            <div
-                              className="h-full w-full"
-                              style={{ backgroundColor: HUCHA_PROJECT_COLOR }}
-                            />
-                          )}
+                  <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_180px] sm:items-end">
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        {locale === "en" ? "Funding target" : "Objetivo mensual"}
+                      </p>
+                      <p className="text-sm font-medium">
+                        {formatMoneyWithSymbol(
+                          getProjectMonthlyFundingTargetMinor(project),
+                          baseCurrency,
+                          currencySymbol
+                        )}
+                      </p>
                     </div>
-                    <span className="text-[10px] text-muted-foreground">
-                      {new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
-                        month: "short",
-                      })
-                        .format(new Date(`${row.period}-01T00:00:00`))
-                        .replace(".", "")}
-                    </span>
+                    <div>
+                      <label className="text-xs text-muted-foreground">
+                        {locale === "en" ? "Planned this month" : "Planificado este mes"}
+                      </label>
+                      <Input
+                        value={inputsByProject[project.id] ?? ""}
+                        onChange={(event) =>
+                          handleInputChange(project.id, event.target.value)
+                        }
+                        inputMode="decimal"
+                        placeholder="0"
+                        disabled={!canEdit || savingsView.isClosed}
+                      />
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                </div>
+              );
+            })
+          )}
 
-      <Card>
-        <CardHeader>
-          <h2 className="text-lg font-semibold">
-            {t("home.savings.comparisonTitle")}
-          </h2>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <div className="flex items-center justify-between border-b pb-2">
-            <span className="text-muted-foreground">{t("home.savings.comparisonSavings")}</span>
-            <span className={comparison.savingsDiffMinor >= 0n ? "text-emerald-500" : "text-orange-400"}>
-              {formatSignedMoney(comparison.savingsDiffMinor, baseCurrency, currencySymbol)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between border-b pb-2">
-            <span className="flex items-center gap-1.5 text-muted-foreground">
-              {t("home.savings.comparisonSpeed")}
-              <button
-                type="button"
-                onClick={() => setIsSpeedTooltipOpen(true)}
-                className="inline-flex items-center justify-center rounded-sm p-0.5 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-muted-foreground"
-                aria-label={t("home.savings.comparisonSpeedTooltip")}
-              >
-                <Info className="h-3.5 w-3.5" />
-              </button>
-            </span>
-            <span className={comparison.velocityPositive ? "text-emerald-500" : "text-orange-400"}>
-              {comparison.velocityLabel}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">{t("home.savings.comparisonBestMonth")}</span>
-            <span>
-              {comparison.bestMonth
-                ? `${formatMonthLabel(comparison.bestMonth.period, locale === "en" ? "en-US" : "es-ES")} · ${formatMoneyWithSymbol(
-                    comparison.bestMonth.amountMinor,
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {message ? <p className="text-sm text-emerald-600">{message}</p> : null}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+            <div className="space-y-1 text-sm">
+              <p className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-muted-foreground" />
+                {locale === "en" ? "Planned total" : "Total planificado"}:{" "}
+                <span className="font-semibold">
+                  {formatMoneyWithSymbol(
+                    parsedPlans.totalMinor,
                     baseCurrency,
                     currencySymbol
-                  )}`
-                : t("home.savings.noData")}
-            </span>
+                  )}
+                </span>
+              </p>
+              <p className="flex items-center gap-2 text-muted-foreground">
+                <PiggyBank className="h-4 w-4" />
+                {locale === "en" ? "Projected to piggy bank" : "Previsto para la hucha"}:{" "}
+                {formatMoneyWithSymbol(
+                  savingsView.generatedSavedMinor > parsedPlans.totalMinor
+                    ? savingsView.generatedSavedMinor - parsedPlans.totalMinor
+                    : 0n,
+                  baseCurrency,
+                  currencySymbol
+                )}
+              </p>
+            </div>
+
+            <Button onClick={handleSavePlan} disabled={!canSavePlan || isSavingPlan}>
+              {isSavingPlan
+                ? (locale === "en" ? "Saving..." : "Guardando...")
+                : (locale === "en" ? "Save plan" : "Guardar plan")}
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      <ConfirmationModal
-        open={isSpeedTooltipOpen}
-        title={t("home.savings.comparisonSpeed")}
-        description={t("home.savings.comparisonSpeedTooltip")}
-        confirmLabel={t("common.ok")}
-        onConfirm={() => setIsSpeedTooltipOpen(false)}
-        onCancel={() => setIsSpeedTooltipOpen(false)}
-      />
+      {huchaReserve ? (
+        <Card>
+          <CardContent className="flex items-center justify-between gap-3 p-4">
+            <div>
+              <p className="text-sm font-medium">
+                {huchaReserve.emoji} {huchaReserve.name}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {locale === "en"
+                  ? "Generic reserve for whatever is left after the month close."
+                  : "Reserva genérica para lo que quede tras el cierre mensual."}
+              </p>
+            </div>
+            <Button asChild variant="outline">
+              <Link href={`/reserves/${huchaReserve.id}`}>
+                {locale === "en" ? "Open reserve" : "Abrir reserva"}
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
     </PageContainer>
   );
 }

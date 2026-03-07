@@ -1,6 +1,6 @@
 import type { ObligationStatus } from "../domain/types";
 
-export type SupabaseLikeClient = {
+type SupabaseLikeClient = {
   from: (table: string) => any;
 };
 

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   computeGoalComposition,
   computePendingMonthCloseKeys,
+  computePendingMonthCloseKeysFromMonthCloses,
   computeProjectMonthlyAllocation,
   computeProjectProgress,
   distributeProjectSurplusProportionally,
@@ -61,7 +62,7 @@ test("computeProjectProgress derives saved amount and ETA", () => {
   assert.equal(progress.estimatedCompletionDate?.getMonth(), 1);
 });
 
-test("computeProjectProgress includes extra expense contributions", () => {
+test("computeProjectProgress tracks spending separately from funded progress", () => {
   const project: Project = {
     id: "project-1",
     account_id: "acc-1",
@@ -86,15 +87,15 @@ test("computeProjectProgress includes extra expense contributions", () => {
   const progress = computeProjectProgress({
     project,
     contributions,
-    extraContributedMinor: "50000",
+    spentMinor: "50000",
     now: new Date(2026, 1, 10),
   });
 
   assert.equal(progress.monthlySavedMinor, 100000n);
-  assert.equal(progress.extraSavedMinor, 50000n);
-  assert.equal(progress.savedMinor, 150000n);
-  assert.equal(progress.remainingMinor, 450000n);
-  assert.equal(progress.monthsLeft, 13);
+  assert.equal(progress.savedMinor, 100000n);
+  assert.equal(progress.spentMinor, 50000n);
+  assert.equal(progress.remainingMinor, 500000n);
+  assert.equal(progress.monthsLeft, 15);
 });
 
 test("computeProjectMonthlyAllocation respects strict priority in deficit", () => {
@@ -190,4 +191,17 @@ test("computePendingMonthCloseKeys ignores future project starts", () => {
   });
 
   assert.deepEqual(pending, []);
+});
+
+test("computePendingMonthCloseKeysFromMonthCloses uses month-level closes", () => {
+  const pending = computePendingMonthCloseKeysFromMonthCloses({
+    commitmentProjects: [
+      { projectId: "p1", createdAt: "2026-01-12" },
+      { projectId: "p2", createdAt: "2026-03-02" },
+    ],
+    closedMonths: [{ period: "2026-01-01" }, { period: "2026-03-01" }],
+    currentMonthKey: "2026-05",
+  });
+
+  assert.deepEqual(pending, ["2026-04", "2026-02"]);
 });
