@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   addMonths,
+  clampMonthKeyToLatestClosable,
   computePendingMonthCloseKeysFromMonthCloses,
   CURRENCIES,
   toMonthKey,
@@ -132,10 +133,14 @@ export default async function ProjectsMonthClosePage({
   });
 
   const requestedMonth = resolvedSearchParams.month;
-  const monthKey =
+  const sanitizedRequestedMonth =
     typeof requestedMonth === "string" && MONTH_KEY_PATTERN.test(requestedMonth)
-      ? requestedMonth
-      : pendingMonthKeys[0] ?? defaultMonthKey;
+      ? clampMonthKeyToLatestClosable(requestedMonth, currentMonthKey)
+      : null;
+  if (typeof requestedMonth === "string" && sanitizedRequestedMonth !== requestedMonth) {
+    redirect(`/projects/month-close?month=${sanitizedRequestedMonth}`);
+  }
+  const monthKey = sanitizedRequestedMonth ?? pendingMonthKeys[0] ?? defaultMonthKey;
   const monthStart = `${monthKey}-01`;
 
   const { data: monthState, error: monthStateError } = await supabase.rpc(

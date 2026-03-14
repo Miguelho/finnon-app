@@ -11,11 +11,13 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   addMonths,
+  clampMonthKeyToLatestClosable,
   computePendingMonthCloseKeysFromMonthCloses,
   CURRENCIES,
   formatMinorToMoney,
   formatMoneyWithSymbol,
   formatMonthLabel,
+  getLatestClosableMonthKey,
   getProjectMonthlyFundingTargetMinor,
   parseMoneyToMinor,
   themeTokens,
@@ -176,6 +178,7 @@ export default function ProjectsMonthCloseScreen() {
       const nextMonthCloses = (monthClosesResult.data ?? []) as MonthClose[];
       const currentMonthKey = toMonthKey(new Date());
       const defaultMonthKey = addMonths(currentMonthKey, -1);
+      const latestClosableMonthKey = getLatestClosableMonthKey(currentMonthKey);
       const computedPendingMonthKeys = computePendingMonthCloseKeysFromMonthCloses({
         commitmentProjects: nextProjects.map((project) => ({
           projectId: project.id,
@@ -185,10 +188,15 @@ export default function ProjectsMonthCloseScreen() {
         currentMonthKey,
       });
 
+      const requestedMonth =
+        typeof month === "string" && MONTH_KEY_PATTERN.test(month) ? month : null;
       const resolvedMonth =
-        typeof month === "string" && MONTH_KEY_PATTERN.test(month)
-          ? month
+        requestedMonth
+          ? clampMonthKeyToLatestClosable(requestedMonth, currentMonthKey)
           : computedPendingMonthKeys[0] ?? defaultMonthKey;
+      if (requestedMonth && requestedMonth !== resolvedMonth) {
+        router.replace(`/(auth)/(tabs)/projects/month-close?month=${resolvedMonth}`);
+      }
       const monthStart = `${resolvedMonth}-01`;
 
       const { data: currentMonthState, error: monthStateError } = await supabase.rpc(
@@ -246,14 +254,16 @@ export default function ProjectsMonthCloseScreen() {
     } finally {
       setLoading(false);
     }
-  }, [localeCode, month, selectedAccountId, user]);
+  }, [localeCode, month, router, selectedAccountId, user]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
 
+  const latestClosableMonthKey = getLatestClosableMonthKey();
   const canEdit = role !== "viewer";
   const isClosed = monthState?.is_closed ?? Boolean(monthClose?.id);
+  const isClosableMonth = monthKey <= latestClosableMonthKey;
   const actualSavedMinor = toMinor(monthState?.generated_saved_base_minor ?? 0);
   const positiveSavedMinor = actualSavedMinor > 0n ? actualSavedMinor : 0n;
   const huchaReserve =
@@ -286,7 +296,8 @@ export default function ProjectsMonthCloseScreen() {
   const needsRebalance = parsedPlans.totalMinor > positiveSavedMinor;
   const projectedReserveMinor =
     positiveSavedMinor > parsedPlans.totalMinor ? positiveSavedMinor - parsedPlans.totalMinor : 0n;
-  const canPersistPlan = canEdit && !isClosed && !parsedPlans.hasErrors && !needsRebalance;
+  const canPersistPlan =
+    canEdit && isClosableMonth && !isClosed && !parsedPlans.hasErrors && !needsRebalance;
   const canConfirmClose = canPersistPlan && !isClosing;
 
   const allocationRows = useMemo(() => {
@@ -405,6 +416,7 @@ export default function ProjectsMonthCloseScreen() {
 
   const previousMonth = addMonths(monthKey, -1);
   const nextMonth = addMonths(monthKey, 1);
+  const canNavigateNext = nextMonth <= latestClosableMonthKey;
   const closedAtLabel = formatClosedAt(
     monthState?.closed_at ??
       (typeof monthClose?.closed_at === "string" ? monthClose.closed_at : null),
@@ -470,10 +482,14 @@ export default function ProjectsMonthCloseScreen() {
               </View>
               <Pressable
                 onPress={() =>
-                  router.replace(`/(auth)/(tabs)/projects/month-close?month=${nextMonth}`)
+                  canNavigateNext
+                    ? router.replace(`/(auth)/(tabs)/projects/month-close?month=${nextMonth}`)
+                    : undefined
                 }
+                disabled={!canNavigateNext}
                 style={[
                   styles.monthButton,
+                  !canNavigateNext && styles.monthButtonDisabled,
                   { borderColor: userTokens.border, backgroundColor: userTokens.surface },
                 ]}
               >
@@ -760,6 +776,9 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radii.md,
     alignItems: "center",
     justifyContent: "center",
+  },
+  monthButtonDisabled: {
+    opacity: 0.45,
   },
   monthButtonText: {
     fontSize: 20,

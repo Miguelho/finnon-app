@@ -4,6 +4,8 @@ export const toMonthKey = (date: Date): string => {
   return `${year}-${month}`;
 };
 
+const MONTH_KEY_PATTERN = /^\d{4}-\d{2}$/;
+
 export const startOfMonth = (date: Date): Date =>
   new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
 
@@ -35,10 +37,26 @@ export const formatMonthLabel = (monthKey: string, locale?: string): string => {
 };
 
 const normalizeMonthKey = (monthKey: string): string => {
-  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+  if (!MONTH_KEY_PATTERN.test(monthKey)) {
     return toMonthKey(new Date());
   }
   return monthKey;
+};
+
+export const getLatestClosableMonthKey = (currentMonthKey?: string): string => {
+  const resolvedCurrentMonthKey = normalizeMonthKey(currentMonthKey ?? toMonthKey(new Date()));
+  return addMonths(resolvedCurrentMonthKey, -1);
+};
+
+export const clampMonthKeyToLatestClosable = (
+  monthKey: string,
+  currentMonthKey?: string
+): string => {
+  const normalizedMonthKey = normalizeMonthKey(monthKey);
+  const latestClosableMonthKey = getLatestClosableMonthKey(currentMonthKey);
+  return normalizedMonthKey > latestClosableMonthKey
+    ? latestClosableMonthKey
+    : normalizedMonthKey;
 };
 
 export const getMonthRangeFromKey = (

@@ -97,7 +97,7 @@ export default async function ProjectDetailPage({
     .eq("project_id", project.id)
     .eq("period", currentPeriod);
 
-  const { data: extraContributions } = await supabase
+  const { data: projectExpenses } = await supabase
     .from("transactions")
     .select("id, date, merchant, notes, amount_base_minor")
     .eq("account_id", activeAccount.id)
@@ -147,8 +147,8 @@ export default async function ProjectDetailPage({
         monthCloseAllocations={monthCloseAllocations ?? []}
         reserveTransfers={reserveTransfers ?? []}
         fundingPlans={fundingPlans ?? []}
-        initialExtraContributions={
-          (extraContributions ?? []) as Array<{
+        initialProjectExpenses={
+          (projectExpenses ?? []) as Array<{
             id: string;
             date: string;
             merchant: string | null;

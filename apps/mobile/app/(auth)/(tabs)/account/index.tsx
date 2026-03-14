@@ -657,7 +657,7 @@ function buildAccountScreenData(params: {
       };
     });
 
-  let contributionBalance: AccountScreenData["contributionBalance"] = {
+  let memberBalance: AccountScreenData["memberBalance"] = {
     members: [],
     debts: [],
     expenseCategories: expenseContributionCategories,
@@ -677,7 +677,7 @@ function buildAccountScreenData(params: {
     const memberBalances = calculateContributionBalance(contributionTransactions, activeMemberIds);
     const memberDebts = simplifyContributionDebts(memberBalances, divisor);
 
-    contributionBalance = {
+    memberBalance = {
       members: memberBalances.map((member) => {
         const contributor = contributorByUserId.get(member.userId);
         const participant = participantByUserId.get(member.userId);
@@ -736,7 +736,7 @@ function buildAccountScreenData(params: {
       recentTransactions: recent,
       monthlyHistory,
       contributors,
-      contributionBalance,
+      memberBalance,
     },
     currencyDecimals: minorUnits,
   };

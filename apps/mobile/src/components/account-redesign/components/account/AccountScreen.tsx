@@ -1,11 +1,11 @@
 import { View, StyleSheet } from 'react-native';
 import { AccountHeader } from '../../components/account/AccountHeader';
 import { BalanceHero } from '../../components/account/BalanceHero';
-import { ContributionPeriodBanner } from '../../components/account/ContributionPeriodBanner';
+import { MemberBalanceBanner } from '../../components/account/MemberBalanceBanner';
 import { PeriodSelector } from '../../components/account/PeriodSelector';
 import { FlowCards } from '../../components/account/FlowCards';
 import { MonthlyChart } from '../../components/account/MonthlyChart';
-import { ContributionBalanceSection } from '../../components/account/ContributionBalanceSection';
+import { MemberBalanceSection } from '../../components/account/MemberBalanceSection';
 import type {
   Period,
   AccountScreenData,
@@ -55,9 +55,9 @@ export function AccountScreen({
         decimals={currencyDecimals}
       />
 
-      <ContributionPeriodBanner
+      <MemberBalanceBanner
         contributors={data.contributors}
-        contributionBalance={data.contributionBalance}
+        memberBalance={data.memberBalance}
         period={period}
         currency={currencySymbol}
         decimals={currencyDecimals}
@@ -85,8 +85,8 @@ export function AccountScreen({
         contributors={data.contributors}
       />
 
-      <ContributionBalanceSection
-        data={data.contributionBalance}
+      <MemberBalanceSection
+        data={data.memberBalance}
         contributors={data.contributors}
         currencySymbol={currencySymbol}
         currencyDecimals={currencyDecimals}

@@ -56,7 +56,7 @@ export interface MonthlyDataPoint {
   expenseByUser: Array<{ userId: string; amount: number }>;
 }
 
-export interface ContributionMemberBalance {
+export interface MemberBalanceMember {
   userId: string;
   name: string;
   initials: string;
@@ -66,7 +66,7 @@ export interface ContributionMemberBalance {
   net: number;
 }
 
-export interface ContributionDebt {
+export interface MemberBalanceDebt {
   fromUserId: string;
   fromName: string;
   toUserId: string;
@@ -74,27 +74,27 @@ export interface ContributionDebt {
   amount: number;
 }
 
-export interface ContributionCategoryShare {
+export interface MemberBalanceCategoryShare {
   userId: string;
   name: string;
   amount: number;
   percentage: number;
 }
 
-export interface ContributionCategorySummary {
+export interface MemberBalanceCategorySummary {
   id: string;
   name: string;
   iconId?: string | null;
   totalAmount: number;
   transactionCount: number;
-  shares: ContributionCategoryShare[];
+  shares: MemberBalanceCategoryShare[];
 }
 
-export interface ContributionBalanceData {
-  members: ContributionMemberBalance[];
-  debts: ContributionDebt[];
-  expenseCategories: ContributionCategorySummary[];
-  incomeCategories: ContributionCategorySummary[];
+export interface MemberBalanceData {
+  members: MemberBalanceMember[];
+  debts: MemberBalanceDebt[];
+  expenseCategories: MemberBalanceCategorySummary[];
+  incomeCategories: MemberBalanceCategorySummary[];
 }
 
 export interface AccountContributor {
@@ -114,5 +114,5 @@ export interface AccountScreenData {
   recentTransactions: Transaction[];
   monthlyHistory: MonthlyDataPoint[];
   contributors: AccountContributor[];
-  contributionBalance: ContributionBalanceData | null;
+  memberBalance: MemberBalanceData | null;
 }

@@ -385,7 +385,7 @@ export function SavingsClient({
       <Card>
         <CardHeader className="space-y-2">
           <p className="text-sm text-muted-foreground">
-            {locale === "en" ? "Savings of the month" : "Ahorro del mes"}
+            {locale === "en" ? "Monthly savings" : "Ahorro del mes"}
           </p>
           <h1 className="text-3xl font-semibold">
             {formatMoneyWithSymbol(
@@ -396,7 +396,7 @@ export function SavingsClient({
           </h1>
           <p className="text-sm text-muted-foreground">
             {locale === "en"
-              ? "Whatever you do not assign will go to the piggy bank when you close the month."
+              ? "Whatever you do not assign will go to Hucha when you close the month."
               : "Lo que no asignes irá a la hucha al cerrar el mes."}
           </p>
         </CardHeader>
@@ -427,7 +427,7 @@ export function SavingsClient({
           </div>
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground">
-              {locale === "en" ? "Piggy bank balance" : "Saldo de la hucha"}
+              {locale === "en" ? "Hucha balance" : "Saldo de la hucha"}
             </p>
             <p className="text-xl font-semibold">
               {formatMoneyWithSymbol(huchaBalanceMinor, baseCurrency, currencySymbol)}

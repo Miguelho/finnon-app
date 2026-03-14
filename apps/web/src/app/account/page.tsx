@@ -373,7 +373,7 @@ const sumTotals = (rows: TransactionRow[]) => {
   return { income, expense };
 };
 
-type ContributionBalanceData = NonNullable<AccountRedesignData["contributionBalance"]>;
+type MemberBalanceData = NonNullable<AccountRedesignData["memberBalance"]>;
 
 function buildAccountRedesignData(params: {
   summary: AccountSummaryData;
@@ -607,14 +607,14 @@ function buildAccountRedesignData(params: {
       };
     });
 
-  const contributionBalanceBase: ContributionBalanceData = {
+  const memberBalanceBase: MemberBalanceData = {
     members: [],
     debts: [],
     expenseCategories: expenseContributionCategories,
     incomeCategories: incomeContributionCategories,
   };
 
-  let contributionBalance: AccountRedesignData["contributionBalance"] = contributionBalanceBase;
+  let memberBalance: AccountRedesignData["memberBalance"] = memberBalanceBase;
   if (activeParticipants.length >= 2) {
     const expenseTransactions = currentTransactions.filter((tx) => tx.type === "expense");
     const contributionTransactions = expenseTransactions.map((tx) => ({
@@ -628,7 +628,7 @@ function buildAccountRedesignData(params: {
     const memberBalances = calculateContributionBalance(contributionTransactions, activeMemberIds);
     const memberDebts = simplifyContributionDebts(memberBalances, divisor);
 
-    contributionBalance = {
+    memberBalance = {
       members: memberBalances.map((member) => ({
         userId: member.userId,
         name:
@@ -691,7 +691,7 @@ function buildAccountRedesignData(params: {
     recentTransactions: recent,
     monthlyHistory,
     contributors,
-    contributionBalance,
+    memberBalance,
   };
 }
 

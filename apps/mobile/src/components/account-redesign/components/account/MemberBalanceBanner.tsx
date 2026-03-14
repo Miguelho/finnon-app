@@ -16,14 +16,14 @@ import { useCopy, t } from "../../../../lib/i18n";
 import { X } from "lucide-react-native";
 import type {
   AccountContributor,
-  ContributionBalanceData,
-  ContributionMemberBalance,
+  MemberBalanceData,
+  MemberBalanceMember,
   Period,
 } from "../../types/account";
 
-interface ContributionPeriodBannerProps {
+interface MemberBalanceBannerProps {
   contributors: AccountContributor[];
-  contributionBalance: ContributionBalanceData | null;
+  memberBalance: MemberBalanceData | null;
   period: Period;
   currency?: string;
   decimals?: number;
@@ -48,13 +48,13 @@ function hexToRgba(hex: string, alpha: number) {
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
-export function ContributionPeriodBanner({
+export function MemberBalanceBanner({
   contributors,
-  contributionBalance,
+  memberBalance,
   period,
   currency = "€",
   decimals = 2,
-}: ContributionPeriodBannerProps) {
+}: MemberBalanceBannerProps) {
   const { dictionary } = useCopy();
   const { tokens: userTokens } = useUserTheme();
   const { user } = useAuth();
@@ -76,8 +76,8 @@ export function ContributionPeriodBanner({
     []
   );
 
-  const contributionBanner = useMemo(() => {
-    if (!contributionBalance || contributionBalance.members.length < 2) return null;
+  const memberBalanceBanner = useMemo(() => {
+    if (!memberBalance || memberBalance.members.length < 2) return null;
 
     const periodKeyByValue: Record<Period, string> = {
       week: "account.redesign.periodWeek",
@@ -86,7 +86,7 @@ export function ContributionPeriodBanner({
       year: "account.redesign.periodYear",
     };
 
-    const sorted = [...contributionBalance.members].sort((a, b) => b.totalPaid - a.totalPaid);
+    const sorted = [...memberBalance.members].sort((a, b) => b.totalPaid - a.totalPaid);
     const leader = sorted[0];
     const trailing = sorted[sorted.length - 1];
     if (!leader || !trailing) return null;
@@ -124,17 +124,17 @@ export function ContributionPeriodBanner({
       initials: contributor?.initials ?? leader.initials,
       color: contributor?.color ?? leader.color,
     };
-  }, [contributionBalance, contributors, currency, decimals, dictionary, period, user?.id]);
+  }, [memberBalance, contributors, currency, decimals, dictionary, period, user?.id]);
 
-  if (!contributionBanner) return null;
+  if (!memberBalanceBanner) return null;
 
-  const members = contributionBalance?.members ?? [];
+  const members = memberBalance?.members ?? [];
   const globalMax = members.reduce(
     (max, member) => Math.max(max, member.totalPaid, member.totalResponsible),
     0
   );
 
-  const renderMemberRow = (member: ContributionMemberBalance) => {
+  const renderMemberRow = (member: MemberBalanceMember) => {
     const net = formatCurrency(member.net, { currency, decimals, showSign: true }).full;
     const paid = formatCurrency(member.totalPaid, { currency, decimals }).full;
     const responsibility = formatCurrency(member.totalResponsible, { currency, decimals }).full;
@@ -229,21 +229,21 @@ export function ContributionPeriodBanner({
             style={[
               styles.banner,
               {
-                backgroundColor: hexToRgba(contributionBanner.color, 0.14),
-                borderColor: hexToRgba(contributionBanner.color, 0.25),
+                backgroundColor: hexToRgba(memberBalanceBanner.color, 0.14),
+                borderColor: hexToRgba(memberBalanceBanner.color, 0.25),
               },
             ]}
           >
             <View
               style={[
                 styles.bannerAvatar,
-                { backgroundColor: contributionBanner.color },
+                { backgroundColor: memberBalanceBanner.color },
               ]}
             >
-              <Text style={styles.bannerAvatarText}>{contributionBanner.initials}</Text>
+              <Text style={styles.bannerAvatarText}>{memberBalanceBanner.initials}</Text>
             </View>
             <Text style={[styles.bannerText, { color: userTokens.textPrimary }]}>
-              {contributionBanner.message}
+              {memberBalanceBanner.message}
             </Text>
           </View>
         </Pressable>
@@ -322,21 +322,21 @@ export function ContributionPeriodBanner({
                 style={[
                   styles.banner,
                   {
-                    backgroundColor: hexToRgba(contributionBanner.color, 0.14),
-                    borderColor: hexToRgba(contributionBanner.color, 0.25),
+                    backgroundColor: hexToRgba(memberBalanceBanner.color, 0.14),
+                    borderColor: hexToRgba(memberBalanceBanner.color, 0.25),
                   },
                 ]}
               >
                 <View
                   style={[
                     styles.bannerAvatar,
-                    { backgroundColor: contributionBanner.color },
+                    { backgroundColor: memberBalanceBanner.color },
                   ]}
                 >
-                  <Text style={styles.bannerAvatarText}>{contributionBanner.initials}</Text>
+                  <Text style={styles.bannerAvatarText}>{memberBalanceBanner.initials}</Text>
                 </View>
                 <Text style={[styles.bannerText, { color: userTokens.textPrimary }]}>
-                  {contributionBanner.message}
+                  {memberBalanceBanner.message}
                 </Text>
               </View>
             </View>

@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Finnon – Proyectos v3</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #F7F8FA;
+  --surface: #FFFFFF;
+  --surface2: #F0F2F5;
+  --primary: #5B8DFF;
+  --dark: #1C1E21;
+  --mid: #5F6368;
+  --subtle: #9AA0A6;
+  --ae: #2D6A8F;
+  --ae-light: #A8D8EA;
+  --radius: 20px;
+  --radius-sm: 12px;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: #DDE1E7;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.phone {
+  width: 390px;
+  min-height: 844px;
+  background: var(--bg);
+  border-radius: 44px;
+  overflow: hidden;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.07);
+  display: flex;
+  flex-direction: column;
+}
+
+.status-bar {
+  padding: 14px 24px 0;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12px; font-weight: 600; color: var(--dark); flex-shrink: 0;
+}
+.nav {
+  padding: 12px 24px 8px;
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.nav-title { font-size: 22px; font-weight: 600; color: var(--dark); letter-spacing: -0.5px; }
+.nav-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--surface2); display: flex; align-items: center;
+  justify-content: center; cursor: pointer; border: none;
+}
+
+.scroll { flex: 1; overflow-y: auto; padding: 0 20px 40px; }
+.scroll::-webkit-scrollbar { display: none; }
+
+/* ── HERO PANEL ── */
+.hero-panel {
+  background: var(--ae);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+}
+.hero-panel::before {
+  content: '';
+  position: absolute; top: -50px; right: -50px;
+  width: 160px; height: 160px; border-radius: 50%;
+  background: rgba(255,255,255,0.035); pointer-events: none;
+}
+
+/* Stage: bucket left, pipe canvas center, projects right */
+.hero-stage {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 130px;
+  position: relative;
+}
+
+/* Bucket column */
+.bucket-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  width: 88px;
+}
+canvas#huchaC { width: 72px; height: 72px; display: block; }
+.bucket-amount {
+  font-size: 15px; font-weight: 400; color: #fff;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.5px;
+  text-align: center;
+}
+.bucket-amount small { font-size: 11px; opacity: 0.5; margin-right: 1px; }
+.bucket-label { font-size: 9px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.6px; }
+
+/* Pipe canvas */
+#pipeCanvas {
+  flex: 1;
+  height: 130px;
+  display: block;
+}
+
+/* Projects column */
+.projects-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 6px;
+  flex-shrink: 0;
+  width: 80px;
+  height: 100%;
+}
+
+.proj-node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.proj-node.inactive { opacity: 0.45; }
+
+.proj-shape-wrap {
+  position: relative;
+  width: 36px; height: 36px;
+  flex-shrink: 0;
+}
+.proj-shape-wrap svg { width: 36px; height: 36px; transform: rotate(-90deg); }
+.ps-bg   { fill: none; stroke: rgba(255,255,255,0.12); stroke-width: 3; }
+.ps-fill { fill: none; stroke-width: 3; stroke-linecap: round;
+  transition: stroke-dashoffset 0.9s cubic-bezier(.4,0,.2,1); }
+.proj-emoji-node {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%); font-size: 14px;
+}
+
+.proj-node-meta { flex: 1; min-width: 0; }
+.proj-node-name {
+  font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.85);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.proj-node-date { font-size: 9px; color: rgba(255,255,255,0.4); margin-top: 1px; }
+
+/* ── PROMPT ── */
+.prompt-area {
+  margin-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding-top: 12px;
+}
+.prompt-row {
+  display: flex; align-items: flex-end; gap: 6px;
+  border-bottom: 1.5px solid rgba(255,255,255,0.35);
+  padding-bottom: 3px;
+  margin-bottom: 8px;
+}
+.prompt-prefix { font-size: 20px; font-weight: 300; color: rgba(255,255,255,0.45); line-height: 1; }
+input.prompt-amt {
+  flex: 1; background: transparent; border: none; outline: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 24px; font-weight: 300; color: #fff;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.5px;
+  padding: 0; line-height: 1; width: 80px;
+}
+input.prompt-amt::placeholder { color: rgba(255,255,255,0.2); }
+
+/* Blinking cursor trick via caret */
+input.prompt-amt:focus { caret-color: rgba(255,255,255,0.8); }
+
+.prompt-actions {
+  display: flex; gap: 6px; align-items: center;
+}
+.prompt-action-btn {
+  flex: 1; padding: 6px 0;
+  border: none; border-radius: 8px;
+  font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+}
+.btn-t {
+  background: rgba(255,255,255,0.15); color: #fff;
+}
+.btn-t:hover, .btn-t.active { background: rgba(255,255,255,0.25); }
+.btn-r {
+  background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+.btn-r:hover, .btn-r.active { background: rgba(255,255,255,0.13); color: rgba(255,255,255,0.9); }
+
+.prompt-desc {
+  margin-top: 8px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.prompt-desc-line {
+  font-size: 10px; color: rgba(255,255,255,0.4);
+  display: flex; align-items: center; gap: 5px;
+}
+.prompt-desc-line.highlight { color: rgba(255,255,255,0.75); }
+.desc-arrow {
+  width: 14px; height: 1.5px; background: currentColor; border-radius: 1px;
+  position: relative; flex-shrink: 0;
+}
+.desc-arrow.right::after {
+  content: ''; position: absolute; right: -1px; top: 50%;
+  transform: translateY(-50%);
+  border: 3px solid transparent;
+  border-left: 4px solid currentColor;
+}
+.desc-arrow.left::after {
+  content: ''; position: absolute; left: -1px; top: 50%;
+  transform: translateY(-50%);
+  border: 3px solid transparent;
+  border-right: 4px solid currentColor;
+}
+.prompt-hint-line {
+  font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 3px; padding-left: 19px;
+}
+
+/* ── DETAIL ── */
+.detail-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  animation: fadeUp 0.25s ease;
+}
+@keyframes completionFill {
+  0%   { clip-path: inset(100% 0 0 0); opacity: 0.7; }
+  100% { clip-path: inset(0% 0 0 0);   opacity: 1; }
+}
+@keyframes completionPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+  50%       { box-shadow: 0 0 0 8px rgba(52,211,153,0.15); }
+}
+.detail-card.completed {
+  animation: completionPulse 1.5s ease 0.4s 2;
+  position: relative; overflow: hidden;
+}
+.detail-card.completed::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(167,243,208,0.35) 0%, rgba(209,250,229,0.18) 100%);
+  border-radius: var(--radius);
+  animation: completionFill 0.9s cubic-bezier(.4,0,.2,1) forwards;
+  pointer-events: none; z-index: 0;
+}
+.detail-card.completed > * { position: relative; z-index: 1; }
+.completion-badge {
+  display: flex; align-items: center; gap: 6px;
+  background: #D1FAE5; border-radius: 20px;
+  padding: 5px 12px; margin-bottom: 14px;
+  font-size: 12px; font-weight: 600; color: #065F46;
+  animation: fadeUp 0.4s ease 0.6s both;
+}
+
+.detail-top { display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+.detail-icon {
+  width:48px; height:48px; border-radius:14px;
+  display:flex; align-items:center; justify-content:center; font-size:22px;
+  flex-shrink:0; position:relative;
+}
+.detail-icon .cdot {
+  position:absolute; bottom:-3px; right:-3px;
+  width:13px; height:13px; border-radius:50%;
+  border:2px solid var(--surface);
+}
+.detail-name { font-size:18px; font-weight:600; color:var(--dark); letter-spacing:-0.5px; }
+.detail-deadline { font-size:12px; color:var(--subtle); margin-top:4px; display:flex; align-items:flex-start; gap:4px; line-height:1.4; }
+.detail-created  { font-size:11px; color:var(--subtle); margin-top:3px; display:flex; align-items:center; gap:4px; opacity:0.7; }
+
+.color-row { display:flex; align-items:center; gap:8px; margin-bottom:16px; }
+.color-lbl { font-size:11px; color:var(--subtle); flex-shrink:0; }
+.cswatch {
+  width:20px; height:20px; border-radius:50%; cursor:pointer;
+  transition:transform 0.15s; border:2px solid transparent; flex-shrink:0;
+}
+.cswatch:hover { transform:scale(1.2); }
+.cswatch.sel { border-color:var(--dark); transform:scale(1.15); }
+
+.ring-stats { display:flex; align-items:center; gap:20px; margin-bottom:16px; }
+.big-ring { position:relative; width:88px; height:88px; flex-shrink:0; }
+.big-ring svg { width:88px; height:88px; transform:rotate(-90deg); }
+.br-bg  { fill:none; stroke:var(--surface2); stroke-width:6; }
+.br-fill{ fill:none; stroke-width:6; stroke-linecap:round; transition:stroke-dashoffset 1s cubic-bezier(.4,0,.2,1); }
+.ring-center {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center;
+}
+.ring-pct { font-size:17px; font-weight:600; letter-spacing:-0.5px; font-variant-numeric:tabular-nums; }
+.ring-sub { font-size:9px; color:var(--subtle); text-transform:uppercase; letter-spacing:0.4px; }
+
+.ring-info-amounts {
+  font-size:22px; font-weight:300; color:var(--dark);
+  letter-spacing:-1px; font-variant-numeric:tabular-nums; line-height:1; margin-bottom:3px;
+}
+.ring-info-amounts span { font-size:13px; font-weight:400; color:var(--subtle); }
+.ring-info-goal { font-size:11px; color:var(--subtle); }
+
+.stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px; }
+.sbox { background:var(--surface2); border-radius:var(--radius-sm); padding:10px 12px; }
+.sbox-val { font-size:16px; font-weight:500; color:var(--dark); font-variant-numeric:tabular-nums; letter-spacing:-0.3px; }
+.sbox-val small { font-size:11px; font-weight:400; color:var(--subtle); }
+.sbox-lbl { font-size:10px; color:var(--subtle); text-transform:uppercase; letter-spacing:0.4px; margin-top:2px; }
+
+.gastos-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.gastos-title { font-size:13px; font-weight:600; color:var(--dark); }
+.gastos-link { font-size:12px; color:var(--primary); cursor:pointer; }
+.grow { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--surface2); }
+.grow:last-child { border-bottom:none; }
+.gico { width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+.ginfo { flex:1; }
+.gname { font-size:12px; font-weight:500; color:var(--dark); }
+.gdate { font-size:10px; color:var(--subtle); margin-top:1px; }
+.gamt  { font-size:13px; font-weight:500; color:var(--dark); font-variant-numeric:tabular-nums; }
+.empty-g { text-align:center; padding:14px 0; font-size:12px; color:var(--subtle); }
+
+/* ── HUCHA HISTORY ── */
+.hh-panel {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-top: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  animation: fadeUp 0.3s ease;
+}
+.hh-top {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 16px;
+}
+canvas#mentaC { width: 56px; height: 56px; display: block; flex-shrink: 0; }
+.hh-info { flex: 1; }
+.hh-title { font-size: 16px; font-weight: 600; color: var(--dark); letter-spacing: -0.4px; }
+.hh-sub { font-size: 11px; color: var(--subtle); margin-top: 2px; }
+
+.hh-flows {
+  display: flex; gap: 8px; margin-bottom: 16px;
+}
+.hh-flow {
+  flex: 1; background: var(--surface2); border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.hh-flow-val { font-size: 14px; font-weight: 500; color: var(--dark); font-variant-numeric: tabular-nums; letter-spacing: -0.3px; }
+.hh-flow-lbl { font-size: 10px; color: var(--subtle); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
+.hh-flow-dot {
+  width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: middle;
+}
+
+.hh-hist-title {
+  font-size: 12px; font-weight: 600; color: var(--dark); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.hh-month {
+  border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 6px;
+  border: 1px solid var(--surface2);
+}
+.hh-month-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px; cursor: pointer; background: var(--surface);
+  transition: background 0.15s;
+}
+.hh-month-header:hover { background: var(--surface2); }
+.hh-month-name { font-size: 13px; font-weight: 500; color: var(--dark); }
+.hh-month-amt { font-size: 13px; font-weight: 500; color: var(--dark); font-variant-numeric: tabular-nums; }
+.hh-month-chevron { font-size: 10px; color: var(--subtle); transition: transform 0.2s; margin-left: 8px; }
+.hh-month-chevron.open { transform: rotate(180deg); }
+
+.hh-month-body {
+  display: none; background: var(--surface2);
+  padding: 12px 14px; border-top: 1px solid var(--surface2);
+}
+.hh-month-body.open { display: block; }
+.hh-breakdown-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 0; border-bottom: 1px solid rgba(0,0,0,0.04);
+  font-size: 12px;
+}
+.hh-breakdown-row:last-child { border-bottom: none; }
+.hh-breakdown-label { color: var(--mid); display: flex; align-items: center; gap: 6px; }
+.hh-breakdown-val { font-weight: 500; color: var(--dark); font-variant-numeric: tabular-nums; }
+.hh-breakdown-val.positive { color: #059669; }
+.hh-breakdown-val.negative { color: #DC2626; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="status-bar">
+    <span>23:48</span>
+    <span style="display:flex;gap:6px;align-items:center;">
+      <svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="4" width="3" height="8" rx="1" fill="currentColor" opacity="0.3"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="1" fill="currentColor" opacity="0.6"/><rect x="9" y="0" width="3" height="12" rx="1" fill="currentColor"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 10L3 5.5C4.4 4.2 6.1 3.5 8 3.5s3.6.7 5 2L8 10z" fill="currentColor"/><path d="M8 10L1 4C2.9 2.2 5.3 1 8 1s5.1 1.2 7 3L8 10z" fill="currentColor" opacity="0.3"/></svg>
+      <span>75%</span>
+    </span>
+  </div>
+
+  <div class="nav">
+    <span class="nav-title">Proyectos</span>
+    <button class="nav-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5F6368" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+
+  <div class="scroll">
+
+    <!-- HERO PANEL -->
+    <div class="hero-panel">
+      <div class="hero-stage">
+
+        <!-- Bucket -->
+        <div class="bucket-col" onclick="toggleHuchaHistory()" style="cursor:pointer;">
+          <canvas id="huchaC" width="144" height="144"></canvas>
+          <div class="bucket-amount"><small>€</small><span id="huchaVal">5.800</span></div>
+          <div class="bucket-label">Hucha <span id="huchaChevron" style="font-size:9px;opacity:0.6;">▾</span></div>
+        </div>
+
+        <!-- Pipe canvas (fills center) -->
+        <canvas id="pipeCanvas"></canvas>
+
+        <!-- Projects -->
+        <div class="projects-col" id="projNodes"></div>
+      </div>
+
+      <!-- PROMPT -->
+      <div class="prompt-area">
+        <!-- Mode selector -->
+        <div style="display:flex;gap:6px;margin-bottom:10px;">
+          <button class="prompt-action-btn btn-t" id="btnT" onclick="selectMode('t')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            Transferir
+          </button>
+          <button class="prompt-action-btn btn-r" id="btnR" onclick="selectMode('r')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+            Reservar
+          </button>
+        </div>
+        <!-- Amount + confirm -->
+        <div class="prompt-row" id="promptRow" style="display:none;">
+          <span class="prompt-prefix">€</span>
+          <input class="prompt-amt" id="promptAmt" type="number" placeholder="0" oninput="onAmtChange()">
+          <button id="btnConfirm" onclick="confirmAction()" style="
+            width:36px;height:36px;border-radius:50%;border:none;cursor:pointer;
+            background:rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;
+            flex-shrink:0;margin-bottom:2px;opacity:0.35;transition:opacity 0.2s,transform 0.1s;
+          ">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2D6A8F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </button>
+        </div>
+        <div class="prompt-desc" id="promptDesc"></div>
+      </div>
+    </div>
+
+    <!-- DETAIL -->
+    <div id="detailWrap"></div>
+
+    <!-- HUCHA HISTORY (pushes content, hidden by default) -->
+    <div id="huchaHistory" style="display:none;margin-top:0;"></div>
+
+  </div>
+</div>
+
+<script>
+// ── PALETTE ──
+const PALETTE = ['#6DB8D4','#74C69D','#89B4D4','#80C9B4','#A8D8B0','#7EC8E3'];
+
+// ── DATA ──
+const HUCHA_START = 5800;
+let huchaBalance = HUCHA_START;
+
+const projects = [
+  { id:0, name:'Viaje Japón',  emoji:'✈️', colorIdx:0, contributed:550,  goal:1400, deadline:'Sept 2026', monthly:60,  created:'marzo 2024',
+    gastos:[{name:'Vuelos',date:'May 2025',amount:100,emoji:'✈️',bg:'#EEF6FA'},{name:'Guía viaje',date:'Jun 2025',amount:18,emoji:'📚',bg:'#F0FDF4'}]},
+  { id:1, name:'Coche nuevo',  emoji:'🚗', colorIdx:1, contributed:2100, goal:8000, deadline:'Mar 2027',  monthly:30,  created:'marzo 2024',
+    gastos:[{name:'Seguro',date:'Ene 2025',amount:120,emoji:'🛡️',bg:'#F5F0FF'}]},
+  { id:2, name:'MacBook',      emoji:'💻', colorIdx:2, contributed:380,  goal:1800, deadline:'Dic 2025',  monthly:10,  created:'marzo 2024',
+    gastos:[]},
+];
+
+let selected = 0;
+let pipeAnim = null; // 't' | 'r' | null
+let pipeProgress = 0; // 0→1
+
+// ── BUCKET ──
+const hc = document.getElementById('huchaC');
+const hctx = hc.getContext('2d');
+let hLvl = 0, hTarget = 0.72, hWv = 0;
+
+function drawBucket(ctx, W, H, lvl, c1, c2, wv) {
+  ctx.clearRect(0,0,W,H);
+  const cx=W/2, bT=14, bB=H-12;
+  const tRx=W*0.37, bRx=W*0.27, tRy=W*0.09, bRy=W*0.065, bH=bB-bT;
+  ctx.save();
+  ctx.shadowColor='rgba(74,144,184,0.2)'; ctx.shadowBlur=10;
+  ctx.beginPath(); ctx.moveTo(cx-tRx,bT); ctx.lineTo(cx+tRx,bT); ctx.lineTo(cx+bRx,bB); ctx.lineTo(cx-bRx,bB); ctx.closePath();
+  const bg=ctx.createLinearGradient(0,bT,W,bB); bg.addColorStop(0,c1+'1A'); bg.addColorStop(1,c2+'15'); ctx.fillStyle=bg; ctx.fill();
+  const lB=bB-3, lT=bB-(bH-5)*Math.max(0,Math.min(1,lvl));
+  const lRxB=bRx-1, lRxT=bRx+(tRx-bRx)*((bH-(lT-bT))/bH)-1;
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(cx-tRx,bT); ctx.lineTo(cx+tRx,bT); ctx.lineTo(cx+bRx,bB); ctx.lineTo(cx-bRx,bB); ctx.closePath(); ctx.clip();
+  ctx.beginPath();
+  for(let i=0;i<=10;i++){const x=(cx-lRxT)+(lRxT*2*i/10),y=lT+Math.sin((i/10)*Math.PI*2+wv)*2; i?ctx.lineTo(x,y):ctx.moveTo(x,y);}
+  ctx.lineTo(cx+lRxB,lB); ctx.lineTo(cx-lRxB,lB); ctx.closePath();
+  const lg=ctx.createLinearGradient(0,lT,0,lB); lg.addColorStop(0,c1+'BB'); lg.addColorStop(1,c2+'EE'); ctx.fillStyle=lg; ctx.fill();
+  ctx.restore();
+  ctx.beginPath(); ctx.moveTo(cx-tRx,bT); ctx.lineTo(cx+tRx,bT); ctx.lineTo(cx+bRx,bB); ctx.lineTo(cx-bRx,bB); ctx.closePath(); ctx.strokeStyle=c1+'65'; ctx.lineWidth=1.8; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(cx,bT,tRx,tRy,0,0,Math.PI*2); ctx.strokeStyle=c1+'80'; ctx.lineWidth=1.8; ctx.stroke();
+  const rg=ctx.createLinearGradient(cx-tRx,0,cx+tRx,0); rg.addColorStop(0,c1+'20'); rg.addColorStop(.5,c1+'55'); rg.addColorStop(1,c1+'20'); ctx.fillStyle=rg; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx,bB,bRx,bRy,0,0,Math.PI*2); ctx.strokeStyle=c1+'35'; ctx.lineWidth=1.2; ctx.stroke(); ctx.fillStyle=c1+'12'; ctx.fill();
+  ctx.restore();
+}
+
+function animH() { hLvl+=(hTarget-hLvl)*0.05; hWv+=0.035; drawBucket(hctx,144,144,hLvl,'#7EC8E3','#2D6A8F',hWv); requestAnimationFrame(animH); }
+
+// ── PIPE CANVAS ──
+const pc = document.getElementById('pipeCanvas');
+const pctx = pc.getContext('2d');
+
+function resizePipe() {
+  const stage = document.querySelector('.hero-stage');
+  const bCol = document.querySelector('.bucket-col');
+  const pCol = document.querySelector('.projects-col');
+  const stageW = stage.offsetWidth;
+  const bW = bCol.offsetWidth;
+  const pW = pCol.offsetWidth;
+  const w = stageW - bW - pW;
+  pc.width = w * 2;
+  pc.height = 130 * 2;
+  pc.style.width = w + 'px';
+  pc.style.height = '130px';
+}
+
+// Particles along pipe
+let particles = [];
+function makeParticle(t) {
+  return { t: t || 0, speed: 0.003 + Math.random()*0.002, size: 2 + Math.random()*1.5, op: 0.5 + Math.random()*0.5 };
+}
+function initParticles() { particles = Array.from({length:4}, (_,i) => makeParticle(i/4)); }
+
+function getNodeY(idx) {
+  // 3 nodes distributed vertically in 130px, centered
+  const h = 130;
+  const spacing = h / (projects.length + 1);
+  return spacing * (idx + 1);
+}
+
+function drawPipes() {
+  const W = pc.width, H = pc.height;
+  const scale = 2;
+  pctx.clearRect(0,0,W,H);
+  pctx.save(); pctx.scale(scale, scale);
+  const w = W/scale, h = H/scale;
+
+  const bucketX = 4; // right edge of bucket relative to pipe canvas start
+  const nodeX = w - 4; // left edge of project nodes
+
+  const activeY = selected !== null ? getNodeY(selected) : h / 2;
+  const col = selected !== null ? PALETTE[projects[selected].colorIdx] : 'rgba(255,255,255,0.2)';
+
+  // Draw idle pipes to other projects (thin, subtle)
+  projects.forEach((p, i) => {
+    if (i === selected) return;
+    const nY = getNodeY(i);
+    pctx.beginPath();
+    pctx.moveTo(bucketX, h/2);
+    const cpX = w * 0.5;
+    pctx.bezierCurveTo(cpX, h/2, cpX, nY, nodeX, nY);
+    pctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    pctx.lineWidth = 1.5;
+    pctx.stroke();
+  });
+
+  // Active pipe
+  pctx.beginPath();
+  pctx.moveTo(bucketX, h/2);
+  const cpX = w * 0.5;
+  pctx.bezierCurveTo(cpX, h/2, cpX, activeY, nodeX, activeY);
+  pctx.strokeStyle = col + 'AA';
+  pctx.lineWidth = 3;
+  pctx.stroke();
+
+  // Particles on active pipe (only when animating)
+  if (pipeAnim) {
+    const dir = pipeAnim === 't' ? 1 : -1; // t = bucket→project, r = project→bucket
+    particles.forEach(p => {
+      const t = dir === 1 ? p.t : 1 - p.t;
+      // Bezier point
+      const bx = bucketX, by = h/2;
+      const ex = nodeX, ey = activeY;
+      const cp1x = cpX, cp1y = h/2;
+      const cp2x = cpX, cp2y = activeY;
+      const pos = cubicBezier(bx,by,cp1x,cp1y,cp2x,cp2y,ex,ey, t);
+      pctx.beginPath();
+      pctx.arc(pos.x, pos.y, p.size, 0, Math.PI*2);
+      pctx.fillStyle = col + Math.round(p.op * 255).toString(16).padStart(2,'0');
+      pctx.fill();
+      p.t += p.speed;
+      if (p.t > 1) p.t = 0;
+    });
+  }
+
+  pctx.restore();
+  requestAnimationFrame(drawPipes);
+}
+
+function cubicBezier(x0,y0,x1,y1,x2,y2,x3,y3,t) {
+  const u=1-t;
+  return {
+    x: u*u*u*x0 + 3*u*u*t*x1 + 3*u*t*t*x2 + t*t*t*x3,
+    y: u*u*u*y0 + 3*u*u*t*y1 + 3*u*t*t*y2 + t*t*t*y3,
+  };
+}
+
+// ── BUILD PROJECT NODES ──
+function buildNodes() {
+  const col = document.getElementById('projNodes');
+  col.innerHTML = '';
+  projects.forEach((p, i) => {
+    const pct = p.contributed / p.goal;
+    const C = 2*Math.PI*14;
+    const off = C*(1-pct);
+    const c = PALETTE[p.colorIdx];
+    const node = document.createElement('div');
+    node.className = 'proj-node' + (selected !== null && i===selected ? '' : ' inactive');
+    node.onclick = () => selectProject(i);
+    node.innerHTML = `
+      <div class="proj-shape-wrap">
+        <svg viewBox="0 0 36 36">
+          <circle class="ps-bg" cx="18" cy="18" r="14"/>
+          <circle class="ps-fill" cx="18" cy="18" r="14" stroke="${c}"
+            stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/>
+        </svg>
+        <span class="proj-emoji-node">${p.emoji}</span>
+      </div>
+      <div class="proj-node-meta">
+        <div class="proj-node-name">${p.name.split(' ')[0]}</div>
+        <div class="proj-node-date">${p.deadline}</div>
+      </div>
+    `;
+    col.appendChild(node);
+  });
+}
+
+// ── MODE & PROMPT ──
+let activeMode = null; // 't' | 'r' | null
+
+function selectMode(mode) {
+  if (selected === null) return; // no project selected, ignore
+  activeMode = activeMode === mode ? null : mode;
+  document.getElementById('btnT').classList.toggle('active', activeMode==='t');
+  document.getElementById('btnR').classList.toggle('active', activeMode==='r');
+  document.getElementById('promptRow').style.display = activeMode ? 'flex' : 'none';
+  document.getElementById('promptAmt').value = '';
+  hTarget = Math.max(0.08, huchaBalance / HUCHA_START);
+  pipeAnim = activeMode;
+  updateDesc();
+  updateConfirmBtn();
+  if (activeMode) setTimeout(() => document.getElementById('promptAmt').focus(), 50);
+}
+
+function getMax() {
+  if (selected === null) return 0;
+  if (activeMode === 't') return huchaBalance;
+  if (activeMode === 'r') return projects[selected].contributed;
+  return 0;
+}
+
+function onAmtChange() {
+  const input = document.getElementById('promptAmt');
+  let val = parseInt(input.value) || 0;
+  const max = getMax();
+  if (val > max) { val = max; input.value = max; }
+  if (val < 0)   { val = 0;   input.value = 0; }
+
+  // Live bucket preview
+  if (activeMode === 't') {
+    // bucket drains proportionally
+    const previewBalance = huchaBalance - val;
+    hTarget = Math.max(0.04, previewBalance / HUCHA_START);
+  } else if (activeMode === 'r') {
+    // bucket fills proportionally
+    const previewBalance = huchaBalance + val;
+    hTarget = Math.max(0.04, previewBalance / HUCHA_START);
+  }
+
+  updateDesc();
+  updateConfirmBtn();
+}
+
+function updateConfirmBtn() {
+  const amt = parseInt(document.getElementById('promptAmt').value) || 0;
+  const btn = document.getElementById('btnConfirm');
+  const ready = activeMode && amt > 0;
+  btn.style.opacity = ready ? '1' : '0.35';
+  btn.style.pointerEvents = ready ? 'auto' : 'none';
+}
+
+function updateDesc() {
+  const amt = parseInt(document.getElementById('promptAmt').value) || 0;
+  const desc = document.getElementById('promptDesc');
+  if (!activeMode || selected === null) { desc.innerHTML = ''; return; }
+  const p = projects[selected];
+  const fmtAmt = amt ? `€${amt.toLocaleString('es-ES')}` : '€…';
+
+  if (activeMode === 't') {
+    const afterHucha = Math.max(0, huchaBalance - amt);
+    const afterFmt = `€${afterHucha.toLocaleString('es-ES')}`;
+    desc.innerHTML = `
+      <div class="prompt-desc-line highlight">transferir ${fmtAmt} a ${p.name}</div>
+      <div class="prompt-hint-line">después del cambio quedará en la hucha ${amt ? afterFmt : `€${huchaBalance.toLocaleString('es-ES')}`}</div>
+    `;
+  } else {
+    const afterHucha = huchaBalance + amt;
+    const afterFmt = `€${afterHucha.toLocaleString('es-ES')}`;
+    desc.innerHTML = `
+      <div class="prompt-desc-line highlight">reservar ${fmtAmt} en la hucha</div>
+      <div class="prompt-hint-line">después del cambio quedará en la hucha ${amt ? afterFmt : `€${huchaBalance.toLocaleString('es-ES')}`}</div>
+    `;
+  }
+}
+
+function confirmAction() {
+  const amt = parseInt(document.getElementById('promptAmt').value) || 0;
+  if (!amt || !activeMode || selected === null) return;
+  const p = projects[selected];
+
+  if (activeMode === 't') {
+    const real = Math.min(amt, huchaBalance);
+    huchaBalance -= real;
+    p.contributed += real;
+    pipeAnim = 't';
+  } else {
+    const real = Math.min(amt, p.contributed);
+    huchaBalance += real;
+    p.contributed = Math.max(0, p.contributed - real);
+    pipeAnim = 'r';
+  }
+
+  document.getElementById('huchaVal').textContent = huchaBalance.toLocaleString('es-ES');
+  hTarget = Math.max(0.04, huchaBalance / HUCHA_START);
+  document.getElementById('promptAmt').value = '';
+  activeMode = null;
+  pipeAnim = null;
+  document.getElementById('btnT').classList.remove('active');
+  document.getElementById('btnR').classList.remove('active');
+  updateDesc();
+  updateConfirmBtn();
+  buildNodes();
+  buildDetail(selected);
+
+  // Brief success pipe flash
+  pipeAnim = activeMode;
+  setTimeout(() => { pipeAnim = null; }, 1800);
+}
+
+// ── SELECT ──
+function selectProject(idx) {
+  // Close hucha history if open
+  if (huchaHistoryOpen) {
+    huchaHistoryOpen = false;
+    document.getElementById('huchaHistory').style.display = 'none';
+    document.getElementById('huchaChevron').textContent = '▾';
+    if (mentaAnimId) { cancelAnimationFrame(mentaAnimId); mentaAnimId = null; }
+  }
+  selected = idx;
+  pipeAnim = activeMode;
+  document.getElementById('promptAmt').value = '';
+  hTarget = Math.max(0.04, huchaBalance / HUCHA_START);
+  buildNodes(); buildDetail(idx); updateDesc(); updateConfirmBtn();
+}
+
+function getMonthsLeft(p) {
+  const remaining = p.goal - p.contributed;
+  if (p.monthly <= 0) return 'tiempo indefinido';
+  const months = Math.ceil(remaining / p.monthly);
+  if (months === 1) return '1 mes';
+  return `${months} meses`;
+}
+
+function toggleColorPicker() {
+  const row = document.getElementById('colorRow');
+  if (!row) return;
+  const visible = row.style.display !== 'none';
+  row.style.display = visible ? 'none' : 'flex';
+}
+
+function setColor(pIdx, cIdx) {
+  projects[pIdx].colorIdx = cIdx;
+  buildNodes(); buildDetail(pIdx);
+}
+
+// ── DETAIL ──
+function buildDetail(idx) {
+  const p = projects[idx];
+  const pct = p.contributed / p.goal;
+  const pctRnd = Math.round(pct*100);
+  const remaining = p.goal - p.contributed;
+  const totalGastos = p.gastos.reduce((s, g) => s + g.amount, 0);
+  const col = PALETTE[p.colorIdx];
+  const C = 2*Math.PI*37;
+
+  const swatches = PALETTE.map((c,i)=>
+    `<div class="cswatch${i===p.colorIdx?' sel':''}" style="background:${c}" onclick="setColor(${idx},${i})"></div>`
+  ).join('');
+
+  const gastosHTML = p.gastos.length
+    ? p.gastos.map(g=>`
+        <div class="grow">
+          <div class="gico" style="background:${g.bg}">${g.emoji}</div>
+          <div class="ginfo"><div class="gname">${g.name}</div><div class="gdate">${g.date}</div></div>
+          <div class="gamt">€${g.amount}</div>
+        </div>`).join('')
+    : `<div class="empty-g">Sin gastos asociados aún</div>`;
+
+  const isCompleted = p.contributed >= p.goal;
+
+  document.getElementById('detailWrap').innerHTML = `
+    <div class="detail-card${isCompleted ? ' completed' : ''}">
+      ${isCompleted ? `<div class="completion-badge">🎉 ¡Proyecto completado!</div>` : ''}
+      <div class="detail-top">
+        <div class="detail-icon" style="background:${col}22; cursor:pointer;" onclick="toggleColorPicker()">
+          <span>${p.emoji}</span>
+          <div class="cdot" style="background:${col}"></div>
+        </div>
+        <div>
+          <div class="detail-name">${p.name}</div>
+          <div class="detail-deadline">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span>Con este ritmo llegas en ${getMonthsLeft(p)}<br><span style="font-size:10px;opacity:0.7;padding-left:15px;">${p.deadline}</span></span>
+          </div>
+          <div class="detail-created">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Creado en ${p.created}
+          </div>
+        </div>
+      </div>
+
+      <div class="color-row" id="colorRow" style="display:none;">
+        <span class="color-lbl">Color</span>
+        ${swatches}
+      </div>
+
+      <div class="ring-stats">
+        <div class="big-ring">
+          <svg viewBox="0 0 88 88">
+            <circle class="br-bg" cx="44" cy="44" r="37"/>
+            <circle class="br-fill" id="brFill" cx="44" cy="44" r="37"
+              stroke="${col}" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${C.toFixed(1)}"/>
+          </svg>
+          <div class="ring-center">
+            <div class="ring-pct" id="rPct" style="color:${col}">0%</div>
+            <div class="ring-sub">progreso</div>
+          </div>
+        </div>
+        <div>
+          <div class="ring-info-amounts">€${p.contributed.toLocaleString('es-ES')} <span>/ €${p.goal.toLocaleString('es-ES')}</span></div>
+          <div class="ring-info-goal">Meta: €${p.goal.toLocaleString('es-ES')}</div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="sbox">
+          <div class="sbox-val">€${p.monthly}<small>/mes</small></div>
+          <div class="sbox-lbl">Planificado</div>
+        </div>
+        <div class="sbox">
+          <div class="sbox-val">€${remaining.toLocaleString('es-ES')}</div>
+          <div class="sbox-lbl">Restante</div>
+        </div>
+        <div class="sbox" style="grid-column:1/-1">
+          <div class="sbox-val">€${totalGastos.toLocaleString('es-ES')}</div>
+          <div class="sbox-lbl">Total gastos asociados</div>
+        </div>
+      </div>
+
+      <div class="gastos-hdr">
+        <div class="gastos-title">Gastos asociados</div>
+        <div class="gastos-link">Ver todo</div>
+      </div>
+      ${gastosHTML}
+    </div>
+  `;
+
+  setTimeout(() => {
+    const f = document.getElementById('brFill');
+    const l = document.getElementById('rPct');
+    if (f) f.style.strokeDashoffset = (C*(1-pct)).toFixed(1);
+    if (l) l.textContent = pctRnd+'%';
+  }, 80);
+}
+
+// ── HUCHA HISTORY DATA ──
+const HUCHA_TOTAL_ACUMULADO = 5800;
+const monthHistory = [
+  { month: 'Marzo 2025',    ingresos: 2800, ahorro: 1081, gastosFijos: 320, proyectos: 100, hucha: 661 },
+  { month: 'Febrero 2025',  ingresos: 2800, ahorro: 940,  gastosFijos: 310, proyectos: 100, hucha: 530 },
+  { month: 'Enero 2025',    ingresos: 2800, ahorro: 1120, gastosFijos: 330, proyectos: 100, hucha: 690 },
+  { month: 'Diciembre 2024',ingresos: 2800, ahorro: 880,  gastosFijos: 300, proyectos: 90,  hucha: 490 },
+];
+
+let huchaHistoryOpen = false;
+let mentaAnimId = null;
+let mLvl = 0, mTarget = 0.78, mWv = 0;
+
+function toggleHuchaHistory() {
+  huchaHistoryOpen = !huchaHistoryOpen;
+  const panel = document.getElementById('huchaHistory');
+  const chevron = document.getElementById('huchaChevron');
+
+  if (huchaHistoryOpen) {
+    // Close project detail
+    document.getElementById('detailWrap').innerHTML = '';
+    selected = null;
+    buildNodes();
+
+    panel.style.display = 'block';
+    chevron.textContent = '▴';
+    buildHuchaHistory();
+    setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+    animMenta();
+  } else {
+    panel.style.display = 'none';
+    chevron.textContent = '▾';
+    if (mentaAnimId) { cancelAnimationFrame(mentaAnimId); mentaAnimId = null; }
+  }
+}
+
+function animMenta() {
+  const c = document.getElementById('mentaC');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  mLvl += (mTarget - mLvl) * 0.05;
+  mWv += 0.035;
+  drawBucket(ctx, 112, 112, mLvl, '#4ECDC4', '#26A69A', mWv);
+  mentaAnimId = requestAnimationFrame(animMenta);
+}
+
+function buildHuchaHistory() {
+  const wrap = document.getElementById('huchaHistory');
+
+  // Total flows this year
+  const totalAhorro    = monthHistory.reduce((s,m) => s + m.ahorro, 0);
+  const totalGastosFijos = monthHistory.reduce((s,m) => s + m.gastosFijos, 0);
+  const totalProyectos = monthHistory.reduce((s,m) => s + m.proyectos, 0);
+  const totalHucha     = monthHistory.reduce((s,m) => s + m.hucha, 0);
+
+  const monthsHTML = monthHistory.map((m, i) => `
+    <div class="hh-month">
+      <div class="hh-month-header" onclick="toggleMonth(${i})">
+        <span class="hh-month-name">${m.month}</span>
+        <div style="display:flex;align-items:center;">
+          <span class="hh-month-amt">+€${m.hucha.toLocaleString('es-ES')}</span>
+          <span class="hh-month-chevron" id="mchev${i}">▾</span>
+        </div>
+      </div>
+      <div class="hh-month-body" id="mbody${i}">
+        <div class="hh-breakdown-row">
+          <span class="hh-breakdown-label"><span style="width:8px;height:8px;border-radius:50%;background:#34D399;display:inline-block;"></span>Ingresos fijos</span>
+          <span class="hh-breakdown-val positive">+€${m.ingresos.toLocaleString('es-ES')}</span>
+        </div>
+        <div class="hh-breakdown-row">
+          <span class="hh-breakdown-label"><span style="width:8px;height:8px;border-radius:50%;background:#4ECDC4;display:inline-block;"></span>Ahorro del mes</span>
+          <span class="hh-breakdown-val positive">+€${m.ahorro.toLocaleString('es-ES')}</span>
+        </div>
+        <div class="hh-breakdown-row">
+          <span class="hh-breakdown-label"><span style="width:8px;height:8px;border-radius:50%;background:#F87171;display:inline-block;"></span>Gastos fijos</span>
+          <span class="hh-breakdown-val negative">−€${m.gastosFijos.toLocaleString('es-ES')}</span>
+        </div>
+        <div class="hh-breakdown-row">
+          <span class="hh-breakdown-label"><span style="width:8px;height:8px;border-radius:50%;background:#5B8DFF;display:inline-block;"></span>Proyectos</span>
+          <span class="hh-breakdown-val negative">−€${m.proyectos.toLocaleString('es-ES')}</span>
+        </div>
+        <div class="hh-breakdown-row" style="margin-top:4px;padding-top:8px;border-top:1px solid rgba(0,0,0,0.06);">
+          <span class="hh-breakdown-label" style="font-weight:600;color:var(--dark);">Reservado en hucha</span>
+          <span class="hh-breakdown-val positive" style="font-weight:600;">+€${m.hucha.toLocaleString('es-ES')}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  wrap.innerHTML = `
+    <div class="hh-panel">
+      <div class="hh-top">
+        <canvas id="mentaC" width="112" height="112"></canvas>
+        <div class="hh-info">
+          <div class="hh-title">€${HUCHA_TOTAL_ACUMULADO.toLocaleString('es-ES')}</div>
+          <div class="hh-sub">ahorro acumulado total</div>
+        </div>
+      </div>
+
+      <div class="hh-flows">
+        <div class="hh-flow">
+          <div class="hh-flow-val"><span class="hh-flow-dot" style="background:#34D399;"></span>€${monthHistory.reduce((s,m)=>s+m.ingresos,0).toLocaleString('es-ES')}</div>
+          <div class="hh-flow-lbl">Ingresos fijos</div>
+        </div>
+        <div class="hh-flow">
+          <div class="hh-flow-val"><span class="hh-flow-dot" style="background:#F87171;"></span>€${totalGastosFijos.toLocaleString('es-ES')}</div>
+          <div class="hh-flow-lbl">Gastos fijos</div>
+        </div>
+        <div class="hh-flow">
+          <div class="hh-flow-val"><span class="hh-flow-dot" style="background:#5B8DFF;"></span>€${totalProyectos.toLocaleString('es-ES')}</div>
+          <div class="hh-flow-lbl">Proyectos</div>
+        </div>
+      </div>
+
+      <div class="hh-hist-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        Historial mensual
+      </div>
+      ${monthsHTML}
+    </div>
+  `;
+
+  // Start menta anim after DOM is ready
+  setTimeout(animMenta, 50);
+}
+
+function toggleMonth(idx) {
+  const body = document.getElementById('mbody' + idx);
+  const chev = document.getElementById('mchev' + idx);
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  chev.classList.toggle('open', !isOpen);
+}
+window.addEventListener('load', () => {
+  resizePipe();
+  initParticles();
+  animH();
+  drawPipes();
+  buildNodes();
+  buildDetail(selected);
+  updateDesc();
+  updateConfirmBtn();
+});
+window.addEventListener('resize', resizePipe);
+</script>
+</body>
+</html>

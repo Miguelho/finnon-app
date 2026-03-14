@@ -164,10 +164,10 @@ export function AccountRedesignClient({
     selectedPeriod === "month"
       ? dataByMonth[selectedMonth] ?? dataByPeriod.month
       : dataByPeriod[selectedPeriod];
-  const contributionData = data.contributionBalance;
+  const memberBalanceData = data.memberBalance;
   const contributors = data.contributors;
   const isCollaborative =
-    contributors.length >= 2 && !!contributionData && contributionData.members.length >= 2;
+    contributors.length >= 2 && !!memberBalanceData && memberBalanceData.members.length >= 2;
   const contributorByUserId = useMemo(
     () => new Map(contributors.map((contributor) => [contributor.userId, contributor])),
     [contributors]
@@ -246,13 +246,14 @@ export function AccountRedesignClient({
     return t(keyByPeriod[selectedPeriod]);
   }, [selectedPeriod, t]);
 
-  const contributionBanner = useMemo(() => {
-    if (!isCollaborative || !contributionData) return null;
-    const sorted = [...contributionData.members].sort((a, b) => b.totalPaid - a.totalPaid);
+  const memberBalanceBanner = useMemo(() => {
+    if (!isCollaborative || !memberBalanceData) return null;
+    const sorted = [...memberBalanceData.members].sort((a, b) => b.totalPaid - a.totalPaid);
     if (sorted.length < 2) return null;
 
     const leader = sorted[0];
     const trailing = sorted[sorted.length - 1];
+    if (!leader || !trailing) return null;
     const diff = leader.totalPaid - trailing.totalPaid;
     const thresholdMajor = 100 / Math.pow(10, currencyDecimals);
     const isLeaderCurrentUser = leader.userId === currentUserId;
@@ -282,17 +283,17 @@ export function AccountRedesignClient({
       color: leader.color,
       initials: leader.initials,
     };
-  }, [contributionData, currencyDecimals, currencySymbol, currentUserId, isCollaborative, periodLabel, t]);
+  }, [memberBalanceData, currencyDecimals, currencySymbol, currentUserId, isCollaborative, periodLabel, t]);
 
-  const contributionDetail = useMemo(() => {
-    if (!isCollaborative || !contributionData) return null;
-    const members = contributionData.members;
+  const memberBalanceDetail = useMemo(() => {
+    if (!isCollaborative || !memberBalanceData) return null;
+    const members = memberBalanceData.members;
     const maxValue = members.reduce(
       (max, member) => Math.max(max, member.totalPaid, member.totalResponsible),
       0
     );
     return { members, maxValue };
-  }, [contributionData, isCollaborative]);
+  }, [memberBalanceData, isCollaborative]);
 
   const transactionsHref = useMemo(() => {
     const params = new URLSearchParams();
@@ -384,8 +385,8 @@ export function AccountRedesignClient({
   const renderContributionSection = (type: "expense" | "income") => {
     const categories =
       type === "expense"
-        ? contributionData?.expenseCategories ?? []
-        : contributionData?.incomeCategories ?? [];
+        ? memberBalanceData?.expenseCategories ?? []
+        : memberBalanceData?.incomeCategories ?? [];
     const sortedCategories = [...categories].sort((a, b) => b.totalAmount - a.totalAmount);
     const leadingCategories = sortedCategories.slice(0, DEFAULT_VISIBLE_CONTRIBUTION_CATEGORIES);
     const extraCategories = sortedCategories.slice(DEFAULT_VISIBLE_CONTRIBUTION_CATEGORIES);
@@ -657,7 +658,7 @@ export function AccountRedesignClient({
             onCancel={() => setIsBalanceModalOpen(false)}
           />
 
-          {contributionBanner && contributionDetail ? (
+          {memberBalanceBanner && memberBalanceDetail ? (
             <div className={styles.contributionBannerSection}>
               <DialogPrimitive.Root
                 open={isContributionDetailOpen}
@@ -673,17 +674,17 @@ export function AccountRedesignClient({
                       <span
                         className={styles.contributionBanner}
                         style={{
-                          backgroundColor: `${contributionBanner.color}22`,
-                          borderColor: `${contributionBanner.color}44`,
+                          backgroundColor: `${memberBalanceBanner.color}22`,
+                          borderColor: `${memberBalanceBanner.color}44`,
                         }}
                       >
                         <span
                           className={styles.contributionBannerAvatar}
-                          style={{ backgroundColor: contributionBanner.color }}
+                          style={{ backgroundColor: memberBalanceBanner.color }}
                         >
-                          {contributionBanner.initials}
+                          {memberBalanceBanner.initials}
                         </span>
-                        <span className={styles.contributionBannerText}>{contributionBanner.text}</span>
+                        <span className={styles.contributionBannerText}>{memberBalanceBanner.text}</span>
                       </span>
                     </button>
                   </DialogPrimitive.Trigger>
@@ -717,7 +718,7 @@ export function AccountRedesignClient({
                     </DialogPrimitive.Close>
 
                     <div className={styles.contributionDetailBody} ref={contributionDetailScrollRef}>
-                      {contributionDetail.members.map((member, index) => {
+                      {memberBalanceDetail.members.map((member, index) => {
                         const net = formatCurrency(member.net, {
                           currency: currencySymbol,
                           decimals: currencyDecimals,
@@ -732,14 +733,14 @@ export function AccountRedesignClient({
                           decimals: currencyDecimals,
                         });
                         const paidWidth =
-                          contributionDetail.maxValue > 0
-                            ? Math.min(100, (member.totalPaid / contributionDetail.maxValue) * 100)
+                          memberBalanceDetail.maxValue > 0
+                            ? Math.min(100, (member.totalPaid / memberBalanceDetail.maxValue) * 100)
                             : 0;
                         const responsibilityWidth =
-                          contributionDetail.maxValue > 0
+                          memberBalanceDetail.maxValue > 0
                             ? Math.min(
                                 100,
-                                (member.totalResponsible / contributionDetail.maxValue) * 100
+                                (member.totalResponsible / memberBalanceDetail.maxValue) * 100
                               )
                             : 0;
 
@@ -803,7 +804,7 @@ export function AccountRedesignClient({
                               </div>
                             </div>
 
-                            {index < contributionDetail.members.length - 1 ? (
+                            {index < memberBalanceDetail.members.length - 1 ? (
                               <div className={styles.contributionDetailSeparator} />
                             ) : null}
                           </div>
@@ -814,20 +815,20 @@ export function AccountRedesignClient({
                         <div
                           className={styles.contributionBanner}
                           style={{
-                            backgroundColor: `${contributionBanner.color}22`,
-                            borderColor: `${contributionBanner.color}44`,
+                            backgroundColor: `${memberBalanceBanner.color}22`,
+                            borderColor: `${memberBalanceBanner.color}44`,
                           }}
                         >
                           <span
                             className={styles.contributionBannerAvatar}
-                            style={{ backgroundColor: contributionBanner.color }}
+                            style={{ backgroundColor: memberBalanceBanner.color }}
                           >
-                            {contributionBanner.initials}
+                            {memberBalanceBanner.initials}
                           </span>
                           <span
                             className={`${styles.contributionBannerText} ${styles.contributionDetailSummaryText}`}
                           >
-                            {contributionBanner.text}
+                            {memberBalanceBanner.text}
                           </span>
                         </div>
                       </div>

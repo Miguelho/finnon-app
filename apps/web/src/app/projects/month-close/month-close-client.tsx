@@ -8,6 +8,7 @@ import {
   formatMinorToMoney,
   formatMoneyWithSymbol,
   formatMonthLabel,
+  getLatestClosableMonthKey,
   getProjectMonthlyFundingTargetMinor,
   parseMoneyToMinor,
   type MonthClose,
@@ -105,8 +106,10 @@ export function MonthCloseClient({
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const { emitMutation } = useWebDataCache();
+  const latestClosableMonthKey = getLatestClosableMonthKey();
   const canEdit = role !== "viewer";
   const isClosed = monthState?.is_closed ?? Boolean(monthClose?.id);
+  const isClosableMonth = monthKey <= latestClosableMonthKey;
   const actualSavedMinor = toMinor(monthState?.generated_saved_base_minor ?? 0);
   const positiveSavedMinor = actualSavedMinor > 0n ? actualSavedMinor : 0n;
   const huchaReserve =
@@ -164,7 +167,8 @@ export function MonthCloseClient({
   const needsRebalance = parsedPlans.totalMinor > positiveSavedMinor;
   const projectedReserveMinor =
     positiveSavedMinor > parsedPlans.totalMinor ? positiveSavedMinor - parsedPlans.totalMinor : 0n;
-  const canPersistPlan = canEdit && !isClosed && !parsedPlans.hasErrors && !needsRebalance;
+  const canPersistPlan =
+    canEdit && isClosableMonth && !isClosed && !parsedPlans.hasErrors && !needsRebalance;
   const canConfirmClose = canPersistPlan && !isClosing;
 
   const allocationLabels = useMemo(() => {
@@ -298,6 +302,7 @@ export function MonthCloseClient({
 
   const previousMonth = addMonths(monthKey, -1);
   const nextMonth = addMonths(monthKey, 1);
+  const canNavigateNext = nextMonth <= latestClosableMonthKey;
 
   return (
     <PageContainer className="space-y-6">
@@ -336,11 +341,17 @@ export function MonthCloseClient({
                     : "Resumen del mes"}
               </p>
             </div>
-            <Button asChild size="icon" variant="outline" className="h-8 w-8">
-              <Link href={`/projects/month-close?month=${nextMonth}`}>
+            {canNavigateNext ? (
+              <Button asChild size="icon" variant="outline" className="h-8 w-8">
+                <Link href={`/projects/month-close?month=${nextMonth}`}>
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            ) : (
+              <Button size="icon" variant="outline" className="h-8 w-8" disabled>
                 <ChevronRight className="h-4 w-4" />
-              </Link>
-            </Button>
+              </Button>
+            )}
           </div>
 
           {pendingMonthKeys.length > 0 ? (

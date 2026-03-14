@@ -10,8 +10,8 @@ import { useCopy, t } from "../../../../lib/i18n";
 import { useUserTheme } from "../../../../contexts/UserThemeContext";
 import type {
   AccountContributor,
-  ContributionBalanceData,
-  ContributionCategorySummary,
+  MemberBalanceData,
+  MemberBalanceCategorySummary,
 } from "../../types/account";
 import { formatCurrency } from "../../utils/currency";
 import { spacing, typography, radii } from "../../theme/tokens";
@@ -19,21 +19,21 @@ import { CategoryIcon } from "../../../CategoryIcon";
 
 const DEFAULT_VISIBLE_CATEGORIES = 2;
 
-interface ContributionBalanceSectionProps {
-  data: ContributionBalanceData | null;
+interface MemberBalanceSectionProps {
+  data: MemberBalanceData | null;
   contributors: AccountContributor[];
   currencySymbol?: string;
   currencyDecimals?: number;
   onCategoryPress?: (categoryId: string, type: "income" | "expense") => void;
 }
 
-export function ContributionBalanceSection({
+export function MemberBalanceSection({
   data,
   contributors,
   currencySymbol = "€",
   currencyDecimals = 2,
   onCategoryPress,
-}: ContributionBalanceSectionProps) {
+}: MemberBalanceSectionProps) {
   const { dictionary } = useCopy();
   const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const translate = t as any;
@@ -54,7 +54,7 @@ export function ContributionBalanceSection({
 
   const renderSection = (
     type: "expense" | "income",
-    categories: ContributionCategorySummary[]
+    categories: MemberBalanceCategorySummary[]
   ) => {
     const sortedCategories = [...categories].sort((a, b) => b.totalAmount - a.totalAmount);
     if (sortedCategories.length === 0) return null;
@@ -72,7 +72,7 @@ export function ContributionBalanceSection({
     const isExpanded = expandedByType[type];
 
     const renderCategoryRow = (
-      category: ContributionCategorySummary,
+      category: MemberBalanceCategorySummary,
       options: {
         showBorder: boolean;
         interactive: boolean;

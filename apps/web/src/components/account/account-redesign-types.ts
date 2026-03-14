@@ -2,7 +2,7 @@ import type { Period } from "@poleursus/shared";
 
 export type AccountRedesignPeriod = Period;
 
-export type ContributionMemberBalance = {
+export type MemberBalanceMember = {
   userId: string;
   name: string;
   initials: string;
@@ -12,7 +12,7 @@ export type ContributionMemberBalance = {
   net: number;
 };
 
-export type ContributionDebt = {
+export type MemberBalanceDebt = {
   fromUserId: string;
   fromName: string;
   toUserId: string;
@@ -20,20 +20,20 @@ export type ContributionDebt = {
   amount: number;
 };
 
-export type ContributionCategoryShare = {
+export type MemberBalanceCategoryShare = {
   userId: string;
   name: string;
   amount: number;
   percentage: number;
 };
 
-export type ContributionCategorySummary = {
+export type MemberBalanceCategorySummary = {
   id: string;
   name: string;
   iconId?: string | null;
   totalAmount: number;
   transactionCount: number;
-  shares: ContributionCategoryShare[];
+  shares: MemberBalanceCategoryShare[];
 };
 
 export type AccountContributor = {
@@ -89,10 +89,10 @@ export type AccountRedesignData = {
     expenseByUser: { userId: string; amount: number }[];
   }[];
   contributors: AccountContributor[];
-  contributionBalance: {
-    members: ContributionMemberBalance[];
-    debts: ContributionDebt[];
-    expenseCategories: ContributionCategorySummary[];
-    incomeCategories: ContributionCategorySummary[];
+  memberBalance: {
+    members: MemberBalanceMember[];
+    debts: MemberBalanceDebt[];
+    expenseCategories: MemberBalanceCategorySummary[];
+    incomeCategories: MemberBalanceCategorySummary[];
   } | null;
 };

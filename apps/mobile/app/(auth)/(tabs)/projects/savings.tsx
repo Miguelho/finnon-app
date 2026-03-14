@@ -419,7 +419,7 @@ export default function SavingsDetailScreen() {
 
           <Card>
             <Text style={[styles.eyebrow, { color: userTokens.textSecondary }]}>
-              {locale === "en" ? "Savings of the month" : "Ahorro del mes"}
+              {locale === "en" ? "Monthly savings" : "Ahorro del mes"}
             </Text>
             <Text style={[styles.heroAmount, { color: userTokens.textPrimary }]}>
               {formatMoneyWithSymbol(
@@ -430,7 +430,7 @@ export default function SavingsDetailScreen() {
             </Text>
             <Text style={[styles.helper, { color: userTokens.textSecondary }]}>
               {locale === "en"
-                ? "Whatever you do not assign will go to the piggy bank when you close the month."
+                ? "Whatever you do not assign will go to Hucha when you close the month."
                 : "Lo que no asignes irá a la hucha al cerrar el mes."}
             </Text>
           </Card>
@@ -462,7 +462,7 @@ export default function SavingsDetailScreen() {
             </Card>
             <Card style={styles.summaryCard}>
               <Text style={[styles.summaryLabel, { color: userTokens.textSecondary }]}>
-                {locale === "en" ? "Piggy bank" : "Hucha"}
+                {locale === "en" ? "Hucha" : "Hucha"}
               </Text>
               <Text style={[styles.summaryValue, { color: userTokens.textPrimary }]}>
                 {formatMoneyWithSymbol(huchaBalanceMinor, baseCurrency, currencySymbol)}
