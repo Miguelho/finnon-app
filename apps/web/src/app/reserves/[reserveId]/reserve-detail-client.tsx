@@ -7,8 +7,10 @@ import {
   computeProjectProgress,
   formatMoneyWithSymbol,
   formatMonthLabel,
+  getProjectReserveTransferTotalsMap,
   getReserveContainerBalanceMinor,
   getReserveContainerStats,
+  getReserveTransferDirection,
   parseMoneyToMinor,
   toMonthKey,
   type MonthClose,
@@ -129,12 +131,9 @@ export function ReserveDetailClient({
         (byProject.get(allocation.project_id) ?? 0n) + toMinor(allocation.amount_base_minor)
       );
     });
-    reserveTransfers.forEach((transfer) => {
-      byProject.set(
-        transfer.destination_project_id,
-        (byProject.get(transfer.destination_project_id) ?? 0n) +
-          toMinor(transfer.amount_base_minor)
-      );
+    const reserveTransferTotals = getProjectReserveTransferTotalsMap(reserveTransfers);
+    reserveTransferTotals.forEach((amountMinor, projectId) => {
+      byProject.set(projectId, (byProject.get(projectId) ?? 0n) + amountMinor);
     });
     return byProject;
   }, [monthCloseAllocations, reserveTransfers]);
@@ -199,27 +198,39 @@ export function ReserveDetailClient({
         };
       });
 
-    const outgoing = reserveTransfers
+    const transferRows = reserveTransfers
       .filter((transfer) => transfer.source_reserve_container_id === reserveContainer.id)
       .map((transfer) => {
         const project = projectById.get(transfer.destination_project_id);
+        const direction = getReserveTransferDirection(transfer);
         return {
           id: `transfer:${transfer.id}`,
           label: project
             ? `${project.emoji || "\u{1F3AF}"} ${project.name}`
             : locale === "en"
-              ? "Project transfer"
-              : "Transferencia a proyecto",
+              ? direction === "project_to_reserve"
+                ? "Project return"
+                : "Project transfer"
+              : direction === "project_to_reserve"
+                ? "Devolucion desde proyecto"
+                : "Transferencia a proyecto",
           secondary:
             locale === "en"
-              ? "Outgoing transfer to project"
-              : "Salida hacia proyecto",
-          amountMinor: -toMinor(transfer.amount_base_minor),
+              ? direction === "project_to_reserve"
+                ? "Incoming return from project"
+                : "Outgoing transfer to project"
+              : direction === "project_to_reserve"
+                ? "Entrada devuelta desde proyecto"
+                : "Salida hacia proyecto",
+          amountMinor:
+            direction === "project_to_reserve"
+              ? toMinor(transfer.amount_base_minor)
+              : -toMinor(transfer.amount_base_minor),
           createdAt: transfer.created_at ?? null,
         };
       });
 
-    return [...incoming, ...outgoing].sort((a, b) => {
+    return [...incoming, ...transferRows].sort((a, b) => {
       const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return bTime - aTime;

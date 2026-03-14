@@ -10,6 +10,7 @@ import {
   computeProjectProgress,
   formatMoneyWithSymbol,
   getProjectColor,
+  getProjectReserveTransferTotalsMap,
   getReserveContainerStats,
   HUCHA_PROJECT_COLOR,
   getMonthlyProjectCommitmentTotal,
@@ -156,12 +157,9 @@ export function ProjectsClient({
         (byProject.get(allocation.project_id) ?? 0n) + toMinor(allocation.amount_base_minor)
       );
     });
-    reserveTransfers.forEach((transfer) => {
-      byProject.set(
-        transfer.destination_project_id,
-        (byProject.get(transfer.destination_project_id) ?? 0n) +
-          toMinor(transfer.amount_base_minor)
-      );
+    const reserveTransferTotals = getProjectReserveTransferTotalsMap(reserveTransfers);
+    reserveTransferTotals.forEach((amountMinor, projectId) => {
+      byProject.set(projectId, (byProject.get(projectId) ?? 0n) + amountMinor);
     });
     return byProject;
   }, [monthCloseAllocations, reserveTransfers]);

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
   buildProjectColorMap,
@@ -10,6 +11,8 @@ import {
   getMinorUnits,
   getProjectColor,
   getProjectMonthlyFundingTargetMinor,
+  getProjectReserveTransferDeltaMinor,
+  parseMoneyToMinor,
   PROJECT_PALETTE,
   type MonthClose,
   type MonthCloseAllocation,
@@ -24,6 +27,7 @@ import { useWebDataCache } from "@/cache/WebDataCacheProvider";
 import { PageContainer } from "@/components/layout/page-container";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { ProjectProgressRing } from "@/components/projects/project-progress-ring";
 
@@ -123,6 +127,8 @@ const formatDateLabel = (value: string | null | undefined, locale: string) => {
   }).format(date);
 };
 
+const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
+
 export function ProjectDetailClient({
   accountId,
   role,
@@ -141,6 +147,7 @@ export function ProjectDetailClient({
   const locale = useLocale();
   const tProjects = useTranslations("projects");
   const tGlobal = useTranslations();
+  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const { emitMutation } = useWebDataCache();
 
@@ -151,7 +158,7 @@ export function ProjectDetailClient({
 
   const [project, setProject] = useState<Project>(initialProject);
   const [extraContributions] = useState<ExtraContributionTransaction[]>(
-    initialExtraContributions
+    initialExtraContributions ?? []
   );
   const [activeTab, setActiveTab] = useState<"simulator" | "history">("simulator");
   const [isExpensesOpen, setIsExpensesOpen] = useState(false);
@@ -165,6 +172,10 @@ export function ProjectDetailClient({
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingColor, setIsSavingColor] = useState(false);
+  const [returnAmountInput, setReturnAmountInput] = useState("");
+  const [returnError, setReturnError] = useState<string | null>(null);
+  const [returnMessage, setReturnMessage] = useState<string | null>(null);
+  const [isReturning, setIsReturning] = useState(false);
 
   const projectColorMap = useMemo(() => {
     const hasCurrentProject = accountProjectsForColor.some((entry) => entry.id === project.id);
@@ -199,7 +210,7 @@ export function ProjectDetailClient({
   const fundingFromReservesMinor = useMemo(
     () =>
       reserveTransfers.reduce(
-        (total, entry) => total + toMinor(entry.amount_base_minor),
+        (total, entry) => total + getProjectReserveTransferDeltaMinor(entry),
         0n
       ),
     [reserveTransfers]
@@ -226,6 +237,24 @@ export function ProjectDetailClient({
   const totalFundedMinor = useMemo(
     () => fundingFromMonthClosesMinor + fundingFromReservesMinor,
     [fundingFromMonthClosesMinor, fundingFromReservesMinor]
+  );
+
+  const availableReservedMinor = useMemo(
+    () => (totalFundedMinor > spentMinor ? totalFundedMinor - spentMinor : 0n),
+    [spentMinor, totalFundedMinor]
+  );
+
+  const refundableFromReserveMinor = useMemo(
+    () => (fundingFromReservesMinor > 0n ? fundingFromReservesMinor : 0n),
+    [fundingFromReservesMinor]
+  );
+
+  const maxReturnableMinor = useMemo(
+    () =>
+      refundableFromReserveMinor < availableReservedMinor
+        ? refundableFromReserveMinor
+        : availableReservedMinor,
+    [availableReservedMinor, refundableFromReserveMinor]
   );
 
   const heroProgress = useMemo(
@@ -356,6 +385,27 @@ export function ProjectDetailClient({
     }).format(date);
   }, [project.created_at, locale]);
 
+  const parsedReturnAmount = useMemo(() => {
+    const raw = returnAmountInput.trim();
+    if (!raw) return { amountMinor: 0n, error: null as string | null };
+
+    const parsed = parseMoneyToMinor(raw, baseCurrency);
+    if (typeof parsed === "object" && "error" in parsed) {
+      return {
+        amountMinor: 0n,
+        error: locale === "en" ? "Review the amount." : "Revisa el importe.",
+      };
+    }
+
+    return { amountMinor: parsed, error: null as string | null };
+  }, [baseCurrency, locale, returnAmountInput]);
+
+  const canReturnToReserve =
+    canEdit &&
+    parsedReturnAmount.error === null &&
+    parsedReturnAmount.amountMinor > 0n &&
+    parsedReturnAmount.amountMinor <= maxReturnableMinor;
+
   const toggleRecurringExpense = (id: string) => {
     setDisabledRecurringIds((previous) => {
       const next = new Set(previous);
@@ -442,6 +492,40 @@ export function ProjectDetailClient({
       setSaveError(tGlobal("errors.internalServer"));
     } finally {
       setIsSavingColor(false);
+    }
+  };
+
+  const handleReturnToReserve = async () => {
+    if (!canReturnToReserve || isReturning) return;
+
+    setIsReturning(true);
+    setReturnError(null);
+    setReturnMessage(null);
+
+    try {
+      const { error } = await supabase.rpc("transfer_project_to_hucha", {
+        p_account_id: accountId,
+        p_project_id: project.id,
+        p_amount_base_minor: parsedReturnAmount.amountMinor.toString(),
+      });
+
+      if (error) throw error;
+
+      await emitMutation("reserve_transfers", "insert");
+      setReturnAmountInput("");
+      setReturnMessage(
+        locale === "en" ? "Return to piggy bank confirmed." : "Devolucion a la hucha confirmada."
+      );
+      router.refresh();
+    } catch (error) {
+      console.error("[Projects] Return to piggy bank error", error);
+      setReturnError(
+        locale === "en"
+          ? "Couldn't move the money back to the piggy bank."
+          : "No se pudo devolver el dinero a la hucha."
+      );
+    } finally {
+      setIsReturning(false);
     }
   };
 
@@ -577,6 +661,92 @@ export function ProjectDetailClient({
               </p>
             </div>
           </div>
+
+          {canEdit ? (
+            <div className="space-y-4 rounded-lg border p-4">
+              <div className="space-y-1">
+                <p className="font-medium">
+                  {locale === "en" ? "Return to piggy bank" : "Devolver a la hucha"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {locale === "en"
+                    ? "Only unspent money that originally came from the piggy bank can be returned."
+                    : "Solo se puede devolver dinero no gastado que viniese originalmente de la hucha."}
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    {locale === "en" ? "Amount" : "Importe"}
+                  </label>
+                  <Input
+                    value={returnAmountInput}
+                    onChange={(event) =>
+                      setReturnAmountInput(sanitizeNumericInput(event.target.value))
+                    }
+                    inputMode="decimal"
+                    placeholder="0"
+                    disabled={maxReturnableMinor <= 0n || isReturning}
+                  />
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-4 text-sm">
+                  <p className="text-muted-foreground">
+                    {locale === "en" ? "Available to return" : "Disponible para devolver"}:{" "}
+                    <span className="font-semibold text-foreground">
+                      {formatMoneyWithSymbol(maxReturnableMinor, baseCurrency, currencySymbol)}
+                    </span>
+                  </p>
+                  <p className="mt-2 text-muted-foreground">
+                    {locale === "en" ? "Net from piggy bank" : "Neto desde hucha"}:{" "}
+                    <span className="font-semibold text-foreground">
+                      {formatMoneyWithSymbol(
+                        refundableFromReserveMinor,
+                        baseCurrency,
+                        currencySymbol
+                      )}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              {maxReturnableMinor <= 0n ? (
+                <p className="text-sm text-muted-foreground">
+                  {locale === "en"
+                    ? "There is no available balance to return to the piggy bank."
+                    : "No hay saldo disponible para devolver a la hucha."}
+                </p>
+              ) : null}
+              {parsedReturnAmount.error ? (
+                <p className="text-sm text-destructive">{parsedReturnAmount.error}</p>
+              ) : null}
+              {parsedReturnAmount.amountMinor > maxReturnableMinor ? (
+                <p className="text-sm text-destructive">
+                  {locale === "en"
+                    ? "The amount exceeds what can be returned right now."
+                    : "El importe supera lo que se puede devolver ahora mismo."}
+                </p>
+              ) : null}
+              {returnError ? <p className="text-sm text-destructive">{returnError}</p> : null}
+              {returnMessage ? <p className="text-sm text-emerald-600">{returnMessage}</p> : null}
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleReturnToReserve}
+                  disabled={!canReturnToReserve || isReturning}
+                  variant="outline"
+                >
+                  {isReturning
+                    ? locale === "en"
+                      ? "Returning..."
+                      : "Devolviendo..."
+                    : locale === "en"
+                      ? "Return to piggy bank"
+                      : "Devolver a la hucha"}
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
           <div className="space-y-3 rounded-lg border p-4">
             <button

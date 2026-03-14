@@ -147,7 +147,7 @@ export default async function ProjectDetailPage({
         monthCloseAllocations={monthCloseAllocations ?? []}
         reserveTransfers={reserveTransfers ?? []}
         fundingPlans={fundingPlans ?? []}
-        initialProjectExpenses={
+        initialExtraContributions={
           (projectExpenses ?? []) as Array<{
             id: string;
             date: string;

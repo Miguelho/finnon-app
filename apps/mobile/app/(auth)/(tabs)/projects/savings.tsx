@@ -18,6 +18,7 @@ import {
   formatMoneyWithSymbol,
   getProjectColor,
   getProjectMonthlyFundingTargetMinor,
+  getProjectReserveTransferTotalsMap,
   getReserveContainerBalanceMinor,
   getMonthRangeFromKey,
   parseMoneyToMinor,
@@ -278,12 +279,9 @@ export default function SavingsDetailScreen() {
         (map.get(allocation.project_id) ?? 0n) + toMinor(allocation.amount_base_minor)
       );
     });
-    reserveTransfers.forEach((transfer) => {
-      map.set(
-        transfer.destination_project_id,
-        (map.get(transfer.destination_project_id) ?? 0n) +
-          toMinor(transfer.amount_base_minor)
-      );
+    const reserveTransferTotals = getProjectReserveTransferTotalsMap(reserveTransfers);
+    reserveTransferTotals.forEach((amountMinor, projectId) => {
+      map.set(projectId, (map.get(projectId) ?? 0n) + amountMinor);
     });
     return map;
   }, [monthCloseAllocations, reserveTransfers]);

@@ -44,6 +44,33 @@ const toPeriodKey = (value: string | Date | null | undefined) => {
 
 export const toMinorSafe = toMinor;
 
+export const getReserveTransferDirection = (transfer: ReserveTransfer) =>
+  transfer.direction === "project_to_reserve" ? "project_to_reserve" : "reserve_to_project";
+
+export const getProjectReserveTransferDeltaMinor = (transfer: ReserveTransfer) => {
+  const amountMinor = toMinor(transfer.amount_base_minor);
+  return getReserveTransferDirection(transfer) === "project_to_reserve" ? -amountMinor : amountMinor;
+};
+
+export const getReserveContainerTransferDeltaMinor = (transfer: ReserveTransfer) => {
+  const amountMinor = toMinor(transfer.amount_base_minor);
+  return getReserveTransferDirection(transfer) === "project_to_reserve" ? amountMinor : -amountMinor;
+};
+
+export const getProjectReserveTransferTotalsMap = (reserveTransfers: ReserveTransfer[]) => {
+  const byProject = new Map<string, bigint>();
+
+  reserveTransfers.forEach((transfer) => {
+    byProject.set(
+      transfer.destination_project_id,
+      (byProject.get(transfer.destination_project_id) ?? 0n) +
+        getProjectReserveTransferDeltaMinor(transfer)
+    );
+  });
+
+  return byProject;
+};
+
 const computeReserveSavingsMonthFromTransactions = (transactions: TxLike[]) => {
   let incomeMinor = 0n;
   let expenseMinor = 0n;
@@ -105,12 +132,12 @@ export const getReserveContainerBalanceMinor = (params: {
     return total + toMinor(allocation.amount_base_minor);
   }, 0n);
 
-  const outgoingMinor = reserveTransfers.reduce((total, transfer) => {
+  const transferDeltaMinor = reserveTransfers.reduce((total, transfer) => {
     if (transfer.source_reserve_container_id !== reserveContainerId) return total;
-    return total + toMinor(transfer.amount_base_minor);
+    return total + getReserveContainerTransferDeltaMinor(transfer);
   }, 0n);
 
-  return incomingMinor - outgoingMinor;
+  return incomingMinor + transferDeltaMinor;
 };
 
 export const getReserveContainerMonthlySeries = (params: {
@@ -137,7 +164,7 @@ export const getReserveContainerMonthlySeries = (params: {
     if (transfer.source_reserve_container_id !== reserveContainerId) return;
     const period = toPeriodKey(transfer.created_at);
     if (!period) return;
-    byPeriod.set(period, (byPeriod.get(period) ?? 0n) - toMinor(transfer.amount_base_minor));
+    byPeriod.set(period, (byPeriod.get(period) ?? 0n) + getReserveContainerTransferDeltaMinor(transfer));
   });
 
   return Array.from(byPeriod.entries())

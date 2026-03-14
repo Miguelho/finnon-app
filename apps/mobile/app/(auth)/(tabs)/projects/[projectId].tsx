@@ -19,6 +19,8 @@ import {
   getMinorUnits,
   getProjectColor,
   getProjectMonthlyFundingTargetMinor,
+  getProjectReserveTransferDeltaMinor,
+  parseMoneyToMinor,
   PROJECT_PALETTE,
   themeTokens,
   toMonthKey,
@@ -35,6 +37,7 @@ import { useCopy, t } from "../../../../src/lib/i18n";
 import { supabase } from "../../../../src/lib/supabase";
 import { Button } from "../../../../src/components/Button";
 import { Card } from "../../../../src/components/Card";
+import { Input } from "../../../../src/components/Input";
 import { ProjectAmountSlider } from "../../../../src/components/projects/ProjectAmountSlider";
 import { ProjectProgressRing } from "../../../../src/components/projects/ProjectProgressRing";
 
@@ -103,6 +106,8 @@ const formatDateLabel = (value: string | Date | null | undefined, locale: "es" |
   }).format(date);
 };
 
+const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
+
 export default function ProjectDetailScreen() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
   const { user, selectedAccountId } = useAuth();
@@ -137,6 +142,10 @@ export default function ProjectDetailScreen() {
   const [isSavingColor, setIsSavingColor] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [returnAmountInput, setReturnAmountInput] = useState("");
+  const [returnError, setReturnError] = useState<string | null>(null);
+  const [returnMessage, setReturnMessage] = useState<string | null>(null);
+  const [isReturning, setIsReturning] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!user || !selectedAccountId || !projectId) {
@@ -316,7 +325,7 @@ export default function ProjectDetailScreen() {
   const fundingFromReservesMinor = useMemo(
     () =>
       reserveTransfers.reduce(
-        (total, entry) => total + toMinor(entry.amount_base_minor),
+        (total, entry) => total + getProjectReserveTransferDeltaMinor(entry),
         0n
       ),
     [reserveTransfers]
@@ -343,6 +352,24 @@ export default function ProjectDetailScreen() {
   const totalFundedMinor = useMemo(
     () => fundingFromMonthClosesMinor + fundingFromReservesMinor,
     [fundingFromMonthClosesMinor, fundingFromReservesMinor]
+  );
+
+  const availableReservedMinor = useMemo(
+    () => (totalFundedMinor > spentMinor ? totalFundedMinor - spentMinor : 0n),
+    [spentMinor, totalFundedMinor]
+  );
+
+  const refundableFromReserveMinor = useMemo(
+    () => (fundingFromReservesMinor > 0n ? fundingFromReservesMinor : 0n),
+    [fundingFromReservesMinor]
+  );
+
+  const maxReturnableMinor = useMemo(
+    () =>
+      refundableFromReserveMinor < availableReservedMinor
+        ? refundableFromReserveMinor
+        : availableReservedMinor,
+    [availableReservedMinor, refundableFromReserveMinor]
   );
 
   const sortedRecurringExpenses = useMemo(
@@ -466,6 +493,27 @@ export default function ProjectDetailScreen() {
     }).format(date);
   }, [localeCode, project?.created_at]);
 
+  const parsedReturnAmount = useMemo(() => {
+    const raw = returnAmountInput.trim();
+    if (!raw) return { amountMinor: 0n, error: null as string | null };
+
+    const parsed = parseMoneyToMinor(raw, baseCurrency);
+    if (typeof parsed === "object" && "error" in parsed) {
+      return {
+        amountMinor: 0n,
+        error: localeCode === "en" ? "Review the amount." : "Revisa el importe.",
+      };
+    }
+
+    return { amountMinor: parsed, error: null as string | null };
+  }, [baseCurrency, localeCode, returnAmountInput]);
+
+  const canReturnToReserve =
+    canEdit &&
+    parsedReturnAmount.error === null &&
+    parsedReturnAmount.amountMinor > 0n &&
+    parsedReturnAmount.amountMinor <= maxReturnableMinor;
+
   const toggleRecurringExpense = (id: string) => {
     setDisabledRecurringIds((previous) => {
       const next = new Set(previous);
@@ -550,6 +598,41 @@ export default function ProjectDetailScreen() {
       setSaveError(t(dictionary, "errors.internalServer"));
     } finally {
       setIsSavingColor(false);
+    }
+  };
+
+  const handleReturnToReserve = async () => {
+    if (!canEdit || !project || !selectedAccountId || !canReturnToReserve || isReturning) return;
+
+    setIsReturning(true);
+    setReturnError(null);
+    setReturnMessage(null);
+
+    try {
+      const { error: rpcError } = await supabase.rpc("transfer_project_to_hucha", {
+        p_account_id: selectedAccountId,
+        p_project_id: project.id,
+        p_amount_base_minor: parsedReturnAmount.amountMinor.toString(),
+      });
+
+      if (rpcError) throw rpcError;
+
+      setReturnAmountInput("");
+      setReturnMessage(
+        localeCode === "en"
+          ? "Return to piggy bank confirmed."
+          : "Devolucion a la hucha confirmada."
+      );
+      await loadData();
+    } catch (transferError) {
+      console.error("[Projects][mobile] return to piggy bank error", transferError);
+      setReturnError(
+        localeCode === "en"
+          ? "Couldn't move the money back to the piggy bank."
+          : "No se pudo devolver el dinero a la hucha."
+      );
+    } finally {
+      setIsReturning(false);
     }
   };
 
@@ -714,6 +797,101 @@ export default function ProjectDetailScreen() {
                 </Text>
               </View>
             </View>
+
+            {canEdit ? (
+              <View style={[styles.returnCard, { borderColor: userTokens.border }]}>
+                <View style={styles.returnHeader}>
+                  <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
+                    {localeCode === "en" ? "Return to piggy bank" : "Devolver a la hucha"}
+                  </Text>
+                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                    {localeCode === "en"
+                      ? "Only unspent money that originally came from the piggy bank can be returned."
+                      : "Solo se puede devolver dinero no gastado que viniese originalmente de la hucha."}
+                  </Text>
+                </View>
+
+                <Input
+                  label={localeCode === "en" ? "Amount" : "Importe"}
+                  value={returnAmountInput}
+                  onChangeText={(value) => setReturnAmountInput(sanitizeNumericInput(value))}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  disabled={maxReturnableMinor <= 0n || isReturning}
+                />
+
+                <View
+                  style={[
+                    styles.returnStats,
+                    { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+                  ]}
+                >
+                  <View style={styles.breakdownRow}>
+                    <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                      {localeCode === "en" ? "Available to return" : "Disponible para devolver"}
+                    </Text>
+                    <Text style={[styles.breakdownValue, { color: userTokens.textPrimary }]}>
+                      {formatMoneyWithSymbol(maxReturnableMinor, baseCurrency, currencySymbol)}
+                    </Text>
+                  </View>
+                  <View style={styles.breakdownRow}>
+                    <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                      {localeCode === "en" ? "Net from piggy bank" : "Neto desde hucha"}
+                    </Text>
+                    <Text style={[styles.breakdownValue, { color: userTokens.textPrimary }]}>
+                      {formatMoneyWithSymbol(
+                        refundableFromReserveMinor,
+                        baseCurrency,
+                        currencySymbol
+                      )}
+                    </Text>
+                  </View>
+                </View>
+
+                {maxReturnableMinor <= 0n ? (
+                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                    {localeCode === "en"
+                      ? "There is no available balance to return to the piggy bank."
+                      : "No hay saldo disponible para devolver a la hucha."}
+                  </Text>
+                ) : null}
+                {parsedReturnAmount.error ? (
+                  <Text style={[styles.feedbackError, { color: "#E0956A" }]}>
+                    {parsedReturnAmount.error}
+                  </Text>
+                ) : null}
+                {parsedReturnAmount.amountMinor > maxReturnableMinor ? (
+                  <Text style={[styles.feedbackError, { color: "#E0956A" }]}>
+                    {localeCode === "en"
+                      ? "The amount exceeds what can be returned right now."
+                      : "El importe supera lo que se puede devolver ahora mismo."}
+                  </Text>
+                ) : null}
+                {returnError ? (
+                  <Text style={[styles.feedbackError, { color: "#E0956A" }]}>{returnError}</Text>
+                ) : null}
+                {returnMessage ? (
+                  <Text style={[styles.feedbackSuccess, { color: resolvedProjectColor }]}>
+                    {returnMessage}
+                  </Text>
+                ) : null}
+
+                <Button
+                  onPress={() => void handleReturnToReserve()}
+                  title={
+                    isReturning
+                      ? localeCode === "en"
+                        ? "Returning..."
+                        : "Devolviendo..."
+                      : localeCode === "en"
+                        ? "Return to piggy bank"
+                        : "Devolver a la hucha"
+                  }
+                  loading={isReturning}
+                  disabled={!canReturnToReserve}
+                />
+              </View>
+            ) : null}
 
             <View style={[styles.extraTransactionsCard, { borderColor: userTokens.border }]}>
               <TouchableOpacity
@@ -1121,6 +1299,22 @@ const styles = StyleSheet.create({
     marginTop: tokens.spacing.lg,
     borderWidth: 1,
     borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.md,
+    gap: tokens.spacing.sm,
+  },
+  returnCard: {
+    marginTop: tokens.spacing.lg,
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.md,
+    gap: tokens.spacing.sm,
+  },
+  returnHeader: {
+    gap: 4,
+  },
+  returnStats: {
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
     padding: tokens.spacing.md,
     gap: tokens.spacing.sm,
   },

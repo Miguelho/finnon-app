@@ -58,6 +58,7 @@ export type ReserveTransfer = {
   source_reserve_container_id: string;
   destination_project_id: string;
   amount_base_minor: bigint | number | string;
+  direction?: "reserve_to_project" | "project_to_reserve" | null;
   created_by?: string;
   created_at?: string | Date;
 };
