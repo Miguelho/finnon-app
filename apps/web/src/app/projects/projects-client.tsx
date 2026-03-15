@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useWebDataCache } from "@/cache/WebDataCacheProvider";
+import { HuchaLiquidCanvas } from "@/components/hucha/hucha-liquid-canvas";
 import { PageContainer } from "@/components/layout/page-container";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,12 +113,6 @@ const moveProjectToFront = (projects: Project[], projectId: string) => {
   return nextProjects;
 };
 
-const clampRatio = (value: number) => {
-  if (!Number.isFinite(value) || value <= 0) return 0;
-  if (value >= 1) return 1;
-  return value;
-};
-
 const formatDurationLabel = (months: number, locale: string) => {
   if (months <= 0) return locale === "en" ? "Reached" : "Alcanzado";
   if (months < 12) {
@@ -160,121 +155,6 @@ const computeCumulativePeakMinor = (series: Array<{ amountMinor: bigint }>) => {
 
   return peak;
 };
-
-function HuchaLiquidCanvas({
-  amountLabel,
-  ratio,
-  size = 88,
-}: {
-  amountLabel: string;
-  ratio: number;
-  size?: number;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const targetRatioRef = useRef(clampRatio(ratio));
-  const currentRatioRef = useRef(clampRatio(ratio));
-  const waveOffsetRef = useRef(0);
-
-  useEffect(() => {
-    targetRatioRef.current = clampRatio(ratio);
-  }, [ratio]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const context = canvas.getContext("2d");
-    if (!context) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = size * dpr;
-    canvas.height = size * dpr;
-    canvas.style.width = `${size}px`;
-    canvas.style.height = `${size}px`;
-    context.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    let frame = 0;
-    const cx = size / 2;
-    const cy = size / 2;
-    const radius = size * 0.41;
-    const trackWidth = size * 0.068;
-
-    const draw = () => {
-      currentRatioRef.current +=
-        (targetRatioRef.current - currentRatioRef.current) * 0.04;
-      waveOffsetRef.current += 0.028;
-
-      context.clearRect(0, 0, size, size);
-
-      context.beginPath();
-      context.arc(cx, cy, radius, 0, Math.PI * 2);
-      context.strokeStyle = "rgba(255,255,255,0.07)";
-      context.lineWidth = trackWidth;
-      context.stroke();
-
-      context.save();
-      context.beginPath();
-      context.arc(cx, cy, radius - 1, 0, Math.PI * 2);
-      context.clip();
-
-      const fillTop =
-        cy + radius - clampRatio(currentRatioRef.current) * radius * 2;
-
-      const gradient = context.createLinearGradient(0, cy - radius, 0, cy + radius);
-      gradient.addColorStop(0, "#4ECDC4CC");
-      gradient.addColorStop(1, "#26A69AEE");
-      context.fillStyle = gradient;
-      context.fillRect(cx - radius, fillTop, radius * 2, cy + radius - fillTop);
-
-      if (currentRatioRef.current > 0.03 && currentRatioRef.current < 0.97) {
-        context.beginPath();
-        for (let index = 0; index < 25; index += 1) {
-          const x = cx - radius + (index / 24) * radius * 2;
-          const y =
-            fillTop +
-            Math.sin((index / 24) * Math.PI * 4 + waveOffsetRef.current) * 2.5;
-          if (index === 0) {
-            context.moveTo(x, y);
-          } else {
-            context.lineTo(x, y);
-          }
-        }
-        context.strokeStyle = "rgba(78,205,196,0.5)";
-        context.lineWidth = 1.8;
-        context.stroke();
-      }
-
-      context.restore();
-
-      context.beginPath();
-      context.arc(cx, cy, radius, 0, Math.PI * 2);
-      context.strokeStyle = "rgba(78,205,196,0.35)";
-      context.lineWidth = 1.8;
-      context.stroke();
-
-      frame = window.requestAnimationFrame(draw);
-    };
-
-    frame = window.requestAnimationFrame(draw);
-    return () => window.cancelAnimationFrame(frame);
-  }, [size]);
-
-  return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
-      <div className="absolute inset-0 flex items-center justify-center px-3">
-        <span
-          className="text-center text-[14px] font-bold leading-none"
-          style={{ color: HUCHA_ACCENT }}
-        >
-          {amountLabel}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 export function ProjectsClient({
   accountId,
@@ -547,11 +427,6 @@ export function ProjectsClient({
     return huchaStats.accumulatedMinor + parsedTransferAmount.amountMinor;
   }, [huchaStats.accumulatedMinor, parsedTransferAmount, selectedMode]);
 
-  const huchaLevelRatio = useMemo(() => {
-    if (huchaReferenceMinor <= 0n) return 0;
-    return clampRatio((Number(previewHuchaMinor) / Number(huchaReferenceMinor)) * 0.72);
-  }, [huchaReferenceMinor, previewHuchaMinor]);
-
   const nextPriority = useMemo(() => {
     const highest = projects.reduce((max, project) => Math.max(max, project.priority), 0);
     return highest + 1;
@@ -762,10 +637,21 @@ export function ProjectsClient({
           }}
         >
           <div className="flex shrink-0 flex-col items-center gap-1.5">
-            <HuchaLiquidCanvas
-              amountLabel={formatMoneyWithSymbol(previewHuchaMinor, baseCurrency, currencySymbol)}
-              ratio={huchaLevelRatio}
-            />
+            <div className="relative" style={{ width: 88, height: 88 }}>
+              <HuchaLiquidCanvas
+                valueMinor={previewHuchaMinor}
+                maxMinor={huchaReferenceMinor}
+                size={88}
+              />
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-3">
+                <span
+                  className="text-center text-[14px] font-bold leading-none"
+                  style={{ color: HUCHA_ACCENT }}
+                >
+                  {formatMoneyWithSymbol(previewHuchaMinor, baseCurrency, currencySymbol)}
+                </span>
+              </div>
+            </div>
             <span className="text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
               {tGlobal("home.savings.hucha")}
             </span>

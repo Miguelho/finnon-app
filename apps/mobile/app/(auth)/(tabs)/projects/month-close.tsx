@@ -11,13 +11,11 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   addMonths,
-  clampMonthKeyToLatestClosable,
   computePendingMonthCloseKeysFromMonthCloses,
   CURRENCIES,
   formatMinorToMoney,
   formatMoneyWithSymbol,
   formatMonthLabel,
-  getLatestClosableMonthKey,
   getProjectMonthlyFundingTargetMinor,
   parseMoneyToMinor,
   themeTokens,
@@ -178,7 +176,6 @@ export default function ProjectsMonthCloseScreen() {
       const nextMonthCloses = (monthClosesResult.data ?? []) as MonthClose[];
       const currentMonthKey = toMonthKey(new Date());
       const defaultMonthKey = addMonths(currentMonthKey, -1);
-      const latestClosableMonthKey = getLatestClosableMonthKey(currentMonthKey);
       const computedPendingMonthKeys = computePendingMonthCloseKeysFromMonthCloses({
         commitmentProjects: nextProjects.map((project) => ({
           projectId: project.id,
@@ -192,7 +189,9 @@ export default function ProjectsMonthCloseScreen() {
         typeof month === "string" && MONTH_KEY_PATTERN.test(month) ? month : null;
       const resolvedMonth =
         requestedMonth
-          ? clampMonthKeyToLatestClosable(requestedMonth, currentMonthKey)
+          ? requestedMonth > currentMonthKey
+            ? currentMonthKey
+            : requestedMonth
           : computedPendingMonthKeys[0] ?? defaultMonthKey;
       if (requestedMonth && requestedMonth !== resolvedMonth) {
         router.replace(`/(auth)/(tabs)/projects/month-close?month=${resolvedMonth}`);
@@ -260,10 +259,10 @@ export default function ProjectsMonthCloseScreen() {
     void loadData();
   }, [loadData]);
 
-  const latestClosableMonthKey = getLatestClosableMonthKey();
+  const latestVisibleMonthKey = toMonthKey(new Date());
   const canEdit = role !== "viewer";
   const isClosed = monthState?.is_closed ?? Boolean(monthClose?.id);
-  const isClosableMonth = monthKey <= latestClosableMonthKey;
+  const isClosableMonth = monthKey <= latestVisibleMonthKey;
   const actualSavedMinor = toMinor(monthState?.generated_saved_base_minor ?? 0);
   const positiveSavedMinor = actualSavedMinor > 0n ? actualSavedMinor : 0n;
   const huchaReserve =
@@ -416,7 +415,7 @@ export default function ProjectsMonthCloseScreen() {
 
   const previousMonth = addMonths(monthKey, -1);
   const nextMonth = addMonths(monthKey, 1);
-  const canNavigateNext = nextMonth <= latestClosableMonthKey;
+  const canNavigateNext = nextMonth <= latestVisibleMonthKey;
   const closedAtLabel = formatClosedAt(
     monthState?.closed_at ??
       (typeof monthClose?.closed_at === "string" ? monthClose.closed_at : null),
@@ -497,6 +496,29 @@ export default function ProjectsMonthCloseScreen() {
               </Pressable>
             </View>
 
+            {isClosed ? (
+              <View
+                style={[
+                  styles.closedMonthNotice,
+                  {
+                    borderColor: "#86EFAC",
+                    backgroundColor: "#F0FDF4",
+                  },
+                ]}
+              >
+                <Text style={[styles.successTitle, { color: "#166534" }]}>
+                  {locale === "en" ? "Month already closed" : "Mes ya cerrado"}
+                </Text>
+                {closedAtLabel ? (
+                  <Text style={[styles.subtitle, { color: "#166534" }]}>
+                    {locale === "en"
+                      ? `Closed on ${closedAtLabel}.`
+                      : `Cerrado el ${closedAtLabel}.`}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+
             {pendingMonthKeys.length > 0 ? (
               <View style={styles.pendingWrap}>
                 {pendingMonthKeys.map((pendingKey) => {
@@ -556,21 +578,6 @@ export default function ProjectsMonthCloseScreen() {
               </Text>
             </Card>
           </View>
-
-          {isClosed ? (
-            <Card>
-              <Text style={[styles.successTitle, { color: "#166534" }]}>
-                {locale === "en" ? "Month already closed" : "Mes ya cerrado"}
-              </Text>
-              {closedAtLabel ? (
-                <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
-                  {locale === "en"
-                    ? `Closed on ${closedAtLabel}.`
-                    : `Cerrado el ${closedAtLabel}.`}
-                </Text>
-              ) : null}
-            </Card>
-          ) : null}
 
           {!isClosed && needsRebalance ? (
             <Card>
@@ -798,6 +805,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: tokens.spacing.xs,
+  },
+  closedMonthNotice: {
+    marginTop: tokens.spacing.md,
+    borderWidth: 1,
+    borderRadius: tokens.radii.md,
+    padding: tokens.spacing.sm,
+    gap: 4,
   },
   pendingChip: {
     borderWidth: 1,

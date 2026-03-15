@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Finnon – Savings</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F7F8FA;
+    --surface: #FFFFFF;
+    --surface2: #F0F2F5;
+    --primary: #5B8DFF;
+    --indigo-light: #C7D2FE;
+    --dark: #1C1E21;
+    --mid: #5F6368;
+    --subtle: #9AA0A6;
+    --verde-menta: #4ECDC4;
+    --verde-menta-light: #A8F0EC;
+    --azul-eucalipto: #2D6A8F;
+    --azul-eucalipto-light: #7EC8E3;
+    --terracota: #E07B54;
+    --amber: #F59E0B;
+    --project-1: #5B8DFF;
+    --project-2: #A78BFA;
+    --project-3: #34D399;
+    --radius: 20px;
+    --radius-sm: 12px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #E8EAED;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  /* Phone frame */
+  .phone {
+    width: 390px;
+    min-height: 844px;
+    background: var(--bg);
+    border-radius: 44px;
+    overflow: hidden;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Status bar */
+  .status-bar {
+    padding: 14px 24px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--dark);
+    flex-shrink: 0;
+  }
+
+  /* Nav */
+  .nav {
+    padding: 12px 24px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .nav-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--dark);
+    letter-spacing: -0.5px;
+  }
+  .nav-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    border: none;
+  }
+
+  /* Scroll area */
+  .scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 20px 32px;
+    scroll-behavior: smooth;
+  }
+  .scroll::-webkit-scrollbar { display: none; }
+
+  /* ── HERO BUCKET ── */
+  .hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0 0;
+    position: relative;
+  }
+
+  /* 3D bucket canvas */
+  .bucket-wrap {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    cursor: pointer;
+  }
+  #bucketCanvas {
+    width: 90px;
+    height: 90px;
+    filter: drop-shadow(0 8px 20px rgba(78,205,196,0.35));
+  }
+
+  .hero-amount {
+    font-size: 52px;
+    font-weight: 300;
+    color: var(--dark);
+    letter-spacing: -3px;
+    line-height: 1;
+    margin-top: 16px;
+    font-variant-numeric: tabular-nums;
+    transition: color 0.4s;
+  }
+  .hero-amount span {
+    font-size: 22px;
+    font-weight: 400;
+    color: var(--mid);
+    letter-spacing: -0.5px;
+    vertical-align: super;
+    margin-right: 2px;
+  }
+  .hero-label {
+    font-size: 13px;
+    color: var(--subtle);
+    margin-top: 4px;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── PIPES ── */
+  .pipes-container {
+    position: relative;
+    width: 100%;
+    height: 80px;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+  #pipesCanvas {
+    width: 100%;
+    height: 80px;
+  }
+
+  /* ── SECTIONS ROW ── */
+  .sections-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 4px;
+  }
+
+  /* Projects card */
+  .projects-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  }
+  .card-header {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--subtle);
+    margin-bottom: 14px;
+  }
+
+  .project-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .project-item:last-child { margin-bottom: 0; }
+  .project-item:hover { opacity: 0.8; }
+  .project-item.active .ring-wrap { transform: scale(1.08); }
+
+  .ring-wrap {
+    position: relative;
+    width: 38px; height: 38px;
+    flex-shrink: 0;
+    transition: transform 0.2s;
+  }
+  .ring-wrap svg { width: 38px; height: 38px; transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: var(--surface2); stroke-width: 3; }
+  .ring-fill { fill: none; stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset 0.8s cubic-bezier(.4,0,.2,1); }
+  .ring-icon {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    font-size: 13px;
+  }
+
+  .project-info { flex: 1; min-width: 0; }
+  .project-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--dark);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .project-amount {
+    font-size: 11px;
+    color: var(--subtle);
+    font-variant-numeric: tabular-nums;
+    margin-top: 1px;
+  }
+
+  /* Hucha card */
+  .hucha-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 16px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid rgba(78,205,196,0.2);
+    cursor: pointer;
+  }
+  .projects-total {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    margin-top: 2px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+  }
+  .projects-total-label {
+    font-size: 11px;
+    color: var(--subtle);
+    font-weight: 500;
+  }
+  .projects-total-val {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.2px;
+  }
+
+  .hucha-circle-wrap {
+    position: relative;
+    width: 72px; height: 72px;
+    flex-shrink: 0;
+  }
+  .hucha-circle-wrap canvas {
+    position: absolute; inset: 0;
+    width: 72px !important; height: 72px !important;
+  }
+  .hucha-circle-inner {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .hucha-amount {
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.3px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  }
+  .hucha-label {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--subtle);
+    margin-top: 5px;
+  }
+  .hucha-sublabel {
+    font-size: 10px;
+    color: var(--subtle);
+    text-align: center;
+  }
+
+  /* ── HISTORIAL ── */
+  .historial-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-top: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  }
+  .hist-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .hist-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dark);
+  }
+  .hist-bucket-indicator {
+    font-size: 11px;
+    color: var(--primary);
+    font-weight: 500;
+  }
+  .hist-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .hist-stat {
+    text-align: center;
+  }
+  .hist-stat-val {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--dark);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.5px;
+  }
+  .hist-stat-label {
+    font-size: 10px;
+    color: var(--subtle);
+    margin-top: 1px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .hist-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 5px;
+    height: 48px;
+  }
+  .hist-bar-wrap {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 3px;
+  }
+  .hist-bar {
+    border-radius: 3px;
+    background: var(--indigo-light);
+    transition: height 0.6s cubic-bezier(.4,0,.2,1);
+  }
+  .hist-bar.current { background: var(--primary); }
+  .hist-bar-month {
+    font-size: 9px;
+    color: var(--subtle);
+    text-align: center;
+  }
+
+  /* ── SLIDER PANEL ── */
+  .slider-panel {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-top: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+    display: none;
+  }
+  .slider-panel.visible { display: block; }
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .slider-project-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--dark);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .slider-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+  .slider-close {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--mid);
+  }
+  .slider-amounts {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .slider-current-val {
+    font-size: 28px;
+    font-weight: 300;
+    color: var(--dark);
+    letter-spacing: -1.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .slider-current-val small {
+    font-size: 14px;
+    color: var(--subtle);
+    font-weight: 400;
+  }
+  .slider-max-label {
+    font-size: 11px;
+    color: var(--subtle);
+    text-align: right;
+    align-self: flex-end;
+    padding-bottom: 6px;
+  }
+
+  /* Custom slider */
+  .custom-slider-track {
+    position: relative;
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    margin-bottom: 8px;
+  }
+  .custom-slider-fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    border-radius: 3px;
+    transition: width 0.05s;
+  }
+  input[type=range] {
+    position: absolute;
+    top: -10px; left: 0; right: 0;
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+    height: 28px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid var(--primary);
+    box-shadow: 0 2px 8px rgba(91,141,255,0.4);
+    transition: transform 0.1s;
+  }
+  input[type=range]:active::-webkit-slider-thumb {
+    transform: scale(1.2);
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 6px;
+    background: transparent;
+  }
+  .slider-hint {
+    font-size: 11px;
+    color: var(--subtle);
+    text-align: center;
+    margin-top: 4px;
+  }
+
+  /* Pipe animation hint */
+  .pipe-hint {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 0px;
+  }
+  .pipe-hint-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--subtle);
+  }
+  .pipe-hint-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="status-bar">
+    <span>23:18</span>
+    <span style="display:flex;gap:6px;align-items:center;">
+      <svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="4" width="3" height="8" rx="1" fill="currentColor" opacity="0.3"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="1" fill="currentColor" opacity="0.6"/><rect x="9" y="0" width="3" height="12" rx="1" fill="currentColor"/><rect x="13.5" y="0" width="2.5" height="12" rx="1" fill="currentColor" stroke="none" opacity="0.3"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 10L3 5.5C4.4 4.2 6.1 3.5 8 3.5s3.6.7 5 2L8 10z" fill="currentColor"/><path d="M8 10L1 4C2.9 2.2 5.3 1 8 1s5.1 1.2 7 3L8 10z" fill="currentColor" opacity="0.3"/></svg>
+      <span>89%</span>
+    </span>
+  </div>
+
+  <div class="nav">
+    <span class="nav-title">Ahorros</span>
+    <button class="nav-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5F6368" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+    </button>
+  </div>
+
+  <div class="scroll" id="mainScroll">
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="bucket-wrap" id="bucketWrap">
+        <canvas id="bucketCanvas" width="180" height="180"></canvas>
+      </div>
+      <div class="hero-amount" id="heroAmount"><span>€</span><span id="heroVal">1.081</span></div>
+      <div class="hero-label">ahorro del mes · marzo</div>
+    </div>
+
+    <!-- PIPES -->
+    <div class="pipes-container">
+      <canvas id="pipesCanvas" width="700" height="160"></canvas>
+    </div>
+
+    <div class="pipe-hint">
+      <div class="pipe-hint-item">
+        <div class="pipe-hint-dot" style="background:var(--primary)"></div>
+        financia proyectos
+      </div>
+      <div class="pipe-hint-item">
+        <div class="pipe-hint-dot" style="background:var(--azul-eucalipto-light)"></div>
+        reserva hucha
+      </div>
+    </div>
+
+    <!-- SECTIONS ROW -->
+    <div class="sections-row" style="margin-top:12px;">
+
+      <!-- Projects -->
+      <div class="projects-card">
+        <div class="card-header">Proyectos</div>
+
+        <div class="project-item" id="proj0" onclick="selectProject(0)">
+          <div class="ring-wrap">
+            <svg viewBox="0 0 38 38">
+              <circle class="ring-bg" cx="19" cy="19" r="15"/>
+              <circle class="ring-fill" id="ring0" cx="19" cy="19" r="15" stroke="var(--project-1)"
+                stroke-dasharray="94.2" stroke-dashoffset="30"/>
+            </svg>
+            <span class="ring-icon">✈️</span>
+          </div>
+          <div class="project-info">
+            <div class="project-name">Viaje Japón</div>
+            <div class="project-amount" id="pamt0">€60/mes</div>
+          </div>
+        </div>
+
+        <div class="project-item" id="proj1" onclick="selectProject(1)">
+          <div class="ring-wrap">
+            <svg viewBox="0 0 38 38">
+              <circle class="ring-bg" cx="19" cy="19" r="15"/>
+              <circle class="ring-fill" id="ring1" cx="19" cy="19" r="15" stroke="var(--project-2)"
+                stroke-dasharray="94.2" stroke-dashoffset="55"/>
+            </svg>
+            <span class="ring-icon">🚗</span>
+          </div>
+          <div class="project-info">
+            <div class="project-name">Coche nuevo</div>
+            <div class="project-amount" id="pamt1">€30/mes</div>
+          </div>
+        </div>
+
+        <div class="project-item" id="proj2" onclick="selectProject(2)">
+          <div class="ring-wrap">
+            <svg viewBox="0 0 38 38">
+              <circle class="ring-bg" cx="19" cy="19" r="15"/>
+              <circle class="ring-fill" id="ring2" cx="19" cy="19" r="15" stroke="var(--project-3)"
+                stroke-dasharray="94.2" stroke-dashoffset="75"/>
+            </svg>
+            <span class="ring-icon">💻</span>
+          </div>
+          <div class="project-info">
+            <div class="project-name">MacBook</div>
+            <div class="project-amount" id="pamt2">€10/mes</div>
+          </div>
+        </div>
+
+        <!-- Total planificado -->
+        <div class="projects-total">
+          <span class="projects-total-label">Planificado a proyectos</span>
+          <span class="projects-total-val" id="projectsTotal">€100/mes</span>
+        </div>
+      </div>
+
+      <!-- Hucha -->
+      <div class="hucha-card" id="huchaCard" onclick="selectBucket('hucha')">
+        <div class="hucha-circle-wrap">
+          <canvas id="huchaCanvas" width="144" height="144"></canvas>
+          <div class="hucha-circle-inner">
+            <span class="hucha-amount" id="huchaAmount">€981</span>
+          </div>
+        </div>
+        <div class="hucha-label">Hucha</div>
+        <div class="hucha-sublabel">remanente del mes</div>
+      </div>
+    </div>
+
+    <!-- SLIDER PANEL -->
+    <div class="slider-panel" id="sliderPanel">
+      <div class="slider-header">
+        <div class="slider-project-name">
+          <div class="slider-dot" id="sliderDot"></div>
+          <span id="sliderName">Viaje Japón</span>
+        </div>
+        <button class="slider-close" onclick="closeSlider()">✕</button>
+      </div>
+      <div class="slider-amounts">
+        <div class="slider-current-val"><span id="sliderVal">60</span> <small>€/mes</small></div>
+        <div class="slider-max-label">máx. <span id="sliderMax">1.031</span> €</div>
+      </div>
+      <div class="custom-slider-track">
+        <div class="custom-slider-fill" id="sliderFill"></div>
+        <input type="range" id="theSlider" min="0" max="1031" value="60" oninput="onSliderMove(this)">
+      </div>
+      <div class="slider-hint">arrastra para ajustar la asignación</div>
+    </div>
+
+    <!-- HISTORIAL -->
+    <div class="historial-card" id="historialCard">
+      <div class="hist-header">
+        <div class="hist-title">Historial</div>
+        <div class="hist-bucket-indicator" id="histBucketLabel">🪣 Ahorro mensual</div>
+      </div>
+      <div class="hist-stats">
+        <div class="hist-stat">
+          <div class="hist-stat-val" id="histSaldo">1.081</div>
+          <div class="hist-stat-label">saldo</div>
+        </div>
+        <div class="hist-stat">
+          <div class="hist-stat-val">940</div>
+          <div class="hist-stat-label">mes</div>
+        </div>
+        <div class="hist-stat">
+          <div class="hist-stat-val">879</div>
+          <div class="hist-stat-label">media</div>
+        </div>
+        <div class="hist-stat">
+          <div class="hist-stat-val">1.200</div>
+          <div class="hist-stat-label">máx</div>
+        </div>
+      </div>
+      <div class="hist-bars" id="histBars"></div>
+    </div>
+
+  </div><!-- /scroll -->
+</div><!-- /phone -->
+
+<script>
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+const TOTAL = 1081;
+const projects = [
+  { name: 'Viaje Japón',  emoji: '✈️', color: '#5B8DFF', amount: 60,  progress: 0.68 },
+  { name: 'Coche nuevo',  emoji: '🚗', color: '#A78BFA', amount: 30,  progress: 0.42 },
+  { name: 'MacBook',      emoji: '💻', color: '#34D399', amount: 10,  progress: 0.22 },
+];
+let selectedProject = null;
+let animFrame;
+
+function getHucha() {
+  return TOTAL - projects.reduce((s, p) => s + p.amount, 0);
+}
+
+// ─────────────────────────────────────────────
+// 3D BUCKET (main, verde menta)
+// ─────────────────────────────────────────────
+const bucketCanvas = document.getElementById('bucketCanvas');
+const bctx = bucketCanvas.getContext('2d');
+let liquidLevel = 0; // 0–1
+let targetLevel = 0.72;
+let waveOffset = 0;
+let bucketAnimId;
+
+function drawBucket(ctx, w, h, level, colorTop, colorBot, waveOff) {
+  ctx.clearRect(0, 0, w, h);
+  const cx = w / 2;
+  const bTop = 20, bBot = h - 20;
+  const topRx = w * 0.38, topRy = w * 0.10;
+  const botRx = w * 0.28, botRy = w * 0.07;
+  const bH = bBot - bTop;
+
+  // shadow
+  ctx.save();
+  ctx.shadowColor = 'rgba(78,205,196,0.3)';
+  ctx.shadowBlur = 18;
+
+  // draw body (trapezoid via path)
+  ctx.beginPath();
+  ctx.moveTo(cx - topRx, bTop);
+  ctx.lineTo(cx + topRx, bTop);
+  ctx.lineTo(cx + botRx, bBot);
+  ctx.lineTo(cx - botRx, bBot);
+  ctx.closePath();
+
+  const bodyGrad = ctx.createLinearGradient(0, bTop, w, bBot);
+  bodyGrad.addColorStop(0, colorTop + '22');
+  bodyGrad.addColorStop(1, colorBot + '18');
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+
+  // liquid fill
+  const liqBot = bBot - 4;
+  const liqTop = bBot - (bH - 8) * level;
+  const liqRxBot = botRx - 2;
+  const liqRxTop = botRx + (topRx - botRx) * ((bH - (liqTop - bTop)) / bH) - 2;
+  const liqRyTop = liqRxTop * 0.25;
+
+  // clip to bucket body
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(cx - topRx, bTop);
+  ctx.lineTo(cx + topRx, bTop);
+  ctx.lineTo(cx + botRx, bBot);
+  ctx.lineTo(cx - botRx, bBot);
+  ctx.closePath();
+  ctx.clip();
+
+  // liquid body
+  ctx.beginPath();
+  ctx.moveTo(cx - liqRxTop, liqTop);
+  // wave
+  const waveAmp = 3;
+  const waveSegs = 8;
+  for (let i = 0; i <= waveSegs; i++) {
+    const x = (cx - liqRxTop) + (liqRxTop * 2 * i / waveSegs);
+    const y = liqTop + Math.sin((i / waveSegs) * Math.PI * 2 + waveOff) * waveAmp;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.lineTo(cx + liqRxBot, liqBot);
+  ctx.lineTo(cx - liqRxBot, liqBot);
+  ctx.closePath();
+  const liqGrad = ctx.createLinearGradient(0, liqTop, 0, liqBot);
+  liqGrad.addColorStop(0, colorTop + 'CC');
+  liqGrad.addColorStop(1, colorBot + 'FF');
+  ctx.fillStyle = liqGrad;
+  ctx.fill();
+
+  // liquid shine
+  ctx.beginPath();
+  const shineX = cx - liqRxTop * 0.4;
+  const shineW = liqRxTop * 0.5;
+  ctx.moveTo(shineX, liqTop + 4);
+  ctx.lineTo(shineX + shineW, liqTop + 4);
+  ctx.lineTo(shineX + shineW * 0.7, liqTop + 12);
+  ctx.lineTo(shineX + shineW * 0.1, liqTop + 12);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.fill();
+
+  ctx.restore();
+
+  // bucket outline
+  ctx.beginPath();
+  ctx.moveTo(cx - topRx, bTop);
+  ctx.lineTo(cx + topRx, bTop);
+  ctx.lineTo(cx + botRx, bBot);
+  ctx.lineTo(cx - botRx, bBot);
+  ctx.closePath();
+  ctx.strokeStyle = colorTop + '80';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // top ellipse rim
+  ctx.beginPath();
+  ctx.ellipse(cx, bTop, topRx, topRy, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = colorTop + 'AA';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  const rimGrad = ctx.createLinearGradient(cx - topRx, 0, cx + topRx, 0);
+  rimGrad.addColorStop(0, colorTop + '40');
+  rimGrad.addColorStop(0.5, colorTop + '90');
+  rimGrad.addColorStop(1, colorTop + '40');
+  ctx.fillStyle = rimGrad;
+  ctx.fill();
+
+  // bottom ellipse
+  ctx.beginPath();
+  ctx.ellipse(cx, bBot, botRx, botRy, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = colorTop + '60';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.fillStyle = colorTop + '20';
+  ctx.fill();
+
+  // highlight stripe on body
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(cx - topRx, bTop);
+  ctx.lineTo(cx + topRx, bTop);
+  ctx.lineTo(cx + botRx, bBot);
+  ctx.lineTo(cx - botRx, bBot);
+  ctx.closePath();
+  ctx.clip();
+  const hlGrad = ctx.createLinearGradient(cx - topRx, 0, cx - topRx * 0.2, 0);
+  hlGrad.addColorStop(0, 'rgba(255,255,255,0.12)');
+  hlGrad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hlGrad;
+  ctx.fillRect(cx - topRx, bTop, topRx * 0.6, bH);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function animateBucket() {
+  liquidLevel += (targetLevel - liquidLevel) * 0.06;
+  waveOffset += 0.04;
+  drawBucket(bctx, 180, 180, liquidLevel, '#4ECDC4', '#26A69A', waveOffset);
+  bucketAnimId = requestAnimationFrame(animateBucket);
+}
+
+// Hucha circle (fill-from-bottom)
+const huchaCanvas = document.getElementById('huchaCanvas');
+const hctx = huchaCanvas.getContext('2d');
+let hWave = 0;
+let hLevel = 0;
+let hTarget = 0;
+
+function drawHuchaCircle(ctx, size, level, wv) {
+  const dpr = window.devicePixelRatio || 1;
+  ctx.canvas.width  = size * dpr;
+  ctx.canvas.height = size * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, size, size);
+  const cx = size/2, cy = size/2, r = size * 0.41;
+  const ratio = Math.max(0, Math.min(1, level));
+  // Track
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+  ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = size*0.068; ctx.stroke();
+  // Clip
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, r-1, 0, Math.PI*2); ctx.clip();
+  // Fill from bottom
+  const fillTop = cy + r - ratio * r * 2;
+  const grad = ctx.createLinearGradient(cx, cy-r, cx, cy+r);
+  grad.addColorStop(0, '#4ECDC4CC'); grad.addColorStop(1, '#26A69AEE');
+  ctx.fillStyle = grad;
+  ctx.fillRect(cx-r, fillTop, r*2+2, cy+r+2-fillTop);
+  // Wave
+  if (ratio > 0.03 && ratio < 0.97) {
+    ctx.beginPath();
+    for (let i=0; i<=24; i++) {
+      const x = (cx-r) + (r*2*i/24);
+      const y = fillTop + Math.sin((i/24)*Math.PI*4 + wv) * 2.2;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.strokeStyle = 'rgba(78,205,196,0.5)'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+  ctx.restore();
+  // Outer ring
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+  ctx.strokeStyle = 'rgba(78,205,196,0.35)'; ctx.lineWidth = 1.6; ctx.stroke();
+}
+
+function animateHucha() {
+  hLevel += (hTarget - hLevel) * 0.06;
+  hWave += 0.035;
+  drawHuchaCircle(hctx, 72, hLevel, hWave);
+  requestAnimationFrame(animateHucha);
+}
+
+// ─────────────────────────────────────────────
+// PIPES ANIMATION
+// ─────────────────────────────────────────────
+const pipesCanvas = document.getElementById('pipesCanvas');
+const pctx = pipesCanvas.getContext('2d');
+const PIPE_W = 700, PIPE_H = 160;
+let pipeProgress = 0; // 0→1 entrance animation
+let particles = [];
+let pipeAnimRunning = false;
+
+function getPipeSplit() {
+  const proj = projects.reduce((s, p) => s + p.amount, 0);
+  return proj / TOTAL;
+}
+
+function initParticles() {
+  particles = [];
+  for (let i = 0; i < 18; i++) {
+    particles.push(makeParticle(Math.random()));
+  }
+}
+
+function makeParticle(progress) {
+  const goLeft = Math.random() < getPipeSplit();
+  return {
+    t: progress,
+    speed: 0.004 + Math.random() * 0.003,
+    branch: goLeft ? 'left' : 'right',
+    size: 2 + Math.random() * 2,
+    opacity: 0.5 + Math.random() * 0.5,
+  };
+}
+
+function getParticlePos(p) {
+  // Stem: vertical drop from center-top to mid
+  // Left branch: curves to bottom-left (projects)
+  // Right branch: curves to bottom-right (hucha)
+  const cx = PIPE_W / 2;
+  const stemTop = 0;
+  const stemBot = PIPE_H * 0.5;
+  const branchBot = PIPE_H * 0.95;
+
+  if (p.t < 0.45) {
+    // On stem
+    const frac = p.t / 0.45;
+    return { x: cx, y: stemTop + (stemBot - stemTop) * frac };
+  } else {
+    const frac = (p.t - 0.45) / 0.55;
+    if (p.branch === 'left') {
+      // Curve left
+      const startX = cx, startY = stemBot;
+      const endX = cx * 0.35, endY = branchBot;
+      const cpX = cx * 0.5, cpY = stemBot + (branchBot - stemBot) * 0.4;
+      return bezier(startX, startY, cpX, cpY, endX, endY, frac);
+    } else {
+      const startX = cx, startY = stemBot;
+      const endX = cx * 1.65, endY = branchBot;
+      const cpX = cx * 1.5, cpY = stemBot + (branchBot - stemBot) * 0.4;
+      return bezier(startX, startY, cpX, cpY, endX, endY, frac);
+    }
+  }
+}
+
+function bezier(x0, y0, cx, cy, x1, y1, t) {
+  return {
+    x: (1-t)*(1-t)*x0 + 2*(1-t)*t*cx + t*t*x1,
+    y: (1-t)*(1-t)*y0 + 2*(1-t)*t*cy + t*t*y1,
+  };
+}
+
+function drawPipes() {
+  pctx.clearRect(0, 0, PIPE_W, PIPE_H);
+  const cx = PIPE_W / 2;
+  const stemTop = 0;
+  const stemBot = PIPE_H * 0.5;
+  const branchBot = PIPE_H * 0.95;
+  const split = getPipeSplit();
+
+  const pipeW = 8;
+  const drawProgress = Math.min(pipeProgress, 1);
+
+  // Pipe colors
+  const stemColor = '#4ECDC4';
+  const leftColor = '#5B8DFF';
+  const rightColor = '#7EC8E3';
+
+  // Draw stem
+  if (drawProgress > 0) {
+    const stemFrac = Math.min(drawProgress / 0.4, 1);
+    pctx.beginPath();
+    pctx.moveTo(cx, stemTop);
+    pctx.lineTo(cx, stemTop + (stemBot - stemTop) * stemFrac);
+    pctx.strokeStyle = stemColor;
+    pctx.lineWidth = pipeW;
+    pctx.lineCap = 'round';
+    pctx.stroke();
+  }
+
+  // Draw branches
+  if (drawProgress > 0.4) {
+    const brFrac = Math.min((drawProgress - 0.4) / 0.6, 1);
+
+    // Left branch (projects)
+    pctx.beginPath();
+    const lSteps = 30;
+    for (let i = 0; i <= lSteps * brFrac; i++) {
+      const t = i / lSteps;
+      const pos = bezier(cx, stemBot, cx * 0.5, stemBot + (branchBot - stemBot) * 0.4, cx * 0.35, branchBot, t);
+      if (i === 0) pctx.moveTo(pos.x, pos.y);
+      else pctx.lineTo(pos.x, pos.y);
+    }
+    const lw = pipeW * 0.4 + pipeW * 0.6 * split;
+    pctx.strokeStyle = leftColor;
+    pctx.lineWidth = Math.max(lw, 3);
+    pctx.lineCap = 'round';
+    pctx.stroke();
+
+    // Right branch (hucha)
+    pctx.beginPath();
+    for (let i = 0; i <= lSteps * brFrac; i++) {
+      const t = i / lSteps;
+      const pos = bezier(cx, stemBot, cx * 1.5, stemBot + (branchBot - stemBot) * 0.4, cx * 1.65, branchBot, t);
+      if (i === 0) pctx.moveTo(pos.x, pos.y);
+      else pctx.lineTo(pos.x, pos.y);
+    }
+    const rw = pipeW * 0.4 + pipeW * 0.6 * (1 - split);
+    pctx.strokeStyle = rightColor;
+    pctx.lineWidth = Math.max(rw, 3);
+    pctx.lineCap = 'round';
+    pctx.stroke();
+  }
+
+  // Particles (only after entrance)
+  if (pipeProgress >= 1) {
+    particles.forEach(p => {
+      const pos = getParticlePos(p);
+      pctx.beginPath();
+      pctx.arc(pos.x, pos.y, p.size, 0, Math.PI * 2);
+      const col = p.branch === 'left' ? '91,141,255' : '126,200,227';
+      pctx.fillStyle = `rgba(${col},${p.opacity})`;
+      pctx.fill();
+      p.t += p.speed;
+      if (p.t > 1) {
+        Object.assign(p, makeParticle(0));
+      }
+    });
+  }
+}
+
+function pipeLoop() {
+  if (pipeProgress < 1) {
+    pipeProgress += 0.018;
+  }
+  drawPipes();
+  requestAnimationFrame(pipeLoop);
+}
+
+// ─────────────────────────────────────────────
+// HISTORIAL BARS
+// ─────────────────────────────────────────────
+const months = ['Ag','Se','Oc','No','Di','En','Fe','Ma'];
+const barData = [820, 950, 740, 1050, 980, 1100, 890, 1081];
+
+function buildHistBars() {
+  const container = document.getElementById('histBars');
+  container.innerHTML = '';
+  const max = Math.max(...barData);
+  months.forEach((m, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'hist-bar-wrap';
+    const bar = document.createElement('div');
+    bar.className = 'hist-bar' + (i === months.length - 1 ? ' current' : '');
+    const pct = (barData[i] / max) * 100;
+    bar.style.height = '0px';
+    setTimeout(() => { bar.style.height = pct * 0.48 + 'px'; }, 100 + i * 60);
+    const label = document.createElement('div');
+    label.className = 'hist-bar-month';
+    label.textContent = m;
+    wrap.appendChild(bar);
+    wrap.appendChild(label);
+    container.appendChild(wrap);
+  });
+}
+
+// ─────────────────────────────────────────────
+// UPDATE UI
+// ─────────────────────────────────────────────
+function updateUI() {
+  const hucha = getHucha();
+  document.getElementById('huchaAmount').textContent = '€' + hucha.toLocaleString('es-ES');
+  hTarget = Math.max(0.1, hucha / TOTAL);
+
+  projects.forEach((p, i) => {
+    document.getElementById('pamt' + i).textContent = '€' + p.amount + '/mes';
+  });
+
+  // Total planificado a proyectos
+  const totalPlanned = projects.reduce((sum, p) => sum + p.amount, 0);
+  const totalEl = document.getElementById('projectsTotal');
+  if (totalEl) totalEl.textContent = '€' + totalPlanned.toLocaleString('es-ES') + '/mes';
+
+  // update pipe widths (particle redistribution handled in makeParticle)
+  // Slider fill
+  if (selectedProject !== null) {
+    updateSliderFill();
+  }
+
+  // Bucket liquid
+  const projTotal = projects.reduce((s, p) => s + p.amount, 0);
+  targetLevel = Math.max(0.08, 1 - projTotal / TOTAL);
+}
+
+// ─────────────────────────────────────────────
+// PROJECT SELECTION
+// ─────────────────────────────────────────────
+function selectProject(idx) {
+  selectedProject = idx;
+  const p = projects[idx];
+
+  // Highlight
+  document.querySelectorAll('.project-item').forEach((el, i) => {
+    el.style.opacity = i === idx ? '1' : '0.5';
+  });
+
+  // Panel
+  const panel = document.getElementById('sliderPanel');
+  panel.classList.add('visible');
+  document.getElementById('sliderName').textContent = p.name;
+  document.getElementById('sliderDot').style.background = p.color;
+
+  const maxVal = p.amount + getHucha();
+  document.getElementById('sliderMax').textContent = maxVal.toLocaleString('es-ES');
+  document.getElementById('theSlider').max = maxVal;
+  document.getElementById('theSlider').value = p.amount;
+  document.getElementById('sliderVal').textContent = p.amount;
+  updateSliderFill();
+
+  // Update historial label
+  document.getElementById('histBucketLabel').textContent = p.emoji + ' ' + p.name;
+
+  // Scroll to panel
+  setTimeout(() => {
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 100);
+}
+
+function selectBucket(which) {
+  selectedProject = null;
+  document.querySelectorAll('.project-item').forEach(el => el.style.opacity = '1');
+  document.getElementById('sliderPanel').classList.remove('visible');
+  document.getElementById('histBucketLabel').textContent = '🪣 Ahorro mensual';
+}
+
+function closeSlider() {
+  selectedProject = null;
+  document.getElementById('sliderPanel').classList.remove('visible');
+  document.querySelectorAll('.project-item').forEach(el => el.style.opacity = '1');
+  document.getElementById('histBucketLabel').textContent = '🪣 Ahorro mensual';
+}
+
+function onSliderMove(input) {
+  if (selectedProject === null) return;
+  const val = parseInt(input.value);
+  projects[selectedProject].amount = val;
+  document.getElementById('sliderVal').textContent = val;
+  updateUI();
+}
+
+function updateSliderFill() {
+  if (selectedProject === null) return;
+  const slider = document.getElementById('theSlider');
+  const fill = document.getElementById('sliderFill');
+  const pct = (slider.value / slider.max) * 100;
+  fill.style.width = pct + '%';
+  fill.style.background = projects[selectedProject].color;
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+window.addEventListener('load', () => {
+  buildHistBars();
+  initParticles();
+  animateBucket();
+  animateHucha();
+  pipeLoop();
+  updateUI();
+
+  // Resize pipes canvas
+  const container = document.querySelector('.pipes-container');
+  pipesCanvas.width = container.offsetWidth * 2;
+  pipesCanvas.height = 160;
+  pipesCanvas.style.width = container.offsetWidth + 'px';
+});
+</script>
+</body>
+</html>

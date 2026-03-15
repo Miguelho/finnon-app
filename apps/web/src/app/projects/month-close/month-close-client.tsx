@@ -8,9 +8,9 @@ import {
   formatMinorToMoney,
   formatMoneyWithSymbol,
   formatMonthLabel,
-  getLatestClosableMonthKey,
   getProjectMonthlyFundingTargetMinor,
   parseMoneyToMinor,
+  toMonthKey,
   type MonthClose,
   type MonthCloseAllocation,
   type Project,
@@ -106,10 +106,10 @@ export function MonthCloseClient({
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const { emitMutation } = useWebDataCache();
-  const latestClosableMonthKey = getLatestClosableMonthKey();
+  const latestVisibleMonthKey = toMonthKey(new Date());
   const canEdit = role !== "viewer";
   const isClosed = monthState?.is_closed ?? Boolean(monthClose?.id);
-  const isClosableMonth = monthKey <= latestClosableMonthKey;
+  const isClosableMonth = monthKey <= latestVisibleMonthKey;
   const actualSavedMinor = toMinor(monthState?.generated_saved_base_minor ?? 0);
   const positiveSavedMinor = actualSavedMinor > 0n ? actualSavedMinor : 0n;
   const huchaReserve =
@@ -302,7 +302,7 @@ export function MonthCloseClient({
 
   const previousMonth = addMonths(monthKey, -1);
   const nextMonth = addMonths(monthKey, 1);
-  const canNavigateNext = nextMonth <= latestClosableMonthKey;
+  const canNavigateNext = nextMonth <= latestVisibleMonthKey;
 
   return (
     <PageContainer className="space-y-6">
@@ -321,37 +321,54 @@ export function MonthCloseClient({
           <p className="text-sm font-medium">
             {locale === "en" ? "Select month to close" : "Seleccionar mes a cerrar"}
           </p>
-          <div className="flex items-center justify-center gap-3">
-            <Button asChild size="icon" variant="outline" className="h-8 w-8">
-              <Link href={`/projects/month-close?month=${previousMonth}`}>
-                <ChevronLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <div className="px-2 text-center">
-              <p className="text-base font-semibold sm:text-lg">
-                {formatMonthLabel(monthKey, locale)}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {pendingMonthKeys.includes(monthKey)
-                  ? locale === "en"
-                    ? "Pending month"
-                    : "Mes pendiente"
-                  : locale === "en"
-                    ? "Month overview"
-                    : "Resumen del mes"}
-              </p>
-            </div>
-            {canNavigateNext ? (
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center justify-center gap-3 lg:flex-1">
               <Button asChild size="icon" variant="outline" className="h-8 w-8">
-                <Link href={`/projects/month-close?month=${nextMonth}`}>
-                  <ChevronRight className="h-4 w-4" />
+                <Link href={`/projects/month-close?month=${previousMonth}`}>
+                  <ChevronLeft className="h-4 w-4" />
                 </Link>
               </Button>
-            ) : (
-              <Button size="icon" variant="outline" className="h-8 w-8" disabled>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            )}
+              <div className="px-2 text-center">
+                <p className="text-base font-semibold sm:text-lg">
+                  {formatMonthLabel(monthKey, locale)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {pendingMonthKeys.includes(monthKey)
+                    ? locale === "en"
+                      ? "Pending month"
+                      : "Mes pendiente"
+                    : locale === "en"
+                      ? "Month overview"
+                      : "Resumen del mes"}
+                </p>
+              </div>
+              {canNavigateNext ? (
+                <Button asChild size="icon" variant="outline" className="h-8 w-8">
+                  <Link href={`/projects/month-close?month=${nextMonth}`}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              ) : (
+                <Button size="icon" variant="outline" className="h-8 w-8" disabled>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+
+            {isClosed ? (
+              <div className="rounded-lg border border-emerald-300/60 bg-emerald-50/40 px-3 py-2 text-sm text-emerald-900 lg:min-w-72">
+                <p className="font-medium">
+                  {locale === "en" ? "Month already closed" : "Mes ya cerrado"}
+                </p>
+                {closedAtLabel ? (
+                  <p>
+                    {locale === "en"
+                      ? `Closed on ${closedAtLabel}.`
+                      : `Cerrado el ${closedAtLabel}.`}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           {pendingMonthKeys.length > 0 ? (
@@ -416,23 +433,6 @@ export function MonthCloseClient({
           </div>
         </CardContent>
       </Card>
-
-      {isClosed ? (
-        <Card className="border-emerald-300/60 bg-emerald-50/40">
-          <CardContent className="space-y-1 p-4 text-sm text-emerald-900">
-            <p className="font-medium">
-              {locale === "en" ? "Month already closed" : "Mes ya cerrado"}
-            </p>
-            {closedAtLabel ? (
-              <p>
-                {locale === "en"
-                  ? `Closed on ${closedAtLabel}.`
-                  : `Cerrado el ${closedAtLabel}.`}
-              </p>
-            ) : null}
-          </CardContent>
-        </Card>
-      ) : null}
 
       {!isClosed && needsRebalance ? (
         <Card className="border-orange-300/60 bg-orange-50/50">

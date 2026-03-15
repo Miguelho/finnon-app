@@ -21,14 +21,6 @@ import {
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, {
-  Circle,
-  ClipPath,
-  Defs,
-  LinearGradient,
-  Rect,
-  Stop,
-} from "react-native-svg";
 import {
   assignProjectColor,
   buildProjectColorMap,
@@ -61,11 +53,11 @@ import { useCopy, t } from "../../../../src/lib/i18n";
 import { supabase } from "../../../../src/lib/supabase";
 import { Button } from "../../../../src/components/Button";
 import { Card } from "../../../../src/components/Card";
+import { HuchaLiquidCanvas } from "../../../../src/components/HuchaLiquidCanvas";
 import { Input } from "../../../../src/components/Input";
 import { ProjectProgressRing } from "../../../../src/components/projects/ProjectProgressRing";
 
 const tokens = themeTokens.light;
-const AnimatedSvgRect = Animated.createAnimatedComponent(Rect);
 
 const HUCHA_ACCENT = "#4ECDC4";
 const RETURN_ACCENT = "#74C69D";
@@ -122,12 +114,6 @@ const moveProjectToFront = (projects: Project[], projectId: string) => {
   if (!project) return nextProjects;
   nextProjects.unshift(project);
   return nextProjects;
-};
-
-const clampRatio = (value: number) => {
-  if (!Number.isFinite(value) || value <= 0) return 0;
-  if (value >= 1) return 1;
-  return value;
 };
 
 const formatDurationLabel = (months: number, locale: "es" | "en") => {
@@ -276,87 +262,6 @@ function FlowTransferIndicator({
         </View>
       ) : null}
     </>
-  );
-}
-
-function HuchaLiquidCircle({
-  amountLabel,
-  ratio,
-  size = 88,
-}: {
-  amountLabel: string;
-  ratio: number;
-  size?: number;
-}) {
-  const clipId = useRef(`hucha-clip-${Math.random().toString(36).slice(2)}`).current;
-  const animatedRatio = useRef(new Animated.Value(clampRatio(ratio))).current;
-  const circleRadius = size * 0.41;
-  const trackWidth = size * 0.068;
-  const diameter = circleRadius * 2;
-  const cx = size / 2;
-  const cy = size / 2;
-
-  useEffect(() => {
-    Animated.timing(animatedRatio, {
-      toValue: clampRatio(ratio),
-      duration: 320,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [animatedRatio, ratio]);
-
-  const fillY = animatedRatio.interpolate({
-    inputRange: [0, 1],
-    outputRange: [cy + circleRadius, cy - circleRadius],
-  });
-
-  return (
-    <View style={{ width: size, height: size }}>
-      <Svg width={size} height={size}>
-        <Defs>
-          <LinearGradient id={`${clipId}-gradient`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#4ECDC4" stopOpacity="0.8" />
-            <Stop offset="1" stopColor="#26A69A" stopOpacity="0.93" />
-          </LinearGradient>
-          <ClipPath id={clipId}>
-            <Circle cx={cx} cy={cy} r={circleRadius - 1} />
-          </ClipPath>
-        </Defs>
-
-        <Circle
-          cx={cx}
-          cy={cy}
-          r={circleRadius}
-          fill="none"
-          stroke="rgba(255,255,255,0.07)"
-          strokeWidth={trackWidth}
-        />
-
-        <AnimatedSvgRect
-          x={cx - circleRadius}
-          y={fillY as never}
-          width={diameter}
-          height={diameter}
-          fill={`url(#${clipId}-gradient)`}
-          clipPath={`url(#${clipId})`}
-        />
-
-        <Circle
-          cx={cx}
-          cy={cy}
-          r={circleRadius}
-          fill="none"
-          stroke="rgba(78,205,196,0.35)"
-          strokeWidth={1.8}
-        />
-      </Svg>
-
-      <View style={styles.huchaCircleInner} pointerEvents="none">
-        <Text numberOfLines={1} style={styles.huchaCircleAmount}>
-          {amountLabel}
-        </Text>
-      </View>
-    </View>
   );
 }
 
@@ -773,11 +678,6 @@ export default function ProjectsScreen() {
 
     return huchaStats.accumulatedMinor + parsedTransferAmount.amountMinor;
   }, [huchaStats.accumulatedMinor, parsedTransferAmount, selectedMode]);
-
-  const huchaLevelRatio = useMemo(() => {
-    if (huchaReferenceMinor <= 0n) return 0;
-    return clampRatio((Number(previewHuchaMinor) / Number(huchaReferenceMinor)) * 0.72);
-  }, [huchaReferenceMinor, previewHuchaMinor]);
 
   const nextPriority = useMemo(() => {
     const highest = projects.reduce(
@@ -1336,14 +1236,22 @@ export default function ProjectsScreen() {
                 ]}
               >
                 <View style={styles.huchaCircleColumn}>
-                  <HuchaLiquidCircle
-                    amountLabel={formatMoneyWithSymbol(
-                      previewHuchaMinor,
-                      baseCurrency,
-                      currencySymbol
-                    )}
-                    ratio={huchaLevelRatio}
-                  />
+                  <View style={styles.huchaCircleCanvas}>
+                    <HuchaLiquidCanvas
+                      valueMinor={previewHuchaMinor}
+                      maxMinor={huchaReferenceMinor}
+                      size={88}
+                    />
+                    <View style={styles.huchaCircleInner} pointerEvents="none">
+                      <Text numberOfLines={1} style={styles.huchaCircleAmount}>
+                        {formatMoneyWithSymbol(
+                          previewHuchaMinor,
+                          baseCurrency,
+                          currencySymbol
+                        )}
+                      </Text>
+                    </View>
+                  </View>
                   <Text style={[styles.huchaCircleLabel, { color: userTokens.textSecondary }]}>
                     {t(dictionary, "home.savings.hucha")}
                   </Text>
@@ -1607,6 +1515,11 @@ const styles = StyleSheet.create({
   huchaCircleColumn: {
     alignItems: "center",
     gap: 6,
+  },
+  huchaCircleCanvas: {
+    position: "relative",
+    width: 88,
+    height: 88,
   },
   huchaCircleInner: {
     position: "absolute",

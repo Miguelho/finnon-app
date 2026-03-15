@@ -23,6 +23,7 @@ interface InputProps {
   keyboardType?: "default" | "email-address" | "numeric";
   maxLength?: number;
   disabled?: boolean;
+  readOnly?: boolean;
   error?: string;
   helperText?: string;
   multiline?: boolean;
@@ -40,6 +41,7 @@ export function Input({
   keyboardType = "default",
   maxLength,
   disabled,
+  readOnly,
   error,
   helperText,
   multiline,
@@ -73,7 +75,7 @@ export function Input({
         placeholderTextColor={userTokens.textSecondary}
         keyboardType={keyboardType}
         maxLength={maxLength}
-        editable={!disabled}
+        editable={!disabled && !readOnly}
         autoCapitalize="none"
         autoCorrect={false}
         multiline={multiline}
