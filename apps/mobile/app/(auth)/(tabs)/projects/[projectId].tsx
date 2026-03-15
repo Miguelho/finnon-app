@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -15,12 +7,9 @@ import {
   computeProjectProgress,
   CURRENCIES,
   formatMoneyWithSymbol,
-  formatMonthLabel,
-  getMinorUnits,
   getProjectColor,
   getProjectMonthlyFundingTargetMinor,
   getProjectReserveTransferDeltaMinor,
-  parseMoneyToMinor,
   PROJECT_PALETTE,
   themeTokens,
   toMonthKey,
@@ -35,10 +24,7 @@ import { useAuth } from "../../../../src/contexts/AuthContext";
 import { useUserTheme } from "../../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../../src/lib/i18n";
 import { supabase } from "../../../../src/lib/supabase";
-import { Button } from "../../../../src/components/Button";
 import { Card } from "../../../../src/components/Card";
-import { Input } from "../../../../src/components/Input";
-import { ProjectAmountSlider } from "../../../../src/components/projects/ProjectAmountSlider";
 import { ProjectProgressRing } from "../../../../src/components/projects/ProjectProgressRing";
 
 const tokens = themeTokens.light;
@@ -47,16 +33,6 @@ type AccountRow = {
   id: string;
   base_currency: string;
   account_members?: Array<{ role: UserRole; user_id: string }>;
-};
-
-type RecurringExpense = {
-  id: string;
-  merchant: string | null;
-  notes: string | null;
-  amount_minor: bigint | number | string;
-  currency: string;
-  is_paused: boolean;
-  type: "expense" | "income";
 };
 
 type SpendingTransaction = {
@@ -106,7 +82,14 @@ const formatDateLabel = (value: string | Date | null | undefined, locale: "es" |
   }).format(date);
 };
 
-const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
+const formatMonthLabel = (period: string, locale: "es" | "en") => {
+  const date = new Date(`${period}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return period;
+  return new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
+    month: "long",
+    year: "numeric",
+  }).format(date);
+};
 
 export default function ProjectDetailScreen() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
@@ -128,24 +111,15 @@ export default function ProjectDetailScreen() {
   const [monthCloseAllocations, setMonthCloseAllocations] = useState<MonthCloseAllocation[]>([]);
   const [reserveTransfers, setReserveTransfers] = useState<ReserveTransfer[]>([]);
   const [fundingPlans, setFundingPlans] = useState<MonthlyProjectFundingPlan[]>([]);
-  const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
   const [spendingTransactions, setSpendingTransactions] = useState<SpendingTransaction[]>([]);
   const [role, setRole] = useState<UserRole>("viewer");
   const [baseCurrency, setBaseCurrency] = useState("EUR");
   const [currencySymbol, setCurrencySymbol] = useState("€");
-  const [activeTab, setActiveTab] = useState<"simulator" | "history">("simulator");
-  const [isSpendingOpen, setIsSpendingOpen] = useState(false);
-  const [disabledRecurringIds, setDisabledRecurringIds] = useState<Set<string>>(new Set());
-  const [sliderMinor, setSliderMinor] = useState(0);
-  const [sliderTrackWidth, setSliderTrackWidth] = useState(0);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSpendingOpen, setIsSpendingOpen] = useState(true);
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [isSavingColor, setIsSavingColor] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [returnAmountInput, setReturnAmountInput] = useState("");
-  const [returnError, setReturnError] = useState<string | null>(null);
-  const [returnMessage, setReturnMessage] = useState<string | null>(null);
-  const [isReturning, setIsReturning] = useState(false);
+  const [colorError, setColorError] = useState<string | null>(null);
+  const [colorMessage, setColorMessage] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!user || !selectedAccountId || !projectId) {
@@ -166,7 +140,6 @@ export default function ProjectDetailScreen() {
         monthCloseAllocationsResult,
         reserveTransfersResult,
         fundingPlansResult,
-        recurringExpensesResult,
         spendingTransactionsResult,
       ] = await Promise.all([
         supabase
@@ -210,13 +183,6 @@ export default function ProjectDetailScreen() {
           .eq("period", currentMonthStart)
           .eq("project_id", projectId),
         supabase
-          .from("recurring_items")
-          .select("id, merchant, notes, amount_minor, currency, is_paused, type")
-          .eq("account_id", selectedAccountId)
-          .eq("type", "expense")
-          .eq("is_paused", false)
-          .order("amount_minor", { ascending: false }),
-        supabase
           .from("transactions")
           .select("id, date, merchant, notes, amount_base_minor")
           .eq("account_id", selectedAccountId)
@@ -237,7 +203,6 @@ export default function ProjectDetailScreen() {
       if (monthCloseAllocationsResult.error) throw monthCloseAllocationsResult.error;
       if (reserveTransfersResult.error) throw reserveTransfersResult.error;
       if (fundingPlansResult.error) throw fundingPlansResult.error;
-      if (recurringExpensesResult.error) throw recurringExpensesResult.error;
       if (spendingTransactionsResult.error) throw spendingTransactionsResult.error;
 
       const account = accountResult.data as AccountRow;
@@ -258,15 +223,12 @@ export default function ProjectDetailScreen() {
       setMonthCloseAllocations((monthCloseAllocationsResult.data as MonthCloseAllocation[]) ?? []);
       setReserveTransfers((reserveTransfersResult.data as ReserveTransfer[]) ?? []);
       setFundingPlans((fundingPlansResult.data as MonthlyProjectFundingPlan[]) ?? []);
-      setRecurringExpenses((recurringExpensesResult.data as RecurringExpense[]) ?? []);
       setSpendingTransactions((spendingTransactionsResult.data as SpendingTransaction[]) ?? []);
       setRole(account.account_members?.[0]?.role ?? "viewer");
       setBaseCurrency(accountCurrency);
       setCurrencySymbol(symbol);
-      setSliderMinor(Number(getProjectMonthlyFundingTargetMinor(nextProject)));
-      setDisabledRecurringIds(new Set());
-      setSaveError(null);
-      setSaveMessage(null);
+      setColorError(null);
+      setColorMessage(null);
     } catch (loadError) {
       console.error("[Projects][mobile] detail load error", loadError);
       setError(t(dictionary, "errors.internalServer"));
@@ -280,9 +242,6 @@ export default function ProjectDetailScreen() {
   }, [loadData]);
 
   const canEdit = role !== "viewer";
-  const minorUnits = getMinorUnits(baseCurrency);
-  const minorFactor = 10 ** minorUnits;
-  const sliderStep = Math.max(1, 25 * minorFactor);
 
   const projectColorMap = useMemo(() => {
     if (!project) return new Map<string, string>();
@@ -354,47 +313,6 @@ export default function ProjectDetailScreen() {
     [fundingFromMonthClosesMinor, fundingFromReservesMinor]
   );
 
-  const availableReservedMinor = useMemo(
-    () => (totalFundedMinor > spentMinor ? totalFundedMinor - spentMinor : 0n),
-    [spentMinor, totalFundedMinor]
-  );
-
-  const refundableFromReserveMinor = useMemo(
-    () => (fundingFromReservesMinor > 0n ? fundingFromReservesMinor : 0n),
-    [fundingFromReservesMinor]
-  );
-
-  const maxReturnableMinor = useMemo(
-    () =>
-      refundableFromReserveMinor < availableReservedMinor
-        ? refundableFromReserveMinor
-        : availableReservedMinor,
-    [availableReservedMinor, refundableFromReserveMinor]
-  );
-
-  const sortedRecurringExpenses = useMemo(
-    () =>
-      [...recurringExpenses]
-        .filter((item) => item.type === "expense" && !item.is_paused)
-        .sort((a, b) => Number(toMinor(b.amount_minor) - toMinor(a.amount_minor))),
-    [recurringExpenses]
-  );
-
-  const releasedFromRecurringMinor = useMemo(() => {
-    let total = 0n;
-    sortedRecurringExpenses.forEach((expense) => {
-      if (disabledRecurringIds.has(expense.id)) {
-        total += toMinor(expense.amount_minor);
-      }
-    });
-    return total;
-  }, [disabledRecurringIds, sortedRecurringExpenses]);
-
-  const effectiveMonthlyMinor = useMemo(
-    () => BigInt(Math.max(sliderMinor, 0)) + releasedFromRecurringMinor,
-    [releasedFromRecurringMinor, sliderMinor]
-  );
-
   const heroProgress = useMemo(() => {
     if (!project) return null;
     return computeProjectProgress({
@@ -405,35 +323,6 @@ export default function ProjectDetailScreen() {
       spentMinor,
     });
   }, [fundingFromReservesMinor, plannedThisMonthMinor, project, spentMinor, totalFundedMinor]);
-
-  const simulatorProgress = useMemo(() => {
-    if (!project) return null;
-    return computeProjectProgress({
-      project: {
-        ...project,
-        monthly_commitment_base_minor: effectiveMonthlyMinor,
-      },
-      fundedMinor: totalFundedMinor,
-      reserveTransferredMinor: fundingFromReservesMinor,
-      plannedThisMonthMinor,
-      spentMinor,
-    });
-  }, [
-    effectiveMonthlyMinor,
-    fundingFromReservesMinor,
-    plannedThisMonthMinor,
-    project,
-    spentMinor,
-    totalFundedMinor,
-  ]);
-
-  const sliderMax = useMemo(() => {
-    if (!project) return sliderStep;
-    const targetMinor = Number(toMinor(project.target_amount_base_minor));
-    const currentMinor = Number(getProjectMonthlyFundingTargetMinor(project));
-    const base = 1500 * minorFactor;
-    return Math.max(base, targetMinor, currentMinor + 500 * minorFactor, sliderStep);
-  }, [minorFactor, project, sliderStep]);
 
   const historyRows = useMemo(() => {
     const grouped = new Map<
@@ -493,89 +382,31 @@ export default function ProjectDetailScreen() {
     }).format(date);
   }, [localeCode, project?.created_at]);
 
-  const parsedReturnAmount = useMemo(() => {
-    const raw = returnAmountInput.trim();
-    if (!raw) return { amountMinor: 0n, error: null as string | null };
-
-    const parsed = parseMoneyToMinor(raw, baseCurrency);
-    if (typeof parsed === "object" && "error" in parsed) {
-      return {
-        amountMinor: 0n,
-        error: localeCode === "en" ? "Review the amount." : "Revisa el importe.",
-      };
+  const estimatedFinishLabel = useMemo(() => {
+    if (!heroProgress) return null;
+    if (heroProgress.monthsLeft === null || !heroProgress.estimatedCompletionDate) {
+      return t(dictionary, "projects.noPlan");
     }
 
-    return { amountMinor: parsed, error: null as string | null };
-  }, [baseCurrency, localeCode, returnAmountInput]);
-
-  const canReturnToReserve =
-    canEdit &&
-    parsedReturnAmount.error === null &&
-    parsedReturnAmount.amountMinor > 0n &&
-    parsedReturnAmount.amountMinor <= maxReturnableMinor;
-
-  const toggleRecurringExpense = (id: string) => {
-    setDisabledRecurringIds((previous) => {
-      const next = new Set(previous);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
+    return t(dictionary, "projects.simulator.estimatedDate", {
+      duration: formatDuration(heroProgress.monthsLeft, localeCode),
+      date: new Intl.DateTimeFormat(localeCode === "en" ? "en-US" : "es-ES", {
+        month: "long",
+        year: "numeric",
+      }).format(heroProgress.estimatedCompletionDate),
     });
-  };
-
-  const handleSetCommitment = async () => {
-    if (!canEdit || !project || !selectedAccountId || isSaving) return;
-
-    if (effectiveMonthlyMinor <= 0n) {
-      setSaveError(t(dictionary, "projects.validation.commitmentRequired"));
-      setSaveMessage(null);
-      return;
-    }
-
-    setIsSaving(true);
-    setSaveError(null);
-    setSaveMessage(null);
-
-    try {
-      const { data, error: updateError } = await supabase
-        .from("projects")
-        .update({
-          monthly_commitment_base_minor: String(effectiveMonthlyMinor),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", project.id)
-        .eq("account_id", selectedAccountId)
-        .select("*")
-        .single();
-
-      if (updateError) throw updateError;
-
-      setProject(data as Project);
-      setSliderMinor(Number(effectiveMonthlyMinor));
-      setDisabledRecurringIds(new Set());
-      setSaveMessage(
-        t(dictionary, "projects.simulator.saved", {
-          amount: formatMoneyWithSymbol(effectiveMonthlyMinor, baseCurrency, currencySymbol),
-        })
-      );
-    } catch (updateError) {
-      console.error("[Projects][mobile] commitment update error", updateError);
-      setSaveError(t(dictionary, "errors.internalServer"));
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  }, [dictionary, heroProgress, localeCode]);
 
   const handleSetProjectColor = async (color: string) => {
     if (!canEdit || !project || !selectedAccountId || isSavingColor) return;
-    if (resolvedProjectColor === color && project.color) return;
+    if (resolvedProjectColor === color && project.color) {
+      setIsColorPickerOpen(false);
+      return;
+    }
 
     setIsSavingColor(true);
-    setSaveError(null);
-    setSaveMessage(null);
+    setColorError(null);
+    setColorMessage(null);
 
     try {
       const { data, error: updateError } = await supabase
@@ -592,47 +423,15 @@ export default function ProjectDetailScreen() {
       if (updateError) throw updateError;
 
       setProject(data as Project);
-      setSaveMessage(t(dictionary, "projects.colorSaved"));
+      setIsColorPickerOpen(false);
+      setColorMessage(t(dictionary, "projects.colorSaved"));
     } catch (updateError) {
       console.error("[Projects][mobile] color update error", updateError);
-      setSaveError(t(dictionary, "errors.internalServer"));
+      setColorError(
+        localeCode === "en" ? "Couldn't save the color." : "No se pudo guardar el color."
+      );
     } finally {
       setIsSavingColor(false);
-    }
-  };
-
-  const handleReturnToReserve = async () => {
-    if (!canEdit || !project || !selectedAccountId || !canReturnToReserve || isReturning) return;
-
-    setIsReturning(true);
-    setReturnError(null);
-    setReturnMessage(null);
-
-    try {
-      const { error: rpcError } = await supabase.rpc("transfer_project_to_hucha", {
-        p_account_id: selectedAccountId,
-        p_project_id: project.id,
-        p_amount_base_minor: parsedReturnAmount.amountMinor.toString(),
-      });
-
-      if (rpcError) throw rpcError;
-
-      setReturnAmountInput("");
-      setReturnMessage(
-        localeCode === "en"
-          ? "Return to piggy bank confirmed."
-          : "Devolucion a la hucha confirmada."
-      );
-      await loadData();
-    } catch (transferError) {
-      console.error("[Projects][mobile] return to piggy bank error", transferError);
-      setReturnError(
-        localeCode === "en"
-          ? "Couldn't move the money back to the piggy bank."
-          : "No se pudo devolver el dinero a la hucha."
-      );
-    } finally {
-      setIsReturning(false);
     }
   };
 
@@ -647,14 +446,20 @@ export default function ProjectDetailScreen() {
     );
   }
 
-  if (!project || !heroProgress || !simulatorProgress) {
+  if (!project || !heroProgress) {
     return (
       <>
         <Stack.Screen options={{ title: t(dictionary, "navigation.projects") }} />
         <View style={[styles.screen, { backgroundColor: userTokens.background }]}>
           <View style={styles.container}>
             <Card title={t(dictionary, "common.errorTitle")} description={error ?? undefined}>
-              <Button onPress={() => void loadData()} title={t(dictionary, "common.retry")} />
+              <TouchableOpacity
+                onPress={() => void loadData()}
+                style={[styles.retryButton, { backgroundColor: primaryActionColor }]}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.retryButtonText}>{t(dictionary, "common.retry")}</Text>
+              </TouchableOpacity>
             </Card>
           </View>
         </View>
@@ -673,86 +478,157 @@ export default function ProjectDetailScreen() {
           ]}
         >
           <Card>
-            <View style={styles.projectHeader}>
-              <View style={styles.projectHeaderMain}>
-                <Text style={styles.projectEmoji}>{project.emoji || "\u{1F3AF}"}</Text>
-                <View style={styles.projectHeaderText}>
-                  <Text style={[styles.projectName, { color: userTokens.textPrimary }]}>
-                    {project.name}
-                  </Text>
-                  {createdAtLabel ? (
-                    <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                      {t(dictionary, "projects.createdAt", { date: createdAtLabel })}
-                    </Text>
-                  ) : null}
+            <View style={styles.heroSection}>
+              <View style={styles.heroRingColumn}>
+                <View style={styles.ringWrapper}>
+                  <ProjectProgressRing
+                    progress={heroProgress.progressRatio}
+                    size={212}
+                    strokeWidth={12}
+                    trackColor={userTokens.surfaceAlt}
+                    progressColor={resolvedProjectColor}
+                    center={
+                      <View style={styles.ringCenter}>
+                        <Text style={styles.projectEmoji}>{project.emoji || "\u{1F3AF}"}</Text>
+                        <Text style={[styles.heroPercent, { color: resolvedProjectColor }]}>
+                          {Math.round(heroProgress.progressRatio * 100)}%
+                        </Text>
+                        {canEdit ? (
+                          <TouchableOpacity
+                            onPress={() => setIsColorPickerOpen((previous) => !previous)}
+                            disabled={isSavingColor}
+                            activeOpacity={0.85}
+                            style={[
+                              styles.colorTrigger,
+                              {
+                                backgroundColor: resolvedProjectColor,
+                                borderColor: userTokens.surface,
+                              },
+                              isSavingColor && styles.colorTriggerDisabled,
+                            ]}
+                          >
+                            <View style={styles.colorTriggerInner} />
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
+                    }
+                  />
                 </View>
+
+                {canEdit && isColorPickerOpen ? (
+                  <View
+                    style={[
+                      styles.colorPalette,
+                      { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+                    ]}
+                  >
+                    {PROJECT_PALETTE.map((color) => {
+                      const isSelected = resolvedProjectColor === color;
+                      return (
+                        <TouchableOpacity
+                          key={color}
+                          onPress={() => void handleSetProjectColor(color)}
+                          disabled={isSavingColor}
+                          activeOpacity={0.85}
+                          style={[
+                            styles.colorSwatch,
+                            { backgroundColor: color, borderColor: userTokens.border },
+                            isSelected && styles.colorSwatchSelected,
+                            isSavingColor && styles.colorSwatchDisabled,
+                          ]}
+                        >
+                          {isSelected ? <View style={styles.colorSwatchInner} /> : null}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ) : null}
               </View>
-              <View style={styles.priorityBlock}>
-                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "projects.priority")}
+
+              <View style={styles.heroCopy}>
+                <Text style={[styles.projectName, { color: userTokens.textPrimary }]}>
+                  {project.name}
                 </Text>
-                <Text style={[styles.priorityValue, { color: userTokens.textPrimary }]}>
-                  #{project.priority}
+                {createdAtLabel ? (
+                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                    {t(dictionary, "projects.createdAt", { date: createdAtLabel })}
+                  </Text>
+                ) : null}
+                <Text style={[styles.priorityText, { color: userTokens.textSecondary }]}>
+                  {t(dictionary, "projects.priority")} #{project.priority}
                 </Text>
               </View>
             </View>
 
-            <View style={styles.heroRow}>
-              <ProjectProgressRing
-                progress={heroProgress.progressRatio}
-                size={148}
-                strokeWidth={10}
-                trackColor={userTokens.surfaceAlt}
-                progressColor={resolvedProjectColor}
-                center={
-                  <View>
-                    <Text style={[styles.heroPercent, { color: resolvedProjectColor }]}>
-                      {Math.round(heroProgress.progressRatio * 100)}%
-                    </Text>
-                  </View>
-                }
-              />
-              <View style={styles.heroNumbers}>
-                <View>
-                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {t(dictionary, "projects.target")}
-                  </Text>
-                  <Text style={[styles.amountValue, { color: userTokens.textPrimary }]}>
-                    {formatMoneyWithSymbol(heroProgress.targetMinor, baseCurrency, currencySymbol)}
-                  </Text>
-                </View>
-                <View>
-                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {localeCode === "en" ? "Funded" : "Financiado"}
-                  </Text>
-                  <Text style={[styles.amountValue, { color: userTokens.textPrimary }]}>
-                    {formatMoneyWithSymbol(
-                      heroProgress.fundedReservedMinor,
-                      baseCurrency,
-                      currencySymbol
-                    )}
-                  </Text>
-                </View>
-                <View>
-                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {localeCode === "en" ? "Planned this month" : "Planificado este mes"}
-                  </Text>
-                  <Text style={[styles.amountValue, { color: userTokens.textPrimary }]}>
-                    {formatMoneyWithSymbol(
-                      heroProgress.plannedThisMonthMinor,
-                      baseCurrency,
-                      currencySymbol
-                    )}
-                  </Text>
-                </View>
-                <View>
-                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {localeCode === "en" ? "Spent" : "Gastado"}
-                  </Text>
-                  <Text style={[styles.amountValue, { color: userTokens.textPrimary }]}>
-                    {formatMoneyWithSymbol(heroProgress.spentMinor, baseCurrency, currencySymbol)}
-                  </Text>
-                </View>
+            {colorError ? (
+              <Text style={[styles.feedbackError, { color: "#E0956A" }]}>{colorError}</Text>
+            ) : null}
+            {colorMessage ? (
+              <Text style={[styles.feedbackSuccess, { color: resolvedProjectColor }]}>
+                {colorMessage}
+              </Text>
+            ) : null}
+
+            <View style={styles.metricsGrid}>
+              <View
+                style={[
+                  styles.metricCard,
+                  { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+                ]}
+              >
+                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                  {t(dictionary, "projects.target")}
+                </Text>
+                <Text style={[styles.amountValue, { color: userTokens.textPrimary }]}>
+                  {formatMoneyWithSymbol(heroProgress.targetMinor, baseCurrency, currencySymbol)}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.metricCard,
+                  { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+                ]}
+              >
+                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                  {localeCode === "en" ? "Funded" : "Financiado"}
+                </Text>
+                <Text style={[styles.amountValue, { color: userTokens.textPrimary }]}>
+                  {formatMoneyWithSymbol(
+                    heroProgress.fundedReservedMinor,
+                    baseCurrency,
+                    currencySymbol
+                  )}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.metricCard,
+                  { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+                ]}
+              >
+                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                  {localeCode === "en" ? "Planned this month" : "Planificado este mes"}
+                </Text>
+                <Text style={[styles.amountValue, { color: userTokens.textPrimary }]}>
+                  {formatMoneyWithSymbol(
+                    heroProgress.plannedThisMonthMinor,
+                    baseCurrency,
+                    currencySymbol
+                  )}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.metricCard,
+                  { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+                ]}
+              >
+                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                  {localeCode === "en" ? "Spent" : "Gastado"}
+                </Text>
+                <Text style={[styles.amountValue, { color: userTokens.textPrimary }]}>
+                  {formatMoneyWithSymbol(heroProgress.spentMinor, baseCurrency, currencySymbol)}
+                </Text>
               </View>
             </View>
 
@@ -796,102 +672,29 @@ export default function ProjectDetailScreen() {
                   {formatMoneyWithSymbol(heroProgress.remainingMinor, baseCurrency, currencySymbol)}
                 </Text>
               </View>
-            </View>
-
-            {canEdit ? (
-              <View style={[styles.returnCard, { borderColor: userTokens.border }]}>
-                <View style={styles.returnHeader}>
-                  <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
-                    {localeCode === "en" ? "Return to piggy bank" : "Devolver a la hucha"}
-                  </Text>
-                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {localeCode === "en"
-                      ? "Only unspent money that originally came from the piggy bank can be returned."
-                      : "Solo se puede devolver dinero no gastado que viniese originalmente de la hucha."}
-                  </Text>
-                </View>
-
-                <Input
-                  label={localeCode === "en" ? "Amount" : "Importe"}
-                  value={returnAmountInput}
-                  onChangeText={(value) => setReturnAmountInput(sanitizeNumericInput(value))}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  disabled={maxReturnableMinor <= 0n || isReturning}
-                />
-
-                <View
-                  style={[
-                    styles.returnStats,
-                    { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
-                  ]}
-                >
-                  <View style={styles.breakdownRow}>
-                    <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                      {localeCode === "en" ? "Available to return" : "Disponible para devolver"}
-                    </Text>
-                    <Text style={[styles.breakdownValue, { color: userTokens.textPrimary }]}>
-                      {formatMoneyWithSymbol(maxReturnableMinor, baseCurrency, currencySymbol)}
-                    </Text>
-                  </View>
-                  <View style={styles.breakdownRow}>
-                    <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                      {localeCode === "en" ? "Net from piggy bank" : "Neto desde hucha"}
-                    </Text>
-                    <Text style={[styles.breakdownValue, { color: userTokens.textPrimary }]}>
-                      {formatMoneyWithSymbol(
-                        refundableFromReserveMinor,
+              <View style={styles.breakdownRow}>
+                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                  {localeCode === "en" ? "Current monthly target" : "Objetivo mensual actual"}
+                </Text>
+                <Text style={[styles.breakdownValue, { color: userTokens.textPrimary }]}>
+                  {getProjectMonthlyFundingTargetMinor(project) > 0n
+                    ? `${formatMoneyWithSymbol(
+                        getProjectMonthlyFundingTargetMinor(project),
                         baseCurrency,
                         currencySymbol
-                      )}
-                    </Text>
-                  </View>
-                </View>
-
-                {maxReturnableMinor <= 0n ? (
-                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {localeCode === "en"
-                      ? "There is no available balance to return to the piggy bank."
-                      : "No hay saldo disponible para devolver a la hucha."}
-                  </Text>
-                ) : null}
-                {parsedReturnAmount.error ? (
-                  <Text style={[styles.feedbackError, { color: "#E0956A" }]}>
-                    {parsedReturnAmount.error}
-                  </Text>
-                ) : null}
-                {parsedReturnAmount.amountMinor > maxReturnableMinor ? (
-                  <Text style={[styles.feedbackError, { color: "#E0956A" }]}>
-                    {localeCode === "en"
-                      ? "The amount exceeds what can be returned right now."
-                      : "El importe supera lo que se puede devolver ahora mismo."}
-                  </Text>
-                ) : null}
-                {returnError ? (
-                  <Text style={[styles.feedbackError, { color: "#E0956A" }]}>{returnError}</Text>
-                ) : null}
-                {returnMessage ? (
-                  <Text style={[styles.feedbackSuccess, { color: resolvedProjectColor }]}>
-                    {returnMessage}
-                  </Text>
-                ) : null}
-
-                <Button
-                  onPress={() => void handleReturnToReserve()}
-                  title={
-                    isReturning
-                      ? localeCode === "en"
-                        ? "Returning..."
-                        : "Devolviendo..."
-                      : localeCode === "en"
-                        ? "Return to piggy bank"
-                        : "Devolver a la hucha"
-                  }
-                  loading={isReturning}
-                  disabled={!canReturnToReserve}
-                />
+                      )} ${t(dictionary, "projects.perMonth")}`
+                    : t(dictionary, "projects.noPlan")}
+                </Text>
               </View>
-            ) : null}
+              <View style={styles.breakdownRow}>
+                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                  {localeCode === "en" ? "Estimated finish" : "Fin estimado"}
+                </Text>
+                <Text style={[styles.breakdownValue, { color: userTokens.textPrimary }]}>
+                  {estimatedFinishLabel}
+                </Text>
+              </View>
+            </View>
 
             <View style={[styles.extraTransactionsCard, { borderColor: userTokens.border }]}>
               <TouchableOpacity
@@ -899,7 +702,7 @@ export default function ProjectDetailScreen() {
                 onPress={() => setIsSpendingOpen((previous) => !previous)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.expensesTitle, { color: userTokens.textPrimary }]}>
+                <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
                   {localeCode === "en" ? "Associated spending" : "Gasto asociado"}
                 </Text>
                 <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
@@ -960,249 +763,61 @@ export default function ProjectDetailScreen() {
           </Card>
 
           <Card>
-            <View style={styles.tabRow}>
-              <TouchableOpacity
-                onPress={() => setActiveTab("simulator")}
-                style={[
-                  styles.tabButton,
-                  {
-                    backgroundColor:
-                      activeTab === "simulator" ? userTokens.surfaceAlt : "transparent",
-                    borderColor: userTokens.border,
-                  },
-                ]}
-              >
-                <Text style={[styles.tabText, { color: userTokens.textPrimary }]}>
-                  {localeCode === "en" ? "Simulator" : "Simulador"}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setActiveTab("history")}
-                style={[
-                  styles.tabButton,
-                  {
-                    backgroundColor:
-                      activeTab === "history" ? userTokens.surfaceAlt : "transparent",
-                    borderColor: userTokens.border,
-                  },
-                ]}
-              >
-                <Text style={[styles.tabText, { color: userTokens.textPrimary }]}>
-                  {localeCode === "en" ? "History" : "Historial"}
-                </Text>
-              </TouchableOpacity>
+            <View style={styles.historyHeader}>
+              <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                {localeCode === "en" ? "History" : "Historial"}
+              </Text>
+              <Text style={[styles.historyTitle, { color: userTokens.textPrimary }]}>
+                {localeCode === "en" ? "Funding history" : "Historial de financiación"}
+              </Text>
             </View>
 
-            {activeTab === "simulator" ? (
-              <View style={styles.simulatorBody}>
-                <View
-                  style={[
-                    styles.commitmentCard,
-                    { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
-                  ]}
-                >
-                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {localeCode === "en" ? "Current monthly target" : "Objetivo mensual actual"}
-                  </Text>
-                  <Text style={[styles.commitmentValue, { color: userTokens.textPrimary }]}>
-                    {getProjectMonthlyFundingTargetMinor(project) > 0n
-                      ? `${formatMoneyWithSymbol(
-                          getProjectMonthlyFundingTargetMinor(project),
+            <View style={styles.historyList}>
+              {historyRows.length > 0 ? (
+                historyRows.map((row) => (
+                  <View
+                    key={row.periodKey}
+                    style={[
+                      styles.historyRow,
+                      { borderColor: userTokens.border },
+                    ]}
+                  >
+                    <View style={styles.historyCopy}>
+                      <Text style={[styles.historyPeriod, { color: userTokens.textPrimary }]}>
+                        {formatMonthLabel(row.periodKey, localeCode)}
+                      </Text>
+                      <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                        {row.confirmedAt
+                          ? formatDateLabel(row.confirmedAt, localeCode)
+                          : localeCode === "en"
+                            ? "Confirmed month close"
+                            : "Cierre confirmado"}
+                      </Text>
+                    </View>
+                    <View style={styles.historyAmounts}>
+                      <Text style={[styles.historyAmount, { color: userTokens.textPrimary }]}>
+                        {formatMoneyWithSymbol(row.actualMinor, baseCurrency, currencySymbol)}
+                      </Text>
+                      <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                        {localeCode === "en" ? "Funded total" : "Financiado total"}:{" "}
+                        {formatMoneyWithSymbol(
+                          row.cumulativeMinor,
                           baseCurrency,
                           currencySymbol
-                        )} ${t(dictionary, "projects.perMonth")}`
-                      : t(dictionary, "projects.noPlan")}
-                  </Text>
-                  {heroProgress.monthsLeft !== null && heroProgress.estimatedCompletionDate ? (
-                    <Text style={[styles.commitmentEta, { color: userTokens.textSecondary }]}>
-                      {t(dictionary, "projects.simulator.estimatedDate", {
-                        duration: formatDuration(heroProgress.monthsLeft, localeCode),
-                        date: new Intl.DateTimeFormat(
-                          localeCode === "en" ? "en-US" : "es-ES",
-                          { month: "long", year: "numeric" }
-                        ).format(heroProgress.estimatedCompletionDate),
-                      })}
-                    </Text>
-                  ) : null}
-                </View>
-
-                <View style={styles.simulatorSummary}>
-                  <View>
-                    <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                      {t(dictionary, "projects.simulator.sliderLabel")}
-                    </Text>
-                    <Text style={[styles.simulatorAmount, { color: userTokens.textPrimary }]}>
-                      {formatMoneyWithSymbol(effectiveMonthlyMinor, baseCurrency, currencySymbol)}
-                    </Text>
-                  </View>
-                  <View style={styles.simulatorSummaryRight}>
-                    <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                      {localeCode === "en" ? "Estimated finish" : "Fin estimado"}
-                    </Text>
-                    <Text style={[styles.summaryInlineValue, { color: userTokens.textPrimary }]}>
-                      {simulatorProgress.monthsLeft === null ||
-                      !simulatorProgress.estimatedCompletionDate
-                        ? t(dictionary, "projects.noPlan")
-                        : `${formatDuration(simulatorProgress.monthsLeft, localeCode)} · ${new Intl.DateTimeFormat(
-                            localeCode === "en" ? "en-US" : "es-ES",
-                            { month: "long", year: "numeric" }
-                          ).format(simulatorProgress.estimatedCompletionDate)}`}
-                    </Text>
-                  </View>
-                </View>
-
-                <ProjectAmountSlider
-                  min={0}
-                  max={sliderMax}
-                  step={sliderStep}
-                  value={sliderMinor}
-                  onChange={setSliderMinor}
-                  trackColor={userTokens.border}
-                  fillColor={resolvedProjectColor}
-                  thumbColor={resolvedProjectColor}
-                  trackWidth={sliderTrackWidth}
-                  onTrackLayout={setSliderTrackWidth}
-                />
-
-                {sortedRecurringExpenses.length > 0 ? (
-                  <View style={styles.recurringList}>
-                    <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
-                      {localeCode === "en"
-                        ? "Switch off recurring expenses"
-                        : "Apaga gastos recurrentes"}
-                    </Text>
-                    {sortedRecurringExpenses.map((expense) => {
-                      const amountMinor = toMinor(expense.amount_minor);
-                      const label =
-                        expense.merchant?.trim() ||
-                        expense.notes?.trim() ||
-                        (localeCode === "en" ? "Recurring expense" : "Gasto recurrente");
-                      const isEnabled = disabledRecurringIds.has(expense.id);
-                      return (
-                        <View
-                          key={expense.id}
-                          style={[
-                            styles.recurringRow,
-                            { borderColor: userTokens.border },
-                          ]}
-                        >
-                          <View style={styles.recurringCopy}>
-                            <Text style={[styles.recurringLabel, { color: userTokens.textPrimary }]}>
-                              {label}
-                            </Text>
-                            <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                              {formatMoneyWithSymbol(amountMinor, baseCurrency, currencySymbol)}
-                            </Text>
-                          </View>
-                          <Switch
-                            value={isEnabled}
-                            onValueChange={() => toggleRecurringExpense(expense.id)}
-                            trackColor={{
-                              false: userTokens.border,
-                              true: resolvedProjectColor,
-                            }}
-                            thumbColor={isEnabled ? "#FFFFFF" : "#F1F5F9"}
-                          />
-                        </View>
-                      );
-                    })}
-                  </View>
-                ) : null}
-
-                {saveError ? (
-                  <Text style={[styles.feedbackError, { color: "#E0956A" }]}>{saveError}</Text>
-                ) : null}
-                {saveMessage ? (
-                  <Text style={[styles.feedbackSuccess, { color: resolvedProjectColor }]}>
-                    {saveMessage}
-                  </Text>
-                ) : null}
-
-                {canEdit ? (
-                  <Button
-                    onPress={() => void handleSetCommitment()}
-                    title={localeCode === "en" ? "Save monthly target" : "Guardar objetivo mensual"}
-                    loading={isSaving}
-                  />
-                ) : null}
-              </View>
-            ) : (
-              <View style={styles.historyList}>
-                {historyRows.length > 0 ? (
-                  historyRows.map((row) => (
-                    <View
-                      key={row.periodKey}
-                      style={[
-                        styles.historyRow,
-                        { borderColor: userTokens.border },
-                      ]}
-                    >
-                      <View style={styles.historyCopy}>
-                        <Text style={[styles.historyPeriod, { color: userTokens.textPrimary }]}>
-                          {formatMonthLabel(row.periodKey, localeCode)}
-                        </Text>
-                        <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                          {row.confirmedAt
-                            ? formatDateLabel(row.confirmedAt, localeCode)
-                            : localeCode === "en"
-                              ? "Confirmed month close"
-                              : "Cierre confirmado"}
-                        </Text>
-                      </View>
-                      <View style={styles.historyAmounts}>
-                        <Text style={[styles.historyAmount, { color: userTokens.textPrimary }]}>
-                          {formatMoneyWithSymbol(row.actualMinor, baseCurrency, currencySymbol)}
-                        </Text>
-                        <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                          {localeCode === "en" ? "Funded total" : "Financiado total"}:{" "}
-                          {formatMoneyWithSymbol(
-                            row.cumulativeMinor,
-                            baseCurrency,
-                            currencySymbol
-                          )}
-                        </Text>
-                      </View>
+                        )}
+                      </Text>
                     </View>
-                  ))
-                ) : (
-                  <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
-                    {localeCode === "en"
-                      ? "No funding history yet."
-                      : "Todavia no hay historial de financiacion."}
-                  </Text>
-                )}
-              </View>
-            )}
+                  </View>
+                ))
+              ) : (
+                <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
+                  {localeCode === "en"
+                    ? "No funding history yet."
+                    : "Todavia no hay historial de financiacion."}
+                </Text>
+              )}
+            </View>
           </Card>
-
-          {canEdit ? (
-            <Card>
-              <Text style={[styles.sectionTitle, { color: userTokens.textPrimary }]}>
-                {t(dictionary, "projects.colorLabel")}
-              </Text>
-              <View style={styles.colorSwatches}>
-                {PROJECT_PALETTE.map((color) => {
-                  const isSelected = resolvedProjectColor === color;
-                  return (
-                    <TouchableOpacity
-                      key={color}
-                      onPress={() => void handleSetProjectColor(color)}
-                      disabled={isSavingColor}
-                      activeOpacity={0.85}
-                      style={[
-                        styles.colorSwatch,
-                        { backgroundColor: color, borderColor: userTokens.border },
-                        isSelected && styles.colorSwatchSelected,
-                        isSavingColor && styles.colorSwatchDisabled,
-                      ]}
-                    >
-                      {isSelected ? <View style={styles.colorSwatchInner} /> : null}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </Card>
-          ) : null}
         </ScrollView>
       </View>
     </>
@@ -1223,34 +838,87 @@ const styles = StyleSheet.create({
     paddingTop: tokens.spacing.lg,
     gap: tokens.spacing.md,
   },
-  projectHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  retryButton: {
+    alignItems: "center",
+    borderRadius: tokens.radii.md,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.sm,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontFamily: "DMSans-SemiBold",
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  heroSection: {
+    gap: tokens.spacing.lg,
+  },
+  heroRingColumn: {
+    alignItems: "center",
     gap: tokens.spacing.md,
   },
-  projectHeaderMain: {
-    flex: 1,
-    flexDirection: "row",
-    gap: tokens.spacing.md,
+  ringWrapper: {
+    position: "relative",
+    width: 212,
+    height: 212,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ringCenter: {
+    alignItems: "center",
+    gap: 4,
   },
   projectEmoji: {
-    fontSize: 34,
+    fontSize: 38,
   },
-  projectHeaderText: {
-    flex: 1,
+  colorTrigger: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  colorTriggerDisabled: {
+    opacity: 0.6,
+  },
+  colorTriggerInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+  },
+  colorPalette: {
+    width: "100%",
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.md,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: tokens.spacing.sm,
+  },
+  heroCopy: {
+    alignItems: "center",
     gap: 4,
   },
   projectName: {
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 28,
+    lineHeight: 34,
     fontFamily: "DMSans-SemiBold",
+    textAlign: "center",
   },
-  priorityBlock: {
-    alignItems: "flex-end",
-    gap: 4,
+  priorityText: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontFamily: "DMSans-SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
   },
-  priorityValue: {
-    fontSize: 18,
+  heroPercent: {
+    fontSize: 28,
+    lineHeight: 34,
     fontFamily: "JetBrainsMono-Medium",
   },
   metaText: {
@@ -1258,22 +926,21 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontFamily: "DMSans-Medium",
   },
-  heroRow: {
+  metricsGrid: {
     marginTop: tokens.spacing.lg,
-    gap: tokens.spacing.lg,
-    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: tokens.spacing.sm,
   },
-  heroNumbers: {
-    width: "100%",
-    gap: tokens.spacing.md,
-  },
-  heroPercent: {
-    fontSize: 26,
-    lineHeight: 32,
-    fontFamily: "JetBrainsMono-Medium",
+  metricCard: {
+    width: "48%",
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.md,
+    gap: 4,
   },
   amountValue: {
-    fontSize: 19,
+    fontSize: 18,
     lineHeight: 24,
     fontFamily: "JetBrainsMono-Medium",
   },
@@ -1290,6 +957,7 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.md,
   },
   breakdownValue: {
+    flex: 1,
     fontSize: 14,
     lineHeight: 18,
     fontFamily: "JetBrainsMono-Medium",
@@ -1302,29 +970,13 @@ const styles = StyleSheet.create({
     padding: tokens.spacing.md,
     gap: tokens.spacing.sm,
   },
-  returnCard: {
-    marginTop: tokens.spacing.lg,
-    borderWidth: 1,
-    borderRadius: tokens.radii.lg,
-    padding: tokens.spacing.md,
-    gap: tokens.spacing.sm,
-  },
-  returnHeader: {
-    gap: 4,
-  },
-  returnStats: {
-    borderWidth: 1,
-    borderRadius: tokens.radii.md,
-    padding: tokens.spacing.md,
-    gap: tokens.spacing.sm,
-  },
   expensesToggle: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     gap: tokens.spacing.md,
   },
-  expensesTitle: {
+  sectionTitle: {
     fontSize: 15,
     lineHeight: 20,
     fontFamily: "DMSans-SemiBold",
@@ -1351,98 +1003,27 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontFamily: "DMSans-Medium",
   },
-  tabRow: {
-    flexDirection: "row",
-    gap: tokens.spacing.sm,
-  },
-  tabButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: tokens.radii.md,
-    paddingVertical: tokens.spacing.sm,
-    alignItems: "center",
-  },
-  tabText: {
-    fontSize: 13,
-    lineHeight: 17,
-    fontFamily: "DMSans-SemiBold",
-  },
-  simulatorBody: {
-    marginTop: tokens.spacing.lg,
-    gap: tokens.spacing.md,
-  },
-  commitmentCard: {
-    borderWidth: 1,
-    borderRadius: tokens.radii.lg,
-    padding: tokens.spacing.md,
-    gap: tokens.spacing.xs,
-  },
-  commitmentValue: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontFamily: "JetBrainsMono-Medium",
-  },
-  commitmentEta: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontFamily: "DMSans-Medium",
-  },
-  simulatorSummary: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: tokens.spacing.md,
-  },
-  simulatorSummaryRight: {
-    flex: 1,
-    alignItems: "flex-end",
-  },
-  simulatorAmount: {
-    fontSize: 20,
-    lineHeight: 26,
-    fontFamily: "JetBrainsMono-Medium",
-  },
-  summaryInlineValue: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontFamily: "DMSans-Medium",
-    textAlign: "right",
-  },
-  recurringList: {
-    gap: tokens.spacing.sm,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    lineHeight: 20,
-    fontFamily: "DMSans-SemiBold",
-  },
-  recurringRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: tokens.spacing.md,
-    borderWidth: 1,
-    borderRadius: tokens.radii.md,
-    paddingHorizontal: tokens.spacing.md,
-    paddingVertical: tokens.spacing.sm,
-  },
-  recurringCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  recurringLabel: {
-    fontSize: 14,
-    lineHeight: 18,
-    fontFamily: "DMSans-Medium",
-  },
   feedbackError: {
+    marginTop: tokens.spacing.md,
     fontSize: 12,
     lineHeight: 16,
     fontFamily: "DMSans-Medium",
+    textAlign: "center",
   },
   feedbackSuccess: {
+    marginTop: tokens.spacing.md,
     fontSize: 12,
     lineHeight: 16,
     fontFamily: "DMSans-Medium",
+    textAlign: "center",
+  },
+  historyHeader: {
+    gap: 4,
+  },
+  historyTitle: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontFamily: "DMSans-SemiBold",
   },
   historyList: {
     marginTop: tokens.spacing.lg,
@@ -1469,17 +1050,12 @@ const styles = StyleSheet.create({
   historyAmounts: {
     alignItems: "flex-end",
     gap: 2,
+    flexShrink: 1,
   },
   historyAmount: {
     fontSize: 14,
     lineHeight: 18,
     fontFamily: "JetBrainsMono-Medium",
-  },
-  colorSwatches: {
-    marginTop: tokens.spacing.md,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: tokens.spacing.sm,
   },
   colorSwatch: {
     width: 34,

@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon — Proyectos v5</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+:root {
+  --bg:      #111213;
+  --surface: #1A1B1E;
+  --sur2:    #222428;
+  --border:  rgba(255,255,255,0.07);
+  --bord2:   rgba(255,255,255,0.13);
+  --text:    #F0F0EE;
+  --subtle:  #6B7080;
+  --muted:   #3A3D45;
+  --hucha:   #4ECDC4;
+  --hucha2:  #26A69A;
+  --r:       14px;
+  --rs:      10px;
+}
+body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; -webkit-font-smoothing:antialiased; }
+
+/* NAV */
+.nav { position:fixed; top:0; left:0; right:0; height:48px; background:rgba(17,18,19,0.92); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 24px; z-index:200; backdrop-filter:blur(12px); }
+.nav-logo { font-size:14px; font-weight:700; letter-spacing:-0.3px; display:flex; align-items:center; gap:8px; }
+.nav-logo-icon { width:22px; height:22px; background:var(--hucha); border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; color:#0a0a0a; }
+.nav-links { display:flex; gap:4px; }
+.nav-link { background:none; border:none; color:var(--subtle); font-family:'DM Sans',sans-serif; font-size:13px; padding:5px 12px; border-radius:20px; cursor:pointer; transition:all 0.15s; }
+.nav-link:hover { color:var(--text); }
+.nav-link.active { background:var(--sur2); color:var(--text); }
+
+/* SCREENS */
+.screen { max-width:820px; margin:0 auto; padding:72px 24px 60px; display:none; }
+.screen.active { display:block; }
+
+/* BACK LINK */
+.back { display:inline-flex; align-items:center; gap:6px; color:var(--subtle); font-size:13px; background:none; border:none; cursor:pointer; font-family:'DM Sans',sans-serif; margin-bottom:28px; transition:color 0.15s; padding:0; }
+.back:hover { color:var(--text); }
+.back svg { flex-shrink:0; }
+
+/* PAGE HEADER */
+.page-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:28px; }
+.page-title { font-size:28px; font-weight:700; letter-spacing:-0.5px; }
+.page-sub { font-size:13px; color:var(--subtle); margin-top:3px; }
+.btn-sm { background:none; border:1px solid var(--bord2); color:var(--text); font-family:'DM Sans',sans-serif; font-size:12px; font-weight:500; padding:7px 14px; border-radius:20px; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
+.btn-sm:hover { background:var(--sur2); }
+
+/* HUCHA BLOCK (proyectos) */
+.hucha-block { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:20px 22px; margin-bottom:28px; display:flex; align-items:center; gap:18px; position:relative; transition:border-color 0.3s; cursor:pointer; }
+.hucha-block:hover { border-color:var(--bord2); }
+.hucha-block.lit { border-color:rgba(78,205,196,0.3); }
+.hucha-block-chevron { color:var(--subtle); margin-left:auto; flex-shrink:0; }
+
+/* CIRCLE */
+.circle-wrap { position:relative; flex-shrink:0; width:88px; height:88px; }
+.circle-wrap canvas { position:absolute; inset:0; width:88px !important; height:88px !important; }
+.circle-inner { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; gap:1px; }
+.circle-amt { font-size:14px; font-weight:700; color:var(--hucha); font-variant-numeric:tabular-nums; letter-spacing:-0.3px; line-height:1; }
+.circle-lbl { font-size:9px; color:var(--subtle); text-transform:uppercase; letter-spacing:0.06em; }
+
+.hucha-info { flex:1; min-width:0; }
+.hucha-desc { font-size:13px; color:var(--subtle); }
+.hucha-stats { display:flex; gap:24px; margin-top:10px; }
+.h-stat-lbl { font-size:11px; color:var(--subtle); }
+.h-stat-val { font-size:13px; font-weight:600; color:var(--hucha); font-variant-numeric:tabular-nums; margin-top:1px; }
+
+/* FLOW LINE */
+.flow-line { position:absolute; left:44px; bottom:-1px; width:2px; height:0; background:linear-gradient(180deg,rgba(78,205,196,0.55),rgba(78,205,196,0)); transition:height 0.45s cubic-bezier(.4,0,.2,1); pointer-events:none; z-index:10; border-radius:2px; }
+.flow-line.on { height:28px; }
+.flow-pts { position:absolute; left:43px; bottom:-28px; width:4px; height:28px; pointer-events:none; z-index:10; opacity:0; transition:opacity 0.3s; overflow:visible; }
+.flow-pts.on { opacity:1; }
+@keyframes floatDot { 0%{transform:translateY(0);opacity:0} 15%{opacity:1} 85%{opacity:1} 100%{transform:translateY(24px);opacity:0} }
+.dot { position:absolute; left:0; top:0; width:4px; height:4px; border-radius:50%; background:var(--hucha); animation:floatDot 1.5s ease-in-out infinite; }
+.dot:nth-child(2){animation-delay:0.5s} .dot:nth-child(3){animation-delay:1s}
+
+/* SEC LABEL */
+.sec-label { font-size:10px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--subtle); margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; }
+
+/* CARDS */
+.cards-scroll { display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; scroll-snap-type:x mandatory; scrollbar-width:none; }
+.cards-scroll::-webkit-scrollbar { display:none; }
+.p-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:18px; min-width:190px; max-width:210px; flex-shrink:0; scroll-snap-align:start; cursor:pointer; transition:all 0.35s cubic-bezier(.4,0,.2,1); display:flex; flex-direction:column; gap:12px; overflow:hidden; }
+.p-card:hover { border-color:var(--bord2); }
+.p-card.sel { border-color:rgba(78,205,196,0.22); transform:translateY(-3px); box-shadow:0 8px 28px rgba(0,0,0,0.25); }
+.p-card .p-name,.p-card .p-funded,.p-card .p-pct,.p-card .p-date { text-align:center; }
+.p-card .ring-wrap { margin:0 auto; }
+
+/* RING */
+.ring-wrap { position:relative; flex-shrink:0; }
+.ring-wrap svg { display:block; transform:rotate(-90deg); }
+.ring-emoji { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+
+/* TRANSFER */
+.card-tp { background:var(--sur2); border-top:1px solid var(--border); margin:0 -18px -18px; padding:12px 14px; display:none; }
+.card-tp.on { display:block; animation:slideDown 0.22s ease; }
+@keyframes slideDown { from{opacity:0;transform:translateY(-5px)} to{opacity:1;transform:translateY(0)} }
+.tp-hint { font-size:11px; color:var(--subtle); margin-bottom:6px; }
+.tp-hint b { color:var(--hucha); font-weight:600; }
+.tp-row { display:flex; align-items:center; gap:8px; }
+.tp-iw { flex:1; position:relative; }
+.tp-pfx { position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:13px; font-weight:600; color:var(--subtle); }
+.tp-in { width:100%; background:var(--surface); border:1px solid var(--bord2); border-radius:var(--rs); padding:8px 8px 8px 22px; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; outline:none; transition:border-color 0.15s; }
+.tp-in:focus { border-color:rgba(78,205,196,0.45); }
+.tp-in::placeholder { color:var(--muted); }
+.tp-ok { background:var(--hucha); border:none; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; transition:all 0.15s; opacity:0.35; }
+.tp-ok.on { opacity:1; }
+.tp-ok:hover { transform:scale(1.06); }
+.tp-cancel { background:none; border:none; color:var(--subtle); font-family:'DM Sans',sans-serif; font-size:11px; cursor:pointer; padding:6px 0 0; display:block; transition:color 0.15s; }
+.tp-cancel:hover { color:var(--text); }
+
+/* PROJECT TEXT */
+.p-name { font-size:14px; font-weight:600; }
+.p-funded { font-size:11px; color:var(--subtle); margin-top:2px; }
+.p-pct { font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; }
+.p-date { font-size:11px; color:var(--subtle); margin-top:3px; line-height:1.4; }
+.p-date-sub { font-size:10px; opacity:0.6; }
+
+.p-card-add { background:none; border:1px dashed var(--border); border-radius:var(--r); min-width:120px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:var(--subtle); font-family:'DM Sans',sans-serif; font-size:12px; cursor:pointer; transition:all 0.15s; padding:18px; scroll-snap-align:start; min-height:160px; }
+.p-card-add:hover { border-color:var(--subtle); color:var(--text); }
+
+/* COMMITMENT */
+.commit { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:16px 20px; display:flex; align-items:center; justify-content:space-between; margin-top:12px; cursor:pointer; transition:background 0.15s; }
+.commit:hover { background:var(--sur2); }
+.commit-lbl { font-size:12px; color:var(--subtle); }
+.commit-val { font-size:22px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-0.5px; }
+.commit-per { font-size:13px; font-weight:400; color:var(--subtle); margin-left:4px; }
+
+/* ══════════════════════════════
+   HUCHA SCREEN
+══════════════════════════════ */
+.hucha-hero { display:flex; flex-direction:column; align-items:center; padding:36px 0 40px; }
+.hucha-hero-circle { position:relative; width:160px; height:160px; margin-bottom:28px; }
+.hucha-hero-circle canvas { position:absolute; inset:0; width:160px !important; height:160px !important; }
+.hucha-hero-inner { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
+.hucha-hero-amt { font-size:26px; font-weight:700; color:var(--hucha); font-variant-numeric:tabular-nums; letter-spacing:-0.8px; line-height:1; }
+.hucha-hero-lbl { font-size:11px; color:var(--subtle); margin-top:4px; }
+.hucha-hero-title { font-size:22px; font-weight:700; letter-spacing:-0.4px; margin-bottom:4px; }
+.hucha-hero-sub { font-size:13px; color:var(--subtle); }
+
+/* STAT STRIP */
+.stat-strip { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:32px; }
+.stat-cell { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:16px 18px; }
+.stat-cell-lbl { font-size:11px; color:var(--subtle); margin-bottom:4px; }
+.stat-cell-val { font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-0.4px; line-height:1; }
+.stat-cell-val.green { color:var(--hucha); }
+.stat-cell-sub { font-size:11px; color:var(--subtle); margin-top:3px; }
+
+/* HISTORY */
+.history-title { font-size:13px; font-weight:600; color:var(--subtle); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:14px; }
+.history-list { display:flex; flex-direction:column; gap:2px; }
+.history-row { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; background:var(--surface); border-radius:var(--rs); transition:background 0.15s; cursor:default; }
+.history-row:hover { background:var(--sur2); }
+.history-row:first-child { border-radius:var(--r) var(--r) var(--rs) var(--rs); }
+.history-row:last-child { border-radius:var(--rs) var(--rs) var(--r) var(--r); }
+.history-row:only-child { border-radius:var(--r); }
+.history-month { font-size:13px; color:var(--subtle); }
+.history-amt { font-size:14px; font-weight:600; color:var(--hucha); font-variant-numeric:tabular-nums; }
+
+/* MODE ARROWS */
+.card-arrow-row { display:none; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.card-arrow-row.on { display:flex; }
+.arrow-btn { background:none; border:1px solid var(--bord2); border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--subtle); transition:all 0.18s; flex-shrink:0; }
+.arrow-btn:hover { color:var(--text); border-color:var(--text); }
+.arrow-btn.active-add { background:rgba(78,205,196,0.12); border-color:rgba(78,205,196,0.45); color:var(--hucha); }
+.arrow-btn.active-ret { background:rgba(116,198,157,0.12); border-color:rgba(116,198,157,0.45); color:#74C69D; }
+.tp-body { display:none; }
+.tp-body.on { display:block; animation:slideDown 0.2s ease; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-logo"><div class="nav-logo-icon">F</div>Finnon</div>
+  <div class="nav-links">
+    <button class="nav-link" onclick="goTo('hucha')">Inicio</button>
+    <button class="nav-link">Tu Cuenta</button>
+    <button class="nav-link active" onclick="goTo('proyectos')">Proyectos</button>
+    <button class="nav-link">Movimientos</button>
+  </div>
+</nav>
+
+<!-- ══════════ PROYECTOS ══════════ -->
+<div class="screen active" id="sv-proyectos">
+  <div class="page-header">
+    <div><h1 class="page-title">Proyectos</h1><p class="page-sub">Conecta tu ahorro mensual con metas concretas.</p></div>
+    <button class="btn-sm">Cierre mensual</button>
+  </div>
+
+  <!-- Hucha block — clickable, no label, no emoji -->
+  <div class="hucha-block" id="hB" onclick="goTo('hucha')">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0">
+      <div class="circle-wrap">
+        <canvas id="cB"></canvas>
+        <div class="circle-inner">
+          <span class="circle-amt" id="amtB">€3.329</span>
+        </div>
+      </div>
+      <span class="circle-lbl">Hucha</span>
+    </div>
+    <div class="hucha-info">
+      <div class="hucha-desc">Destino automático del ahorro que no asignas.</div>
+      <div class="hucha-stats">
+        <div><div class="h-stat-lbl">Este mes</div><div class="h-stat-val">+€831</div></div>
+        <div><div class="h-stat-lbl">Media mensual</div><div class="h-stat-val">€832</div></div>
+      </div>
+    </div>
+    <div class="hucha-block-chevron">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="flow-line" id="flB"></div>
+    <div class="flow-pts" id="fpB"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  </div>
+
+  <div class="sec-label">Proyectos activos</div>
+
+  <div class="cards-scroll" id="cardsB">
+    <div class="p-card" id="crdB0" onclick="selB(0)">
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;position:relative">
+        <div class="card-arrow-row" id="arrB0" style="position:absolute;inset:0;display:none;align-items:center;justify-content:space-between;z-index:2">
+          <button class="arrow-btn" id="mRetB0" onclick="event.stopPropagation();setMode(0,'ret')" title="Devolver a hucha">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+          </button>
+          <button class="arrow-btn" id="mAddB0" onclick="event.stopPropagation();setMode(0,'add')" title="Añadir desde hucha">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+        <div class="ring-wrap" style="width:80px;height:80px">
+          <svg width="80" height="80" viewBox="0 0 80 80"><circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="6"/><circle id="ringB0" cx="40" cy="40" r="32" fill="none" stroke="#6DB8D4" stroke-width="6" stroke-linecap="round" stroke-dasharray="201.1" stroke-dashoffset="122.7" style="transition:stroke-dashoffset 0.9s cubic-bezier(.4,0,.2,1)"/></svg>
+          <div class="ring-emoji" style="font-size:28px">💻</div>
+        </div>
+      </div>
+      <div>
+        <div class="p-name">Macbook</div>
+        <div class="p-funded">€550 de €1.400</div>
+        <div class="p-pct" style="color:#6DB8D4;margin-top:4px">39%</div>
+        <div class="p-date" style="margin-top:4px">En 6 meses<br><span class="p-date-sub">sept. 2026</span></div>
+      </div>
+      <div class="card-tp" id="ctB0">
+        <div class="tp-body" id="tbB0">
+          <div class="tp-hint" id="hintB0">Disponible: <b id="avB0">€3.329</b></div>
+          <div class="tp-row">
+            <div class="tp-iw"><span class="tp-pfx">€</span><input class="tp-in" id="inB0" type="number" placeholder="0" oninput="updB(0,this.value)"/></div>
+            <button class="tp-ok" id="okB0" onclick="event.stopPropagation();confB(0)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="2.8"><polyline points="20 6 9 17 4 12"/></svg></button>
+          </div>
+        </div>
+        <button class="tp-cancel" onclick="event.stopPropagation();canB(0)">Cancelar</button>
+      </div>
+    </div>
+
+    <div class="p-card" id="crdB1" onclick="selB(1)">
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;position:relative">
+        <div class="card-arrow-row" id="arrB1" style="position:absolute;inset:0;display:none;align-items:center;justify-content:space-between;z-index:2">
+          <button class="arrow-btn" id="mRetB1" onclick="event.stopPropagation();setMode(1,'ret')" title="Devolver a hucha">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+          </button>
+          <button class="arrow-btn" id="mAddB1" onclick="event.stopPropagation();setMode(1,'add')" title="Añadir desde hucha">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+        <div class="ring-wrap" style="width:80px;height:80px">
+          <svg width="80" height="80" viewBox="0 0 80 80"><circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="6"/><circle id="ringB1" cx="40" cy="40" r="32" fill="none" stroke="#74C69D" stroke-width="6" stroke-linecap="round" stroke-dasharray="201.1" stroke-dashoffset="195.1" style="transition:stroke-dashoffset 0.9s cubic-bezier(.4,0,.2,1)"/></svg>
+          <div class="ring-emoji" style="font-size:28px">🚗</div>
+        </div>
+      </div>
+      <div>
+        <div class="p-name">Coche eléctrico</div>
+        <div class="p-funded">€1.000 de €30.000</div>
+        <div class="p-pct" style="color:#74C69D;margin-top:4px">3%</div>
+        <div class="p-date" style="margin-top:4px">En 2a y 5m<br><span class="p-date-sub">ago. 2028</span></div>
+      </div>
+      <div class="card-tp" id="ctB1">
+        <div class="tp-body" id="tbB1">
+          <div class="tp-hint" id="hintB1">Disponible: <b id="avB1">€3.329</b></div>
+          <div class="tp-row">
+            <div class="tp-iw"><span class="tp-pfx">€</span><input class="tp-in" id="inB1" type="number" placeholder="0" oninput="updB(1,this.value)"/></div>
+            <button class="tp-ok" id="okB1" onclick="event.stopPropagation();confB(1)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="2.8"><polyline points="20 6 9 17 4 12"/></svg></button>
+          </div>
+        </div>
+        <button class="tp-cancel" onclick="event.stopPropagation();canB(1)">Cancelar</button>
+      </div>
+    </div>
+
+    <button class="p-card-add"><span style="font-size:20px">+</span>Nuevo proyecto</button>
+  </div>
+
+  <div class="commit">
+    <div><div class="commit-lbl">Compromiso mensual total</div><div class="commit-val">€1.150<span class="commit-per">/mes</span></div></div>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+  </div>
+</div>
+
+<!-- ══════════ HUCHA ══════════ -->
+<div class="screen" id="sv-hucha">
+  <button class="back" onclick="goTo('proyectos')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+    Volver a proyectos
+  </button>
+
+  <div class="hucha-hero">
+    <div class="hucha-hero-circle">
+      <canvas id="cH"></canvas>
+      <div class="hucha-hero-inner">
+        <span class="hucha-hero-amt" id="amtH">€3.329</span>
+        <span class="hucha-hero-lbl">Acumulado</span>
+      </div>
+    </div>
+    <div class="hucha-hero-title">Hucha</div>
+    <div class="hucha-hero-sub">Destino automático del ahorro que no asignas.</div>
+  </div>
+
+  <div class="stat-strip">
+    <div class="stat-cell">
+      <div class="stat-cell-lbl">Este mes</div>
+      <div class="stat-cell-val green">+€831</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-cell-lbl">Media mensual</div>
+      <div class="stat-cell-val green">€832</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-cell-lbl">Mejor mes</div>
+      <div class="stat-cell-val green">€1.984</div>
+      <div class="stat-cell-sub">enero de 2026</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-cell-lbl">Meses con aportación</div>
+      <div class="stat-cell-val">2</div>
+    </div>
+  </div>
+
+  <div class="history-title">Historial de aportes</div>
+  <div class="history-list">
+    <div class="history-row">
+      <span class="history-month">enero de 2026</span>
+      <span class="history-amt">+€1.984</span>
+    </div>
+    <div class="history-row">
+      <span class="history-month">diciembre de 2025</span>
+      <span class="history-amt">+€452</span>
+    </div>
+    <div class="history-row">
+      <span class="history-month">noviembre de 2025</span>
+      <span class="history-amt">+€893</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+const HUCHA_INIT = 3329;
+let huchaVal = HUCHA_INIT;
+let wv = 0;
+
+// Circle instances: B (proyectos, 88px), H (hucha, 160px)
+const circles = {
+  B: { canvas:null, cur:0, tgt:0.72, size:88 },
+  H: { canvas:null, cur:0, tgt:0.72, size:160 },
+};
+
+// ── DRAW CIRCLE ──
+function drawCircle(c) {
+  const canvas = c.canvas;
+  if (!canvas) return;
+  const S = c.size, dpr = window.devicePixelRatio || 1;
+  canvas.width = S * dpr; canvas.height = S * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, S, S);
+  const cx = S/2, cy = S/2, r = S * 0.41;
+  const ratio = Math.max(0, Math.min(1, c.cur));
+
+  // Track
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.strokeStyle='rgba(255,255,255,0.07)'; ctx.lineWidth=S*0.068; ctx.stroke();
+
+  // Clip to circle
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx,cy,r-1,0,Math.PI*2); ctx.clip();
+
+  // Fill from bottom
+  const fillTop = cy + r - ratio * r * 2;
+  const grad = ctx.createLinearGradient(cx, cy-r, cx, cy+r);
+  grad.addColorStop(0,'#4ECDC4CC'); grad.addColorStop(1,'#26A69AEE');
+  ctx.fillStyle = grad;
+  ctx.fillRect(cx-r, fillTop, r*2+2, cy+r+2-fillTop);
+
+  // Wave
+  if (ratio > 0.03 && ratio < 0.97) {
+    ctx.beginPath();
+    for (let i=0;i<=24;i++) {
+      const x=(cx-r)+(r*2*i/24);
+      const y=fillTop+Math.sin((i/24)*Math.PI*4+wv)*2.5;
+      i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+    }
+    ctx.strokeStyle='rgba(78,205,196,0.5)'; ctx.lineWidth=1.8; ctx.stroke();
+  }
+  ctx.restore();
+
+  // Outer ring
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.strokeStyle='rgba(78,205,196,0.35)'; ctx.lineWidth=1.8; ctx.stroke();
+}
+
+// ── LOOP ──
+function loop() {
+  wv += 0.028;
+  Object.values(circles).forEach(c => {
+    c.cur += (c.tgt - c.cur) * 0.04;
+    drawCircle(c);
+  });
+  requestAnimationFrame(loop);
+}
+
+// ── SET HUCHA VALUE ──
+function setHucha(val) {
+  huchaVal = Math.max(0, val);
+  const ratio = huchaVal / HUCHA_INIT;
+  circles.B.tgt = ratio * 0.72;
+  circles.H.tgt = ratio * 0.72;
+  const fmt = '€' + Math.round(huchaVal).toLocaleString('es-ES');
+  ['amtB','amtH'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=fmt; });
+  const avEl = document.getElementById('avB');
+  if (avEl) avEl.textContent = fmt;
+}
+
+// ── FLOW ──
+// mode: 'add' (hucha→project), 'ret' (project→hucha), null
+function flow(on, mode) {
+  document.getElementById('flB')?.classList.toggle('on', on);
+  document.getElementById('fpB')?.classList.toggle('on', on);
+  document.getElementById('hB')?.classList.toggle('lit', on);
+  // Reverse dot direction when returning to hucha
+  const pts = document.getElementById('fpB');
+  if (pts) {
+    pts.style.animationDirection = (mode === 'ret') ? 'reverse' : 'normal';
+    pts.querySelectorAll('.dot').forEach(d => {
+      d.style.animationDirection = (mode === 'ret') ? 'reverse' : 'normal';
+    });
+  }
+}
+
+// ── NAVIGATE ──
+function goTo(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sv-'+id).classList.add('active');
+  // Init hucha canvas when navigating there
+  if (id === 'hucha' && !circles.H.canvas) {
+    circles.H.canvas = document.getElementById('cH');
+  }
+  window.scrollTo(0,0);
+}
+
+// ── VARIANT B ──
+let selB_ = null;
+const modes = {}; // modes[i] = 'add' | 'ret' | null
+const projectFunded = [550, 1000]; // funded amounts per project (mock)
+
+function selB(i) {
+  if (selB_===i) { canB(i); return; }
+  if (selB_!==null) canB(selB_);
+  selB_ = i;
+  modes[i] = null;
+  const card = document.getElementById('crdB'+i);
+  const scroll = card.closest('.cards-scroll');
+  card.style.transition = 'opacity 0.18s';
+  card.style.opacity = '0';
+  setTimeout(() => {
+    scroll.insertBefore(card, scroll.firstChild);
+    scroll.scrollTo({ left:0, behavior:'smooth' });
+    card.style.opacity = '1';
+    setTimeout(() => {
+      card.style.transition = '';
+      card.classList.add('sel');
+      document.getElementById('ctB'+i).classList.add('on');
+      const arr = document.getElementById('arrB'+i);
+      if (arr) arr.style.display = 'flex';
+    }, 180);
+  }, 180);
+  flow(true, null);
+}
+
+function setMode(i, mode) {
+  // Toggle off if same mode clicked again
+  if (modes[i] === mode) {
+    modes[i] = null;
+    document.getElementById('mAddB'+i).className = 'arrow-btn';
+    document.getElementById('mRetB'+i).className = 'arrow-btn';
+    document.getElementById('tbB'+i).classList.remove('on');
+    document.getElementById('inB'+i).value = '';
+    document.getElementById('okB'+i).classList.remove('on');
+    flow(true, null);
+    return;
+  }
+  modes[i] = mode;
+  // Update arrow styles — keep as arrow-btn, just add active class
+  document.getElementById('mAddB'+i).className = 'arrow-btn' + (mode==='add' ? ' active-add' : '');
+  document.getElementById('mRetB'+i).className = 'arrow-btn' + (mode==='ret' ? ' active-ret' : '');
+  // Show input
+  document.getElementById('tbB'+i).classList.add('on');
+  document.getElementById('inB'+i).value = '';
+  document.getElementById('okB'+i).classList.remove('on');
+  // Update hint (no separate avB id needed)
+  const hint = document.getElementById('hintB'+i);
+  if (mode === 'add') {
+    hint.innerHTML = 'Disponible en hucha: <b>' + fmtEur(huchaVal) + '</b>';
+  } else {
+    hint.innerHTML = 'Financiado en proyecto: <b>' + fmtEur(projectFunded[i]) + '</b>';
+  }
+  // Flow direction
+  flow(true, mode);
+  setTimeout(() => document.getElementById('inB'+i)?.focus(), 40);
+}
+
+function canB(i) {
+  selB_ = null;
+  modes[i] = null;
+  const card = document.getElementById('crdB'+i);
+  card.classList.remove('sel');
+  card.style.transition = '';
+  card.style.opacity = '';
+  document.getElementById('ctB'+i).classList.remove('on');
+  document.getElementById('tbB'+i).classList.remove('on');
+  document.getElementById('inB'+i).value = '';
+  document.getElementById('okB'+i).classList.remove('on');
+  const arr = document.getElementById('arrB'+i);
+  if (arr) arr.style.display = 'none';
+  ['mAddB'+i, 'mRetB'+i].forEach(id => { const el=document.getElementById(id); if(el) el.className='arrow-btn'; });
+  flow(false, null);
+  circles.B.tgt = huchaVal/HUCHA_INIT*0.72;
+  circles.H.tgt = huchaVal/HUCHA_INIT*0.72;
+}
+
+function updB(i, v) {
+  const n = parseFloat(v)||0;
+  const mode = modes[i];
+  const maxVal = mode === 'add' ? huchaVal : projectFunded[i];
+  document.getElementById('okB'+i).classList.toggle('on', n>0 && n<=maxVal);
+  if (mode === 'add') {
+    const r = n>0 ? Math.max(0,huchaVal-n) : huchaVal;
+    circles.B.tgt = r/HUCHA_INIT*0.72;
+    circles.H.tgt = r/HUCHA_INIT*0.72;
+  } else {
+    // returning: hucha grows
+    const r = n>0 ? Math.min(HUCHA_INIT, huchaVal+n) : huchaVal;
+    circles.B.tgt = r/HUCHA_INIT*0.72;
+    circles.H.tgt = r/HUCHA_INIT*0.72;
+  }
+}
+
+function confB(i) {
+  const n = parseFloat(document.getElementById('inB'+i).value)||0;
+  const mode = modes[i];
+  if (!mode || n<=0) return;
+  if (mode === 'add' && n<=huchaVal) {
+    setHucha(huchaVal-n);
+    projectFunded[i] += n;
+  } else if (mode === 'ret' && n<=projectFunded[i]) {
+    setHucha(huchaVal+n);
+    projectFunded[i] -= n;
+  }
+  canB(i);
+}
+
+function fmtEur(n) { return '€' + Math.round(n).toLocaleString('es-ES'); }
+
+// ── INIT ──
+window.addEventListener('load', () => {
+  circles.B.canvas = document.getElementById('cB');
+  loop();
+});
+</script>
+</body>
+</html>

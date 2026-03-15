@@ -1,24 +1,30 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, {
+  Circle,
+  ClipPath,
+  Defs,
+  LinearGradient,
+  Rect,
+  Stop,
+} from "react-native-svg";
 import {
-  computeProjectProgress,
   CURRENCIES,
   formatMoneyWithSymbol,
   formatMonthLabel,
-  getProjectReserveTransferTotalsMap,
   getReserveContainerBalanceMinor,
   getReserveContainerStats,
   getReserveTransferDirection,
-  parseMoneyToMinor,
   themeTokens,
   toMonthKey,
   type MonthClose,
@@ -32,11 +38,16 @@ import { useAuth } from "../../../../../src/contexts/AuthContext";
 import { useUserTheme } from "../../../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../../../src/lib/i18n";
 import { supabase } from "../../../../../src/lib/supabase";
-import { Button } from "../../../../../src/components/Button";
 import { Card } from "../../../../../src/components/Card";
-import { Input } from "../../../../../src/components/Input";
 
 const tokens = themeTokens.light;
+const AnimatedSvgRect = Animated.createAnimatedComponent(Rect);
+const HUCHA_ACCENT = "#4ECDC4";
+const HERO_SIZE = 160;
+const HERO_CX = HERO_SIZE / 2;
+const HERO_CY = HERO_SIZE / 2;
+const HERO_RADIUS = HERO_SIZE * 0.41;
+const HERO_TRACK_WIDTH = HERO_SIZE * 0.068;
 
 type AccountRow = {
   id: string;
@@ -58,32 +69,48 @@ const toMinor = (value: bigint | number | string | null | undefined): bigint => 
   }
 };
 
-const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
+const getHistoryRowRadius = (index: number, total: number) => {
+  if (total <= 1) {
+    return {
+      borderRadius: tokens.radii.lg,
+    };
+  }
 
-const formatDateLabel = (value: string | Date | null | undefined, locale: "es" | "en") => {
-  if (!value) return null;
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(date);
+  if (index === 0) {
+    return {
+      borderTopLeftRadius: tokens.radii.lg,
+      borderTopRightRadius: tokens.radii.lg,
+      borderBottomLeftRadius: 10,
+      borderBottomRightRadius: 10,
+    };
+  }
+
+  if (index === total - 1) {
+    return {
+      borderTopLeftRadius: 10,
+      borderTopRightRadius: 10,
+      borderBottomLeftRadius: tokens.radii.lg,
+      borderBottomRightRadius: tokens.radii.lg,
+    };
+  }
+
+  return {
+    borderRadius: 10,
+  };
 };
 
 export default function ReserveDetailScreen() {
   const { reserveId } = useLocalSearchParams<{ reserveId: string }>();
   const { user, selectedAccountId } = useAuth();
   const { dictionary, locale } = useCopy();
-  const { tokens: userTokens, primaryActionColor } = useUserTheme();
+  const { tokens: userTokens, primaryActionColor, resolvedMode } = useUserTheme();
   const insets = useSafeAreaInsets();
   const localeCode: "es" | "en" = locale === "en" ? "en" : "es";
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [canEdit, setCanEdit] = useState(false);
+  const [isSubmitting] = useState(false);
   const [baseCurrency, setBaseCurrency] = useState("EUR");
   const [currencySymbol, setCurrencySymbol] = useState("€");
   const [reserveContainer, setReserveContainer] = useState<ReserveContainer | null>(null);
@@ -91,8 +118,7 @@ export default function ReserveDetailScreen() {
   const [monthCloses, setMonthCloses] = useState<MonthClose[]>([]);
   const [monthCloseAllocations, setMonthCloseAllocations] = useState<MonthCloseAllocation[]>([]);
   const [reserveTransfers, setReserveTransfers] = useState<ReserveTransfer[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState("");
-  const [amountInput, setAmountInput] = useState("");
+  const fillProgress = useRef(new Animated.Value(0)).current;
 
   const loadData = useCallback(async () => {
     if (!user || !selectedAccountId || !reserveId) {
@@ -165,7 +191,6 @@ export default function ReserveDetailScreen() {
       if (monthCloseAllocationsResult.error) throw monthCloseAllocationsResult.error;
       if (reserveTransfersResult.error) throw reserveTransfersResult.error;
 
-      setCanEdit((account.account_members?.[0]?.role ?? "viewer") !== "viewer");
       setBaseCurrency(accountCurrency);
       setCurrencySymbol(symbol);
       setReserveContainer(reserveResult.data as ReserveContainer);
@@ -180,7 +205,7 @@ export default function ReserveDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, [localeCode, reserveId, selectedAccountId, user]);
+  }, [locale, reserveId, selectedAccountId, user]);
 
   useEffect(() => {
     void loadData();
@@ -213,58 +238,9 @@ export default function ReserveDetailScreen() {
     [monthCloseAllocations, monthClosesById, reserveContainer?.id, reserveTransfers]
   );
 
-  const fundedByProject = useMemo(() => {
-    const byProject = new Map<string, bigint>();
-    monthCloseAllocations.forEach((allocation) => {
-      if (!allocation.project_id) return;
-      byProject.set(
-        allocation.project_id,
-        (byProject.get(allocation.project_id) ?? 0n) + toMinor(allocation.amount_base_minor)
-      );
-    });
-    const reserveTransferTotals = getProjectReserveTransferTotalsMap(reserveTransfers);
-    reserveTransferTotals.forEach((amountMinor, projectId) => {
-      byProject.set(projectId, (byProject.get(projectId) ?? 0n) + amountMinor);
-    });
-    return byProject;
-  }, [monthCloseAllocations, reserveTransfers]);
-
-  const eligibleProjects = useMemo(
-    () =>
-      projects
-        .filter((project) => project.status === "active")
-        .map((project) => {
-          const progress = computeProjectProgress({
-            project,
-            fundedMinor: fundedByProject.get(project.id) ?? 0n,
-          });
-          return {
-            project,
-            remainingMinor: progress.remainingMinor,
-          };
-        })
-        .filter((entry) => entry.remainingMinor > 0n),
-    [fundedByProject, projects]
-  );
-
-  const selectedProjectEntry =
-    eligibleProjects.find((entry) => entry.project.id === selectedProjectId) ?? null;
-
-  const parsedTransferAmount = useMemo(() => {
-    const raw = amountInput.trim();
-    if (!raw) return { amountMinor: 0n, error: null as string | null };
-    const parsed = parseMoneyToMinor(raw, baseCurrency);
-    if (typeof parsed === "object" && "error" in parsed) {
-      return {
-        amountMinor: 0n,
-        error: locale === "en" ? "Review the amount." : "Revisa el importe.",
-      };
-    }
-    return { amountMinor: parsed, error: null as string | null };
-  }, [amountInput, baseCurrency, locale]);
-
   const activityRows = useMemo(() => {
     if (!reserveContainer) return [];
+
     const projectById = new Map(projects.map((project) => [project.id, project]));
 
     const incoming = monthCloseAllocations
@@ -325,48 +301,50 @@ export default function ReserveDetailScreen() {
       const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return bTime - aTime;
     });
-  }, [localeCode, monthCloseAllocations, monthClosesById, projects, reserveContainer, reserveTransfers]);
+  }, [locale, localeCode, monthCloseAllocations, monthClosesById, projects, reserveContainer, reserveTransfers]);
 
-  const canTransfer =
-    canEdit &&
-    Boolean(reserveContainer) &&
-    selectedProjectId.length > 0 &&
-    parsedTransferAmount.error === null &&
-    parsedTransferAmount.amountMinor > 0n &&
-    parsedTransferAmount.amountMinor <= reserveBalanceMinor &&
-    parsedTransferAmount.amountMinor <= (selectedProjectEntry?.remainingMinor ?? 0n);
+  const levelTarget = useMemo(() => {
+    const maxReference = reserveStats.bestMonth?.amountMinor ?? reserveBalanceMinor;
+    if (maxReference <= 0n) return 0.5;
+    return Math.min(0.92, Number(reserveBalanceMinor) / Number(maxReference));
+  }, [reserveBalanceMinor, reserveStats.bestMonth?.amountMinor]);
 
-  const handleTransfer = async () => {
-    if (!selectedAccountId || !reserveContainer || !canTransfer || isSubmitting) return;
+  useEffect(() => {
+    const animation = Animated.timing(fillProgress, {
+      toValue: levelTarget,
+      duration: 900,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    });
 
-    setIsSubmitting(true);
-    setError(null);
-    setMessage(null);
+    animation.start();
 
-    try {
-      const { error: rpcError } = await supabase.rpc("transfer_reserve_to_project", {
-        p_account_id: selectedAccountId,
-        p_source_reserve_container_id: reserveContainer.id,
-        p_destination_project_id: selectedProjectId,
-        p_amount_base_minor: parsedTransferAmount.amountMinor.toString(),
-      });
+    return () => {
+      animation.stop();
+    };
+  }, [fillProgress, levelTarget]);
 
-      if (rpcError) throw rpcError;
-
-      setAmountInput("");
-      setMessage(locale === "en" ? "Transfer confirmed." : "Transferencia confirmada.");
-      await loadData();
-    } catch (transferError) {
-      console.error("[ReserveDetail][mobile] transfer error", transferError);
-      setError(
-        locale === "en"
-          ? "Couldn't move money to the project."
-          : "No se pudo mover dinero al proyecto."
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const clipPathId = useMemo(
+    () => `reserve-fill-clip-${String(reserveId ?? "default")}`,
+    [reserveId]
+  );
+  const gradientId = useMemo(
+    () => `reserve-fill-gradient-${String(reserveId ?? "default")}`,
+    [reserveId]
+  );
+  const fillY = fillProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [HERO_CY + HERO_RADIUS, HERO_CY - HERO_RADIUS],
+  });
+  const fillHeight = fillProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, HERO_RADIUS * 2 + 2],
+  });
+  const bestMonthLabel = reserveStats.bestMonth
+    ? formatMonthLabel(reserveStats.bestMonth.period, localeCode)
+    : null;
+  const trackColor =
+    resolvedMode === "dark" ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)";
 
   if (loading) {
     return (
@@ -398,184 +376,201 @@ export default function ReserveDetailScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: reserveContainer.name }} />
+      <Stack.Screen options={{ title: t(dictionary, "home.savings.hucha") }} />
       <View style={[styles.screen, { backgroundColor: userTokens.background }]}>
         <ScrollView
+          scrollEnabled={!isSubmitting}
           contentContainerStyle={[
             styles.container,
             { paddingBottom: tokens.spacing.xxl + insets.bottom + 64 },
           ]}
         >
           {error ? (
-            <Card>
-              <Text style={[styles.errorText, { color: userTokens.textPrimary }]}>{error}</Text>
-            </Card>
+            <Text style={[styles.feedbackText, styles.inlineError]}>{error}</Text>
           ) : null}
+          {message ? <Text style={[styles.feedbackText, styles.successText]}>{message}</Text> : null}
 
-          <Card>
-            <Text style={[styles.eyebrow, { color: userTokens.textSecondary }]}>
-              {locale === "en" ? "Reserve container" : "Contenedor de reserva"}
+          <View style={styles.hero}>
+            <View style={styles.heroCircle}>
+              <Svg width={HERO_SIZE} height={HERO_SIZE} style={StyleSheet.absoluteFillObject}>
+                <Defs>
+                  <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0" stopColor="#4ECDC4CC" />
+                    <Stop offset="1" stopColor="#26A69AEE" />
+                  </LinearGradient>
+                  <ClipPath id={clipPathId}>
+                    <Circle cx={HERO_CX} cy={HERO_CY} r={HERO_RADIUS - 1} />
+                  </ClipPath>
+                </Defs>
+
+                <Circle
+                  cx={HERO_CX}
+                  cy={HERO_CY}
+                  r={HERO_RADIUS}
+                  stroke={trackColor}
+                  strokeWidth={HERO_TRACK_WIDTH}
+                  fill="none"
+                />
+                <AnimatedSvgRect
+                  x={HERO_CX - HERO_RADIUS}
+                  y={fillY}
+                  width={HERO_RADIUS * 2 + 2}
+                  height={fillHeight}
+                  fill={`url(#${gradientId})`}
+                  clipPath={`url(#${clipPathId})`}
+                />
+                <Circle
+                  cx={HERO_CX}
+                  cy={HERO_CY}
+                  r={HERO_RADIUS}
+                  stroke="rgba(78,205,196,0.35)"
+                  strokeWidth={1.8}
+                  fill="none"
+                />
+              </Svg>
+
+              <View style={styles.heroCircleContent} pointerEvents="none">
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  style={[styles.heroAmount, { color: HUCHA_ACCENT }]}
+                >
+                  {formatMoneyWithSymbol(reserveBalanceMinor, baseCurrency, currencySymbol)}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={[styles.heroLabel, { color: userTokens.textSecondary }]}>
+              {t(dictionary, "projects.hucha.accumulated")}
             </Text>
-            <Text style={[styles.title, { color: userTokens.textPrimary }]}>
-              {reserveContainer.emoji || "🐷"} {reserveContainer.name}
+            <Text style={[styles.heroTitle, { color: userTokens.textPrimary }]}>
+              {t(dictionary, "home.savings.hucha")}
             </Text>
-            <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
-              {locale === "en"
-                ? "Generic reserve that receives whatever remains after the month close."
-                : "Reserva genérica que recibe lo que sobra tras el cierre mensual."}
+            <Text style={[styles.heroSubtitle, { color: userTokens.textSecondary }]}>
+              {t(dictionary, "projects.hucha.subtitle")}
             </Text>
-          </Card>
+          </View>
 
           <View style={styles.summaryGrid}>
-            <Card style={styles.summaryCard}>
+            <View
+              style={[
+                styles.summaryCell,
+                {
+                  backgroundColor: userTokens.surface,
+                  borderColor: userTokens.border,
+                },
+              ]}
+            >
               <Text style={[styles.summaryLabel, { color: userTokens.textSecondary }]}>
-                {locale === "en" ? "Balance" : "Saldo"}
+                {t(dictionary, "projects.hucha.thisMonth")}
               </Text>
-              <Text style={[styles.summaryValue, { color: userTokens.textPrimary }]}>
-                {formatMoneyWithSymbol(reserveBalanceMinor, baseCurrency, currencySymbol)}
-              </Text>
-            </Card>
-            <Card style={styles.summaryCard}>
-              <Text style={[styles.summaryLabel, { color: userTokens.textSecondary }]}>
-                {locale === "en" ? "This month" : "Este mes"}
-              </Text>
-              <Text style={[styles.summaryValue, { color: userTokens.textPrimary }]}>
+              <Text style={[styles.summaryValue, { color: HUCHA_ACCENT }]}>
                 {formatMoneyWithSymbol(
                   reserveStats.currentMonthContributionMinor,
                   baseCurrency,
                   currencySymbol
                 )}
               </Text>
-            </Card>
-            <Card style={styles.summaryCard}>
+            </View>
+
+            <View
+              style={[
+                styles.summaryCell,
+                {
+                  backgroundColor: userTokens.surface,
+                  borderColor: userTokens.border,
+                },
+              ]}
+            >
               <Text style={[styles.summaryLabel, { color: userTokens.textSecondary }]}>
-                {locale === "en" ? "Average" : "Media"}
+                {t(dictionary, "projects.hucha.monthlyAverage")}
               </Text>
-              <Text style={[styles.summaryValue, { color: userTokens.textPrimary }]}>
+              <Text style={[styles.summaryValue, { color: HUCHA_ACCENT }]}>
                 {formatMoneyWithSymbol(reserveStats.averageMinor, baseCurrency, currencySymbol)}
               </Text>
-            </Card>
+            </View>
+
+            <View
+              style={[
+                styles.summaryCell,
+                {
+                  backgroundColor: userTokens.surface,
+                  borderColor: userTokens.border,
+                },
+              ]}
+            >
+              <Text style={[styles.summaryLabel, { color: userTokens.textSecondary }]}>
+                {t(dictionary, "projects.hucha.bestMonth")}
+              </Text>
+              <Text
+                style={[
+                  styles.summaryValue,
+                  { color: reserveStats.bestMonth ? HUCHA_ACCENT : userTokens.textPrimary },
+                ]}
+              >
+                {reserveStats.bestMonth
+                  ? formatMoneyWithSymbol(
+                      reserveStats.bestMonth.amountMinor,
+                      baseCurrency,
+                      currencySymbol
+                    )
+                  : "—"}
+              </Text>
+              {bestMonthLabel ? (
+                <Text style={[styles.summarySubLabel, { color: userTokens.textSecondary }]}>
+                  {bestMonthLabel}
+                </Text>
+              ) : null}
+            </View>
+
+            <View
+              style={[
+                styles.summaryCell,
+                {
+                  backgroundColor: userTokens.surface,
+                  borderColor: userTokens.border,
+                },
+              ]}
+            >
+              <Text style={[styles.summaryLabel, { color: userTokens.textSecondary }]}>
+                {t(dictionary, "projects.hucha.monthsWithContribution")}
+              </Text>
+              <Text style={[styles.summaryValue, { color: userTokens.textPrimary }]}>
+                {reserveStats.monthsWithContribution}
+              </Text>
+            </View>
           </View>
 
-          <Card>
-            <Text style={[styles.cardTitle, { color: userTokens.textPrimary }]}>
-              {locale === "en" ? "Move to project" : "Mover a proyecto"}
+          <View style={styles.historySection}>
+            <Text style={[styles.historySectionTitle, { color: userTokens.textSecondary }]}>
+              {locale === "en" ? "Contribution history" : "Historial de aportes"}
             </Text>
 
-            <View style={styles.projectChipWrap}>
-              {eligibleProjects.map((entry) => {
-                const selected = entry.project.id === selectedProjectId;
-                return (
-                  <TouchableOpacity
-                    key={entry.project.id}
-                    onPress={() => setSelectedProjectId(entry.project.id)}
-                    style={[
-                      styles.projectChip,
-                      {
-                        borderColor: selected ? primaryActionColor : userTokens.border,
-                        backgroundColor: selected ? userTokens.surfaceAlt : userTokens.surface,
-                      },
-                    ]}
-                    activeOpacity={0.82}
-                  >
-                    <Text style={[styles.projectChipText, { color: userTokens.textPrimary }]}>
-                      {entry.project.emoji || "🎯"} {entry.project.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Input
-              label={locale === "en" ? "Amount" : "Importe"}
-              value={amountInput}
-              onChangeText={(value) => setAmountInput(sanitizeNumericInput(value))}
-              keyboardType="numeric"
-              placeholder="0"
-              disabled={!canEdit}
-              error={parsedTransferAmount.error ?? undefined}
-            />
-
-            {selectedProjectEntry ? (
-              <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
-                {locale === "en" ? "Remaining to fund" : "Pendiente de financiar"}:{" "}
-                {formatMoneyWithSymbol(
-                  selectedProjectEntry.remainingMinor,
-                  baseCurrency,
-                  currencySymbol
-                )}
+            {activityRows.length === 0 ? (
+              <Text style={[styles.emptyHistoryText, { color: userTokens.textSecondary }]}>
+                {t(dictionary, "projects.hucha.emptyHistory")}
               </Text>
-            ) : null}
-
-            {parsedTransferAmount.amountMinor > reserveBalanceMinor ? (
-              <Text style={styles.inlineError}>
-                {locale === "en"
-                  ? "The amount exceeds the available reserve balance."
-                  : "El importe supera el saldo disponible de la reserva."}
-              </Text>
-            ) : null}
-            {selectedProjectEntry &&
-            parsedTransferAmount.amountMinor > selectedProjectEntry.remainingMinor ? (
-              <Text style={styles.inlineError}>
-                {locale === "en"
-                  ? "The amount exceeds the remaining funding need of the project."
-                  : "El importe supera la necesidad restante del proyecto."}
-              </Text>
-            ) : null}
-            {message ? <Text style={styles.successText}>{message}</Text> : null}
-
-            <View style={styles.actions}>
-              <Button
-                title={
-                  isSubmitting
-                    ? locale === "en"
-                      ? "Moving..."
-                      : "Moviendo..."
-                    : locale === "en"
-                      ? "Move to project"
-                      : "Mover a proyecto"
-                }
-                onPress={() => void handleTransfer()}
-                disabled={!canTransfer || isSubmitting}
-                loading={isSubmitting}
-              />
-            </View>
-          </Card>
-
-          <Card>
-            <Text style={[styles.cardTitle, { color: userTokens.textPrimary }]}>
-              {locale === "en" ? "History" : "Historial"}
-            </Text>
-            <View style={styles.historyList}>
-              {activityRows.length === 0 ? (
-                <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
-                  {locale === "en" ? "There is no history yet." : "Todavía no hay historial."}
-                </Text>
-              ) : (
-                activityRows.map((row) => (
+            ) : (
+              <View style={styles.historyList}>
+                {activityRows.map((row, index) => (
                   <View
                     key={row.id}
                     style={[
                       styles.historyRow,
-                      {
-                        borderColor: userTokens.border,
-                        backgroundColor: userTokens.surface,
-                      },
+                      getHistoryRowRadius(index, activityRows.length),
+                      { backgroundColor: userTokens.surface },
                     ]}
                   >
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.historyTitle, { color: userTokens.textPrimary }]}>
-                        {row.label}
-                      </Text>
-                      <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
-                        {row.secondary}
-                        {row.createdAt ? ` · ${formatDateLabel(row.createdAt, localeCode)}` : ""}
-                      </Text>
-                    </View>
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.historyTitle, { color: userTokens.textSecondary }]}
+                    >
+                      {row.label}
+                    </Text>
                     <Text
                       style={[
                         styles.historyAmount,
-                        { color: row.amountMinor >= 0n ? "#15803D" : userTokens.textPrimary },
+                        { color: row.amountMinor >= 0n ? HUCHA_ACCENT : userTokens.textPrimary },
                       ]}
                     >
                       {row.amountMinor >= 0n ? "+" : "-"}
@@ -586,10 +581,10 @@ export default function ReserveDetailScreen() {
                       )}
                     </Text>
                   </View>
-                ))
-              )}
-            </View>
-          </Card>
+                ))}
+              </View>
+            )}
+          </View>
         </ScrollView>
       </View>
     </>
@@ -607,76 +602,110 @@ const styles = StyleSheet.create({
     padding: tokens.spacing.lg,
     gap: tokens.spacing.md,
   },
-  eyebrow: {
+  feedbackText: {
     fontSize: tokens.typography.size.sm,
     fontFamily: "DMSans-Medium",
-    marginBottom: tokens.spacing.xs,
   },
-  title: {
+  hero: {
+    alignItems: "center",
+    paddingVertical: tokens.spacing.xl,
+    gap: tokens.spacing.sm,
+  },
+  heroCircle: {
+    position: "relative",
+    width: HERO_SIZE,
+    height: HERO_SIZE,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroCircleContent: {
+    position: "absolute",
+    inset: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  heroAmount: {
+    width: 120,
+    textAlign: "center",
+    fontSize: 24,
+    lineHeight: 28,
+    fontFamily: "DMSans-Bold",
+  },
+  heroLabel: {
+    fontSize: 9,
+    lineHeight: 12,
+    fontFamily: "DMSans-Medium",
+    textTransform: "uppercase",
+    letterSpacing: 1.8,
+  },
+  heroTitle: {
     fontSize: tokens.typography.size.xl,
     fontFamily: "DMSans-Bold",
   },
-  subtitle: {
-    marginTop: 4,
+  heroSubtitle: {
+    maxWidth: 260,
+    textAlign: "center",
     fontSize: tokens.typography.size.sm,
     lineHeight: 20,
     fontFamily: "DMSans-Regular",
   },
   summaryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: tokens.spacing.sm,
   },
-  summaryCard: {
-    paddingVertical: tokens.spacing.sm,
+  summaryCell: {
+    width: "48.5%",
+    borderWidth: 1,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.md,
   },
   summaryLabel: {
+    marginBottom: 4,
     fontSize: tokens.typography.size.xs,
     fontFamily: "DMSans-Medium",
-    marginBottom: 4,
   },
   summaryValue: {
     fontSize: tokens.typography.size.lg,
     fontFamily: "DMSans-Bold",
   },
-  cardTitle: {
-    fontSize: tokens.typography.size.lg,
+  summarySubLabel: {
+    marginTop: 2,
+    fontSize: tokens.typography.size.xs,
+    fontFamily: "DMSans-Regular",
+  },
+  historySection: {
+    gap: tokens.spacing.sm,
+  },
+  historySectionTitle: {
+    fontSize: 10,
     fontFamily: "DMSans-Bold",
-    marginBottom: tokens.spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
   },
-  projectChipWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: tokens.spacing.xs,
-    marginBottom: tokens.spacing.md,
-  },
-  projectChip: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  projectChipText: {
+  emptyHistoryText: {
     fontSize: tokens.typography.size.sm,
-    fontFamily: "DMSans-Medium",
-  },
-  actions: {
-    marginTop: tokens.spacing.md,
+    fontFamily: "DMSans-Regular",
   },
   historyList: {
-    gap: tokens.spacing.sm,
+    gap: 2,
   },
   historyRow: {
-    borderWidth: 1,
-    borderRadius: tokens.radii.md,
-    padding: tokens.spacing.md,
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
     gap: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: 14,
   },
   historyTitle: {
-    fontSize: tokens.typography.size.md,
-    fontFamily: "DMSans-Bold",
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "DMSans-Regular",
   },
   historyAmount: {
+    marginLeft: tokens.spacing.sm,
     fontSize: tokens.typography.size.sm,
     fontFamily: "DMSans-Bold",
   },
@@ -685,15 +714,9 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans-Medium",
   },
   inlineError: {
-    marginTop: 4,
     color: "#DC2626",
-    fontSize: tokens.typography.size.xs,
-    fontFamily: "DMSans-Medium",
   },
   successText: {
-    marginTop: tokens.spacing.sm,
-    color: "#15803D",
-    fontSize: tokens.typography.size.sm,
-    fontFamily: "DMSans-Medium",
+    color: HUCHA_ACCENT,
   },
 });

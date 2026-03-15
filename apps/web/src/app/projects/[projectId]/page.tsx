@@ -106,15 +106,6 @@ export default async function ProjectDetailPage({
     .order("date", { ascending: false })
     .order("created_at", { ascending: false });
 
-  const { data: recurringExpenses } = await supabase
-    .from("recurring_items")
-    .select("id, merchant, notes, amount_minor, currency, is_paused, type")
-    .eq("account_id", activeAccount.id)
-    .eq("type", "expense")
-    .eq("currency", activeAccount.base_currency)
-    .eq("is_paused", false)
-    .order("amount_minor", { ascending: false });
-
   const userIds = Array.from(
     new Set((monthCloses ?? []).map((item) => item.closed_by).filter(Boolean))
   );
@@ -156,7 +147,6 @@ export default async function ProjectDetailPage({
             amount_base_minor: string | number | bigint | null;
           }>
         }
-        recurringExpenses={recurringExpenses ?? []}
         userLabels={userLabels}
       />
       <div className="h-16 sm:hidden" />
