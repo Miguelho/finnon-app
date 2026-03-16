@@ -36,6 +36,7 @@ import {
   getReserveContainerStats,
   parseMoneyToMinor,
   PROJECT_EMOJI_SUGGESTIONS,
+  semanticColorTokens,
   themeTokens,
   toMonthKey,
   type MonthClose,
@@ -58,6 +59,7 @@ import { Input } from "../../../../src/components/Input";
 import { ProjectProgressRing } from "../../../../src/components/projects/ProjectProgressRing";
 
 const tokens = themeTokens.light;
+const SAVINGS_VALUE_COLOR = semanticColorTokens.savings.primary;
 
 const HUCHA_ACCENT = "#4ECDC4";
 const RETURN_ACCENT = "#74C69D";
@@ -1535,7 +1537,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 15,
     fontFamily: "DMSans-Bold",
-    color: HUCHA_ACCENT,
+    color: "#FFFFFF",
     textAlign: "center",
   },
   huchaCircleLabel: {
@@ -1571,7 +1573,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 16,
     fontFamily: "DMSans-SemiBold",
-    color: HUCHA_ACCENT,
+    color: SAVINGS_VALUE_COLOR,
   },
   huchaChevron: {
     fontSize: 24,

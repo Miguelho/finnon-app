@@ -24,6 +24,7 @@ import {
   getProjectReserveTransferTotalsMap,
   getMonthRangeFromKey,
   parseMoneyToMinor,
+  semanticColorTokens,
   themeTokens,
   toMonthKey,
   withAlpha,
@@ -47,6 +48,7 @@ import { ProjectProgressRing } from "../../../../src/components/projects/Project
 import { SavingsBucketHero } from "../../../../src/components/SavingsBucketHero";
 
 const tokens = themeTokens.light;
+const SAVINGS_VALUE_COLOR = semanticColorTokens.savings.primary;
 
 type AccountRow = {
   id: string;
@@ -183,7 +185,7 @@ function SavingsPipes({ splitRatio }: { splitRatio: number }) {
       />
       <Path
         d="M160 43 C124 49 82 57 29 80"
-        stroke="#5B8DFF"
+        stroke={SAVINGS_VALUE_COLOR}
         strokeWidth={PIPE_STROKE_WIDTH}
         strokeLinecap="round"
         fill="none"
@@ -209,7 +211,7 @@ function SavingsPipes({ splitRatio }: { splitRatio: number }) {
             r={particle.size}
             fill={
               branch === "left"
-                ? `rgba(91,141,255,${particle.opacity})`
+                ? withAlpha(SAVINGS_VALUE_COLOR, particle.opacity)
                 : `rgba(114,196,230,${particle.opacity})`
             }
           />
@@ -712,7 +714,7 @@ export default function SavingsDetailScreen() {
               <SavingsPipes splitRatio={projectSplitRatio} />
               <View style={styles.pipeHintRow}>
                 <View style={styles.pipeHintItem}>
-                  <View style={[styles.pipeHintDot, { backgroundColor: "#5B8DFF" }]} />
+                  <View style={[styles.pipeHintDot, { backgroundColor: SAVINGS_VALUE_COLOR }]} />
                   <Text style={styles.pipeHintText}>
                     {locale === "en" ? "funds projects" : "financia proyectos"}
                   </Text>
@@ -1116,86 +1118,6 @@ export default function SavingsDetailScreen() {
               </View>
             </Modal>
 
-            <View
-              style={[
-                styles.historyCard,
-                {
-                  backgroundColor: userTokens.surface,
-                  borderColor: userTokens.border,
-                },
-              ]}
-            >
-              <View style={styles.historyHeader}>
-                <Text style={[styles.historyTitle, { color: userTokens.textPrimary }]}>
-                  {locale === "en" ? "History" : "Historial"}
-                </Text>
-                <Text style={styles.historyIndicator}>
-                  🪣 {locale === "en" ? "Monthly savings" : "Ahorro mensual"}
-                </Text>
-              </View>
-
-              <View style={styles.historyStatsRow}>
-                <View style={styles.historyStat}>
-                  <Text style={[styles.historyStatValue, { color: userTokens.textPrimary }]}>
-                    {savingsHistory.formatNumber(savingsView.generatedSavedMinor)}
-                  </Text>
-                  <Text style={[styles.historyStatLabel, { color: userTokens.textSecondary }]}>
-                    {locale === "en" ? "balance" : "saldo"}
-                  </Text>
-                </View>
-                <View style={styles.historyStat}>
-                  <Text style={[styles.historyStatValue, { color: userTokens.textPrimary }]}>
-                    {savingsHistory.formatNumber(savingsHistory.previousMinor)}
-                  </Text>
-                  <Text style={[styles.historyStatLabel, { color: userTokens.textSecondary }]}>
-                    {locale === "en" ? "month" : "mes"}
-                  </Text>
-                </View>
-                <View style={styles.historyStat}>
-                  <Text style={[styles.historyStatValue, { color: userTokens.textPrimary }]}>
-                    {savingsHistory.formatNumber(savingsHistory.averageMinor)}
-                  </Text>
-                  <Text style={[styles.historyStatLabel, { color: userTokens.textSecondary }]}>
-                    {locale === "en" ? "average" : "media"}
-                  </Text>
-                </View>
-                <View style={styles.historyStat}>
-                  <Text style={[styles.historyStatValue, { color: userTokens.textPrimary }]}>
-                    {savingsHistory.formatNumber(savingsHistory.maxMinor)}
-                  </Text>
-                  <Text style={[styles.historyStatLabel, { color: userTokens.textSecondary }]}>
-                    {locale === "en" ? "max" : "máx"}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.historyBarsRow}>
-                {savingsHistory.bars.map((bar, index) => {
-                  const height =
-                    savingsHistory.maxMinor > 0n
-                      ? Math.max(8, (Number(bar.amountMinor) / Number(savingsHistory.maxMinor)) * 48)
-                      : 8;
-
-                  return (
-                    <View key={bar.period} style={styles.historyBarItem}>
-                      <View
-                        style={[
-                          styles.historyBar,
-                          {
-                            height,
-                            backgroundColor:
-                              index === savingsHistory.bars.length - 1 ? "#5B8DFF" : "#C8D2FA",
-                          },
-                        ]}
-                      />
-                      <Text style={[styles.historyBarLabel, { color: userTokens.textSecondary }]}>
-                        {bar.label}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
           </View>
 
           {savingsView.needsRebalance ? (
@@ -1466,7 +1388,7 @@ const styles = StyleSheet.create({
   projectsOverviewTotalValue: {
     fontSize: 13,
     fontFamily: "DMSans-Bold",
-    color: "#5B8DFF",
+    color: SAVINGS_VALUE_COLOR,
   },
   monthCloseStatusCard: {
     borderRadius: 24,
@@ -1523,9 +1445,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "DMSans-Bold",
     fontVariant: ["tabular-nums"],
-    textShadowColor: "rgba(0,0,0,0.25)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
   huchaOverviewLabel: {
     marginTop: 12,
@@ -1539,73 +1458,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 12,
     fontFamily: "DMSans-Regular",
-  },
-  historyCard: {
-    marginTop: 14,
-    borderRadius: 24,
-    padding: 16,
-    borderWidth: 1,
-    shadowColor: "#1C1E21",
-    shadowOpacity: 0.07,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 2,
-  },
-  historyHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 8,
-  },
-  historyTitle: {
-    fontSize: 13,
-    fontFamily: "DMSans-Bold",
-  },
-  historyIndicator: {
-    fontSize: 11,
-    fontFamily: "DMSans-Medium",
-    color: "#5B8DFF",
-  },
-  historyStatsRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 14,
-  },
-  historyStat: {
-    flex: 1,
-    alignItems: "center",
-  },
-  historyStatValue: {
-    fontSize: 16,
-    fontFamily: "DMSans-Medium",
-  },
-  historyStatLabel: {
-    marginTop: 2,
-    fontSize: 10,
-    fontFamily: "DMSans-Regular",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  historyBarsRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 5,
-    height: 60,
-    marginTop: 14,
-  },
-  historyBarItem: {
-    flex: 1,
-    height: "100%",
-    justifyContent: "flex-end",
-    gap: 4,
-  },
-  historyBar: {
-    borderRadius: 4,
-  },
-  historyBarLabel: {
-    fontSize: 9,
-    fontFamily: "DMSans-Regular",
-    textAlign: "center",
   },
   cardTitle: {
     fontSize: tokens.typography.size.lg,

@@ -17,6 +17,7 @@ import {
   getReserveContainerStats,
   parseMoneyToMinor,
   PROJECT_EMOJI_SUGGESTIONS,
+  semanticColorTokens,
   toMonthKey,
   type MonthClose,
   type MonthCloseAllocation,
@@ -83,6 +84,7 @@ type ProjectViewModel = {
 
 const HUCHA_ACCENT = "#4ECDC4";
 const RETURN_ACCENT = "#74C69D";
+const SAVINGS_VALUE_COLOR = semanticColorTokens.savings.primary;
 
 const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
 
@@ -646,7 +648,7 @@ export function ProjectsClient({
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-3">
                 <span
                   className="text-center text-[14px] font-bold leading-none"
-                  style={{ color: HUCHA_ACCENT }}
+                  style={{ color: "#fff" }}
                 >
                   {formatMoneyWithSymbol(previewHuchaMinor, baseCurrency, currencySymbol)}
                 </span>
@@ -662,7 +664,7 @@ export function ProjectsClient({
             <div className="mt-2.5 flex gap-6">
               <div>
                 <p className="text-[11px] text-muted-foreground">{tProjects("hucha.thisMonth")}</p>
-                <p className="text-sm font-semibold" style={{ color: HUCHA_ACCENT }}>
+                <p className="text-sm font-semibold" style={{ color: SAVINGS_VALUE_COLOR }}>
                   {formatMoneyWithSymbol(
                     huchaStats.currentMonthContributionMinor,
                     baseCurrency,
@@ -674,7 +676,7 @@ export function ProjectsClient({
                 <p className="text-[11px] text-muted-foreground">
                   {tProjects("hucha.monthlyAverage")}
                 </p>
-                <p className="text-sm font-semibold" style={{ color: HUCHA_ACCENT }}>
+                <p className="text-sm font-semibold" style={{ color: SAVINGS_VALUE_COLOR }}>
                   {formatMoneyWithSymbol(huchaStats.averageMinor, baseCurrency, currencySymbol)}
                 </p>
               </div>

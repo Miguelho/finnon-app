@@ -1,6 +1,7 @@
-import type { HomeProjectPreview } from "@poleursus/shared";
+import { semanticColorTokens, type HomeProjectPreview } from "@poleursus/shared";
 
-export const ACTION_BLUE = "#5B8DFF";
+export const SAVINGS_VALUE_BLUE = semanticColorTokens.savings.primary;
+export const ACTION_BLUE = SAVINGS_VALUE_BLUE;
 export const INCOME_GREEN = "#4ade80";
 export const EXPENSE_RED = "#f87171";
 

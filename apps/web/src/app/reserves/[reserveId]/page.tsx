@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   CURRENCIES,
+  getMonthRangeFromKey,
+  toMonthKey,
   type MonthClose,
   type MonthCloseAllocation,
   type Project,
@@ -55,6 +57,8 @@ export default async function ReserveDetailPage({
   const currencySymbol =
     CURRENCIES.find((currency) => currency.code === activeAccount.base_currency)?.symbol ??
     activeAccount.base_currency;
+  const currentMonthKey = toMonthKey(new Date());
+  const currentMonthRange = getMonthRangeFromKey(currentMonthKey);
 
   const [
     reserveResult,
@@ -62,6 +66,7 @@ export default async function ReserveDetailPage({
     monthClosesResult,
     monthCloseAllocationsResult,
     reserveTransfersResult,
+    transactionsResult,
   ] = await Promise.all([
     supabase
       .from("reserve_containers")
@@ -90,6 +95,13 @@ export default async function ReserveDetailPage({
       .select("*")
       .eq("account_id", activeAccount.id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("transactions")
+      .select("id, type, amount_minor, amount_base_minor, date")
+      .eq("account_id", activeAccount.id)
+      .gte("date", currentMonthRange.start)
+      .lte("date", currentMonthRange.end)
+      .order("date", { ascending: true }),
   ]);
 
   if (reserveResult.error) throw reserveResult.error;
@@ -97,6 +109,7 @@ export default async function ReserveDetailPage({
   if (monthClosesResult.error) throw monthClosesResult.error;
   if (monthCloseAllocationsResult.error) throw monthCloseAllocationsResult.error;
   if (reserveTransfersResult.error) throw reserveTransfersResult.error;
+  if (transactionsResult.error) throw transactionsResult.error;
 
   const reserveContainer = reserveResult.data as ReserveContainer | null;
   if (!reserveContainer) {
@@ -119,6 +132,15 @@ export default async function ReserveDetailPage({
           (monthCloseAllocationsResult.data ?? []) as MonthCloseAllocation[]
         }
         reserveTransfers={(reserveTransfersResult.data ?? []) as ReserveTransfer[]}
+        currentMonthTransactions={
+          (transactionsResult.data ?? []) as Array<{
+            id: string;
+            type: "income" | "expense";
+            amount_minor: string | number | null;
+            amount_base_minor: string | number | null;
+            date: string;
+          }>
+        }
       />
       <div className="h-16 sm:hidden" />
       <BottomNavWrapper />

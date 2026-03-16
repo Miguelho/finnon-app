@@ -33,6 +33,7 @@ import { useAuth } from "../../../../src/contexts/AuthContext";
 import { useUserTheme } from "../../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../../src/lib/i18n";
 import { Calendar } from "../../../../src/components/home-redesign/Calendar";
+import { formatCurrencyParts, formatFullDate, toMinor } from "../../../../src/components/home-redesign/utils";
 import { MonthCard } from "../../../../src/components/home/MonthCard";
 import { ProjectsGrid } from "../../../../src/components/home/ProjectsGrid";
 
@@ -64,6 +65,21 @@ type SavingsTransaction = Pick<
   Transaction,
   "id" | "type" | "amount_minor" | "amount_base_minor" | "date"
 >;
+
+type HomeMovement = {
+  id: string;
+  name: string;
+  type: "income" | "expense";
+  amountMinor: bigint;
+  isProgrammed?: boolean;
+};
+
+type HomeMovementGroup = {
+  id: string;
+  name: string;
+  totalMinor: bigint;
+  items: HomeMovement[];
+};
 
 const normalizeCategory = <T extends { category?: unknown }>(row: T) => ({
   ...row,
@@ -128,6 +144,13 @@ const plusDays = (date: Date, days: number) => {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
+};
+
+const absMinor = (value: bigint) => (value < 0n ? -value : value);
+
+const toSignedMinor = (amountMinor: bigint, type: "income" | "expense") => {
+  const absoluteAmount = absMinor(amountMinor);
+  return type === "income" ? absoluteAmount : -absoluteAmount;
 };
 
 export default function HomeScreen() {
@@ -482,6 +505,66 @@ export default function HomeScreen() {
     return `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} ${monthReference.getFullYear()}`;
   }, [monthReference, monthsLong]);
 
+  const selectedDayMovementGroups = useMemo<HomeMovementGroup[]>(() => {
+    const dayTx = transactions
+      .filter((tx) => toDateKey(tx.date as string) === selectedDayKey)
+      .map((tx) => ({
+        id: tx.id,
+        name: tx.merchant?.trim() || tx.category?.name || t(dictionary, "mobile.home.movementFallback"),
+        type: tx.type,
+        amountMinor: absMinor(toMinor(tx.amount_base_minor ?? tx.amount_minor)),
+      }));
+
+    const dayObligations = obligations
+      .filter((obligation) => obligation.status !== "paid")
+      .filter((obligation) => toDateKey(obligation.due_date as string) === selectedDayKey)
+      .map((obligation) => ({
+        id: `obligation-${obligation.id}`,
+        name: obligation.name,
+        type: "expense" as const,
+        amountMinor: absMinor(toMinor(obligation.amount_base_minor ?? obligation.amount_minor)),
+        isProgrammed: true,
+      }));
+
+    const grouped = new Map<string, HomeMovementGroup>();
+
+    [...dayTx, ...dayObligations].forEach((movement) => {
+      const groupKey = movement.isProgrammed ? "obligation" : movement.type;
+      const groupName = movement.isProgrammed
+        ? localeKey === "en"
+          ? "Scheduled"
+          : "Programado"
+        : movement.type === "income"
+          ? localeKey === "en"
+            ? "Income"
+            : "Ingresos"
+          : localeKey === "en"
+            ? "Expenses"
+            : "Gastos";
+      const existing = grouped.get(groupKey);
+
+      if (!existing) {
+        grouped.set(groupKey, {
+          id: groupKey,
+          name: groupName,
+          totalMinor: toSignedMinor(movement.amountMinor, movement.type),
+          items: [movement],
+        });
+        return;
+      }
+
+      existing.items.push(movement);
+      existing.totalMinor += toSignedMinor(movement.amountMinor, movement.type);
+    });
+
+    return Array.from(grouped.values());
+  }, [dictionary, localeKey, obligations, selectedDayKey, transactions]);
+
+  const selectedDayLabel = useMemo(
+    () => formatFullDate(selectedDayKey, locale),
+    [locale, selectedDayKey]
+  );
+
   if (showError) {
     return (
       <View style={[styles.loading, { backgroundColor: userTokens.background }]}>
@@ -524,6 +607,7 @@ export default function HomeScreen() {
           incomeMinor={monthTotals.incomeMinor}
           expenseMinor={monthTotals.expenseMinor}
           availableMinor={savingsState.availableToPlanMinor}
+          onPress={() => router.push("/(auth)/(tabs)/projects/savings")}
         />
 
         <ProjectsGrid
@@ -544,6 +628,96 @@ export default function HomeScreen() {
           onNextPeriod={handleNextPeriod}
           currencySymbol={currencySymbol}
         />
+
+        <View
+          style={[
+            styles.dayCard,
+            { backgroundColor: userTokens.surface, borderColor: userTokens.border },
+          ]}
+        >
+          <View style={styles.dayCardHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.dayTitle, { color: userTokens.textPrimary }]}>
+                {localeKey === "en" ? "Day detail" : "Detalle del día"}
+              </Text>
+              <Text style={[styles.daySubtitle, { color: userTokens.textSecondary }]}>
+                {selectedDayLabel}
+              </Text>
+            </View>
+          </View>
+
+          {selectedDayMovementGroups.length === 0 ? (
+            <Text style={[styles.emptyDay, { color: userTokens.textTertiary }]}>
+              {localeKey === "en" ? "No movements for this day." : "No hay movimientos para este día."}
+            </Text>
+          ) : (
+            <View style={styles.dayRows}>
+              {selectedDayMovementGroups.map((group) => {
+                const isGroupIncome = group.totalMinor > 0n;
+                const isGroupExpense = group.totalMinor < 0n;
+                const groupParts = formatCurrencyParts(absMinor(group.totalMinor), currencySymbol);
+                return (
+                  <View
+                    key={group.id}
+                    style={[
+                      styles.dayGroupCard,
+                      {
+                        backgroundColor: userTokens.surfaceAlt,
+                        borderColor: userTokens.border,
+                      },
+                    ]}
+                  >
+                    <View style={styles.dayRow}>
+                      <Text style={[styles.dayGroupName, { color: userTokens.textPrimary }]} numberOfLines={1}>
+                        {group.name}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.dayAmount,
+                          {
+                            color: isGroupIncome
+                              ? "#4ade80"
+                              : isGroupExpense
+                                ? "#f87171"
+                                : userTokens.textSecondary,
+                          },
+                        ]}
+                      >
+                        {isGroupIncome ? "+" : isGroupExpense ? "−" : ""}
+                        {groupParts.full}
+                      </Text>
+                    </View>
+
+                    <View style={styles.dayChildren}>
+                      {group.items.map((movement) => {
+                        const parts = formatCurrencyParts(movement.amountMinor, currencySymbol);
+                        return (
+                          <View key={movement.id} style={styles.dayChildRow}>
+                            <Text
+                              style={[styles.dayRowName, { color: userTokens.textSecondary }]}
+                              numberOfLines={1}
+                            >
+                              {movement.name}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.dayChildAmount,
+                                { color: movement.type === "income" ? "#4ade80" : "#f87171" },
+                              ]}
+                            >
+                              {movement.type === "income" ? "+" : "−"}
+                              {parts.full}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -623,5 +797,77 @@ const styles = StyleSheet.create({
   retryText: {
     fontSize: 13,
     fontFamily: "DMSans-SemiBold",
+  },
+  dayCard: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 14,
+  },
+  dayCardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  dayTitle: {
+    fontSize: 13,
+    fontFamily: "DMSans-SemiBold",
+  },
+  daySubtitle: {
+    marginTop: 2,
+    fontSize: 11,
+    fontFamily: "DMSans",
+  },
+  emptyDay: {
+    marginTop: 10,
+    fontSize: 12,
+    fontFamily: "DMSans",
+  },
+  dayRows: {
+    marginTop: 10,
+    gap: 10,
+  },
+  dayGroupCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
+  },
+  dayRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  dayGroupName: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 12,
+    fontFamily: "DMSans-Medium",
+  },
+  dayChildren: {
+    gap: 6,
+  },
+  dayChildRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  dayRowName: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 12,
+    fontFamily: "DMSans",
+  },
+  dayAmount: {
+    fontSize: 12,
+    fontFamily: "JetBrainsMono-SemiBold",
+    fontVariant: ["tabular-nums"],
+  },
+  dayChildAmount: {
+    fontSize: 11,
+    fontFamily: "JetBrainsMono-Medium",
+    fontVariant: ["tabular-nums"],
   },
 });

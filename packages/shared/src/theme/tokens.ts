@@ -119,6 +119,12 @@ export const themeTokens = {
   },
 } as const;
 
+export const semanticColorTokens = {
+  savings: {
+    primary: "#5B8DFF",
+  },
+} as const;
+
 export const accountRedesignTokens = {
   colors: {
     bg: "#FAFAF8",

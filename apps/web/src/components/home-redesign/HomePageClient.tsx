@@ -7,12 +7,14 @@ import {
   getMonthCalendarDisplayDays,
   getWeekCalendarDisplayDays,
   getWeekStartMonday,
+  semanticColorTokens,
+  withAlpha,
 } from "@poleursus/shared";
 import { PageContainer } from "@/components/layout/page-container";
 import { AddActionTrigger } from "@/components/navigation/add-action-trigger";
 import { createClient } from "@/lib/supabase/client";
 import { Calendar } from "./Calendar";
-import { toDateKey } from "./utils";
+import { formatCurrencyParts, formatFullDate, toDateKey, toMinor } from "./utils";
 
 type TransactionRow = {
   id: string;
@@ -74,10 +76,34 @@ type HomePageClientProps = {
   };
 };
 
+type HomeMovement = {
+  id: string;
+  name: string;
+  type: "income" | "expense";
+  amountMinor: bigint;
+  isProgrammed?: boolean;
+};
+
+type HomeMovementGroup = {
+  id: string;
+  name: string;
+  totalMinor: bigint;
+  items: HomeMovement[];
+};
+
+const SAVINGS_VALUE_COLOR = semanticColorTokens.savings.primary;
+
 const plusDays = (date: Date, days: number) => {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
+};
+
+const absMinor = (value: bigint) => (value < 0n ? -value : value);
+
+const toSignedMinor = (amountMinor: bigint, type: "income" | "expense") => {
+  const absoluteAmount = absMinor(amountMinor);
+  return type === "income" ? absoluteAmount : -absoluteAmount;
 };
 
 const WEEKDAY_LABELS = {
@@ -216,17 +242,19 @@ function StatCard({
   value,
   sublabel,
   accent = "default",
+  onClick,
 }: {
   label: string;
   value: string;
   sublabel: string;
   accent?: "default" | "highlight" | "income" | "expense";
+  onClick?: () => void;
 }) {
   const accentClass =
     accent === "highlight"
-      ? "border-[rgba(91,141,255,0.2)] bg-[rgba(91,141,255,0.06)]"
+      ? ""
       : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)]";
-  const valueClass = accent === "highlight" ? "text-[#5B8DFF]" : "text-white";
+  const valueClass = accent === "highlight" ? "" : "text-white";
   const sublabelClass =
     accent === "income"
       ? "text-[#4ade80]"
@@ -234,16 +262,37 @@ function StatCard({
         ? "text-[#f87171]"
         : "text-[rgba(255,255,255,0.32)]";
 
-  return (
-    <div className={`rounded-[14px] border px-[18px] py-4 ${accentClass}`}>
+  const content = (
+    <div
+      className={`rounded-[14px] border px-[18px] py-4 ${accentClass}`}
+      style={
+        accent === "highlight"
+          ? {
+              borderColor: withAlpha(SAVINGS_VALUE_COLOR, 0.2),
+              backgroundColor: withAlpha(SAVINGS_VALUE_COLOR, 0.06),
+            }
+          : undefined
+      }
+    >
       <p className="text-[11px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
         {label}
       </p>
-      <p className={`mt-1 text-[28px] font-semibold leading-none tracking-[-0.04em] tabular-nums ${valueClass}`}>
+      <p
+        className={`mt-1 text-[28px] font-semibold leading-none tracking-[-0.04em] tabular-nums ${valueClass}`}
+        style={accent === "highlight" ? { color: SAVINGS_VALUE_COLOR } : undefined}
+      >
         {value}
       </p>
       <p className={`mt-[7px] text-[11px] ${sublabelClass}`}>{sublabel}</p>
     </div>
+  );
+
+  if (!onClick) return content;
+
+  return (
+    <button type="button" onClick={onClick} className="text-left transition-opacity hover:opacity-95">
+      {content}
+    </button>
   );
 }
 
@@ -438,6 +487,59 @@ export function HomePageClient({
     return `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} ${monthReference.getFullYear()}`;
   }, [monthReference, monthsLong]);
 
+  const selectedDayMovementGroups = useMemo<HomeMovementGroup[]>(() => {
+    const dayTx = allTransactions
+      .filter((tx) => toDateKey(tx.date) === selectedDayKey)
+      .map((tx) => ({
+        id: tx.id,
+        name: tx.merchant?.trim() || tx.category?.name || (locale === "en" ? "Movement" : "Movimiento"),
+        type: tx.type,
+        amountMinor: absMinor(toMinor(tx.amount_base_minor ?? tx.amount_minor)),
+      }));
+
+    const dayObligations = calendarObligations
+      .filter((obligation) => obligation.status !== "paid")
+      .filter((obligation) => toDateKey(obligation.due_date as string) === selectedDayKey)
+      .map((obligation) => ({
+        id: `obligation-${obligation.id}`,
+        name: obligation.name,
+        type: "expense" as const,
+        amountMinor: absMinor(toMinor(obligation.amount_base_minor ?? obligation.amount_minor)),
+        isProgrammed: true,
+      }));
+
+    const grouped = new Map<string, HomeMovementGroup>();
+
+    [...dayTx, ...dayObligations].forEach((movement) => {
+      const groupKey = movement.isProgrammed ? "obligation" : movement.type;
+      const groupName = movement.isProgrammed
+        ? (locale === "en" ? "Scheduled" : "Programado")
+        : movement.type === "income"
+          ? (locale === "en" ? "Income" : "Ingresos")
+          : (locale === "en" ? "Expenses" : "Gastos");
+      const existing = grouped.get(groupKey);
+      if (!existing) {
+        grouped.set(groupKey, {
+          id: groupKey,
+          name: groupName,
+          totalMinor: toSignedMinor(movement.amountMinor, movement.type),
+          items: [movement],
+        });
+        return;
+      }
+
+      existing.items.push(movement);
+      existing.totalMinor += toSignedMinor(movement.amountMinor, movement.type);
+    });
+
+    return Array.from(grouped.values());
+  }, [allTransactions, calendarObligations, locale, selectedDayKey]);
+
+  const selectedDayLabel = useMemo(
+    () => formatFullDate(selectedDayKey, locale),
+    [selectedDayKey, locale]
+  );
+
   const monthlyIncomeLabel = formatMinorCurrency(summary.monthlyIncomeMinor);
   const monthlyExpensesLabel = formatMinorCurrency(summary.monthlyExpensesMinor);
   const monthlySavingsLabel = formatMinorCurrency(summary.monthlySavingsMinor);
@@ -449,51 +551,63 @@ export function HomePageClient({
     <PageContainer className="pb-20 pt-7">
       <div className="space-y-4">
         <div className="md:hidden">
-          <div className="rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] p-4">
-            <div className="grid grid-cols-[1fr_auto] gap-4">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
-                  ESTE MES
-                </p>
-                <p className="mt-1 text-[11px] text-[rgba(255,255,255,0.35)]">{summary.currentMonth}</p>
+          <button
+            type="button"
+            onClick={() => router.push("/savings")}
+            className="w-full text-left transition-opacity hover:opacity-95"
+          >
+            <div className="rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] p-4">
+              <div className="grid grid-cols-[1fr_auto] gap-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
+                    ESTE MES
+                  </p>
+                  <p className="mt-1 text-[11px] text-[rgba(255,255,255,0.35)]">{summary.currentMonth}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
+                    AHORRO
+                  </p>
+                  <p
+                    className="mt-1 text-[30px] font-semibold leading-none tracking-[-0.05em] tabular-nums"
+                    style={{ color: SAVINGS_VALUE_COLOR }}
+                  >
+                    {monthlySavingsLabel}
+                  </p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-[11px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
-                  AHORRO
-                </p>
-                <p className="mt-1 text-[30px] font-semibold leading-none tracking-[-0.05em] text-[#5B8DFF] tabular-nums">
-                  {monthlySavingsLabel}
-                </p>
-              </div>
-            </div>
 
-            <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-[12px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]">
-              <div className="px-3 py-2.5">
-                <p className="text-[10px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
-                  INGRESOS
-                </p>
-                <p className="mt-1 text-[13px] font-semibold text-[#4ade80] tabular-nums">
-                  ↑ {monthlyIncomeLabel}
-                </p>
-              </div>
-              <div className="border-x border-[rgba(255,255,255,0.08)] px-3 py-2.5">
-                <p className="text-[10px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
-                  GASTOS
-                </p>
-                <p className="mt-1 text-[13px] font-semibold text-[#f87171] tabular-nums">
-                  ↓ {monthlyExpensesLabel}
-                </p>
-              </div>
-              <div className="px-3 py-2.5">
-                <p className="text-[10px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
-                  QUEDA
-                </p>
-                <p className="mt-1 text-[13px] font-semibold text-[#5B8DFF] tabular-nums">
-                  {availableLabel}
-                </p>
+              <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-[12px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]">
+                <div className="px-3 py-2.5">
+                  <p className="text-[10px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
+                    INGRESOS
+                  </p>
+                  <p className="mt-1 text-[13px] font-semibold text-[#4ade80] tabular-nums">
+                    ↑ {monthlyIncomeLabel}
+                  </p>
+                </div>
+                <div className="border-x border-[rgba(255,255,255,0.08)] px-3 py-2.5">
+                  <p className="text-[10px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
+                    GASTOS
+                  </p>
+                  <p className="mt-1 text-[13px] font-semibold text-[#f87171] tabular-nums">
+                    ↓ {monthlyExpensesLabel}
+                  </p>
+                </div>
+                <div className="px-3 py-2.5">
+                  <p className="text-[10px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
+                    QUEDA
+                  </p>
+                  <p
+                    className="mt-1 text-[13px] font-semibold tabular-nums"
+                    style={{ color: SAVINGS_VALUE_COLOR }}
+                  >
+                    {availableLabel}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          </button>
         </div>
 
         <div className="hidden grid-cols-4 gap-3 md:grid">
@@ -503,6 +617,7 @@ export function HomePageClient({
             value={monthlySavingsLabel}
             sublabel={`De ${monthlyIncomeLabel} ingresados`}
             accent="highlight"
+            onClick={() => router.push("/savings")}
           />
           <StatCard label="INGRESOS" value={monthlyIncomeLabel} sublabel="↑ Este mes" accent="income" />
           <StatCard label="GASTOS" value={monthlyExpensesLabel} sublabel="↓ Este mes" accent="expense" />
@@ -610,6 +725,75 @@ export function HomePageClient({
               onNextPeriod={handleNextPeriod}
               currencySymbol={account.currencySymbol}
             />
+
+            <div className="mt-4 rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[13px] font-semibold text-[rgba(255,255,255,0.88)]">
+                    {locale === "en" ? "Day detail" : "Detalle del día"}
+                  </p>
+                  <p className="mt-1 text-[11px] text-[rgba(255,255,255,0.38)]">
+                    {selectedDayLabel}
+                  </p>
+                </div>
+              </div>
+
+              {selectedDayMovementGroups.length === 0 ? (
+                <p className="mt-3 text-[12px] text-[rgba(255,255,255,0.34)]">
+                  {locale === "en" ? "No movements for this day." : "No hay movimientos para este día."}
+                </p>
+              ) : (
+                <div className="mt-3 space-y-3">
+                  {selectedDayMovementGroups.map((group) => {
+                    const isGroupIncome = group.totalMinor > 0n;
+                    const isGroupExpense = group.totalMinor < 0n;
+                    const groupParts = formatCurrencyParts(absMinor(group.totalMinor), account.currencySymbol, locale);
+
+                    return (
+                      <div
+                        key={group.id}
+                        className="rounded-[12px] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] px-3 py-3"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-[12px] font-medium text-[rgba(255,255,255,0.82)]">
+                            {group.name}
+                          </p>
+                          <p
+                            className="text-[12px] font-semibold tabular-nums"
+                            style={{
+                              color: isGroupIncome ? "#4ade80" : isGroupExpense ? "#f87171" : "rgba(255,255,255,0.56)",
+                            }}
+                          >
+                            {isGroupIncome ? "+" : isGroupExpense ? "−" : ""}
+                            {groupParts.full}
+                          </p>
+                        </div>
+
+                        <div className="mt-2 space-y-2">
+                          {group.items.map((movement) => {
+                            const parts = formatCurrencyParts(movement.amountMinor, account.currencySymbol, locale);
+                            return (
+                              <div key={movement.id} className="flex items-center justify-between gap-3">
+                                <p className="min-w-0 flex-1 truncate text-[12px] text-[rgba(255,255,255,0.68)]">
+                                  {movement.name}
+                                </p>
+                                <p
+                                  className="text-[11px] font-medium tabular-nums"
+                                  style={{ color: movement.type === "income" ? "#4ade80" : "#f87171" }}
+                                >
+                                  {movement.type === "income" ? "+" : "−"}
+                                  {parts.full}
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

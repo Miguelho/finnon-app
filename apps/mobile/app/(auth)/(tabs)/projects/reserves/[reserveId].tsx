@@ -20,13 +20,16 @@ import Svg, {
 } from "react-native-svg";
 import {
   CURRENCIES,
+  computeSavingsMonthView,
   formatMoneyWithSymbol,
   formatMonthLabel,
+  getMonthRangeFromKey,
   getReserveContainerBalanceMinor,
   getReserveContainerStats,
   getReserveTransferDirection,
   themeTokens,
   toMonthKey,
+  withAlpha,
   type MonthClose,
   type MonthCloseAllocation,
   type Project,
@@ -53,6 +56,14 @@ type AccountRow = {
   id: string;
   base_currency: string;
   account_members?: Array<{ role: UserRole; user_id: string }>;
+};
+
+type TransactionRow = {
+  id: string;
+  type: "income" | "expense";
+  amount_minor: string | number | null;
+  amount_base_minor: string | number | null;
+  date: string;
 };
 
 const toMinor = (value: bigint | number | string | null | undefined): bigint => {
@@ -118,7 +129,14 @@ export default function ReserveDetailScreen() {
   const [monthCloses, setMonthCloses] = useState<MonthClose[]>([]);
   const [monthCloseAllocations, setMonthCloseAllocations] = useState<MonthCloseAllocation[]>([]);
   const [reserveTransfers, setReserveTransfers] = useState<ReserveTransfer[]>([]);
+  const [currentMonthTransactions, setCurrentMonthTransactions] = useState<TransactionRow[]>([]);
   const fillProgress = useRef(new Animated.Value(0)).current;
+  const currentMonthKey = useMemo(() => toMonthKey(new Date()), []);
+  const previousMonthKey = useMemo(() => {
+    const date = new Date(`${currentMonthKey}-01T00:00:00`);
+    date.setMonth(date.getMonth() - 1);
+    return toMonthKey(date);
+  }, [currentMonthKey]);
 
   const loadData = useCallback(async () => {
     if (!user || !selectedAccountId || !reserveId) {
@@ -130,6 +148,7 @@ export default function ReserveDetailScreen() {
     setError(null);
 
     try {
+      const currentMonthRange = getMonthRangeFromKey(currentMonthKey);
       const accountResult = await supabase
         .from("accounts")
         .select("id, base_currency, account_members!inner(role, user_id)")
@@ -153,6 +172,7 @@ export default function ReserveDetailScreen() {
         monthClosesResult,
         monthCloseAllocationsResult,
         reserveTransfersResult,
+        transactionsResult,
       ] = await Promise.all([
         supabase
           .from("reserve_containers")
@@ -181,6 +201,13 @@ export default function ReserveDetailScreen() {
           .select("*")
           .eq("account_id", selectedAccountId)
           .order("created_at", { ascending: false }),
+        supabase
+          .from("transactions")
+          .select("id, type, amount_minor, amount_base_minor, date")
+          .eq("account_id", selectedAccountId)
+          .gte("date", currentMonthRange.start)
+          .lte("date", currentMonthRange.end)
+          .order("date", { ascending: true }),
       ]);
 
       if (reserveResult.error || !reserveResult.data) {
@@ -190,6 +217,7 @@ export default function ReserveDetailScreen() {
       if (monthClosesResult.error) throw monthClosesResult.error;
       if (monthCloseAllocationsResult.error) throw monthCloseAllocationsResult.error;
       if (reserveTransfersResult.error) throw reserveTransfersResult.error;
+      if (transactionsResult.error) throw transactionsResult.error;
 
       setBaseCurrency(accountCurrency);
       setCurrencySymbol(symbol);
@@ -198,6 +226,7 @@ export default function ReserveDetailScreen() {
       setMonthCloses((monthClosesResult.data ?? []) as MonthClose[]);
       setMonthCloseAllocations((monthCloseAllocationsResult.data ?? []) as MonthCloseAllocation[]);
       setReserveTransfers((reserveTransfersResult.data ?? []) as ReserveTransfer[]);
+      setCurrentMonthTransactions((transactionsResult.data ?? []) as TransactionRow[]);
       setMessage(null);
     } catch (loadError) {
       console.error("[ReserveDetail][mobile] load error", loadError);
@@ -205,7 +234,7 @@ export default function ReserveDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, [locale, reserveId, selectedAccountId, user]);
+  }, [currentMonthKey, locale, reserveId, selectedAccountId, user]);
 
   useEffect(() => {
     void loadData();
@@ -237,6 +266,57 @@ export default function ReserveDetailScreen() {
       }),
     [monthCloseAllocations, monthClosesById, reserveContainer?.id, reserveTransfers]
   );
+
+  const currentMonthSavingsMinor = useMemo(
+    () =>
+      computeSavingsMonthView({
+        period: currentMonthKey,
+        transactions: currentMonthTransactions,
+      }).generatedSavedMinor,
+    [currentMonthKey, currentMonthTransactions]
+  );
+
+  const savingsHistory = useMemo(() => {
+    const monthFormatter = new Intl.DateTimeFormat(localeCode === "en" ? "en-US" : "es-ES", {
+      month: "short",
+    });
+    const byPeriod = new Map<string, bigint>();
+
+    monthCloses.forEach((monthClose) => {
+      byPeriod.set(String(monthClose.period).slice(0, 7), toMinor(monthClose.actual_saved_base_minor));
+    });
+    byPeriod.set(currentMonthKey, currentMonthSavingsMinor);
+
+    const values = Array.from(byPeriod.values());
+    const averageMinor =
+      values.length > 0
+        ? values.reduce((total, amountMinor) => total + amountMinor, 0n) / BigInt(values.length)
+        : 0n;
+    const maxMinor = values.reduce(
+      (current, amountMinor) => (amountMinor > current ? amountMinor : current),
+      0n
+    );
+
+    const bars = Array.from({ length: 4 }, (_, index) => {
+      const date = new Date(`${currentMonthKey}-01T00:00:00`);
+      date.setMonth(date.getMonth() + index - 3);
+      const period = toMonthKey(date);
+      return {
+        period,
+        amountMinor: byPeriod.get(period) ?? 0n,
+        label: monthFormatter.format(date).replace(".", "").slice(0, 3),
+        isCurrent: period === currentMonthKey,
+      };
+    });
+
+    return {
+      currentMinor: currentMonthSavingsMinor,
+      previousMinor: byPeriod.get(previousMonthKey) ?? 0n,
+      averageMinor,
+      maxMinor,
+      bars,
+    };
+  }, [currentMonthKey, currentMonthSavingsMinor, localeCode, monthCloses, previousMonthKey]);
 
   const activityRows = useMemo(() => {
     if (!reserveContainer) return [];
@@ -345,6 +425,19 @@ export default function ReserveDetailScreen() {
     : null;
   const trackColor =
     resolvedMode === "dark" ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)";
+  const historyAccent = primaryActionColor;
+  const historyDanger = userTokens.dangerText;
+  const historyCardBorder = withAlpha(historyAccent, resolvedMode === "dark" ? 0.34 : 0.2);
+  const historyCardBackground = withAlpha(
+    userTokens.surfaceAlt,
+    resolvedMode === "dark" ? 0.92 : 0.76
+  );
+  const historyCardShadow = withAlpha(historyAccent, resolvedMode === "dark" ? 0.24 : 0.14);
+  const historyChipBackground = withAlpha(userTokens.surface, resolvedMode === "dark" ? 0.82 : 0.88);
+  const historyTileBackground = withAlpha(userTokens.surface, resolvedMode === "dark" ? 0.68 : 0.82);
+  const historyTileBorder = withAlpha(userTokens.border, resolvedMode === "dark" ? 0.92 : 0.82);
+  const historyChartBackground = withAlpha(userTokens.surface, resolvedMode === "dark" ? 0.56 : 0.7);
+  const historyBaseline = withAlpha(userTokens.border, resolvedMode === "dark" ? 0.94 : 0.88);
 
   if (loading) {
     return (
@@ -433,7 +526,7 @@ export default function ReserveDetailScreen() {
                 <Text
                   numberOfLines={1}
                   adjustsFontSizeToFit
-                  style={[styles.heroAmount, { color: HUCHA_ACCENT }]}
+                  style={[styles.heroAmount, { color: "#FFFFFF" }]}
                 >
                   {formatMoneyWithSymbol(reserveBalanceMinor, baseCurrency, currencySymbol)}
                 </Text>
@@ -538,6 +631,166 @@ export default function ReserveDetailScreen() {
               <Text style={[styles.summaryValue, { color: userTokens.textPrimary }]}>
                 {reserveStats.monthsWithContribution}
               </Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.savingsHistoryCard,
+              {
+                borderColor: historyCardBorder,
+                backgroundColor: historyCardBackground,
+                shadowColor: historyCardShadow,
+              },
+            ]}
+          >
+            <View style={styles.savingsHistoryHeader}>
+              <View style={styles.savingsHistoryHeaderCopy}>
+                <Text style={[styles.savingsHistoryEyebrow, { color: historyAccent }]}>
+                  {locale === "en" ? "Savings history" : "Historial de ahorro"}
+                </Text>
+                <Text style={[styles.savingsHistoryTitle, { color: userTokens.textPrimary }]}>
+                  {locale === "en" ? "Last 4 months" : "Últimos 4 meses"}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.savingsHistoryChip,
+                  {
+                    backgroundColor: historyChipBackground,
+                    borderColor: historyTileBorder,
+                  },
+                ]}
+              >
+                <Text style={[styles.savingsHistoryChipText, { color: userTokens.textSecondary }]}>
+                  {locale === "en" ? "Monthly savings" : "Ahorro mensual"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.savingsHistoryStatsGrid}>
+              {[
+                {
+                  label: locale === "en" ? "Current" : "Actual",
+                  value: savingsHistory.currentMinor,
+                },
+                {
+                  label: locale === "en" ? "Previous" : "Anterior",
+                  value: savingsHistory.previousMinor,
+                },
+                {
+                  label: locale === "en" ? "Average" : "Media",
+                  value: savingsHistory.averageMinor,
+                },
+                {
+                  label: locale === "en" ? "Peak" : "Máximo",
+                  value: savingsHistory.maxMinor,
+                },
+              ].map((stat) => (
+                <View
+                  key={stat.label}
+                  style={[
+                    styles.savingsHistoryStatCard,
+                    {
+                      backgroundColor: historyTileBackground,
+                      borderColor: historyTileBorder,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.savingsHistoryStatLabel, { color: userTokens.textSecondary }]}>
+                    {stat.label}
+                  </Text>
+                  <Text style={[styles.savingsHistoryStatValue, { color: userTokens.textPrimary }]}>
+                    {formatMoneyWithSymbol(stat.value, baseCurrency, currencySymbol)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            <View
+              style={[
+                styles.savingsHistoryChart,
+                {
+                  backgroundColor: historyChartBackground,
+                  borderColor: historyTileBorder,
+                },
+              ]}
+            >
+              <View style={[styles.savingsHistoryBaseline, { backgroundColor: historyBaseline }]} />
+              <View style={styles.savingsHistoryBarsRow}>
+                {savingsHistory.bars.map((bar) => {
+                  const height =
+                    savingsHistory.maxMinor > 0n && bar.amountMinor > 0n
+                      ? Math.max(16, (Number(bar.amountMinor) / Number(savingsHistory.maxMinor)) * 108)
+                      : 16;
+                  const barColor =
+                    bar.amountMinor < 0n
+                      ? historyDanger
+                      : bar.isCurrent
+                        ? historyAccent
+                        : withAlpha(historyAccent, resolvedMode === "dark" ? 0.52 : 0.38);
+
+                  return (
+                    <View key={bar.period} style={styles.savingsHistoryBarItem}>
+                      <View style={styles.savingsHistoryBubbleSlot}>
+                        {bar.isCurrent ? (
+                          <View
+                            style={[
+                              styles.savingsHistoryBubble,
+                              {
+                                backgroundColor: withAlpha(
+                                  userTokens.surface,
+                                  resolvedMode === "dark" ? 0.88 : 0.92
+                                ),
+                                borderColor: historyTileBorder,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.savingsHistoryBubbleText,
+                                { color: userTokens.textSecondary },
+                              ]}
+                            >
+                              {formatMoneyWithSymbol(bar.amountMinor, baseCurrency, currencySymbol)}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <View style={styles.savingsHistoryBarTrack}>
+                        <View
+                          style={[
+                            styles.savingsHistoryBar,
+                            {
+                              height,
+                              backgroundColor: barColor,
+                              shadowColor: withAlpha(
+                                bar.isCurrent ? historyAccent : userTokens.textPrimary,
+                                resolvedMode === "dark" ? 0.26 : 0.16
+                              ),
+                              opacity: bar.amountMinor === 0n ? 0.55 : 1,
+                            },
+                          ]}
+                        />
+                        {bar.isCurrent ? (
+                          <View
+                            style={[
+                              styles.savingsHistoryBarMarker,
+                              {
+                                backgroundColor: historyAccent,
+                                borderWidth: 0,
+                              },
+                            ]}
+                          />
+                        ) : null}
+                      </View>
+                      <Text style={[styles.savingsHistoryBarLabel, { color: userTokens.textSecondary }]}>
+                        {bar.label}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
             </View>
           </View>
 
@@ -674,6 +927,165 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: tokens.typography.size.xs,
     fontFamily: "DMSans-Regular",
+  },
+  savingsHistoryCard: {
+    marginTop: 4,
+    borderWidth: 1,
+    borderRadius: 28,
+    padding: 16,
+    shadowColor: "#5B8DFF",
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 3,
+  },
+  savingsHistoryHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  savingsHistoryHeaderCopy: {
+    flex: 1,
+    gap: 6,
+  },
+  savingsHistoryEyebrow: {
+    fontSize: 11,
+    fontFamily: "DMSans-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+    color: "#5B8DFF",
+  },
+  savingsHistoryTitle: {
+    fontSize: 20,
+    lineHeight: 24,
+    fontFamily: "DMSans-Bold",
+  },
+  savingsHistoryChip: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    backgroundColor: "rgba(255,255,255,0.82)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.88)",
+  },
+  savingsHistoryChipText: {
+    fontSize: 11,
+    fontFamily: "DMSans-Medium",
+    color: "#475569",
+  },
+  savingsHistoryStatsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 16,
+  },
+  savingsHistoryStatCard: {
+    width: "48.5%",
+    borderRadius: 18,
+    padding: 12,
+    backgroundColor: "rgba(255,255,255,0.82)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.88)",
+  },
+  savingsHistoryStatLabel: {
+    fontSize: 10,
+    fontFamily: "DMSans-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    color: "#64748B",
+  },
+  savingsHistoryStatValue: {
+    marginTop: 8,
+    fontSize: 18,
+    lineHeight: 22,
+    fontFamily: "DMSans-Bold",
+    color: "#0F172A",
+  },
+  savingsHistoryChart: {
+    marginTop: 16,
+    borderRadius: 24,
+    paddingHorizontal: 10,
+    paddingTop: 12,
+    paddingBottom: 10,
+    backgroundColor: "rgba(255,255,255,0.7)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.88)",
+    position: "relative",
+  },
+  savingsHistoryBaseline: {
+    position: "absolute",
+    left: 10,
+    right: 10,
+    bottom: 30,
+    height: 1,
+    backgroundColor: "#D7E3FF",
+  },
+  savingsHistoryBarsRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 6,
+    height: 170,
+  },
+  savingsHistoryBarItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  savingsHistoryBubbleSlot: {
+    height: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  savingsHistoryBubble: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.96)",
+  },
+  savingsHistoryBubbleText: {
+    fontSize: 10,
+    fontFamily: "DMSans-Medium",
+    color: "#475569",
+  },
+  savingsHistoryBarTrack: {
+    width: "100%",
+    maxWidth: 30,
+    height: 116,
+    justifyContent: "flex-end",
+    alignItems: "center",
+  },
+  savingsHistoryBar: {
+    width: "100%",
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    overflow: "hidden",
+    shadowColor: "#5B8DFF",
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
+  },
+  savingsHistoryBarMarker: {
+    position: "absolute",
+    bottom: -5,
+    width: 12,
+    height: 12,
+    borderRadius: 999,
+    backgroundColor: "#5B8DFF",
+  },
+  savingsHistoryBarLabel: {
+    marginTop: 10,
+    fontSize: 10,
+    fontFamily: "DMSans-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    color: "#64748B",
   },
   historySection: {
     gap: tokens.spacing.sm,

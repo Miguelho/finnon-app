@@ -14,7 +14,9 @@ import {
   getProjectReserveTransferTotalsMap,
   getMonthRangeFromKey,
   parseMoneyToMinor,
+  semanticColorTokens,
   toMonthKey,
+  withAlpha,
   type MonthClose,
   type MonthCloseAllocation,
   type MonthlyProjectFundingPlan,
@@ -109,6 +111,7 @@ type PipeBranch = "left" | "right";
 
 const PIPE_STROKE_WIDTH = 5;
 const PIPE_PARTICLE_COUNT = 18;
+const SAVINGS_VALUE_COLOR = semanticColorTokens.savings.primary;
 
 const getPipeBezierPoint = (
   startX: number,
@@ -168,7 +171,7 @@ function SavingsPipes({ splitRatio }: { splitRatio: number }) {
       <path
         d="M160 43 C124 49 82 57 29 80"
         fill="none"
-        stroke="#5B8DFF"
+        stroke={SAVINGS_VALUE_COLOR}
         strokeWidth={PIPE_STROKE_WIDTH}
         strokeLinecap="round"
       />
@@ -190,7 +193,11 @@ function SavingsPipes({ splitRatio }: { splitRatio: number }) {
             cx={point.x}
             cy={point.y}
             r={particle.size}
-            fill={branch === "left" ? `rgba(91,141,255,${particle.opacity})` : `rgba(114,196,230,${particle.opacity})`}
+            fill={
+              branch === "left"
+                ? withAlpha(SAVINGS_VALUE_COLOR, particle.opacity)
+                : `rgba(114,196,230,${particle.opacity})`
+            }
           />
         );
       })}
@@ -650,7 +657,10 @@ export function SavingsClient({
               <SavingsPipes splitRatio={projectSplitRatio} />
               <div className="mt-1 flex flex-wrap items-center justify-center gap-4 text-[11px] text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#5B8DFF]" />
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: SAVINGS_VALUE_COLOR }}
+                  />
                   {locale === "en" ? "funds projects" : "financia proyectos"}
                 </span>
                 <span className="inline-flex items-center gap-1.5">
@@ -838,7 +848,10 @@ export function SavingsClient({
                       {locale === "en" ? "Planned to projects" : "Planificado a proyectos"}{" "}
                       {/* TODO: i18n */}
                     </span>
-                    <span className="text-[13px] font-bold tabular-nums text-[#5B8DFF]">
+                    <span
+                      className="text-[13px] font-bold tabular-nums"
+                      style={{ color: SAVINGS_VALUE_COLOR }}
+                    >
                       {formatMoneyWithSymbol(parsedPlans.totalMinor, baseCurrency, currencySymbol)}/mes
                     </span>
                   </div>
@@ -868,7 +881,7 @@ export function SavingsClient({
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                     <span
                       className="text-[12px] font-bold leading-none tabular-nums"
-                      style={{ color: "#fff", textShadow: "0 1px 4px rgba(0,0,0,0.25)" }}
+                      style={{ color: "#fff" }}
                     >
                       {formatMoneyWithSymbol(monthlyHuchaMinor, baseCurrency, currencySymbol)}
                     </span>
@@ -888,7 +901,7 @@ export function SavingsClient({
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                     <span
                       className="text-[12px] font-bold leading-none tabular-nums"
-                      style={{ color: "#fff", textShadow: "0 1px 4px rgba(0,0,0,0.25)" }}
+                      style={{ color: "#fff" }}
                     >
                       {formatMoneyWithSymbol(monthlyHuchaMinor, baseCurrency, currencySymbol)}
                     </span>
@@ -954,75 +967,6 @@ export function SavingsClient({
           </CardContent>
         </Card>
 
-        <Card className="mt-4 rounded-[24px] border-border bg-card shadow-[0_12px_34px_rgba(28,30,33,0.08)]">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[13px] font-semibold text-foreground">
-                {locale === "en" ? "History" : "Historial"}
-              </p>
-              <p className="text-[11px] font-medium text-[#5B8DFF]">
-                🪣 {locale === "en" ? "Monthly savings" : "Ahorro mensual"}
-              </p>
-            </div>
-
-            <div className="mt-4 grid grid-cols-4 gap-2">
-              <div className="text-center">
-                <p className="text-[16px] font-medium tabular-nums text-foreground">
-                  {savingsHistory.formatNumber(savingsView.generatedSavedMinor)}
-                </p>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-                  {locale === "en" ? "balance" : "saldo"}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-[16px] font-medium tabular-nums text-foreground">
-                  {savingsHistory.formatNumber(savingsHistory.previousMinor)}
-                </p>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-                  {locale === "en" ? "month" : "mes"}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-[16px] font-medium tabular-nums text-foreground">
-                  {savingsHistory.formatNumber(savingsHistory.averageMinor)}
-                </p>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-                  {locale === "en" ? "average" : "media"}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-[16px] font-medium tabular-nums text-foreground">
-                  {savingsHistory.formatNumber(savingsHistory.maxMinor)}
-                </p>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-                  {locale === "en" ? "max" : "máx"}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 flex items-end gap-[5px]">
-              {savingsHistory.bars.map((bar, index) => {
-                const height =
-                  savingsHistory.maxMinor > 0n
-                    ? Math.max(8, (Number(bar.amountMinor) / Number(savingsHistory.maxMinor)) * 48)
-                    : 8;
-                return (
-                  <div key={bar.period} className="flex flex-1 flex-col justify-end gap-1">
-                    <div
-                      className="rounded-[4px]"
-                      style={{
-                        height,
-                        backgroundColor:
-                          index === savingsHistory.bars.length - 1 ? "#5B8DFF" : "#C8D2FA",
-                      }}
-                    />
-                    <p className="text-center text-[9px] text-muted-foreground">{bar.label}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
       </section>
 
       {savingsView.needsRebalance ? (

@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  computeSavingsMonthView,
   formatMoneyWithSymbol,
   formatMonthLabel,
   getReserveContainerBalanceMinor,
   getReserveContainerStats,
   getReserveTransferDirection,
   toMonthKey,
+  withAlpha,
   type MonthClose,
   type MonthCloseAllocation,
   type Project,
@@ -30,6 +32,15 @@ type ReserveDetailClientProps = {
   monthCloses: MonthClose[];
   monthCloseAllocations: MonthCloseAllocation[];
   reserveTransfers: ReserveTransfer[];
+  currentMonthTransactions: TransactionRow[];
+};
+
+type TransactionRow = {
+  id: string;
+  type: "income" | "expense";
+  amount_minor: string | number | null;
+  amount_base_minor: string | number | null;
+  date: string;
 };
 
 const HERO_SIZE = 160;
@@ -60,8 +71,9 @@ export function ReserveDetailClient({
   monthCloses,
   monthCloseAllocations,
   reserveTransfers,
+  currentMonthTransactions,
 }: ReserveDetailClientProps) {
-  const { resolvedMode } = useWebUserTheme();
+  const { resolvedMode, tokens, primaryActionColor } = useWebUserTheme();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [errorMessage] = useState<string | null>(null);
   const [successMessage] = useState<string | null>(null);
@@ -93,6 +105,65 @@ export function ReserveDetailClient({
       }),
     [monthCloseAllocations, monthClosesById, reserveContainer.id, reserveTransfers]
   );
+
+  const currentMonthKey = useMemo(() => toMonthKey(new Date()), []);
+  const previousMonthKey = useMemo(() => {
+    const date = new Date(`${currentMonthKey}-01T00:00:00`);
+    date.setMonth(date.getMonth() - 1);
+    return toMonthKey(date);
+  }, [currentMonthKey]);
+
+  const currentMonthSavingsMinor = useMemo(
+    () =>
+      computeSavingsMonthView({
+        period: currentMonthKey,
+        transactions: currentMonthTransactions,
+      }).generatedSavedMinor,
+    [currentMonthKey, currentMonthTransactions]
+  );
+
+  const savingsHistory = useMemo(() => {
+    const monthFormatter = new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
+      month: "short",
+    });
+    const byPeriod = new Map<string, bigint>();
+
+    monthCloses.forEach((monthClose) => {
+      byPeriod.set(String(monthClose.period).slice(0, 7), toMinor(monthClose.actual_saved_base_minor));
+    });
+    byPeriod.set(currentMonthKey, currentMonthSavingsMinor);
+
+    const values = Array.from(byPeriod.values());
+    const averageMinor =
+      values.length > 0
+        ? values.reduce((total, amountMinor) => total + amountMinor, 0n) / BigInt(values.length)
+        : 0n;
+    const maxMinor = values.reduce(
+      (current, amountMinor) => (amountMinor > current ? amountMinor : current),
+      0n
+    );
+
+    const bars = Array.from({ length: 4 }, (_, index) => {
+      const date = new Date(`${currentMonthKey}-01T00:00:00`);
+      date.setMonth(date.getMonth() + index - 3);
+      const period = toMonthKey(date);
+      const amountMinor = byPeriod.get(period) ?? 0n;
+      return {
+        period,
+        amountMinor,
+        label: monthFormatter.format(date).replace(".", "").slice(0, 3),
+        isCurrent: period === currentMonthKey,
+      };
+    });
+
+    return {
+      currentMinor: currentMonthSavingsMinor,
+      previousMinor: byPeriod.get(previousMonthKey) ?? 0n,
+      averageMinor,
+      maxMinor,
+      bars,
+    };
+  }, [currentMonthKey, currentMonthSavingsMinor, locale, monthCloses, previousMonthKey]);
 
   const activityRows = useMemo(() => {
     const projectById = new Map(projects.map((project) => [project.id, project]));
@@ -254,6 +325,20 @@ export function ReserveDetailClient({
   const bestMonthLabel = reserveStats.bestMonth
     ? formatMonthLabel(reserveStats.bestMonth.period, locale)
     : null;
+  const historyAccent = primaryActionColor;
+  const historyDanger = tokens.dangerText;
+  const historyCardBorder = withAlpha(historyAccent, resolvedMode === "dark" ? 0.34 : 0.2);
+  const historyCardShadow = withAlpha(historyAccent, resolvedMode === "dark" ? 0.2 : 0.14);
+  const historyCardGradient = `linear-gradient(180deg, ${withAlpha(
+    tokens.surfaceAlt,
+    resolvedMode === "dark" ? 0.96 : 0.92
+  )}, ${withAlpha(tokens.surface, resolvedMode === "dark" ? 0.98 : 0.96)})`;
+  const historyChipBackground = withAlpha(tokens.surface, resolvedMode === "dark" ? 0.72 : 0.82);
+  const historyTileBackground = withAlpha(tokens.surface, resolvedMode === "dark" ? 0.62 : 0.76);
+  const historyTileBorder = withAlpha(tokens.border, resolvedMode === "dark" ? 0.85 : 0.7);
+  const historyChartBackground = withAlpha(tokens.surface, resolvedMode === "dark" ? 0.5 : 0.68);
+  const historyBaseline = withAlpha(tokens.border, resolvedMode === "dark" ? 0.95 : 0.9);
+  const historyMarkerGlow = withAlpha(historyAccent, resolvedMode === "dark" ? 0.28 : 0.18);
 
   return (
     <PageContainer className="space-y-6">
@@ -288,7 +373,7 @@ export function ReserveDetailClient({
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-6">
                 <span
                   className="max-w-[120px] text-center text-2xl font-bold tracking-[-0.8px] tabular-nums"
-                  style={{ color: HUCHA_ACCENT }}
+                  style={{ color: "#fff" }}
                 >
                   {formatMoneyWithSymbol(reserveBalanceMinor, baseCurrency, currencySymbol)}
                 </span>
@@ -361,6 +446,169 @@ export function ReserveDetailClient({
             </p>
           </div>
         </div>
+
+        <section>
+          <div
+            className="overflow-hidden rounded-[28px] border"
+            style={{
+              borderColor: historyCardBorder,
+              boxShadow: `0 18px 48px ${historyCardShadow}`,
+              backgroundImage: historyCardGradient,
+            }}
+          >
+            <div className="p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p
+                    className="text-[11px] font-semibold uppercase tracking-[0.12em]"
+                    style={{ color: historyAccent }}
+                  >
+                    {locale === "en" ? "Savings history" : "Historial de ahorro"}
+                  </p>
+                  <p
+                    className="mt-2 text-[20px] font-semibold tracking-tight"
+                    style={{ color: tokens.textPrimary }}
+                  >
+                    {locale === "en" ? "Last 4 months" : "Últimos 4 meses"}
+                  </p>
+                </div>
+                <div
+                  className="rounded-full border px-3 py-1 text-[11px] font-medium"
+                  style={{
+                    borderColor: historyTileBorder,
+                    backgroundColor: historyChipBackground,
+                    color: tokens.textSecondary,
+                    boxShadow: `0 10px 24px ${withAlpha(historyAccent, resolvedMode === "dark" ? 0.16 : 0.1)}`,
+                  }}
+                >
+                  {locale === "en" ? "Monthly savings" : "Ahorro mensual"}
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  {
+                    label: locale === "en" ? "Current" : "Actual",
+                    value: savingsHistory.currentMinor,
+                  },
+                  {
+                    label: locale === "en" ? "Previous" : "Anterior",
+                    value: savingsHistory.previousMinor,
+                  },
+                  {
+                    label: locale === "en" ? "Average" : "Media",
+                    value: savingsHistory.averageMinor,
+                  },
+                  {
+                    label: locale === "en" ? "Peak" : "Máximo",
+                    value: savingsHistory.maxMinor,
+                  },
+                ].map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="rounded-[18px] border p-3 backdrop-blur"
+                    style={{
+                      borderColor: historyTileBorder,
+                      backgroundColor: historyTileBackground,
+                      boxShadow: `0 10px 24px ${withAlpha(tokens.textPrimary, resolvedMode === "dark" ? 0.14 : 0.08)}`,
+                    }}
+                  >
+                    <p
+                      className="text-[10px] font-semibold uppercase tracking-[0.08em]"
+                      style={{ color: tokens.textSecondary }}
+                    >
+                      {stat.label}
+                    </p>
+                    <p
+                      className="mt-2 text-[18px] font-semibold tracking-tight"
+                      style={{ color: tokens.textPrimary }}
+                    >
+                      {formatMoneyWithSymbol(stat.value, baseCurrency, currencySymbol)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div
+                className="mt-5 rounded-[24px] border px-3 pb-3 pt-4"
+                style={{
+                  borderColor: historyTileBorder,
+                  backgroundColor: historyChartBackground,
+                  boxShadow: `inset 0 1px 0 ${withAlpha(tokens.surface, resolvedMode === "dark" ? 0.38 : 0.6)}`,
+                }}
+              >
+                <div className="flex h-[170px] items-end gap-2">
+                  {savingsHistory.bars.map((bar) => {
+                    const height =
+                      savingsHistory.maxMinor > 0n && bar.amountMinor > 0n
+                        ? Math.max(16, (Number(bar.amountMinor) / Number(savingsHistory.maxMinor)) * 108)
+                        : 16;
+                    const barTone =
+                      bar.amountMinor < 0n
+                        ? `linear-gradient(180deg, ${withAlpha(historyDanger, 0.72)} 0%, ${historyDanger} 100%)`
+                        : bar.isCurrent
+                          ? `linear-gradient(180deg, ${withAlpha(historyAccent, 0.68)} 0%, ${historyAccent} 55%, ${withAlpha(historyAccent, 0.96)} 100%)`
+                          : `linear-gradient(180deg, ${withAlpha(historyAccent, resolvedMode === "dark" ? 0.26 : 0.18)} 0%, ${withAlpha(historyAccent, resolvedMode === "dark" ? 0.62 : 0.42)} 100%)`;
+
+                    return (
+                      <div key={bar.period} className="flex flex-1 flex-col items-center justify-end">
+                        <div className="mb-2 h-6 text-center">
+                          {bar.isCurrent ? (
+                            <span
+                              className="inline-flex rounded-full border px-2 py-1 text-[10px] font-medium"
+                              style={{
+                                borderColor: historyTileBorder,
+                                backgroundColor: withAlpha(tokens.surface, resolvedMode === "dark" ? 0.88 : 0.92),
+                                color: tokens.textSecondary,
+                                boxShadow: `0 8px 18px ${withAlpha(historyAccent, resolvedMode === "dark" ? 0.22 : 0.14)}`,
+                              }}
+                            >
+                              {formatMoneyWithSymbol(bar.amountMinor, baseCurrency, currencySymbol)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="relative flex h-[116px] w-full items-end justify-center">
+                          <div
+                            className="absolute inset-x-0 bottom-0 h-px"
+                            style={{ backgroundColor: historyBaseline }}
+                          />
+                          <div
+                            className="relative w-full max-w-[30px] overflow-hidden rounded-t-[14px] rounded-b-[8px] border"
+                            style={{
+                              height,
+                              background: barTone,
+                              borderColor: withAlpha(tokens.surface, resolvedMode === "dark" ? 0.4 : 0.7),
+                              opacity: bar.amountMinor === 0n ? 0.55 : 1,
+                              boxShadow: `0 14px 28px ${withAlpha(
+                                bar.isCurrent ? historyAccent : tokens.textPrimary,
+                                resolvedMode === "dark" ? 0.2 : 0.14
+                              )}`,
+                            }}
+                          />
+                          {bar.isCurrent ? (
+                            <div
+                              className="absolute bottom-[-4px] h-2.5 w-2.5 rounded-full"
+                              style={{
+                                backgroundColor: historyAccent,
+                                boxShadow: `0 0 0 6px ${historyMarkerGlow}`,
+                              }}
+                            />
+                          ) : null}
+                        </div>
+                        <p
+                          className="mt-3 text-center text-[10px] font-medium uppercase tracking-[0.08em]"
+                          style={{ color: tokens.textSecondary }}
+                        >
+                          {bar.label}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section className="space-y-3">
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
