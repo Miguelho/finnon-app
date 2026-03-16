@@ -33,6 +33,7 @@ export * from "./home/home.actions";
 export * from "./home/home.viewmodel";
 export * from "./home/calendar-marker";
 export * from "./home/project-widget";
+export * from "./home/responsive-layout";
 export * from "./goals";
 export * from "./projects";
 export * from "./reserves";

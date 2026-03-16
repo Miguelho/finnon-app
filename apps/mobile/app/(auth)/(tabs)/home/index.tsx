@@ -1,54 +1,40 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
 import {
-  CATEGORY_PALETTE,
   CURRENCIES,
-  type AvatarColorToken,
   buildCalendarDayData,
-  buildProjectColorMap,
+  buildHomeProjectPreviews,
+  computeSavingsMonthFromTransactions,
   computeSavingsMonthView,
-  computeProjectProgress,
-  getProjectColor,
-  getProjectReserveTransferTotalsMap,
+  formatMonthLabel,
   getMonthCalendarDisplayDays,
-  getReserveContainerBalanceMinor,
   getWeekCalendarDisplayDays,
   getWeekStartMonday,
-  themeTokens,
   toDateKey,
   toMonthKey,
+  type HomeProjectContributionRow,
   type MonthClose,
-  type MonthCloseAllocation,
   type MonthlyProjectFundingPlan,
   type Obligation,
   type Project,
-  type ReserveContainer,
-  type ReserveTransfer,
   type Transaction as SharedTransaction,
-  type UserAvatarColorId,
   type UserRole,
 } from "@poleursus/shared";
 import { supabase } from "../../../../src/lib/supabase";
 import { useAuth } from "../../../../src/contexts/AuthContext";
 import { useUserTheme } from "../../../../src/contexts/UserThemeContext";
 import { useCopy, t } from "../../../../src/lib/i18n";
-import { UserAvatar } from "../../../../src/components/UserAvatar";
-import { CategoryIcon } from "../../../../src/components/CategoryIcon";
-import { BalanceRow } from "../../../../src/components/home-redesign/BalanceHeader";
 import { Calendar } from "../../../../src/components/home-redesign/Calendar";
-import { ProjectsRow } from "../../../../src/components/home-redesign/SavingsMonthCard";
-import { formatCurrencyParts, formatFullDate, toMinor } from "../../../../src/components/home-redesign/utils";
-
-const tokens = themeTokens.light;
+import { MonthCard } from "../../../../src/components/home/MonthCard";
+import { ProjectsGrid } from "../../../../src/components/home/ProjectsGrid";
 
 type AccountMember = {
   account_id: string;
@@ -71,44 +57,7 @@ type Category = {
 };
 
 type Transaction = SharedTransaction & {
-  created_by?: string | null;
   category?: Category | null;
-};
-
-type HomeMovement = {
-  id: string;
-  name: string;
-  categoryId: string | null;
-  iconId: string | null;
-  categoryName: string | null;
-  createdByUserId?: string | null;
-  type: "income" | "expense";
-  amountMinor: bigint;
-  isProgrammed?: boolean;
-};
-
-type HomeMovementGroup = {
-  id: string;
-  name: string;
-  iconId: string | null;
-  totalMinor: bigint;
-  items: HomeMovement[];
-};
-
-type ProfileRow = {
-  user_id: string;
-  email: string | null;
-  display_name: string | null;
-  avatar_path: string | null;
-  avatar_fallback_text: string | null;
-  avatar_fallback_bg_token: AvatarColorToken | null;
-  avatar_color: UserAvatarColorId | null;
-};
-
-type RpcSummary = {
-  totals?: {
-    balance_total?: string | number | bigint | null;
-  } | null;
 };
 
 type SavingsTransaction = Pick<
@@ -124,9 +73,9 @@ const normalizeCategory = <T extends { category?: unknown }>(row: T) => ({
 });
 
 const TRANSACTIONS_SELECT_WITH_CATEGORY_COLOR =
-  "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id, color)";
+  "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, project_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id, color)";
 const TRANSACTIONS_SELECT_LEGACY =
-  "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id)";
+  "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, project_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id)";
 
 const isMissingCategoryColorError = (error: any) =>
   error?.code === "42703" &&
@@ -181,20 +130,12 @@ const plusDays = (date: Date, days: number) => {
   return next;
 };
 
-const absMinor = (value: bigint) => (value < 0n ? -value : value);
-
-const toSignedMinor = (amountMinor: bigint, type: "income" | "expense") => {
-  const absoluteAmount = absMinor(amountMinor);
-  return type === "income" ? absoluteAmount : -absoluteAmount;
-};
-
 export default function HomeScreen() {
   const router = useRouter();
   const { user, session, selectedAccountId, setSelectedAccountId } = useAuth();
   const { tokens: userTokens } = useUserTheme();
   const { dictionary, locale } = useCopy();
   const localeKey = locale === "en" ? "en" : "es";
-  const programmedBadgeLabel = localeKey === "en" ? "Scheduled" : "Programado";
   const weekdayLabels = WEEKDAY_LABELS[localeKey];
   const monthsShort = MONTHS_SHORT[localeKey];
   const monthsLong = MONTHS_LONG[localeKey];
@@ -202,21 +143,18 @@ export default function HomeScreen() {
   const currentMonthStart = `${currentMonthKey}-01`;
 
   const [accounts, setAccounts] = useState<Account[] | null>(null);
-  const [accountBalances, setAccountBalances] = useState<Record<string, bigint>>({});
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [obligations, setObligations] = useState<Obligation[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [reserveContainers, setReserveContainers] = useState<ReserveContainer[]>([]);
   const [fundingPlans, setFundingPlans] = useState<MonthlyProjectFundingPlan[]>([]);
-  const [monthCloses, setMonthCloses] = useState<MonthClose[]>([]);
-  const [monthCloseAllocations, setMonthCloseAllocations] = useState<MonthCloseAllocation[]>([]);
-  const [reserveTransfers, setReserveTransfers] = useState<ReserveTransfer[]>([]);
+  const [currentMonthClose, setCurrentMonthClose] = useState<MonthClose | null>(null);
   const [currentMonthTransactions, setCurrentMonthTransactions] = useState<SavingsTransaction[]>([]);
+  const [projectContributionRows, setProjectContributionRows] = useState<HomeProjectContributionRow[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
-  const [loadingData, setLoadingData] = useState(false);
+  const [loadingCalendar, setLoadingCalendar] = useState(false);
+  const [loadingSummary, setLoadingSummary] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [calendarView, setCalendarView] = useState<"week" | "month">("week");
+  const [calendarView, setCalendarView] = useState<"week" | "month">("month");
   const [weekReference, setWeekReference] = useState<Date>(new Date());
   const [monthReference, setMonthReference] = useState<Date>(new Date());
   const [selectedDayKey, setSelectedDayKey] = useState<string>(toDateKey(new Date()));
@@ -256,7 +194,9 @@ export default function HomeScreen() {
         }
       } catch (loadError: any) {
         console.error("[Home] Error loading accounts:", loadError);
-        if (!cancelled) setError(loadError?.message ?? t(dictionary, "mobile.home.errorLoadAccounts"));
+        if (!cancelled) {
+          setError(loadError?.message ?? t(dictionary, "mobile.home.errorLoadAccounts"));
+        }
       } finally {
         if (!cancelled) setLoadingAccounts(false);
       }
@@ -278,51 +218,10 @@ export default function HomeScreen() {
   useEffect(() => {
     let cancelled = false;
 
-    const loadBalances = async () => {
-      if (!accounts || accounts.length === 0) return;
-
-      const pairs = await Promise.all(
-        accounts.map(async (account) => {
-          try {
-            const { data, error: rpcError } = await supabase.rpc("get_account_summary", {
-              p_account_id: account.id,
-            });
-
-            if (rpcError) throw rpcError;
-            const summary = data as RpcSummary | null;
-            const balance = toMinor(summary?.totals?.balance_total ?? 0);
-            return [account.id, balance] as const;
-          } catch (rpcError) {
-            console.warn("[Home] Could not load account balance:", account.id, rpcError);
-            return [account.id, 0n] as const;
-          }
-        })
-      );
-
-      if (!cancelled) {
-        setAccountBalances(
-          pairs.reduce<Record<string, bigint>>((acc, [accountId, value]) => {
-            acc[accountId] = value;
-            return acc;
-          }, {})
-        );
-      }
-    };
-
-    void loadBalances();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [accounts, reloadSeed]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadMainData = async () => {
+    const loadCalendarData = async () => {
       if (!mainAccount) return;
 
-      setLoadingData(true);
+      setLoadingCalendar(true);
       setError(null);
 
       const monthStart = new Date(monthReference.getFullYear(), monthReference.getMonth(), 1);
@@ -371,32 +270,11 @@ export default function HomeScreen() {
 
         if (obligationsError) throw obligationsError;
 
-        const creatorUserIds = Array.from(
-          new Set(
-            ((txRows ?? []) as Array<{ created_by?: string | null }>)
-              .map((tx) => tx.created_by)
-              .filter((value): value is string => Boolean(value))
-          )
-        );
-        const { data: profileRows, error: profilesError } =
-          creatorUserIds.length > 0
-            ? await supabase
-                .from("profiles")
-                .select(
-                  "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
-                )
-                .in("user_id", creatorUserIds)
-            : { data: [], error: null };
-        if (profilesError) {
-          console.warn("[Home] Could not load creator profiles:", profilesError);
-        }
-
         if (!cancelled) {
           setTransactions(
             (((txRows ?? []) as unknown as Array<{ category?: unknown }>).map(normalizeCategory) as Transaction[]) ??
               []
           );
-          setProfiles((profileRows ?? []) as ProfileRow[]);
           setObligations((obligationRows as Obligation[]) ?? []);
         }
       } catch (loadError: any) {
@@ -405,11 +283,11 @@ export default function HomeScreen() {
           setError(loadError?.message ?? t(dictionary, "mobile.home.errorLoadTransactions"));
         }
       } finally {
-        if (!cancelled) setLoadingData(false);
+        if (!cancelled) setLoadingCalendar(false);
       }
     };
 
-    void loadMainData();
+    void loadCalendarData();
 
     return () => {
       cancelled = true;
@@ -419,104 +297,95 @@ export default function HomeScreen() {
   useEffect(() => {
     let cancelled = false;
 
-    const loadSavingsData = async () => {
+    const loadSummaryData = async () => {
       if (!mainAccount) return;
+
+      setLoadingSummary(true);
 
       try {
         const todayDateKey = toDateKey(new Date());
-        const [
-          projectsResult,
-          reserveContainersResult,
-          fundingPlansResult,
-          monthClosesResult,
-          monthCloseAllocationsResult,
-          reserveTransfersResult,
-          currentMonthTransactionsResult,
-        ] = await Promise.all([
-          supabase
-            .from("projects")
-            .select("*")
-            .eq("account_id", mainAccount.id)
-            .not("target_amount_base_minor", "is", null)
-            .in("status", ["active", "completed"])
-            .order("priority", { ascending: true }),
-          supabase
-            .from("reserve_containers")
-            .select("*")
-            .eq("account_id", mainAccount.id)
-            .eq("status", "active")
-            .order("created_at", { ascending: true }),
-          supabase
-            .from("monthly_project_funding_plans")
-            .select("*")
-            .eq("account_id", mainAccount.id)
-            .eq("period", currentMonthStart),
-          supabase
-            .from("month_closes")
-            .select("*")
-            .eq("account_id", mainAccount.id)
-            .order("period", { ascending: false }),
-          supabase
-            .from("month_close_allocations")
-            .select("*")
-            .eq("account_id", mainAccount.id),
-          supabase
-            .from("reserve_transfers")
-            .select("*")
-            .eq("account_id", mainAccount.id)
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("transactions")
-            .select("id, type, amount_minor, amount_base_minor, date")
-            .eq("account_id", mainAccount.id)
-            .gte("date", currentMonthStart)
-            .lte("date", todayDateKey)
-            .order("date", { ascending: true }),
-        ]);
+        const [projectsResult, fundingPlansResult, currentMonthCloseResult, currentMonthTransactionsResult] =
+          await Promise.all([
+            supabase
+              .from("projects")
+              .select("*")
+              .eq("account_id", mainAccount.id)
+              .not("target_amount_base_minor", "is", null)
+              .in("status", ["active", "completed"])
+              .order("priority", { ascending: true }),
+            supabase
+              .from("monthly_project_funding_plans")
+              .select("*")
+              .eq("account_id", mainAccount.id)
+              .eq("period", currentMonthStart),
+            supabase
+              .from("month_closes")
+              .select("*")
+              .eq("account_id", mainAccount.id)
+              .eq("period", currentMonthStart)
+              .maybeSingle(),
+            supabase
+              .from("transactions")
+              .select("id, type, amount_minor, amount_base_minor, date")
+              .eq("account_id", mainAccount.id)
+              .gte("date", currentMonthStart)
+              .lte("date", todayDateKey)
+              .order("date", { ascending: true }),
+          ]);
 
         if (projectsResult.error) throw projectsResult.error;
-        if (reserveContainersResult.error) throw reserveContainersResult.error;
         if (fundingPlansResult.error) throw fundingPlansResult.error;
-        if (monthClosesResult.error) throw monthClosesResult.error;
-        if (monthCloseAllocationsResult.error) throw monthCloseAllocationsResult.error;
-        if (reserveTransfersResult.error) throw reserveTransfersResult.error;
+        if (currentMonthCloseResult.error) throw currentMonthCloseResult.error;
         if (currentMonthTransactionsResult.error) throw currentMonthTransactionsResult.error;
 
+        const nextProjects = (projectsResult.data as Project[]) ?? [];
+        const projectIds = nextProjects.map((project) => project.id);
+        const { data: contributionRows, error: contributionRowsError } =
+          projectIds.length > 0
+            ? await supabase
+                .from("transactions")
+                .select("project_id, amount_base_minor")
+                .eq("account_id", mainAccount.id)
+                .eq("type", "expense")
+                .in("project_id", projectIds)
+            : {
+                data: [] as HomeProjectContributionRow[],
+                error: null,
+              };
+
+        if (contributionRowsError) throw contributionRowsError;
+
         if (!cancelled) {
-          setProjects((projectsResult.data as Project[]) ?? []);
-          setReserveContainers((reserveContainersResult.data as ReserveContainer[]) ?? []);
+          setProjects(nextProjects);
           setFundingPlans((fundingPlansResult.data as MonthlyProjectFundingPlan[]) ?? []);
-          setMonthCloses((monthClosesResult.data as MonthClose[]) ?? []);
-          setMonthCloseAllocations(
-            (monthCloseAllocationsResult.data as MonthCloseAllocation[]) ?? []
-          );
-          setReserveTransfers((reserveTransfersResult.data as ReserveTransfer[]) ?? []);
+          setCurrentMonthClose((currentMonthCloseResult.data as MonthClose | null) ?? null);
           setCurrentMonthTransactions(
             (currentMonthTransactionsResult.data as SavingsTransaction[]) ?? []
           );
+          setProjectContributionRows((contributionRows ?? []) as HomeProjectContributionRow[]);
         }
       } catch (loadError) {
-        console.warn("[Home] Could not load savings data:", loadError);
+        console.warn("[Home] Could not load summary data:", loadError);
         if (!cancelled) {
           setProjects([]);
-          setReserveContainers([]);
           setFundingPlans([]);
-          setMonthCloses([]);
-          setMonthCloseAllocations([]);
-          setReserveTransfers([]);
+          setCurrentMonthClose(null);
           setCurrentMonthTransactions([]);
+          setProjectContributionRows([]);
         }
+      } finally {
+        if (!cancelled) setLoadingSummary(false);
       }
     };
 
-    void loadSavingsData();
+    void loadSummaryData();
 
     return () => {
       cancelled = true;
     };
   }, [currentMonthStart, mainAccount?.id, reloadSeed]);
 
-  const showLoading = !session || !user || loadingAccounts || loadingData;
+  const showLoading = !session || !user || loadingAccounts || loadingCalendar || loadingSummary;
   const showError = Boolean(error);
   const showAccountMissing = !accounts || accounts.length === 0 || !mainAccount;
 
@@ -524,13 +393,9 @@ export default function HomeScreen() {
   const currencySymbol =
     CURRENCIES.find((currency) => currency.code === baseCurrency)?.symbol ?? baseCurrency;
 
-  const today = new Date();
-  const todayKey = toDateKey(today);
-  const currentMonthClose = useMemo(
-    () =>
-      monthCloses.find((monthClose) => String(monthClose.period).slice(0, 7) === currentMonthKey) ??
-      null,
-    [currentMonthKey, monthCloses]
+  const monthTotals = useMemo(
+    () => computeSavingsMonthFromTransactions(currentMonthTransactions),
+    [currentMonthTransactions]
   );
   const savingsState = useMemo(
     () =>
@@ -542,7 +407,24 @@ export default function HomeScreen() {
       }),
     [currentMonthClose, currentMonthKey, currentMonthTransactions, fundingPlans]
   );
+  const currentMonthLabel = useMemo(() => {
+    const label = formatMonthLabel(currentMonthKey, localeKey === "en" ? "en-US" : "es-ES");
+    return label ? `${label.charAt(0).toUpperCase()}${label.slice(1)}` : "";
+  }, [currentMonthKey, localeKey]);
 
+  const topProjects = useMemo(
+    () =>
+      buildHomeProjectPreviews({
+        projects,
+        contributionRows: projectContributionRows,
+        limit: 3,
+        now: new Date(),
+      }),
+    [projectContributionRows, projects]
+  );
+
+  const today = new Date();
+  const todayKey = toDateKey(today);
   const calendarMap = useMemo(() => {
     const entries = [
       ...transactions.map((tx) => ({
@@ -562,13 +444,13 @@ export default function HomeScreen() {
           amount_minor: obligation.amount_minor,
           amount_base_minor: obligation.amount_base_minor,
           category_id: "obligation",
-          category_name: programmedBadgeLabel,
+          category_name: localeKey === "en" ? "Scheduled" : "Programado",
           category_color: "#CB6E55",
         })),
     ];
 
     return buildCalendarDayData(entries);
-  }, [transactions, obligations, programmedBadgeLabel]);
+  }, [transactions, obligations, localeKey]);
 
   const monthDays = useMemo(() => {
     return getMonthCalendarDisplayDays(
@@ -581,12 +463,7 @@ export default function HomeScreen() {
   }, [calendarMap, monthReference, todayKey, weekdayLabels]);
 
   const weekDays = useMemo(() => {
-    return getWeekCalendarDisplayDays(
-      calendarMap,
-      weekReference,
-      todayKey,
-      weekdayLabels
-    );
+    return getWeekCalendarDisplayDays(calendarMap, weekReference, todayKey, weekdayLabels);
   }, [calendarMap, weekReference, todayKey, weekdayLabels]);
 
   const weekPeriodLabel = useMemo(() => {
@@ -605,184 +482,6 @@ export default function HomeScreen() {
     return `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} ${monthReference.getFullYear()}`;
   }, [monthReference, monthsLong]);
 
-  const selectedDayMovementGroups = useMemo<HomeMovementGroup[]>(() => {
-    const dayTx = transactions
-      .filter((tx) => toDateKey(tx.date as string) === selectedDayKey)
-      .map((tx) => ({
-        id: tx.id,
-        name: tx.merchant?.trim() || tx.category?.name || t(dictionary, "mobile.home.movementFallback"),
-        categoryId: tx.category?.id ?? null,
-        iconId: tx.category?.icon_id ?? null,
-        categoryName: tx.category?.name ?? null,
-        createdByUserId: tx.created_by ?? null,
-        type: tx.type,
-        amountMinor: absMinor(toMinor(tx.amount_base_minor ?? tx.amount_minor)),
-      }));
-
-    const dayObligations = obligations
-      .filter((obligation) => obligation.status !== "paid")
-      .filter((obligation) => toDateKey(obligation.due_date as string) === selectedDayKey)
-      .map((obligation) => ({
-        id: `obligation-${obligation.id}`,
-        name: obligation.name,
-        categoryId: "obligation",
-        iconId: null,
-        categoryName: programmedBadgeLabel,
-        createdByUserId: null,
-        type: "expense" as const,
-        amountMinor: absMinor(toMinor(obligation.amount_base_minor ?? obligation.amount_minor)),
-        isProgrammed: true,
-      }));
-
-    const grouped = new Map<string, HomeMovementGroup>();
-    [...dayTx, ...dayObligations].forEach((movement) => {
-      const groupKey = movement.categoryId ?? "uncategorized";
-      const groupName =
-        movement.categoryName ??
-        (localeKey === "en" ? "Uncategorized" : "Sin categoría");
-      const existing = grouped.get(groupKey);
-      if (!existing) {
-        grouped.set(groupKey, {
-          id: groupKey,
-          name: groupName,
-          iconId: movement.iconId,
-          totalMinor: toSignedMinor(movement.amountMinor, movement.type),
-          items: [movement],
-        });
-        return;
-      }
-      existing.items.push(movement);
-      existing.totalMinor += toSignedMinor(movement.amountMinor, movement.type);
-      if (!existing.iconId && movement.iconId) {
-        existing.iconId = movement.iconId;
-      }
-    });
-
-    return Array.from(grouped.values());
-  }, [transactions, obligations, selectedDayKey, programmedBadgeLabel, localeKey, dictionary]);
-
-  const selectedDayLabel = useMemo(
-    () => formatFullDate(selectedDayKey, locale),
-    [selectedDayKey, locale]
-  );
-  const profileByUserId = useMemo(
-    () => new Map(profiles.map((profile) => [profile.user_id, profile])),
-    [profiles]
-  );
-
-  const fundedByProject = useMemo(() => {
-    const byProject = new Map<string, bigint>();
-    monthCloseAllocations.forEach((allocation) => {
-      if (!allocation.project_id) return;
-      byProject.set(
-        allocation.project_id,
-        (byProject.get(allocation.project_id) ?? 0n) + toMinor(allocation.amount_base_minor)
-      );
-    });
-    const reserveTransferTotals = getProjectReserveTransferTotalsMap(reserveTransfers);
-    reserveTransferTotals.forEach((amountMinor, projectId) => {
-      byProject.set(projectId, (byProject.get(projectId) ?? 0n) + amountMinor);
-    });
-    return byProject;
-  }, [monthCloseAllocations, reserveTransfers]);
-  const plannedByProject = useMemo(() => {
-    const byProject = new Map<string, bigint>();
-    fundingPlans.forEach((plan) => {
-      byProject.set(
-        plan.project_id,
-        (byProject.get(plan.project_id) ?? 0n) + toMinor(plan.planned_amount_base_minor)
-      );
-    });
-    return byProject;
-  }, [fundingPlans]);
-
-  const activeProjects = useMemo(() => projects, [projects]);
-  const projectColorMap = useMemo(() => buildProjectColorMap(projects), [projects]);
-
-  const projectsRowData = useMemo(
-    () =>
-      activeProjects.map((project) => {
-        const progress = computeProjectProgress({
-          project,
-          fundedMinor: fundedByProject.get(project.id) ?? 0n,
-          plannedThisMonthMinor: plannedByProject.get(project.id) ?? 0n,
-        });
-
-        return {
-          id: project.id,
-          name: project.name,
-          emoji: project.emoji || "🎯",
-          currentAmountMinor: progress.savedMinor,
-          goalAmountMinor: progress.targetMinor > 0n ? progress.targetMinor : 1n,
-          color: getProjectColor(project, projectColorMap),
-        };
-      }),
-    [activeProjects, fundedByProject, plannedByProject, projectColorMap]
-  );
-
-  const huchaReserve = useMemo(
-    () => reserveContainers.find((reserveContainer) => reserveContainer.kind === "hucha") ?? null,
-    [reserveContainers]
-  );
-
-  const huchaAmountMinor = useMemo(() => {
-    return getReserveContainerBalanceMinor({
-      reserveContainerId: huchaReserve?.id,
-      closeAllocations: monthCloseAllocations,
-      reserveTransfers,
-    });
-  }, [huchaReserve?.id, monthCloseAllocations, reserveTransfers]);
-
-  const accountItems = useMemo(
-    () =>
-      (accounts ?? []).map((account, index) => ({
-        id: account.id,
-        name: account.name,
-        balanceMinor: accountBalances[account.id] ?? 0n,
-        color: CATEGORY_PALETTE[index % CATEGORY_PALETTE.length]!,
-      })),
-    [accounts, accountBalances]
-  );
-
-  const selectedBalanceMinor =
-    mainAccount ? accountBalances[mainAccount.id] ?? 0n : 0n;
-
-  const handlePrevPeriod = () => {
-    if (calendarView === "week") {
-      const next = new Date(weekReference);
-      next.setDate(next.getDate() - 7);
-      setWeekReference(next);
-      setSelectedDayKey((current) => {
-        const currentDate = new Date(current);
-        if (Number.isNaN(currentDate.getTime())) return toDateKey(next);
-        currentDate.setDate(currentDate.getDate() - 7);
-        return toDateKey(currentDate);
-      });
-      return;
-    }
-    const next = new Date(monthReference);
-    next.setMonth(next.getMonth() - 1);
-    setMonthReference(next);
-  };
-
-  const handleNextPeriod = () => {
-    if (calendarView === "week") {
-      const next = new Date(weekReference);
-      next.setDate(next.getDate() + 7);
-      setWeekReference(next);
-      setSelectedDayKey((current) => {
-        const currentDate = new Date(current);
-        if (Number.isNaN(currentDate.getTime())) return toDateKey(next);
-        currentDate.setDate(currentDate.getDate() + 7);
-        return toDateKey(currentDate);
-      });
-      return;
-    }
-    const next = new Date(monthReference);
-    next.setMonth(next.getMonth() + 1);
-    setMonthReference(next);
-  };
-
   if (showError) {
     return (
       <View style={[styles.loading, { backgroundColor: userTokens.background }]}>
@@ -791,7 +490,10 @@ export default function HomeScreen() {
         </Text>
         <Text style={[styles.errorText, { color: userTokens.textSecondary }]}>{error}</Text>
         <Pressable
-          style={[styles.retryButton, { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border }]}
+          style={[
+            styles.retryButton,
+            { backgroundColor: userTokens.surfaceAlt, borderColor: userTokens.border },
+          ]}
           onPress={() => {
             setError(null);
             setReloadSeed((seed) => seed + 1);
@@ -816,24 +518,18 @@ export default function HomeScreen() {
   return (
     <View style={[styles.root, { backgroundColor: userTokens.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
-        <BalanceRow
-          totalBalanceMinor={selectedBalanceMinor}
-          currencySymbol={currencySymbol}
-          accounts={accountItems}
-          onPress={() => router.push("/(auth)/(tabs)/account")}
+        <MonthCard
+          currentMonth={currentMonthLabel}
+          savingsMinor={savingsState.generatedSavedMinor}
+          incomeMinor={monthTotals.incomeMinor}
+          expenseMinor={monthTotals.expenseMinor}
+          availableMinor={savingsState.availableToPlanMinor}
         />
 
-        <ProjectsRow
-          projects={projectsRowData}
-          huchaAmountMinor={huchaAmountMinor}
-          totalSavingsMinor={savingsState.generatedSavedMinor}
-          plannedMinor={savingsState.plannedToProjectsMinor}
-          availableMinor={savingsState.availableToPlanMinor}
-          needsRebalance={savingsState.needsRebalance}
-          currentMonth={monthPeriodLabel}
-          currencySymbol={currencySymbol}
-          locale={localeKey}
-          onPress={() => router.push("/(auth)/(tabs)/projects/savings")}
+        <ProjectsGrid
+          projects={topProjects}
+          onViewAll={() => router.push("/(auth)/(tabs)/projects")}
+          onProjectPress={(projectId) => router.push(`/(auth)/(tabs)/projects/${projectId}`)}
         />
 
         <Calendar
@@ -848,134 +544,47 @@ export default function HomeScreen() {
           onNextPeriod={handleNextPeriod}
           currencySymbol={currencySymbol}
         />
-
-        <View
-          style={[
-            styles.dayCard,
-            { backgroundColor: userTokens.surface, borderColor: userTokens.border },
-          ]}
-        >
-          <View style={styles.dayCardHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.dayTitle, { color: userTokens.textPrimary }]}>
-                {t(dictionary, "mobile.home.calendarTitle")}
-              </Text>
-              <Text style={[styles.daySubtitle, { color: userTokens.textSecondary }]}>
-                {selectedDayLabel}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => router.push(`/(auth)/transactions/create?date=${selectedDayKey}`)}
-              style={styles.addPill}
-            >
-              <Text style={[styles.addPillText, { color: userTokens.textSecondary }]}>
-                {t(dictionary, "home.calendar.addCta")}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {selectedDayMovementGroups.length === 0 ? (
-            <Text style={[styles.emptyDay, { color: userTokens.textTertiary }]}>
-              {t(dictionary, "mobile.home.calendarEmptyDay")}
-            </Text>
-          ) : (
-            <View style={styles.dayRows}>
-              {selectedDayMovementGroups.map((group) => {
-                const isGroupIncome = group.totalMinor > 0n;
-                const isGroupExpense = group.totalMinor < 0n;
-                const groupParts = formatCurrencyParts(absMinor(group.totalMinor), currencySymbol);
-                return (
-                  <View key={group.id} style={[styles.dayGroup, { borderBottomColor: userTokens.border }]}>
-                    <View style={styles.dayRow}>
-                      <View style={styles.dayLeading}>
-                        <View style={[styles.iconWrap, { backgroundColor: userTokens.surfaceAlt }]}>
-                          <CategoryIcon iconKey={group.iconId ?? "Tag"} size={16} tone="muted" />
-                        </View>
-                        <Text style={[styles.dayGroupName, { color: userTokens.textPrimary }]} numberOfLines={1}>
-                          {group.name}
-                        </Text>
-                      </View>
-                      <Text
-                        style={[
-                          styles.dayAmount,
-                          {
-                            color: isGroupIncome
-                              ? "#6DC9A0"
-                              : isGroupExpense
-                                ? "#E0956A"
-                                : userTokens.textSecondary,
-                          },
-                        ]}
-                      >
-                        {isGroupIncome ? "+" : isGroupExpense ? "−" : ""}
-                        {groupParts.full}
-                      </Text>
-                    </View>
-
-                    <View style={styles.dayChildren}>
-                      {group.items.map((movement) => {
-                        const parts = formatCurrencyParts(movement.amountMinor, currencySymbol);
-                        const authorProfile = movement.createdByUserId
-                          ? profileByUserId.get(movement.createdByUserId) ?? null
-                          : null;
-                        const authorName =
-                          authorProfile?.display_name?.trim() ||
-                          authorProfile?.avatar_fallback_text?.trim() ||
-                          authorProfile?.email?.trim() ||
-                          (movement.isProgrammed
-                            ? programmedBadgeLabel
-                            : localeKey === "en"
-                              ? "Unknown"
-                              : "Desconocido");
-                        return (
-                          <View key={movement.id} style={styles.dayChildRow}>
-                            <View style={styles.dayChildLeading}>
-                              <Text
-                                style={[styles.dayRowName, { color: userTokens.textPrimary }]}
-                                numberOfLines={1}
-                              >
-                                {movement.name}
-                              </Text>
-                              <View style={styles.dayAuthorRow}>
-                                {authorProfile ? (
-                                  <UserAvatar
-                                    userId={authorProfile.user_id}
-                                    email={authorProfile.email ?? null}
-                                    displayName={authorProfile.display_name ?? null}
-                                    avatarPath={authorProfile.avatar_path ?? null}
-                                    fallbackText={authorProfile.avatar_fallback_text ?? null}
-                                    fallbackBgToken={authorProfile.avatar_fallback_bg_token ?? null}
-                                    avatarColor={authorProfile.avatar_color ?? null}
-                                    size={16}
-                                  />
-                                ) : null}
-                                <Text style={[styles.dayAuthorName, { color: userTokens.textSecondary }]} numberOfLines={1}>
-                                  {authorName}
-                                </Text>
-                              </View>
-                            </View>
-                            <Text
-                              style={[
-                                styles.dayChildAmount,
-                                { color: movement.type === "income" ? "#6DC9A0" : "#E0956A" },
-                              ]}
-                            >
-                              {movement.type === "income" ? "+" : "−"}
-                              {parts.full}
-                            </Text>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-        </View>
       </ScrollView>
     </View>
   );
+
+  function handlePrevPeriod() {
+    if (calendarView === "week") {
+      const next = new Date(weekReference);
+      next.setDate(next.getDate() - 7);
+      setWeekReference(next);
+      setSelectedDayKey((current) => {
+        const currentDate = new Date(current);
+        if (Number.isNaN(currentDate.getTime())) return toDateKey(next);
+        currentDate.setDate(currentDate.getDate() - 7);
+        return toDateKey(currentDate);
+      });
+      return;
+    }
+
+    const next = new Date(monthReference);
+    next.setMonth(next.getMonth() - 1);
+    setMonthReference(next);
+  }
+
+  function handleNextPeriod() {
+    if (calendarView === "week") {
+      const next = new Date(weekReference);
+      next.setDate(next.getDate() + 7);
+      setWeekReference(next);
+      setSelectedDayKey((current) => {
+        const currentDate = new Date(current);
+        if (Number.isNaN(currentDate.getTime())) return toDateKey(next);
+        currentDate.setDate(currentDate.getDate() + 7);
+        return toDateKey(currentDate);
+      });
+      return;
+    }
+
+    const next = new Date(monthReference);
+    next.setMonth(next.getMonth() + 1);
+    setMonthReference(next);
+  }
 }
 
 const styles = StyleSheet.create({
@@ -1013,114 +622,6 @@ const styles = StyleSheet.create({
   },
   retryText: {
     fontSize: 13,
-    fontFamily: "DMSans-SemiBold",
-  },
-  dayCard: {
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 12,
-  },
-  dayCardHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  addPill: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  addPillText: {
-    fontSize: 11,
-    fontFamily: "DMSans-SemiBold",
-  },
-  dayTitle: {
-    fontSize: 13,
-    fontFamily: "DMSans-SemiBold",
-  },
-  daySubtitle: {
-    marginTop: 2,
-    fontSize: 11,
-    fontFamily: "DMSans",
-  },
-  emptyDay: {
-    marginTop: 10,
-    fontSize: 12,
-    fontFamily: "DMSans",
-  },
-  dayRows: {
-    marginTop: 8,
-  },
-  dayGroup: {
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    gap: 6,
-  },
-  dayRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  dayLeading: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    flex: 1,
-    minWidth: 0,
-  },
-  iconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dayGroupName: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 13,
-    fontFamily: "DMSans-Medium",
-  },
-  dayChildren: {
-    marginLeft: 38,
-    gap: 6,
-  },
-  dayChildRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  dayChildLeading: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  dayRowName: {
-    fontSize: 12,
-    fontFamily: "DMSans-Medium",
-  },
-  dayAuthorRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  dayAuthorName: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 10,
-    fontFamily: "DMSans",
-  },
-  dayAmount: {
-    fontSize: 12,
-    fontFamily: "DMSans-SemiBold",
-  },
-  dayChildAmount: {
-    fontSize: 11,
     fontFamily: "DMSans-SemiBold",
   },
 });

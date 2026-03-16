@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import { HUCHA_PROJECT_COLOR, PROJECT_PALETTE } from "@poleursus/shared";
 import { formatCurrencyParts, toMinor } from "./utils";
 import { SummaryCardShell } from "./SummaryCardShell";
+import { HuchaLiquidCanvas } from "@/components/hucha/hucha-liquid-canvas";
 
 type ProjectRowItem = {
   id: string;
@@ -107,6 +108,10 @@ export function ProjectsRow({
 }: ProjectsRowProps) {
   const t = useTranslations();
   const isHero = projects.length === 1;
+  const visibleProjects = projects.slice(0, 3);
+  const multiProjectRingSize = visibleProjects.length <= 2 ? 40 : 34;
+  const savingsTitle = locale.startsWith("en") ? "Savings" : "Ahorro";
+  const savingsVisualMaxMinor = totalSavingsMinor > 0n ? totalSavingsMinor : 1n;
   const ringTrack = "rgba(255,255,255,0.06)";
   const totalParts = formatCurrencyParts(totalSavingsMinor, currencySymbol, locale);
   const huchaParts = formatCurrencyParts(huchaAmountMinor, currencySymbol, locale);
@@ -122,7 +127,7 @@ export function ProjectsRow({
 
   return (
     <button type="button" onClick={onPress} className="w-full text-left">
-      <SummaryCardShell className="w-full rounded-[14px] border-[color:rgba(255,255,255,0.12)] px-[13px] py-[12px] transition-opacity hover:opacity-[0.96]">
+      <SummaryCardShell className="w-full rounded-[14px] border-[color:rgba(255,255,255,0.12)] px-[13px] py-[14px] transition-opacity hover:opacity-[0.96]">
         {isHero && hero ? (
           <>
             <div className="flex items-center gap-3">
@@ -195,24 +200,49 @@ export function ProjectsRow({
           </>
         ) : (
           <>
-            <div className="flex items-start gap-2">
-              <div className="flex max-w-[58%] items-start gap-2">
-                {projects.slice(0, 4).map((project) => {
-                  const size = projects.length <= 2 ? 43 : 35;
+            <div className="flex min-h-[116px] items-stretch gap-3">
+              <div className="flex min-w-[126px] shrink-0 items-center gap-3">
+                <div className="relative h-[72px] w-[72px] shrink-0">
+                  <HuchaLiquidCanvas
+                    valueMinor={totalSavingsMinor}
+                    maxMinor={savingsVisualMaxMinor}
+                    size={72}
+                  />
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-2">
+                    <span className="font-balance text-center text-[11px] leading-[1.05] text-[var(--account-text-primary)]">
+                      {totalParts.full}
+                    </span>
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-semibold tracking-[0.2px] text-[var(--account-text-tertiary)]">
+                    {savingsTitle}
+                  </p>
+                  <p className="mt-1 text-[10px] text-[var(--account-text-secondary)]">
+                    {currentMonth}
+                  </p>
+                </div>
+              </div>
+
+              <div className="ml-auto flex shrink-0 items-stretch gap-2 sm:gap-3">
+                {visibleProjects.map((project) => {
                   return (
-                    <div key={project.id} className="flex w-[50px] flex-col items-center gap-[2px]">
+                    <div
+                      key={project.id}
+                      className="flex w-[78px] flex-col items-center justify-between rounded-[12px] border border-[color:rgba(255,255,255,0.08)] bg-[var(--account-surface-alt)] px-2 py-3"
+                    >
                       <ProjectRing
                         progress={
                           Number(project.currentAmountMinor) / Number(project.goalAmountMinor || 1n)
                         }
-                        size={size}
+                        size={multiProjectRingSize + 6}
                         color={project.color}
                         trackColor={ringTrack}
                         emoji={project.emoji}
                         completed={project.currentAmountMinor >= project.goalAmountMinor}
                       />
                       <span
-                        className="line-clamp-1 text-center text-[8px] leading-[10px]"
+                        className="mt-2 line-clamp-2 w-full text-center text-[9px] leading-[11px]"
                         style={{ color: project.color }}
                       >
                         {project.name}
@@ -222,41 +252,10 @@ export function ProjectsRow({
                 })}
               </div>
 
-              <div className="ml-auto min-w-0 text-right">
-                <p className="text-[9px] font-semibold uppercase tracking-[0.7px] text-[var(--account-text-tertiary)]">
-                  {t("home.savings.summary.totalAmountLabel")}
-                </p>
-                <p className="font-balance text-[19px] font-normal leading-[1.1] tracking-[-0.4px] text-[#6DC9A0]">
-                  {totalParts.integer}
-                  <span className="font-balance text-[13px]">,{totalParts.decimals}</span>
-                </p>
-            <p className="mt-[2px] text-[10px] text-[var(--account-text-secondary)]">{currentMonth}</p>
-          </div>
-
-          <ChevronRight className="mt-1 h-4 w-4 text-[var(--account-text-tertiary)]" />
-        </div>
-
-            <p className="mt-[6px] text-[10px] text-[var(--account-text-secondary)]">
-              🐷 {t("home.savings.hucha")}:{" "}
-              <span
-                className="font-balance text-[11px] font-semibold"
-                style={{ color: HUCHA_PROJECT_COLOR }}
-              >
-                {huchaParts.full}
-              </span>
-            </p>
-            <p
-              className="mt-[4px] text-[10px]"
-              style={{
-                color: needsRebalance
-                  ? "#E0956A"
-                  : "var(--account-text-secondary)",
-              }}
-            >
-              {needsRebalance
-                ? `${t("home.savings.statusPending")} · ${plannedParts.full}`
-                : `${t("home.savings.savedThisMonth")}: ${totalParts.full} · ${t("projects.monthClose.projectAssigned")}: ${plannedParts.full} · ${t("projects.monthClose.allocatable")}: ${availableParts.full}`}
-            </p>
+              <div className="flex shrink-0 items-center justify-center">
+                <ChevronRight className="h-4 w-4 text-[var(--account-text-tertiary)]" />
+              </div>
+            </div>
           </>
         )}
       </SummaryCardShell>

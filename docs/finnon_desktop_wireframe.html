@@ -1,0 +1,343 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  .dash {
+    background: #111113;
+    min-height: 600px;
+    font-family: var(--font-sans);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* TOP NAV */
+  .topnav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px;
+    border-bottom: 0.5px solid rgba(255,255,255,0.07);
+  }
+  .nav-brand { display: flex; align-items: center; gap: 10px; }
+  .nav-logo { width: 28px; height: 28px; background: rgba(91,141,255,0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #5B8DFF; }
+  .nav-name { font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.9); letter-spacing: -0.3px; }
+  .nav-links { display: flex; gap: 4px; }
+  .nav-link { font-size: 13px; padding: 6px 14px; border-radius: 8px; color: rgba(255,255,255,0.4); cursor: pointer; font-weight: 500; }
+  .nav-link.active { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
+  .nav-right { display: flex; align-items: center; gap: 10px; }
+  .nav-icon { width: 32px; height: 32px; background: rgba(255,255,255,0.05); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .nav-avatar { width: 32px; height: 32px; background: #3d2f52; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: #c084fc; }
+
+  /* MAIN */
+  .main { padding: 24px 28px; display: flex; flex-direction: column; gap: 16px; flex: 1; }
+
+  /* TOP ROW — resumen */
+  .top-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+  .stat-card {
+    background: rgba(255,255,255,0.04);
+    border: 0.5px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 16px 18px;
+  }
+  .stat-label { font-size: 11px; color: rgba(255,255,255,0.3); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 6px; }
+  .stat-val { font-size: 26px; font-weight: 600; color: #fff; letter-spacing: -1px; line-height: 1; }
+  .stat-val .cents { font-size: 15px; font-weight: 400; color: rgba(255,255,255,0.4); }
+  .stat-sub { font-size: 11px; margin-top: 5px; }
+  .stat-sub.up { color: rgba(74,222,128,0.7); }
+  .stat-sub.down { color: rgba(248,113,113,0.7); }
+  .stat-sub.neutral { color: rgba(255,255,255,0.25); }
+  .stat-card.highlight { border-color: rgba(91,141,255,0.2); background: rgba(91,141,255,0.06); }
+  .stat-val.blue { color: #5B8DFF; }
+
+  /* BOTTOM ROW */
+  .bottom-row { display: grid; grid-template-columns: 1fr 1.55fr; gap: 16px; flex: 1; }
+
+  /* PROYECTOS PANEL */
+  .panel {
+    background: rgba(255,255,255,0.03);
+    border: 0.5px solid rgba(255,255,255,0.07);
+    border-radius: 18px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .panel-header { display: flex; justify-content: space-between; align-items: center; }
+  .panel-title { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.35); letter-spacing: 0.6px; text-transform: uppercase; }
+  .panel-action { font-size: 12px; color: rgba(91,141,255,0.65); }
+
+  .proyecto-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.04);
+    border: 0.5px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+  }
+  .proy-ring { position: relative; width: 44px; height: 44px; flex-shrink: 0; }
+  .proy-ring svg { width: 44px; height: 44px; }
+  .proy-emoji { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 14px; }
+  .proy-info { flex: 1; min-width: 0; }
+  .proy-name { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.85); margin-bottom: 3px; }
+  .proy-eta { font-size: 11px; color: rgba(255,255,255,0.3); }
+  .proy-eta span { color: rgba(91,141,255,0.8); font-weight: 500; }
+  .proy-pct { font-size: 20px; font-weight: 600; color: rgba(255,255,255,0.2); letter-spacing: -0.5px; flex-shrink: 0; }
+
+  /* CALENDARIO PANEL */
+  .cal-panel {
+    background: rgba(255,255,255,0.03);
+    border: 0.5px solid rgba(255,255,255,0.07);
+    border-radius: 18px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .cal-header { display: flex; justify-content: space-between; align-items: center; }
+  .cal-tabs { display: flex; gap: 4px; }
+  .cal-tab { font-size: 12px; padding: 5px 12px; border-radius: 8px; color: rgba(255,255,255,0.35); font-weight: 500; cursor: pointer; }
+  .cal-tab.active { background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.85); }
+  .cal-nav { display: flex; align-items: center; gap: 10px; }
+  .cal-range-txt { font-size: 12px; color: rgba(255,255,255,0.45); }
+  .cal-arr { font-size: 12px; color: rgba(255,255,255,0.25); cursor: pointer; }
+
+  .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; }
+  .cal-day { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .cal-day-lbl { font-size: 10px; color: rgba(255,255,255,0.22); letter-spacing: 0.3px; }
+  .cal-day-num {
+    font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.5);
+    width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+    border-radius: 8px;
+  }
+  .cal-day-num.today { background: rgba(91,141,255,0.18); color: #5B8DFF; }
+  .bar-wrap { height: 64px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 2px; }
+  .bar { width: 18px; border-radius: 3px 3px 0 0; }
+  .bar.salud { background: rgba(248,113,113,0.65); }
+  .bar.sum { background: rgba(251,191,36,0.6); }
+  .bar.ing { background: rgba(74,222,128,0.65); }
+  .bar-amt { font-size: 9px; color: rgba(255,255,255,0.28); }
+
+  .cal-legend { display: flex; gap: 14px; padding-top: 4px; }
+  .leg-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: rgba(255,255,255,0.28); }
+  .leg-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  .cal-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 10px; border-top: 0.5px solid rgba(255,255,255,0.06);
+  }
+  .cf-group { display: flex; flex-direction: column; gap: 3px; }
+  .cf-lbl { font-size: 10px; color: rgba(255,255,255,0.22); letter-spacing: 0.5px; text-transform: uppercase; }
+  .cf-vals { display: flex; gap: 10px; }
+  .cf-v { font-size: 13px; font-weight: 500; }
+  .cf-v.up { color: rgba(74,222,128,0.8); }
+  .cf-v.dn { color: rgba(248,113,113,0.8); }
+
+  /* Transacciones del día */
+  .tx-section { display: flex; flex-direction: column; gap: 6px; }
+  .tx-title { font-size: 11px; color: rgba(255,255,255,0.25); letter-spacing: 0.5px; }
+  .tx-empty { font-size: 12px; color: rgba(255,255,255,0.2); padding: 8px 0; }
+</style>
+
+<div class="dash">
+  <!-- TOP NAV -->
+  <div class="topnav">
+    <div class="nav-brand">
+      <div class="nav-logo">F</div>
+      <span class="nav-name">Finnon</span>
+    </div>
+    <div class="nav-links">
+      <div class="nav-link active">Inicio</div>
+      <div class="nav-link">Tu Cuenta</div>
+      <div class="nav-link">Proyectos</div>
+      <div class="nav-link">Movimientos</div>
+    </div>
+    <div class="nav-right">
+      <div class="nav-icon">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="3" stroke="rgba(255,255,255,0.45)" stroke-width="1.2"/><path d="M5 8h6M8 5v6" stroke="rgba(255,255,255,0.45)" stroke-width="1.2" stroke-linecap="round"/></svg>
+      </div>
+      <div class="nav-icon">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2a4 4 0 014 4c0 3 1 4 1 4H3s1-1 1-4a4 4 0 014-4zm0 12a1.5 1.5 0 01-1.5-1.5h3A1.5 1.5 0 018 14z" stroke="rgba(255,255,255,0.45)" stroke-width="1.1"/></svg>
+      </div>
+      <div class="nav-avatar">AG</div>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- TOP ROW: 4 stat cards -->
+    <div class="top-row">
+      <div class="stat-card">
+        <div class="stat-label">Balance</div>
+        <div class="stat-val">€5.863<span class="cents">,18</span></div>
+        <div class="stat-sub neutral">Patrimonio total</div>
+      </div>
+      <div class="stat-card highlight">
+        <div class="stat-label">Ahorro · Marzo</div>
+        <div class="stat-val blue">€1.126<span class="cents" style="color:rgba(91,141,255,0.5)">,03</span></div>
+        <div class="stat-sub neutral">De €2.200 ingresados</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Ingresos</div>
+        <div class="stat-val">€2.200<span class="cents">,00</span></div>
+        <div class="stat-sub up">↑ Este mes</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Gastos</div>
+        <div class="stat-val">€1.118<span class="cents">,97</span></div>
+        <div class="stat-sub down">↓ Este mes</div>
+      </div>
+    </div>
+
+    <!-- BOTTOM ROW: proyectos + calendario -->
+    <div class="bottom-row">
+
+      <!-- PROYECTOS -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Proyectos</span>
+          <span class="panel-action">Ver todos →</span>
+        </div>
+
+        <div class="proyecto-row">
+          <div class="proy-ring">
+            <svg viewBox="0 0 44 44" fill="none">
+              <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="3.5"/>
+              <circle cx="22" cy="22" r="18" fill="none" stroke="#5B8DFF" stroke-width="3.5" stroke-linecap="round"
+                stroke-dasharray="113.1" stroke-dashoffset="40.7" transform="rotate(-90 22 22)"/>
+            </svg>
+            <div class="proy-emoji">💻</div>
+          </div>
+          <div class="proy-info">
+            <div class="proy-name">Macbook</div>
+            <div class="proy-eta">Llegas en <span>agosto 2026</span></div>
+          </div>
+          <div class="proy-pct">64%</div>
+        </div>
+
+        <div class="proyecto-row">
+          <div class="proy-ring">
+            <svg viewBox="0 0 44 44" fill="none">
+              <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="3.5"/>
+              <circle cx="22" cy="22" r="18" fill="none" stroke="#a78bfa" stroke-width="3.5" stroke-linecap="round"
+                stroke-dasharray="113.1" stroke-dashoffset="79.2" transform="rotate(-90 22 22)"/>
+            </svg>
+            <div class="proy-emoji">🚗</div>
+          </div>
+          <div class="proy-info">
+            <div class="proy-name">Coche eléctrico</div>
+            <div class="proy-eta">Llegas en <span>marzo 2028</span></div>
+          </div>
+          <div class="proy-pct">30%</div>
+        </div>
+
+        <div class="proyecto-row">
+          <div class="proy-ring">
+            <svg viewBox="0 0 44 44" fill="none">
+              <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="3.5"/>
+              <circle cx="22" cy="22" r="18" fill="none" stroke="#34d399" stroke-width="3.5" stroke-linecap="round"
+                stroke-dasharray="113.1" stroke-dashoffset="22.6" transform="rotate(-90 22 22)"/>
+            </svg>
+            <div class="proy-emoji">✈️</div>
+          </div>
+          <div class="proy-info">
+            <div class="proy-name">Japón</div>
+            <div class="proy-eta">Llegas en <span>abril 2026</span></div>
+          </div>
+          <div class="proy-pct">80%</div>
+        </div>
+
+      </div>
+
+      <!-- CALENDARIO -->
+      <div class="cal-panel">
+        <div class="cal-header">
+          <div class="cal-tabs">
+            <div class="cal-tab active">Semana</div>
+            <div class="cal-tab">Mes</div>
+          </div>
+          <div class="cal-nav">
+            <span class="cal-arr">‹</span>
+            <span class="cal-range-txt">9–15 mar</span>
+            <span class="cal-arr">›</span>
+          </div>
+        </div>
+
+        <div class="cal-grid">
+          <div class="cal-day">
+            <div class="cal-day-lbl">L</div>
+            <div class="cal-day-num today">9</div>
+            <div class="bar-wrap"><span style="font-size:9px;color:rgba(255,255,255,0.18)">—</span></div>
+            <div class="bar-amt"></div>
+          </div>
+          <div class="cal-day">
+            <div class="cal-day-lbl">M</div>
+            <div class="cal-day-num">10</div>
+            <div class="bar-wrap"><div class="bar salud" style="height:38px;"></div></div>
+            <div class="bar-amt" style="color:rgba(248,113,113,0.55)">−39</div>
+          </div>
+          <div class="cal-day">
+            <div class="cal-day-lbl">X</div>
+            <div class="cal-day-num">11</div>
+            <div class="bar-wrap"><span style="font-size:9px;color:rgba(255,255,255,0.18)">—</span></div>
+            <div class="bar-amt"></div>
+          </div>
+          <div class="cal-day">
+            <div class="cal-day-lbl">J</div>
+            <div class="cal-day-num">12</div>
+            <div class="bar-wrap"><span style="font-size:9px;color:rgba(255,255,255,0.18)">—</span></div>
+            <div class="bar-amt"></div>
+          </div>
+          <div class="cal-day">
+            <div class="cal-day-lbl">V</div>
+            <div class="cal-day-num">13</div>
+            <div class="bar-wrap"><span style="font-size:9px;color:rgba(255,255,255,0.18)">—</span></div>
+            <div class="bar-amt"></div>
+          </div>
+          <div class="cal-day">
+            <div class="cal-day-lbl">S</div>
+            <div class="cal-day-num">14</div>
+            <div class="bar-wrap"><div class="bar sum" style="height:52px;"></div></div>
+            <div class="bar-amt" style="color:rgba(251,191,36,0.55)">−65</div>
+          </div>
+          <div class="cal-day">
+            <div class="cal-day-lbl">D</div>
+            <div class="cal-day-num">15</div>
+            <div class="bar-wrap"><div class="bar sum" style="height:28px;"></div></div>
+            <div class="bar-amt" style="color:rgba(251,191,36,0.55)">−35</div>
+          </div>
+        </div>
+
+        <div class="cal-legend">
+          <div class="leg-item"><div class="leg-dot" style="background:#f87171;"></div>Salud</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#fbbf24;"></div>Suministros</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#4ade80;"></div>Ingreso</div>
+        </div>
+
+        <div class="cal-footer">
+          <div class="cf-group">
+            <div class="cf-lbl">Día</div>
+            <div class="cf-vals">
+              <span class="cf-v up">↑ €0,00</span>
+              <span class="cf-v dn">↓ €0,00</span>
+            </div>
+          </div>
+          <div class="cf-group" style="text-align:right">
+            <div class="cf-lbl">Mes</div>
+            <div class="cf-vals" style="justify-content:flex-end">
+              <span class="cf-v up">↑ €2.200,00</span>
+              <span class="cf-v dn">↓ €1.118,97</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tx-section">
+          <div class="tx-title">TRANSACCIONES · LUNES 9 DE MARZO</div>
+          <div class="tx-empty">No hay movimientos para este día.</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>

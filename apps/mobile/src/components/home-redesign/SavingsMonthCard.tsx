@@ -1,12 +1,11 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { ChevronRight } from "lucide-react-native";
-import { HUCHA_PROJECT_COLOR, PROJECT_PALETTE, themeTokens, withAlpha } from "@poleursus/shared";
+import { HUCHA_PROJECT_COLOR, PROJECT_PALETTE, withAlpha } from "@poleursus/shared";
 import { useUserTheme } from "../../contexts/UserThemeContext";
 import { useCopy, t } from "../../lib/i18n";
 import { formatCurrencyParts, toMinor } from "./utils";
-
-const tokens = themeTokens.light;
+import { HuchaLiquidCanvas } from "../HuchaLiquidCanvas";
 
 type ProjectRowItem = {
   id: string;
@@ -121,6 +120,10 @@ export function ProjectsRow({
   const { tokens: userTokens, resolvedMode } = useUserTheme();
   const { dictionary } = useCopy();
   const isHero = projects.length === 1;
+  const visibleProjects = projects.slice(0, 3);
+  const multiProjectRingSize = visibleProjects.length <= 2 ? 40 : 34;
+  const savingsTitle = locale === "en" ? "Savings" : "Ahorro";
+  const savingsVisualMaxMinor = totalSavingsMinor > 0n ? totalSavingsMinor : 1n;
   const ringTrack =
     resolvedMode === "dark" ? "rgba(255,255,255,0.06)" : withAlpha(userTokens.textPrimary, 0.1);
   const totalParts = formatCurrencyParts(totalSavingsMinor, currencySymbol);
@@ -205,54 +208,66 @@ export function ProjectsRow({
           </>
         ) : (
           <>
-            <View style={styles.header}>
-              <View style={styles.ringsRow}>
-                {projects.slice(0, 4).map((project) => {
+            <View style={styles.compactRow}>
+              <View style={styles.compactSummary}>
+                <View style={styles.compactSavingsVisual}>
+                  <HuchaLiquidCanvas
+                    valueMinor={totalSavingsMinor}
+                    maxMinor={savingsVisualMaxMinor}
+                    size={72}
+                  />
+                  <View style={styles.compactSavingsAmount} pointerEvents="none">
+                    <Text
+                      style={[styles.compactSavingsAmountText, { color: userTokens.textPrimary }]}
+                      numberOfLines={2}
+                    >
+                      {totalParts.full}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.compactSummaryText}>
+                  <Text style={[styles.compactTitle, { color: userTokens.textTertiary }]}>
+                    {savingsTitle}
+                  </Text>
+                  <Text style={[styles.monthText, { color: userTokens.textSecondary }]}>
+                    {currentMonth}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.compactProjectsRow}>
+                {visibleProjects.map((project) => {
                   const progress =
                     Number(project.currentAmountMinor) / Number(project.goalAmountMinor || 1n);
                   return (
-                    <View key={project.id} style={styles.ringBlock}>
+                    <View
+                      key={project.id}
+                      style={[
+                        styles.compactRingCard,
+                        {
+                          backgroundColor: userTokens.surfaceAlt,
+                          borderColor: withAlpha(userTokens.textPrimary, 0.08),
+                        },
+                      ]}
+                    >
                       <ProjectRing
                         progress={progress}
-                        size={projects.length <= 2 ? 43 : 35}
+                        size={multiProjectRingSize + 6}
                         color={project.color}
                         trackColor={ringTrack}
                         emoji={project.emoji}
                         completed={project.currentAmountMinor >= project.goalAmountMinor}
                       />
-                      <Text style={[styles.projectName, { color: project.color }]} numberOfLines={1}>
+                      <Text style={[styles.compactProjectName, { color: project.color }]} numberOfLines={2}>
                         {project.name}
                       </Text>
                     </View>
                   );
                 })}
               </View>
-              <View style={styles.headerRight}>
-                <Text style={[styles.label, { color: userTokens.textTertiary }]}>
-                  {t(dictionary, "home.savings.summary.totalAmountLabel")}
-                </Text>
-                <Text style={styles.totalAmount}>
-                  {totalParts.integer}
-                  <Text style={styles.totalDecimals}>,{totalParts.decimals}</Text>
-                </Text>
-                <Text style={[styles.monthText, { color: userTokens.textSecondary }]}>{currentMonth}</Text>
+              <View style={styles.compactChevron}>
+                <ChevronRight size={16} color={userTokens.textTertiary} />
               </View>
-              <ChevronRight size={16} color={userTokens.textTertiary} />
             </View>
-            <Text style={[styles.huchaText, { color: userTokens.textSecondary }]}>
-              🐷 {t(dictionary, "home.savings.hucha")}:{" "}
-              <Text style={[styles.huchaAmount, { color: HUCHA_PROJECT_COLOR }]}>{huchaParts.full}</Text>
-            </Text>
-            <Text
-              style={[
-                styles.statusLine,
-                { color: needsRebalance ? "#E0956A" : userTokens.textSecondary },
-              ]}
-            >
-              {needsRebalance
-                ? `${t(dictionary, "home.savings.statusPending")} · ${plannedParts.full}`
-                : `${t(dictionary, "home.savings.savedThisMonth")}: ${totalParts.full} · ${t(dictionary, "projects.monthClose.projectAssigned")}: ${plannedParts.full} · ${t(dictionary, "projects.monthClose.allocatable")}: ${availableParts.full}`}
-            </Text>
           </>
         )}
       </View>
@@ -314,6 +329,73 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 10,
   },
+  compactRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    minHeight: 116,
+    gap: 10,
+  },
+  compactSummary: {
+    width: 146,
+    flexShrink: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  compactSummaryText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  compactSavingsVisual: {
+    width: 72,
+    height: 72,
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  compactSavingsAmount: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  compactSavingsAmountText: {
+    fontSize: 11,
+    lineHeight: 12,
+    fontFamily: "JetBrainsMono-Medium",
+    textAlign: "center",
+  },
+  compactTitle: {
+    fontSize: 9,
+    lineHeight: 12,
+    fontFamily: "DMSans-SemiBold",
+  },
+  compactProjectsRow: {
+    flexShrink: 0,
+    flexDirection: "row",
+    alignItems: "stretch",
+    marginLeft: "auto",
+    gap: 6,
+  },
+  compactRingCard: {
+    width: 72,
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+  },
+  compactChevron: {
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   headerRight: {
     flex: 1,
     alignItems: "flex-end",
@@ -328,12 +410,10 @@ const styles = StyleSheet.create({
     fontSize: 19,
     lineHeight: 22,
     fontFamily: "JetBrainsMono-Medium",
-    color: "#6DC9A0",
     letterSpacing: -0.4,
   },
   totalDecimals: {
     fontSize: 13,
-    color: "#6DC9A0",
     fontFamily: "JetBrainsMono-Medium",
   },
   monthText: {
@@ -370,6 +450,13 @@ const styles = StyleSheet.create({
   projectName: {
     fontSize: 8,
     lineHeight: 10,
+    fontFamily: "DMSans-Medium",
+    textAlign: "center",
+  },
+  compactProjectName: {
+    width: "100%",
+    fontSize: 9,
+    lineHeight: 11,
     fontFamily: "DMSans-Medium",
     textAlign: "center",
   },

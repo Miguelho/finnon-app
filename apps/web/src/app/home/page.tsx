@@ -6,8 +6,11 @@ import { TopNav } from "@/components/navigation/top-nav";
 import { BottomNavWrapper } from "@/components/navigation/bottom-nav-wrapper";
 import { HomePageClient } from "@/components/home-redesign/HomePageClient";
 import {
-  CATEGORY_PALETTE,
+  buildHomeProjectPreviews,
   CURRENCIES,
+  computeSavingsMonthFromTransactions,
+  computeSavingsMonthView,
+  formatMonthLabel,
   getExpandedMonthRange,
   toMonthKey,
 } from "@poleursus/shared";
@@ -20,9 +23,9 @@ const dmSans = DM_Sans({
 });
 
 const TRANSACTIONS_SELECT_WITH_CATEGORY_COLOR =
-  "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id, color)";
+  "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, project_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id, color)";
 const TRANSACTIONS_SELECT_LEGACY =
-  "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id)";
+  "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, project_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id)";
 
 const isMissingCategoryColorError = (error: any) =>
   error?.code === "42703" &&
@@ -56,6 +59,7 @@ type HomeTransactionRow = {
   type: "income" | "expense";
   amount_minor: string | number | null;
   amount_base_minor: string | number | null;
+  project_id?: string | null;
   date: string;
   merchant: string | null;
   notes?: string | null;
@@ -209,103 +213,74 @@ export default async function DashboardPage() {
   }
 
   const currentPeriodStart = `${toMonthKey(today)}-01`;
+  const [{ data: fundingPlans, error: fundingPlansError }, { data: currentMonthClose, error: currentMonthCloseError }] =
+    await Promise.all([
+      supabase
+        .from("monthly_project_funding_plans")
+        .select("*")
+        .eq("account_id", mainAccount.id)
+        .eq("period", currentPeriodStart),
+      supabase
+        .from("month_closes")
+        .select("*")
+        .eq("account_id", mainAccount.id)
+        .eq("period", currentPeriodStart)
+        .maybeSingle(),
+    ]);
 
-  const [
-    reserveContainersResult,
-    fundingPlansResult,
-    monthClosesResult,
-    monthCloseAllocationsResult,
-    reserveTransfersResult,
-  ] = await Promise.all([
-    supabase
-      .from("reserve_containers")
-      .select("*")
-      .eq("account_id", mainAccount.id)
-      .eq("status", "active")
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("monthly_project_funding_plans")
-      .select("*")
-      .eq("account_id", mainAccount.id)
-      .eq("period", currentPeriodStart),
-    supabase
-      .from("month_closes")
-      .select("*")
-      .eq("account_id", mainAccount.id)
-      .order("period", { ascending: false }),
-    supabase
-      .from("month_close_allocations")
-      .select("*")
-      .eq("account_id", mainAccount.id),
-    supabase
-      .from("reserve_transfers")
-      .select("*")
-      .eq("account_id", mainAccount.id)
-      .order("created_at", { ascending: false }),
-  ]);
-
-  if (reserveContainersResult.error) {
-    console.error("[HomePage][web] reserve containers query error:", reserveContainersResult.error);
+  if (fundingPlansError) {
+    console.error("[HomePage][web] funding plans query error:", fundingPlansError);
   }
-  if (fundingPlansResult.error) {
-    console.error("[HomePage][web] funding plans query error:", fundingPlansResult.error);
-  }
-  if (monthClosesResult.error) {
-    console.error("[HomePage][web] month closes query error:", monthClosesResult.error);
-  }
-  if (monthCloseAllocationsResult.error) {
-    console.error("[HomePage][web] month close allocations query error:", monthCloseAllocationsResult.error);
-  }
-  if (reserveTransfersResult.error) {
-    console.error("[HomePage][web] reserve transfers query error:", reserveTransfersResult.error);
+  if (currentMonthCloseError) {
+    console.error("[HomePage][web] current month close query error:", currentMonthCloseError);
   }
 
-  const creatorUserIds = Array.from(
-    new Set(
-      [...normalizedMonthlyTransactions, ...normalizedUpcomingTransactions]
-        .map((transaction) => transaction.created_by)
-        .filter((value): value is string => Boolean(value))
-    )
-  );
-  const { data: profiles } =
-    creatorUserIds.length > 0
+  let balanceMinor = 0n;
+  try {
+    const { data, error } = await supabase.rpc("get_account_summary", {
+      p_account_id: mainAccount.id,
+    });
+    if (error) throw error;
+    balanceMinor = toMinor((data as any)?.totals?.balance_total ?? 0);
+  } catch (error) {
+    console.warn("[HomePage][web] account balance fallback to 0:", mainAccount.id, error);
+  }
+
+  const projectIds = (projects ?? []).map((project) => project.id);
+  const { data: contributionRows, error: contributionRowsError } =
+    projectIds.length > 0
       ? await supabase
-          .from("profiles")
-          .select(
-            "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
-          )
-          .in("user_id", creatorUserIds)
-      : { data: [] };
+          .from("transactions")
+          .select("project_id, amount_base_minor")
+          .eq("account_id", mainAccount.id)
+          .eq("type", "expense")
+          .in("project_id", projectIds)
+      : {
+          data: [],
+          error: null,
+        };
 
-  const accountsWithBalance = await Promise.all(
-    accounts.map(async (account, index) => {
-      try {
-        const { data, error } = await supabase.rpc("get_account_summary", {
-          p_account_id: account.id,
-        });
-        if (error) throw error;
-        const balanceMinor = toMinor((data as any)?.totals?.balance_total ?? 0);
-        return {
-          id: account.id,
-          name: account.name,
-          balanceMinor: balanceMinor.toString(),
-          color: CATEGORY_PALETTE[index % CATEGORY_PALETTE.length]!,
-        };
-      } catch (error) {
-        console.warn("[HomePage][web] account balance fallback to 0:", account.id, error);
-        return {
-          id: account.id,
-          name: account.name,
-          balanceMinor: "0",
-          color: CATEGORY_PALETTE[index % CATEGORY_PALETTE.length]!,
-        };
-      }
-    })
-  );
+  if (contributionRowsError) {
+    console.error("[HomePage][web] contribution transactions query error:", contributionRowsError);
+  }
 
   const currencySymbol =
     CURRENCIES.find((currency) => currency.code === mainAccount.base_currency)
       ?.symbol ?? mainAccount.base_currency;
+
+  const monthTransactionsToDate = normalizedMonthlyTransactions.filter((transaction) => {
+    const transactionDate = transaction.date.slice(0, 7);
+    return transactionDate === currentPeriodStart.slice(0, 7) && transaction.date <= today.toISOString().slice(0, 10);
+  });
+  const monthTotals = computeSavingsMonthFromTransactions(monthTransactionsToDate);
+  const savingsState = computeSavingsMonthView({
+    period: currentPeriodStart.slice(0, 7),
+    transactions: monthTransactionsToDate,
+    fundingPlans: fundingPlans ?? [],
+    monthClose: currentMonthClose,
+  });
+  const monthLabel = formatMonthLabel(currentPeriodStart.slice(0, 7), locale === "en" ? "en-US" : "es-ES");
+  const currentMonth = monthLabel ? `${monthLabel.charAt(0).toUpperCase()}${monthLabel.slice(1)}` : "";
 
   return (
     <div className={cn("min-h-screen bg-background", dmSans.className)}>
@@ -318,17 +293,31 @@ export default async function DashboardPage() {
           baseCurrency: mainAccount.base_currency,
           locale,
         }}
-        accounts={accountsWithBalance}
         monthlyTransactions={normalizedMonthlyTransactions}
         upcomingTransactions={normalizedUpcomingTransactions}
         obligations={obligations ?? []}
-        profiles={profiles ?? []}
-        projects={projects ?? []}
-        reserveContainers={reserveContainersResult.data ?? []}
-        fundingPlans={fundingPlansResult.data ?? []}
-        monthCloses={monthClosesResult.data ?? []}
-        monthCloseAllocations={monthCloseAllocationsResult.data ?? []}
-        reserveTransfers={reserveTransfersResult.data ?? []}
+        summary={{
+          balanceMinor: balanceMinor.toString(),
+          monthlySavingsMinor: savingsState.generatedSavedMinor.toString(),
+          monthlyIncomeMinor: monthTotals.incomeMinor.toString(),
+          monthlyExpensesMinor: monthTotals.expenseMinor.toString(),
+          availableMinor: savingsState.availableToPlanMinor.toString(),
+          currentMonth,
+          topProjects: buildHomeProjectPreviews({
+            projects: projects ?? [],
+            contributionRows: (contributionRows ?? []) as Array<{
+              project_id: string | null;
+              amount_base_minor: string | number | bigint | null;
+            }>,
+            limit: 3,
+            now: today,
+          }).map((project) => ({
+            ...project,
+            goalAmount: project.goalAmount.toString(),
+            totalContributed: project.totalContributed.toString(),
+            estimatedCompletion: project.estimatedCompletion?.toISOString() ?? null,
+          })),
+        }}
       />
       <div className="h-16 sm:hidden" />
       <BottomNavWrapper />
