@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon — Savings Distribution Redesign</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0F1114;
+    --surface: #1A1D22;
+    --surface-elevated: #22262C;
+    --border: #2A2E35;
+    --text-primary: #F0F0F0;
+    --text-secondary: #9AA0A6;
+    --text-tertiary: #5F6368;
+    --accent-blue: #5B8DFF;
+    --accent-cyan: #4FD1C5;
+    --accent-mint: #48D89F;
+    --accent-indigo: #C7D2FE;
+    --hucha-green: #48D89F;
+    --progress-track: #2A2E35;
+    font-variant-numeric: tabular-nums;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .screen {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  /* ── HERO: Capacity ── */
+  .hero {
+    text-align: center;
+    padding: 40px 0 32px;
+  }
+
+  .hero-icon {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 16px;
+    background: radial-gradient(circle at 50% 40%, rgba(79, 209, 197, 0.15), transparent 70%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+  }
+
+  .hero-amount {
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    margin-bottom: 4px;
+  }
+
+  .hero-label {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+
+  /* ── Context bar: how we got here ── */
+  .context-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-tertiary);
+    padding: 10px 20px;
+    background: var(--surface);
+    border-radius: 10px;
+    width: fit-content;
+    margin: 0 auto 40px;
+  }
+
+  .context-bar .income { color: var(--accent-cyan); }
+  .context-bar .expenses { color: #F87171; }
+  .context-bar .separator { opacity: 0.4; }
+
+  /* ── Distribution section ── */
+  .distribution-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding: 0 4px;
+  }
+
+  .distribution-header h2 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+  }
+
+  /* ── Stacked bar ── */
+  .stacked-bar-container {
+    margin-bottom: 28px;
+  }
+
+  .stacked-bar {
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    overflow: hidden;
+    background: var(--progress-track);
+    margin-bottom: 10px;
+  }
+
+  .stacked-bar .segment {
+    height: 100%;
+    transition: width 0.6s ease;
+    position: relative;
+  }
+
+  .stacked-bar .segment-projects {
+    background: var(--accent-blue);
+    border-radius: 8px 0 0 8px;
+  }
+
+  .stacked-bar .segment-hucha {
+    background: var(--hucha-green);
+    opacity: 0.35;
+    border-radius: 0 8px 8px 0;
+  }
+
+  .stacked-bar-legend {
+    display: flex;
+    gap: 20px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .stacked-bar-legend span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .legend-dot.projects { background: var(--accent-blue); }
+  .legend-dot.hucha { background: var(--hucha-green); opacity: 0.5; }
+
+  /* ── Main grid: Projects + Hucha ── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  /* ── Project cards row ── */
+  .projects-row {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .project-card {
+    flex: 0 0 200px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: border-color 0.2s;
+  }
+
+  .project-card:hover {
+    border-color: var(--accent-blue);
+  }
+
+  .project-card-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .project-emoji {
+    font-size: 22px;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-elevated);
+    border-radius: 10px;
+  }
+
+  .project-name {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .project-commitment {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  /* Monthly progress mini bar */
+  .month-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .month-progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .month-progress-label .contributed {
+    color: var(--accent-blue);
+    font-weight: 600;
+  }
+
+  .month-progress-bar {
+    height: 4px;
+    background: var(--progress-track);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .month-progress-bar-fill {
+    height: 100%;
+    background: var(--accent-blue);
+    border-radius: 2px;
+    transition: width 0.5s ease;
+  }
+
+  /* Overall progress */
+  .project-overall {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    padding-top: 2px;
+    border-top: 1px solid var(--border);
+  }
+
+  .project-overall .pct {
+    color: var(--accent-cyan);
+    font-weight: 600;
+    font-size: 12px;
+  }
+
+  /* ── Projects link ── */
+  .projects-link-row {
+    margin-top: 12px;
+    padding: 0 4px;
+  }
+
+  .projects-link {
+    font-size: 13px;
+    color: var(--accent-blue);
+    text-decoration: none;
+    font-weight: 500;
+    transition: opacity 0.2s;
+  }
+
+  .projects-link:hover {
+    opacity: 0.75;
+  }
+
+  /* ── Hucha strip ── */
+  .hucha-strip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .hucha-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .hucha-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, var(--hucha-green), #2D8B6F);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0F1114;
+    box-shadow: 0 0 20px rgba(72, 216, 159, 0.15);
+  }
+
+  .hucha-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--hucha-green);
+    opacity: 0.7;
+    margin-bottom: 2px;
+  }
+
+  .hucha-sublabel {
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+
+  .hucha-amount {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--hucha-green);
+    letter-spacing: -0.5px;
+  }
+
+  /* ── Summary row ── */
+  .summary-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+  }
+
+  .summary-card-label {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+
+  .summary-card-value {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .summary-card-value.blue { color: var(--accent-blue); }
+
+  .summary-card-sub {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+  }
+
+  .summary-card-sub .pct {
+    color: var(--accent-cyan);
+    font-weight: 500;
+  }
+
+  /* ── Recurrentes strip ── */
+  .recurrentes-strip {
+    margin-top: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .recurrentes-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .recurrentes-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(248, 113, 113, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .recurrentes-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+
+  .recurrentes-sub {
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+
+  .recurrentes-right {
+    text-align: right;
+  }
+
+  .recurrentes-amount {
+    font-size: 20px;
+    font-weight: 700;
+    color: #F87171;
+    letter-spacing: -0.5px;
+  }
+
+  .recurrentes-period {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-tertiary);
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    body { padding: 16px; }
+    .hero-amount { font-size: 32px; }
+    .project-card { flex: 0 0 170px; }
+    .hucha-strip { flex-wrap: wrap; }
+    .summary-row { grid-template-columns: 1fr; }
+  }
+
+  /* ── Annotation badges ── */
+  .annotation {
+    display: inline-block;
+    background: #5B8DFF22;
+    color: var(--accent-blue);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: 8px;
+    vertical-align: middle;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .annotation.change { background: #F8717122; color: #F87171; }
+  .annotation.new { background: #48D89F22; color: #48D89F; }
+</style>
+</head>
+<body>
+
+<div class="screen">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-icon">🫙</div>
+    <div class="hero-amount">€1,081.03</div>
+    <div class="hero-label">capacidad de ahorro · marzo</div>
+  </div>
+
+  <!-- CONTEXT BAR: how we got here (recurrentes como contexto) -->
+  <div class="context-bar">
+    <span class="income">€3,200.00 ingresos</span>
+    <span class="separator">−</span>
+    <span class="expenses">€2,118.97 gastos fijos</span>
+    <span class="separator">=</span>
+    <span style="color: var(--text-primary); font-weight: 600;">€1,081.03</span>
+  </div>
+
+  <!-- DISTRIBUTION -->
+  <div class="distribution-header">
+    <h2>Distribución del ahorro</h2>
+  </div>
+
+  <!-- STACKED BAR replacing pipe -->
+  <div class="stacked-bar-container">
+    <div class="stacked-bar">
+      <div class="segment segment-projects" style="width: 4.6%;"></div>
+      <div class="segment segment-hucha" style="width: 95.4%;"></div>
+    </div>
+    <div class="stacked-bar-legend">
+      <span><span class="legend-dot projects"></span>Proyectos · €50.00</span>
+      <span><span class="legend-dot hucha"></span>Hucha · €1,031.03</span>
+    </div>
+  </div>
+
+  <!-- PROJECT CARDS (scrollable row) -->
+  <div class="projects-row">
+
+    <div class="project-card">
+      <div class="project-card-top">
+        <div class="project-emoji">💻</div>
+        <div>
+          <div class="project-name">Macbook</div>
+          <div class="project-commitment">€50.00/mes</div>
+        </div>
+      </div>
+      <div class="month-progress">
+        <div class="month-progress-label">
+          <span>Este mes</span>
+          <span class="contributed">€35.00 / €50.00</span>
+        </div>
+        <div class="month-progress-bar">
+          <div class="month-progress-bar-fill" style="width: 70%;"></div>
+        </div>
+      </div>
+      <div class="project-overall">
+        <span>Total acumulado</span>
+        <span class="pct">41%</span>
+      </div>
+    </div>
+
+    <div class="project-card">
+      <div class="project-card-top">
+        <div class="project-emoji">🚗</div>
+        <div>
+          <div class="project-name">Coche eléctrico</div>
+          <div class="project-commitment">€1,000.00/mes</div>
+        </div>
+      </div>
+      <div class="month-progress">
+        <div class="month-progress-label">
+          <span>Este mes</span>
+          <span class="contributed">€0.00 / €1,000.00</span>
+        </div>
+        <div class="month-progress-bar">
+          <div class="month-progress-bar-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+      <div class="project-overall">
+        <span>Total acumulado</span>
+        <span class="pct">3%</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PROJECTS LINK -->
+  <div class="projects-link-row">
+    <a href="#" class="projects-link">Ver todos los proyectos →</a>
+  </div>
+
+  <!-- HUCHA STRIP -->
+  <div class="hucha-strip" style="margin-top: 12px;">
+    <div class="hucha-left">
+      <div class="hucha-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="10" stroke="#0F1114" stroke-width="1.5" fill="none"/>
+          <path d="M2.5 14.5 C2.5 14.5 6 13 12 14.5 C18 16 21.5 14.5 21.5 14.5 C21.5 14.5 22 18.5 19.8 20.8 C17.5 23 6.5 23 4.2 20.8 C2 18.5 2.5 14.5 2.5 14.5Z" fill="#48D89F" opacity="0.6"/>
+          <path d="M2.1 15.5 C2.1 15.5 6 14.2 12 15.5 C18 16.8 21.9 15.5 21.9 15.5 C21.6 19.2 19.2 21.6 17 22 C10 23.2 4.5 22 2.4 19.8 C1.8 18.2 2.1 15.5 2.1 15.5Z" fill="#48D89F" opacity="0.9"/>
+        </svg>
+      </div>
+      <div>
+        <div class="hucha-label">Hucha</div>
+        <div class="hucha-sublabel">Excedente del mes</div>
+      </div>
+    </div>
+    <div class="hucha-amount">€1,031.03</div>
+  </div>
+
+  <!-- SUMMARY ROW -->
+  <div class="summary-row">
+    <div class="summary-card">
+      <div class="summary-card-label">Comprometido a proyectos</div>
+      <div class="summary-card-value blue">€50.00<span style="font-size: 14px; font-weight: 400; color: var(--text-tertiary);">/mes</span></div>
+      <div class="summary-card-sub"><span class="pct">4.6%</span> de tu capacidad de ahorro</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-card-label">Contribuido este mes</div>
+      <div class="summary-card-value" style="color: var(--accent-cyan);">€35.00</div>
+      <div class="summary-card-sub"><span class="pct">70%</span> del compromiso mensual</div>
+    </div>
+  </div>
+
+  <!-- RECURRENTES CONTEXT -->
+  <div class="recurrentes-strip">
+    <div class="recurrentes-left">
+      <div class="recurrentes-icon">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9 1.5C4.86 1.5 1.5 4.86 1.5 9s3.36 7.5 7.5 7.5 7.5-3.36 7.5-7.5" stroke="#F87171" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M14.5 1.5v4h-4" stroke="#F87171" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="recurrentes-label">Gastos fijos</div>
+        <div class="recurrentes-sub">12 recurrentes activos</div>
+      </div>
+    </div>
+    <div class="recurrentes-right">
+      <div class="recurrentes-amount">€2,118.97<span class="recurrentes-period">/mes</span></div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

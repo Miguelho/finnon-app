@@ -11,8 +11,8 @@ import {
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Circle, Path } from "react-native-svg";
 import {
+  computeSavingsMonthFromTransactions,
   computeProjectProgress,
   computeSavingsMonthView,
   CURRENCIES,
@@ -32,6 +32,7 @@ import {
   type MonthCloseAllocation,
   type MonthlyProjectFundingPlan,
   type Project,
+  type RecurringItem,
   type ReserveContainer,
   type ReserveTransfer,
   type UserRole,
@@ -114,112 +115,28 @@ const formatClosedAt = (value: string | Date | null | undefined, locale: "es" | 
   }).format(date);
 };
 
-const shiftMonthKey = (monthKey: string, delta: number) => {
-  const date = new Date(`${monthKey}-01T00:00:00`);
-  date.setMonth(date.getMonth() + delta);
-  return toMonthKey(date);
+const HUCHA_ACCENT_COLOR = "#48D89F";
+const SUPPORT_ACCENT_COLOR = "#4FD1C5";
+
+const roundedDivision = (numerator: bigint, denominator: bigint) => {
+  if (denominator <= 0n) return 0n;
+  return (numerator + denominator / 2n) / denominator;
 };
 
-type PipeBranch = "left" | "right";
+const estimateRecurringMonthlyMinor = (item: RecurringItem) => {
+  const amountMinor = toMinor(item.amount_minor);
+  const interval = BigInt(Math.max(1, item.interval || 1));
 
-const PIPE_STROKE_WIDTH = 5;
-const PIPE_PARTICLE_COUNT = 18;
+  if (item.frequency === "weekly") {
+    return roundedDivision(amountMinor * 52n, 12n * interval);
+  }
 
-const getPipeBezierPoint = (
-  startX: number,
-  startY: number,
-  controlX: number,
-  controlY: number,
-  endX: number,
-  endY: number,
-  t: number
-) => ({
-  x: (1 - t) * (1 - t) * startX + 2 * (1 - t) * t * controlX + t * t * endX,
-  y: (1 - t) * (1 - t) * startY + 2 * (1 - t) * t * controlY + t * t * endY,
-});
+  if (item.frequency === "yearly") {
+    return roundedDivision(amountMinor, 12n * interval);
+  }
 
-function SavingsPipes({ splitRatio }: { splitRatio: number }) {
-  const [time, setTime] = useState(0);
-  const particles = useMemo(
-    () =>
-      Array.from({ length: PIPE_PARTICLE_COUNT }, (_, index) => ({
-        offset: index / PIPE_PARTICLE_COUNT,
-        speed: 0.12 + (index % 5) * 0.018,
-        size: 2 + (index % 3) * 0.45,
-        opacity: 0.58 + (index % 4) * 0.08,
-        branchSeed: ((index * 37) % 100) / 100,
-      })),
-    []
-  );
-
-  useEffect(() => {
-    let frame = 0;
-    const loop = (now: number) => {
-      setTime(now / 1000);
-      frame = requestAnimationFrame(loop);
-    };
-
-    frame = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(frame);
-  }, []);
-
-  const getParticlePosition = (progress: number, branch: PipeBranch) => {
-    if (progress < 0.42) {
-      const stemProgress = progress / 0.42;
-      return { x: 160, y: 4 + (43 - 4) * stemProgress };
-    }
-
-    const branchProgress = (progress - 0.42) / 0.58;
-    return branch === "left"
-      ? getPipeBezierPoint(160, 43, 124, 49, 29, 80, branchProgress)
-      : getPipeBezierPoint(160, 43, 208, 49, 291, 80, branchProgress);
-  };
-
-  return (
-    <Svg width="100%" height="88" viewBox="0 0 320 88">
-      <Path
-        d="M160 4 L160 43"
-        stroke="#4ECDC4"
-        strokeWidth={PIPE_STROKE_WIDTH}
-        strokeLinecap="round"
-      />
-      <Path
-        d="M160 43 C124 49 82 57 29 80"
-        stroke={SAVINGS_VALUE_COLOR}
-        strokeWidth={PIPE_STROKE_WIDTH}
-        strokeLinecap="round"
-        fill="none"
-      />
-      <Path
-        d="M160 43 C208 49 248 57 291 80"
-        stroke="#72C4E6"
-        strokeWidth={PIPE_STROKE_WIDTH}
-        strokeLinecap="round"
-        fill="none"
-      />
-
-      {particles.map((particle, index) => {
-        const progress = (time * particle.speed + particle.offset) % 1;
-        const branch = particle.branchSeed < splitRatio ? "left" : "right";
-        const point = getParticlePosition(progress, branch);
-
-        return (
-          <Circle
-            key={index}
-            cx={point.x}
-            cy={point.y}
-            r={particle.size}
-            fill={
-              branch === "left"
-                ? withAlpha(SAVINGS_VALUE_COLOR, particle.opacity)
-                : `rgba(114,196,230,${particle.opacity})`
-            }
-          />
-        );
-      })}
-    </Svg>
-  );
-}
+  return roundedDivision(amountMinor, interval);
+};
 
 export default function SavingsDetailScreen() {
   const router = useRouter();
@@ -229,7 +146,6 @@ export default function SavingsDetailScreen() {
   const insets = useSafeAreaInsets();
   const localeCode: "es" | "en" = locale === "en" ? "en" : "es";
   const currentMonthKey = useMemo(() => toMonthKey(new Date()), []);
-  const previousMonthKey = useMemo(() => shiftMonthKey(currentMonthKey, -1), [currentMonthKey]);
   const currentMonthStart = `${currentMonthKey}-01`;
 
   const [loading, setLoading] = useState(true);
@@ -244,6 +160,7 @@ export default function SavingsDetailScreen() {
   const [monthCloses, setMonthCloses] = useState<MonthClose[]>([]);
   const [monthCloseAllocations, setMonthCloseAllocations] = useState<MonthCloseAllocation[]>([]);
   const [reserveTransfers, setReserveTransfers] = useState<ReserveTransfer[]>([]);
+  const [recurringItems, setRecurringItems] = useState<RecurringItem[]>([]);
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [monthState, setMonthState] = useState<SavingsMonthStateRow | null>(null);
   const [profilesByUserId, setProfilesByUserId] = useState<Record<string, ProfileRow>>({});
@@ -279,6 +196,7 @@ export default function SavingsDetailScreen() {
         monthClosesResult,
         monthCloseAllocationsResult,
         reserveTransfersResult,
+        recurringItemsResult,
         transactionsResult,
         monthStateResult,
       ] = await Promise.all([
@@ -317,6 +235,11 @@ export default function SavingsDetailScreen() {
           .eq("account_id", selectedAccountId)
           .order("created_at", { ascending: false }),
         supabase
+          .from("recurring_items")
+          .select("*")
+          .eq("account_id", selectedAccountId)
+          .order("merchant", { ascending: true }),
+        supabase
           .from("transactions")
           .select("id, type, amount_minor, amount_base_minor, date")
           .eq("account_id", selectedAccountId)
@@ -334,6 +257,7 @@ export default function SavingsDetailScreen() {
       if (monthClosesResult.error) throw monthClosesResult.error;
       if (monthCloseAllocationsResult.error) throw monthCloseAllocationsResult.error;
       if (reserveTransfersResult.error) throw reserveTransfersResult.error;
+      if (recurringItemsResult.error) throw recurringItemsResult.error;
       if (transactionsResult.error) throw transactionsResult.error;
 
       const closedByIds = Array.from(
@@ -372,6 +296,7 @@ export default function SavingsDetailScreen() {
         (monthCloseAllocationsResult.data ?? []) as MonthCloseAllocation[]
       );
       setReserveTransfers((reserveTransfersResult.data ?? []) as ReserveTransfer[]);
+      setRecurringItems((recurringItemsResult.data ?? []) as RecurringItem[]);
       setTransactions((transactionsResult.data ?? []) as TransactionRow[]);
       setMonthState(nextMonthState);
       setProfilesByUserId(
@@ -427,6 +352,13 @@ export default function SavingsDetailScreen() {
       }),
     [currentMonthKey, currentMonthStart, monthCloses, monthState?.plans, selectedAccountId, transactions]
   );
+
+  const monthlyTotals = useMemo(
+    () => computeSavingsMonthFromTransactions(transactions),
+    [transactions]
+  );
+
+  const positiveSavingsMinor = savingsView.generatedSavedMinor > 0n ? savingsView.generatedSavedMinor : 0n;
 
   const fundedByProject = useMemo(() => {
     const map = new Map<string, bigint>();
@@ -489,9 +421,9 @@ export default function SavingsDetailScreen() {
   }, [baseCurrency, inputsByProject, localeCode, projects]);
 
   const monthlyHuchaMinor = useMemo(() => {
-    const remainder = savingsView.generatedSavedMinor - parsedPlans.totalMinor;
+    const remainder = positiveSavingsMinor - parsedPlans.totalMinor;
     return remainder > 0n ? remainder : 0n;
-  }, [parsedPlans.totalMinor, savingsView.generatedSavedMinor]);
+  }, [parsedPlans.totalMinor, positiveSavingsMinor]);
 
   const savingsOverviewProjects = useMemo(() => {
     const rows = projects.map((project) => {
@@ -537,67 +469,81 @@ export default function SavingsDetailScreen() {
   );
 
   const savingsHistory = useMemo(() => {
-    const monthFormatter = new Intl.DateTimeFormat(localeCode === "en" ? "en-US" : "es-ES", {
-      month: "short",
-    });
-    const valueFormatter = new Intl.NumberFormat(localeCode === "en" ? "en-US" : "es-ES", {
-      maximumFractionDigits: 0,
-    });
     const byPeriod = new Map<string, bigint>();
 
     monthCloses.forEach((monthClose) => {
       byPeriod.set(String(monthClose.period).slice(0, 7), toMinor(monthClose.actual_saved_base_minor));
     });
-    byPeriod.set(currentMonthKey, savingsView.generatedSavedMinor);
+    byPeriod.set(currentMonthKey, positiveSavingsMinor);
 
     const allValues = Array.from(byPeriod.values());
-    const averageMinor =
-      allValues.length > 0
-        ? allValues.reduce((total, amountMinor) => total + amountMinor, 0n) / BigInt(allValues.length)
-        : 0n;
     const maxMinor = allValues.reduce(
       (current, amountMinor) => (amountMinor > current ? amountMinor : current),
       0n
     );
 
-    const bars = Array.from({ length: 8 }, (_, index) => {
-      const period = shiftMonthKey(currentMonthKey, index - 7);
-      const amountMinor = byPeriod.get(period) ?? 0n;
-      const date = new Date(`${period}-01T00:00:00`);
-      return {
-        period,
-        amountMinor,
-        label: monthFormatter.format(date).replace(".", "").slice(0, 2),
-      };
-    });
+    return {
+      maxMinor,
+    };
+  }, [currentMonthKey, monthCloses, positiveSavingsMinor]);
+
+  const monthlyCommitmentTotalMinor = useMemo(
+    () =>
+      savingsOverviewProjects.reduce(
+        (total, row) => total + getProjectMonthlyFundingTargetMinor(row.project),
+        0n
+      ),
+    [savingsOverviewProjects]
+  );
+
+  const activeExpenseRecurringItems = useMemo(
+    () =>
+      recurringItems.filter(
+        (item) =>
+          item.type === "expense" &&
+          !item.is_paused &&
+          item.start_date <= `${currentMonthKey}-31` &&
+          (!item.end_date || item.end_date >= currentMonthStart)
+      ),
+    [currentMonthKey, currentMonthStart, recurringItems]
+  );
+
+  const recurringExpenseTotalMinor = useMemo(
+    () =>
+      activeExpenseRecurringItems.reduce(
+        (total, item) => total + estimateRecurringMonthlyMinor(item),
+        0n
+      ),
+    [activeExpenseRecurringItems]
+  );
+
+  const distribution = useMemo(() => {
+    const baseMinor = positiveSavingsMinor > 0n ? positiveSavingsMinor : 1n;
+    const projectsWidth = Number((parsedPlans.totalMinor * 10000n) / baseMinor) / 100;
+    const huchaWidth = Number((monthlyHuchaMinor * 10000n) / baseMinor) / 100;
 
     return {
-      averageMinor,
-      maxMinor,
-      previousMinor: byPeriod.get(previousMonthKey) ?? 0n,
-      currentLabel:
-        localeCode === "en"
-          ? `monthly savings · ${new Intl.DateTimeFormat("en-US", { month: "long" })
-              .format(new Date(`${currentMonthKey}-01T00:00:00`))
-              .toLowerCase()}`
-          : `ahorro del mes · ${new Intl.DateTimeFormat("es-ES", { month: "long" })
-              .format(new Date(`${currentMonthKey}-01T00:00:00`))
-              .toLowerCase()}`,
-      formatNumber: (amountMinor: bigint) => valueFormatter.format(Number(amountMinor) / 100),
-      bars,
+      projectsPct: positiveSavingsMinor > 0n ? Math.max(0, Math.min(100, projectsWidth)) : 0,
+      huchaPct:
+        positiveSavingsMinor > 0n
+          ? Math.max(0, Math.min(100, huchaWidth || 100 - projectsWidth))
+          : 0,
+      projectsShare:
+        positiveSavingsMinor > 0n
+          ? Math.round((Number(parsedPlans.totalMinor) / Number(positiveSavingsMinor)) * 1000) / 10
+          : 0,
+      commitmentsCoverage:
+        monthlyCommitmentTotalMinor > 0n
+          ? Math.round((Number(parsedPlans.totalMinor) / Number(monthlyCommitmentTotalMinor)) * 1000) / 10
+          : 0,
     };
-  }, [currentMonthKey, localeCode, monthCloses, previousMonthKey, savingsView.generatedSavedMinor]);
-
-  const projectSplitRatio = useMemo(() => {
-    if (savingsView.generatedSavedMinor <= 0n) return 0.5;
-    return Math.min(1, Math.max(0.14, Number(parsedPlans.totalMinor) / Number(savingsView.generatedSavedMinor)));
-  }, [parsedPlans.totalMinor, savingsView.generatedSavedMinor]);
+  }, [monthlyCommitmentTotalMinor, monthlyHuchaMinor, parsedPlans.totalMinor, positiveSavingsMinor]);
 
   const canSavePlan =
     canEdit &&
     !parsedPlans.hasErrors &&
     parsedPlans.totalMinor <=
-      (savingsView.generatedSavedMinor > 0n ? savingsView.generatedSavedMinor : 0n) &&
+      positiveSavingsMinor &&
     !savingsView.isClosed;
 
   const editingBlockedReason = !canEdit
@@ -686,206 +632,356 @@ export default function SavingsDetailScreen() {
           ) : null}
 
           <View style={styles.overviewShell}>
-            <View style={styles.heroSection}>
-              <View style={styles.heroWrap}>
-                <View style={styles.heroBucketGlow}>
-                  <SavingsBucketHero
-                    valueMinor={savingsView.generatedSavedMinor > 0n ? savingsView.generatedSavedMinor : 0n}
-                    maxMinor={
-                      savingsHistory.maxMinor > 0n
-                        ? savingsHistory.maxMinor
-                        : savingsView.generatedSavedMinor
-                    }
-                    size={98}
-                  />
-                </View>
-                <Text style={styles.heroAmount}>
-                  {formatMoneyWithSymbol(
-                    savingsView.generatedSavedMinor,
-                    baseCurrency,
-                    currencySymbol
-                  )}
-                </Text>
-                <Text style={styles.heroLabel}>{savingsHistory.currentLabel}</Text>
-              </View>
-            </View>
-
-            <View style={styles.pipesWrap}>
-              <SavingsPipes splitRatio={projectSplitRatio} />
-              <View style={styles.pipeHintRow}>
-                <View style={styles.pipeHintItem}>
-                  <View style={[styles.pipeHintDot, { backgroundColor: SAVINGS_VALUE_COLOR }]} />
-                  <Text style={styles.pipeHintText}>
-                    {locale === "en" ? "funds projects" : "financia proyectos"}
-                  </Text>
-                </View>
-                <View style={styles.pipeHintItem}>
-                  <View style={[styles.pipeHintDot, { backgroundColor: "#72C4E6" }]} />
-                  <Text style={styles.pipeHintText}>
-                    {locale === "en" ? "Own Funds reserve" : "reserva de Fondos Propios"}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.overviewGrid}>
+            <View style={styles.heroWrap}>
               <View
                 style={[
-                  styles.projectsOverviewCard,
+                  styles.heroBucketGlow,
+                  {
+                    backgroundColor: withAlpha(SUPPORT_ACCENT_COLOR, 0.12),
+                  },
+                ]}
+              >
+                <SavingsBucketHero
+                  valueMinor={positiveSavingsMinor}
+                  maxMinor={savingsHistory.maxMinor > 0n ? savingsHistory.maxMinor : positiveSavingsMinor}
+                  size={98}
+                />
+              </View>
+              <Text style={[styles.heroAmount, { color: userTokens.textPrimary }]}>
+                {formatMoneyWithSymbol(positiveSavingsMinor, baseCurrency, currencySymbol)}
+              </Text>
+              <Text style={[styles.heroLabel, { color: userTokens.textSecondary }]}>
+                {locale === "en"
+                  ? `savings capacity · ${displayedMonthCloseLabel}`
+                  : `capacidad de ahorro · ${displayedMonthCloseLabel}`}
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.contextBar,
+                {
+                  backgroundColor: userTokens.surface,
+                  borderColor: userTokens.border,
+                },
+              ]}
+            >
+              <Text style={[styles.contextBarText, { color: SUPPORT_ACCENT_COLOR }]}>
+                {formatMoneyWithSymbol(monthlyTotals.incomeMinor, baseCurrency, currencySymbol)}{" "}
+                {locale === "en" ? "income" : "ingresos"}
+              </Text>
+              <Text style={[styles.contextBarText, { color: userTokens.textTertiary }]}>−</Text>
+              <Text style={[styles.contextBarText, { color: userTokens.dangerText }]}>
+                {formatMoneyWithSymbol(monthlyTotals.expenseMinor, baseCurrency, currencySymbol)}{" "}
+                {locale === "en" ? "fixed expenses" : "gastos fijos"}
+              </Text>
+              <Text style={[styles.contextBarText, { color: userTokens.textTertiary }]}>=</Text>
+              <Text style={[styles.contextBarText, { color: userTokens.textPrimary }]}>
+                {formatMoneyWithSymbol(positiveSavingsMinor, baseCurrency, currencySymbol)}
+              </Text>
+            </View>
+
+            <View style={styles.distributionSection}>
+              <Text style={[styles.sectionEyebrow, { color: userTokens.textSecondary }]}>
+                {locale === "en" ? "Savings distribution" : "Distribucion del ahorro"}
+              </Text>
+
+              <View
+                style={[
+                  styles.stackedBarTrack,
+                  { backgroundColor: userTokens.surfaceAlt },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.stackedBarProjects,
+                    { width: `${distribution.projectsPct}%`, backgroundColor: SAVINGS_VALUE_COLOR },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.stackedBarHucha,
+                    {
+                      width: `${distribution.huchaPct}%`,
+                      backgroundColor: withAlpha(HUCHA_ACCENT_COLOR, 0.42),
+                    },
+                  ]}
+                />
+              </View>
+
+              <View style={styles.legendRow}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: SAVINGS_VALUE_COLOR }]} />
+                  <Text style={[styles.legendText, { color: userTokens.textSecondary }]}>
+                    {locale === "en" ? "Projects" : "Proyectos"} ·{" "}
+                    {formatMoneyWithSymbol(parsedPlans.totalMinor, baseCurrency, currencySymbol)}
+                  </Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View
+                    style={[styles.legendDot, { backgroundColor: withAlpha(HUCHA_ACCENT_COLOR, 0.65) }]}
+                  />
+                  <Text style={[styles.legendText, { color: userTokens.textSecondary }]}>
+                    {t(dictionary, "home.savings.hucha")} ·{" "}
+                    {formatMoneyWithSymbol(monthlyHuchaMinor, baseCurrency, currencySymbol)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {savingsOverviewProjects.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.projectCardsRow}
+              >
+                {savingsOverviewProjects.map(({ project, progress }) => {
+                  const plannedMinor =
+                    parsedPlans.rows.find((row) => row.projectId === project.id)?.amountMinor ?? 0n;
+                  const commitmentMinor = getProjectMonthlyFundingTargetMinor(project);
+                  const monthlyProgress =
+                    commitmentMinor > 0n
+                      ? Math.min(1, Number(plannedMinor) / Number(commitmentMinor))
+                      : 0;
+
+                  return (
+                    <TouchableOpacity
+                      key={project.id}
+                      activeOpacity={0.9}
+                      onPress={() => setSelectedOverviewProjectId(project.id)}
+                      style={[
+                        styles.projectWireCard,
+                        {
+                          backgroundColor: userTokens.surface,
+                          borderColor: userTokens.border,
+                        },
+                      ]}
+                    >
+                      <View style={styles.projectWireTop}>
+                        <View
+                          style={[
+                            styles.projectWireEmojiWrap,
+                            { backgroundColor: userTokens.surfaceAlt },
+                          ]}
+                        >
+                          <Text style={styles.projectWireEmoji}>{project.emoji || "🎯"}</Text>
+                        </View>
+                        <View style={styles.projectWireMeta}>
+                          <Text
+                            numberOfLines={1}
+                            style={[styles.projectWireName, { color: userTokens.textPrimary }]}
+                          >
+                            {project.name}
+                          </Text>
+                          <Text style={[styles.projectWireCommitment, { color: userTokens.textSecondary }]}>
+                            {formatMoneyWithSymbol(commitmentMinor, baseCurrency, currencySymbol)}/
+                            {locale === "en" ? "month" : "mes"}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.projectMonthBlock}>
+                        <View style={styles.projectMonthHeader}>
+                          <Text style={[styles.projectMonthLabel, { color: userTokens.textSecondary }]}>
+                            {locale === "en" ? "This month" : "Este mes"}
+                          </Text>
+                          <Text style={[styles.projectMonthValue, { color: SAVINGS_VALUE_COLOR }]}>
+                            {formatMoneyWithSymbol(plannedMinor, baseCurrency, currencySymbol)} /{" "}
+                            {formatMoneyWithSymbol(commitmentMinor, baseCurrency, currencySymbol)}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.projectMonthTrack,
+                            { backgroundColor: userTokens.surfaceAlt },
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.projectMonthFill,
+                              {
+                                width: `${Math.max(0, Math.min(100, monthlyProgress * 100))}%`,
+                                backgroundColor: SAVINGS_VALUE_COLOR,
+                              },
+                            ]}
+                          />
+                        </View>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.projectWireFooter,
+                          { borderTopColor: userTokens.border },
+                        ]}
+                      >
+                        <Text style={[styles.projectWireFooterLabel, { color: userTokens.textTertiary }]}>
+                          {locale === "en" ? "Total progress" : "Total acumulado"}
+                        </Text>
+                        <Text style={[styles.projectWireFooterValue, { color: SUPPORT_ACCENT_COLOR }]}>
+                          {Math.round(progress.progressRatio * 100)}%
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <Card style={{ marginTop: 12 }}>
+                <Text style={[styles.helper, { color: userTokens.textSecondary, marginTop: 0 }]}>
+                  {locale === "en"
+                    ? "Create at least one financial project to start assigning savings."
+                    : "Crea al menos un proyecto financiero para empezar a asignar ahorro."}
+                </Text>
+              </Card>
+            )}
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => router.push("/(auth)/(tabs)/projects")}
+              style={styles.projectsLinkRow}
+            >
+              <Text style={[styles.projectsLinkText, { color: primaryActionColor }]}>
+                {locale === "en" ? "See all projects →" : "Ver todos los proyectos →"}
+              </Text>
+            </TouchableOpacity>
+
+            {huchaReserve ? (
+              <TouchableOpacity
+                activeOpacity={0.88}
+                onPress={() =>
+                  router.push(`/(auth)/(tabs)/projects/reserves/${huchaReserve.id}`)
+                }
+                style={[
+                  styles.infoStrip,
                   {
                     backgroundColor: userTokens.surface,
                     borderColor: userTokens.border,
                   },
                 ]}
               >
-                <Text style={[styles.overviewCardHeader, { color: userTokens.textSecondary }]}>
-                  {locale === "en" ? "Projects" : "Proyectos"}
-                </Text>
-                {savingsOverviewProjects.length > 0 ? (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.projectsOverviewScroller}
+                <View style={styles.infoStripLeft}>
+                  <View
+                    style={[
+                      styles.huchaStripIcon,
+                      { backgroundColor: withAlpha(HUCHA_ACCENT_COLOR, 0.12) },
+                    ]}
                   >
-                    {savingsOverviewProjects.map(({ project, progress, displayMinor }) => (
-                      <TouchableOpacity
-                        key={project.id}
-                        activeOpacity={0.88}
-                        onPress={() => setSelectedOverviewProjectId(project.id)}
-                        style={[
-                          styles.projectOverviewItem,
-                          {
-                            backgroundColor: withAlpha(userTokens.surfaceAlt, 0.6),
-                            borderColor: userTokens.border,
-                            shadowOpacity: 0.04,
-                            shadowRadius: 10,
-                            elevation: 1,
-                          },
-                        ]}
-                      >
-                        <ProjectProgressRing
-                          size={58}
-                          progress={progress.progressRatio}
-                          progressColor={getProjectColor(project)}
-                          trackColor={userTokens.surfaceAlt}
-                          strokeWidth={4}
-                          center={
-                            <Text style={styles.projectOverviewEmoji}>
-                              {project.emoji || "🎯"}
-                            </Text>
-                          }
-                        />
-                        <Text
-                          numberOfLines={2}
-                          style={[styles.projectOverviewName, { color: userTokens.textPrimary }]}
-                        >
-                          {project.name}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.projectOverviewAmount,
-                            { color: userTokens.textSecondary },
-                          ]}
-                        >
-                          {formatMoneyWithSymbol(displayMinor, baseCurrency, currencySymbol)}/mes
-                        </Text>
-                        <Text
-                          style={[
-                            styles.projectOverviewPercent,
-                            { color: getProjectColor(project) },
-                          ]}
-                        >
-                          {Math.round(progress.progressRatio * 100)}%
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                ) : (
-                  <Text style={[styles.helper, { color: userTokens.textSecondary, marginTop: 0 }]}>
-                    {locale === "en"
-                      ? "Create at least one financial project to start assigning savings."
-                      : "Crea al menos un proyecto financiero para empezar a asignar ahorro."}
-                  </Text>
-                )}
-
-                {message ? <Text style={styles.successText}>{message}</Text> : null}
-
-                <View
-                  style={[
-                    styles.projectsOverviewTotal,
-                    { borderTopColor: withAlpha(userTokens.textPrimary, 0.08) },
-                  ]}
-                >
-                  <Text
-                    style={[styles.projectsOverviewTotalLabel, { color: userTokens.textSecondary }]}
-                  >
-                    {locale === "en" ? "Planned to projects" : "Planificado a proyectos"}{" "}
-                    {/* TODO: i18n */}
-                  </Text>
-                  <Text style={styles.projectsOverviewTotalValue}>
-                    {formatMoneyWithSymbol(parsedPlans.totalMinor, baseCurrency, currencySymbol)}/mes
-                  </Text>
+                    <HuchaLiquidCanvas
+                      valueMinor={monthlyHuchaMinor}
+                      maxMinor={positiveSavingsMinor > 0n ? positiveSavingsMinor : monthlyHuchaMinor}
+                      size={42}
+                    />
+                  </View>
+                  <View>
+                    <Text style={[styles.infoStripEyebrow, { color: HUCHA_ACCENT_COLOR }]}>
+                      {t(dictionary, "home.savings.hucha")}
+                    </Text>
+                    <Text style={[styles.infoStripSub, { color: userTokens.textTertiary }]}>
+                      {locale === "en" ? "month remainder" : "excedente del mes"}
+                    </Text>
+                  </View>
                 </View>
+                <Text style={[styles.huchaStripAmount, { color: HUCHA_ACCENT_COLOR }]}>
+                  {formatMoneyWithSymbol(monthlyHuchaMinor, baseCurrency, currencySymbol)}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+
+            <View style={styles.summaryRow}>
+              <View
+                style={[
+                  styles.summaryCard,
+                  {
+                    backgroundColor: userTokens.surface,
+                    borderColor: userTokens.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.summaryLabel, { color: userTokens.textTertiary }]}>
+                  {locale === "en" ? "Committed to projects" : "Comprometido a proyectos"}
+                </Text>
+                <Text style={[styles.summaryValue, { color: SAVINGS_VALUE_COLOR }]}>
+                  {formatMoneyWithSymbol(parsedPlans.totalMinor, baseCurrency, currencySymbol)}
+                  <Text style={[styles.summarySuffix, { color: userTokens.textTertiary }]}>
+                    /{locale === "en" ? "month" : "mes"}
+                  </Text>
+                </Text>
+                <Text style={[styles.summarySub, { color: userTokens.textTertiary }]}>
+                  <Text style={[styles.summaryPct, { color: SUPPORT_ACCENT_COLOR }]}>
+                    {distribution.projectsShare.toFixed(1)}%
+                  </Text>{" "}
+                  {locale === "en"
+                    ? "of your monthly savings capacity"
+                    : "de tu capacidad de ahorro"}
+                </Text>
               </View>
 
               <View
                 style={[
-                  styles.huchaOverviewCard,
+                  styles.summaryCard,
                   {
-                    backgroundColor: userTokens.surfaceAlt,
-                    borderColor: withAlpha(userTokens.primary, 0.2),
+                    backgroundColor: userTokens.surface,
+                    borderColor: userTokens.border,
                   },
                 ]}
               >
-                {huchaReserve ? (
-                  <TouchableOpacity
-                    activeOpacity={0.86}
-                    onPress={() =>
-                      router.push(`/(auth)/(tabs)/projects/reserves/${huchaReserve.id}`)
-                    }
-                    style={styles.huchaOverviewCircle}
-                  >
-                    <HuchaLiquidCanvas
-                      valueMinor={monthlyHuchaMinor}
-                      maxMinor={
-                        savingsView.generatedSavedMinor > 0n
-                          ? savingsView.generatedSavedMinor
-                          : monthlyHuchaMinor
-                      }
-                      size={72}
-                    />
-                    <View style={styles.huchaOverviewAmount} pointerEvents="none">
-                      <Text style={styles.huchaOverviewAmountText}>
-                        {formatMoneyWithSymbol(monthlyHuchaMinor, baseCurrency, currencySymbol)}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ) : (
-                  <View style={styles.huchaOverviewCircle}>
-                    <HuchaLiquidCanvas
-                      valueMinor={monthlyHuchaMinor}
-                      maxMinor={
-                        savingsView.generatedSavedMinor > 0n
-                          ? savingsView.generatedSavedMinor
-                          : monthlyHuchaMinor
-                      }
-                      size={72}
-                    />
-                    <View style={styles.huchaOverviewAmount} pointerEvents="none">
-                      <Text style={styles.huchaOverviewAmountText}>
-                        {formatMoneyWithSymbol(monthlyHuchaMinor, baseCurrency, currencySymbol)}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-                <Text style={[styles.huchaOverviewLabel, { color: userTokens.textSecondary }]}>
-                  {t(dictionary, "home.savings.hucha")}
+                <Text style={[styles.summaryLabel, { color: userTokens.textTertiary }]}>
+                  {locale === "en" ? "Monthly commitment goal" : "Objetivo mensual total"}
                 </Text>
-                <Text style={[styles.huchaOverviewSubLabel, { color: userTokens.textSecondary }]}>
-                  {locale === "en" ? "month remainder" : "remanente del mes"}
+                <Text style={[styles.summaryValue, { color: SUPPORT_ACCENT_COLOR }]}>
+                  {formatMoneyWithSymbol(monthlyCommitmentTotalMinor, baseCurrency, currencySymbol)}
+                </Text>
+                <Text style={[styles.summarySub, { color: userTokens.textTertiary }]}>
+                  <Text style={[styles.summaryPct, { color: SUPPORT_ACCENT_COLOR }]}>
+                    {distribution.commitmentsCoverage.toFixed(1)}%
+                  </Text>{" "}
+                  {locale === "en"
+                    ? "covered by the current plan"
+                    : "cubierto por el plan actual"}
                 </Text>
               </View>
             </View>
+
+            <TouchableOpacity
+              activeOpacity={0.88}
+              onPress={() => router.push("/(auth)/transaction/recurrent")}
+              style={[
+                styles.infoStrip,
+                {
+                  backgroundColor: userTokens.surface,
+                  borderColor: userTokens.border,
+                },
+              ]}
+            >
+              <View style={styles.infoStripLeft}>
+                <View
+                  style={[
+                    styles.recurringStripIcon,
+                    { backgroundColor: withAlpha(userTokens.dangerText, 0.1) },
+                  ]}
+                >
+                  <Text style={[styles.recurringStripSymbol, { color: userTokens.dangerText }]}>
+                    ↻
+                  </Text>
+                </View>
+                <View>
+                  <Text style={[styles.recurringStripLabel, { color: userTokens.textPrimary }]}>
+                    {locale === "en" ? "Fixed expenses" : "Gastos fijos"}
+                  </Text>
+                  <Text style={[styles.infoStripSub, { color: userTokens.textTertiary }]}>
+                    {locale === "en"
+                      ? `${activeExpenseRecurringItems.length} active recurring items`
+                      : `${activeExpenseRecurringItems.length} recurrentes activos`}
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.recurringStripAmount, { color: userTokens.dangerText }]}>
+                {formatMoneyWithSymbol(recurringExpenseTotalMinor, baseCurrency, currencySymbol)}
+                <Text style={[styles.summarySuffix, { color: userTokens.textTertiary }]}>
+                  /{locale === "en" ? "month" : "mes"}
+                </Text>
+              </Text>
+            </TouchableOpacity>
 
             <View
               style={[
@@ -909,7 +1005,7 @@ export default function SavingsDetailScreen() {
                   <Text style={[styles.helper, { color: userTokens.textSecondary }]}>
                     {locale === "en"
                       ? "This month is ready to review and confirm."
-                      : "Este mes ya está listo para revisar y confirmar."}
+                      : "Este mes ya esta listo para revisar y confirmar."}
                   </Text>
                   <View style={styles.monthCloseStatusAction}>
                     <Button
@@ -1120,6 +1216,8 @@ export default function SavingsDetailScreen() {
               </View>
             </Modal>
 
+            {message ? <Text style={styles.successText}>{message}</Text> : null}
+
           </View>
 
           {savingsView.needsRebalance ? (
@@ -1185,7 +1283,248 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 13,
     fontFamily: "DMSans-Regular",
-    color: "#A3A9B4",
+  },
+  contextBar: {
+    marginTop: 18,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  contextBarText: {
+    fontSize: 13,
+    fontFamily: "DMSans-Medium",
+  },
+  distributionSection: {
+    marginTop: 28,
+  },
+  sectionEyebrow: {
+    marginBottom: 12,
+    fontSize: 11,
+    fontFamily: "DMSans-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 1.1,
+  },
+  stackedBarTrack: {
+    height: 28,
+    borderRadius: 10,
+    overflow: "hidden",
+    flexDirection: "row",
+  },
+  stackedBarProjects: {
+    height: "100%",
+  },
+  stackedBarHucha: {
+    height: "100%",
+  },
+  legendRow: {
+    marginTop: 10,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 12,
+    fontFamily: "DMSans-Regular",
+  },
+  projectCardsRow: {
+    gap: 12,
+    paddingTop: 18,
+    paddingBottom: 4,
+  },
+  projectWireCard: {
+    width: 220,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+  },
+  projectWireTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  projectWireEmojiWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  projectWireEmoji: {
+    fontSize: 20,
+  },
+  projectWireMeta: {
+    flex: 1,
+  },
+  projectWireName: {
+    fontSize: 14,
+    fontFamily: "DMSans-Bold",
+  },
+  projectWireCommitment: {
+    marginTop: 2,
+    fontSize: 12,
+    fontFamily: "DMSans-Regular",
+  },
+  projectMonthBlock: {
+    marginTop: 16,
+  },
+  projectMonthHeader: {
+    marginBottom: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  projectMonthLabel: {
+    fontSize: 11,
+    fontFamily: "DMSans-Regular",
+  },
+  projectMonthValue: {
+    fontSize: 11,
+    fontFamily: "DMSans-Bold",
+    textAlign: "right",
+  },
+  projectMonthTrack: {
+    height: 4,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  projectMonthFill: {
+    height: "100%",
+    borderRadius: 999,
+  },
+  projectWireFooter: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  projectWireFooterLabel: {
+    fontSize: 11,
+    fontFamily: "DMSans-Regular",
+  },
+  projectWireFooterValue: {
+    fontSize: 12,
+    fontFamily: "DMSans-Bold",
+  },
+  projectsLinkRow: {
+    marginTop: 14,
+  },
+  projectsLinkText: {
+    fontSize: 13,
+    fontFamily: "DMSans-Medium",
+  },
+  infoStrip: {
+    marginTop: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 14,
+  },
+  infoStripLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    flex: 1,
+  },
+  huchaStripIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  infoStripEyebrow: {
+    fontSize: 11,
+    fontFamily: "DMSans-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  infoStripSub: {
+    marginTop: 2,
+    fontSize: 12,
+    fontFamily: "DMSans-Regular",
+  },
+  huchaStripAmount: {
+    fontSize: 24,
+    fontFamily: "DMSans-Bold",
+    letterSpacing: -0.6,
+  },
+  summaryRow: {
+    marginTop: 12,
+    gap: 12,
+  },
+  summaryCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  summaryLabel: {
+    fontSize: 11,
+    fontFamily: "DMSans-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  summaryValue: {
+    marginTop: 10,
+    fontSize: 24,
+    lineHeight: 28,
+    fontFamily: "DMSans-Bold",
+    letterSpacing: -0.6,
+  },
+  summarySuffix: {
+    fontSize: 14,
+    fontFamily: "DMSans-Regular",
+  },
+  summarySub: {
+    marginTop: 4,
+    fontSize: 11,
+    fontFamily: "DMSans-Regular",
+  },
+  summaryPct: {
+    fontFamily: "DMSans-Bold",
+  },
+  recurringStripIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recurringStripSymbol: {
+    fontSize: 17,
+    fontFamily: "DMSans-Bold",
+  },
+  recurringStripLabel: {
+    fontSize: 13,
+    fontFamily: "DMSans-Bold",
+  },
+  recurringStripAmount: {
+    fontSize: 22,
+    fontFamily: "DMSans-Bold",
+    letterSpacing: -0.5,
   },
   pipesWrap: {
     alignItems: "center",
