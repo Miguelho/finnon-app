@@ -36,6 +36,7 @@ import { Calendar } from "../../../../src/components/home-redesign/Calendar";
 import { formatCurrencyParts, formatFullDate, toMinor } from "../../../../src/components/home-redesign/utils";
 import { MonthCard } from "../../../../src/components/home/MonthCard";
 import { ProjectsGrid } from "../../../../src/components/home/ProjectsGrid";
+import { EXPENSE_RED, INCOME_GREEN } from "../../../../src/components/home/homeResponsive";
 
 type AccountMember = {
   account_id: string;
@@ -99,45 +100,27 @@ const isMissingCategoryColorError = (error: any) =>
   error.message.includes("categories") &&
   error.message.includes("color");
 
-const WEEKDAY_LABELS = {
-  es: ["L", "M", "X", "J", "V", "S", "D"],
-  en: ["M", "T", "W", "T", "F", "S", "S"],
+const resolveIntlLocale = (locale: "es" | "en") => (locale === "en" ? "en-US" : "es-ES");
+
+const buildWeekdayLabels = (locale: "es" | "en") => {
+  const formatter = new Intl.DateTimeFormat(resolveIntlLocale(locale), {
+    weekday: "narrow",
+    timeZone: "UTC",
+  });
+  const monday = new Date(Date.UTC(2024, 0, 1));
+  return Array.from({ length: 7 }, (_, index) =>
+    formatter.format(new Date(monday.getTime() + index * 24 * 60 * 60 * 1000)).replace(/\.$/, "")
+  );
 };
 
-const MONTHS_SHORT = {
-  es: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
-  en: ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"],
-};
-
-const MONTHS_LONG = {
-  es: [
-    "enero",
-    "febrero",
-    "marzo",
-    "abril",
-    "mayo",
-    "junio",
-    "julio",
-    "agosto",
-    "septiembre",
-    "octubre",
-    "noviembre",
-    "diciembre",
-  ],
-  en: [
-    "january",
-    "february",
-    "march",
-    "april",
-    "may",
-    "june",
-    "july",
-    "august",
-    "september",
-    "october",
-    "november",
-    "december",
-  ],
+const buildMonthLabels = (locale: "es" | "en", month: "short" | "long") => {
+  const formatter = new Intl.DateTimeFormat(resolveIntlLocale(locale), {
+    month,
+    timeZone: "UTC",
+  });
+  return Array.from({ length: 12 }, (_, index) =>
+    formatter.format(new Date(Date.UTC(2024, index, 1))).replace(/\.$/, "")
+  );
 };
 
 const plusDays = (date: Date, days: number) => {
@@ -156,12 +139,12 @@ const toSignedMinor = (amountMinor: bigint, type: "income" | "expense") => {
 export default function HomeScreen() {
   const router = useRouter();
   const { user, session, selectedAccountId, setSelectedAccountId } = useAuth();
-  const { tokens: userTokens } = useUserTheme();
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const { dictionary, locale } = useCopy();
   const localeKey = locale === "en" ? "en" : "es";
-  const weekdayLabels = WEEKDAY_LABELS[localeKey];
-  const monthsShort = MONTHS_SHORT[localeKey];
-  const monthsLong = MONTHS_LONG[localeKey];
+  const weekdayLabels = useMemo(() => buildWeekdayLabels(localeKey), [localeKey]);
+  const monthsShort = useMemo(() => buildMonthLabels(localeKey, "short"), [localeKey]);
+  const monthsLong = useMemo(() => buildMonthLabels(localeKey, "long"), [localeKey]);
   const currentMonthKey = useMemo(() => toMonthKey(new Date()), []);
   const currentMonthStart = `${currentMonthKey}-01`;
 
@@ -467,13 +450,13 @@ export default function HomeScreen() {
           amount_minor: obligation.amount_minor,
           amount_base_minor: obligation.amount_base_minor,
           category_id: "obligation",
-          category_name: localeKey === "en" ? "Scheduled" : "Programado",
-          category_color: "#CB6E55",
+          category_name: t(dictionary, "home.programmedBadge"),
+          category_color: EXPENSE_RED,
         })),
     ];
 
     return buildCalendarDayData(entries);
-  }, [transactions, obligations, localeKey]);
+  }, [dictionary, obligations, transactions]);
 
   const monthDays = useMemo(() => {
     return getMonthCalendarDisplayDays(
@@ -506,16 +489,16 @@ export default function HomeScreen() {
   }, [monthReference, monthsLong]);
 
   const selectedDayMovementGroups = useMemo<HomeMovementGroup[]>(() => {
-    const dayTx = transactions
+    const dayTx: HomeMovement[] = transactions
       .filter((tx) => toDateKey(tx.date as string) === selectedDayKey)
       .map((tx) => ({
         id: tx.id,
-        name: tx.merchant?.trim() || tx.category?.name || t(dictionary, "mobile.home.movementFallback"),
+        name: tx.merchant?.trim() || tx.category?.name || t(dictionary, "home.movementFallback"),
         type: tx.type,
         amountMinor: absMinor(toMinor(tx.amount_base_minor ?? tx.amount_minor)),
       }));
 
-    const dayObligations = obligations
+    const dayObligations: HomeMovement[] = obligations
       .filter((obligation) => obligation.status !== "paid")
       .filter((obligation) => toDateKey(obligation.due_date as string) === selectedDayKey)
       .map((obligation) => ({
@@ -531,16 +514,10 @@ export default function HomeScreen() {
     [...dayTx, ...dayObligations].forEach((movement) => {
       const groupKey = movement.isProgrammed ? "obligation" : movement.type;
       const groupName = movement.isProgrammed
-        ? localeKey === "en"
-          ? "Scheduled"
-          : "Programado"
+        ? t(dictionary, "home.programmedBadge")
         : movement.type === "income"
-          ? localeKey === "en"
-            ? "Income"
-            : "Ingresos"
-          : localeKey === "en"
-            ? "Expenses"
-            : "Gastos";
+          ? t(dictionary, "common.incomeLabel")
+          : t(dictionary, "common.expenseLabel");
       const existing = grouped.get(groupKey);
 
       if (!existing) {
@@ -558,7 +535,7 @@ export default function HomeScreen() {
     });
 
     return Array.from(grouped.values());
-  }, [dictionary, localeKey, obligations, selectedDayKey, transactions]);
+  }, [dictionary, obligations, selectedDayKey, transactions]);
 
   const selectedDayLabel = useMemo(
     () => formatFullDate(selectedDayKey, locale),
@@ -593,7 +570,7 @@ export default function HomeScreen() {
   if (showLoading || showAccountMissing) {
     return (
       <View style={[styles.loading, { backgroundColor: userTokens.background }]}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={primaryActionColor} />
       </View>
     );
   }
@@ -638,7 +615,7 @@ export default function HomeScreen() {
           <View style={styles.dayCardHeader}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.dayTitle, { color: userTokens.textPrimary }]}>
-                {localeKey === "en" ? "Day detail" : "Detalle del día"}
+                {t(dictionary, "home.dayDetailTitle")}
               </Text>
               <Text style={[styles.daySubtitle, { color: userTokens.textSecondary }]}>
                 {selectedDayLabel}
@@ -648,7 +625,7 @@ export default function HomeScreen() {
 
           {selectedDayMovementGroups.length === 0 ? (
             <Text style={[styles.emptyDay, { color: userTokens.textTertiary }]}>
-              {localeKey === "en" ? "No movements for this day." : "No hay movimientos para este día."}
+              {t(dictionary, "home.dayDetailEmpty")}
             </Text>
           ) : (
             <View style={styles.dayRows}>
@@ -676,9 +653,9 @@ export default function HomeScreen() {
                           styles.dayAmount,
                           {
                             color: isGroupIncome
-                              ? "#4ade80"
+                              ? INCOME_GREEN
                               : isGroupExpense
-                                ? "#f87171"
+                                ? EXPENSE_RED
                                 : userTokens.textSecondary,
                           },
                         ]}
@@ -702,7 +679,10 @@ export default function HomeScreen() {
                             <Text
                               style={[
                                 styles.dayChildAmount,
-                                { color: movement.type === "income" ? "#4ade80" : "#f87171" },
+                                {
+                                  color:
+                                    movement.type === "income" ? INCOME_GREEN : EXPENSE_RED,
+                                },
                               ]}
                             >
                               {movement.type === "income" ? "+" : "−"}

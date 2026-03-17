@@ -491,7 +491,9 @@ export function ProjectDetailClient({
                 )}
               </p>
               <p className="text-muted-foreground">
-                {locale === "en" ? "From piggy bank transfers" : "Desde transferencias de hucha"}
+                {locale === "en"
+                  ? "From Own Funds transfers"
+                  : "Desde transferencias de Fondos Propios"}
               </p>
               <p className="font-semibold">
                 {formatMoneyWithSymbol(

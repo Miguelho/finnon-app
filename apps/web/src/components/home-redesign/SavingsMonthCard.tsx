@@ -1,6 +1,10 @@
 import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { HUCHA_PROJECT_COLOR, PROJECT_PALETTE } from "@poleursus/shared";
+import {
+  HUCHA_PROJECT_COLOR,
+  PROJECT_PALETTE,
+  semanticColorTokens,
+} from "@poleursus/shared";
 import { formatCurrencyParts, toMinor } from "./utils";
 import { SummaryCardShell } from "./SummaryCardShell";
 import { HuchaLiquidCanvas } from "@/components/hucha/hucha-liquid-canvas";
@@ -26,6 +30,8 @@ type ProjectsRowProps = {
   onPress: () => void;
   locale?: string;
 };
+
+const SAVINGS_VALUE_COLOR = semanticColorTokens.savings.primary;
 
 const clampProgress = (value: number) => {
   if (!Number.isFinite(value) || value <= 0) return 0;
@@ -110,7 +116,7 @@ export function ProjectsRow({
   const isHero = projects.length === 1;
   const visibleProjects = projects.slice(0, 3);
   const multiProjectRingSize = visibleProjects.length <= 2 ? 40 : 34;
-  const savingsTitle = locale.startsWith("en") ? "Savings" : "Ahorro";
+  const savingsTitle = t("home.summarySavingsShort");
   const savingsVisualMaxMinor = totalSavingsMinor > 0n ? totalSavingsMinor : 1n;
   const ringTrack = "rgba(255,255,255,0.06)";
   const totalParts = formatCurrencyParts(totalSavingsMinor, currencySymbol, locale);
@@ -180,7 +186,10 @@ export function ProjectsRow({
               </p>
               <p className="text-[10px] text-[var(--account-text-secondary)]">
                 {t("home.savings.summary.totalLabel")}{" "}
-                <span className="font-balance text-[11px] font-semibold text-[var(--account-text-primary)]">
+                <span
+                  className="font-balance text-[11px] font-semibold"
+                  style={{ color: SAVINGS_VALUE_COLOR }}
+                >
                   {totalParts.full}
                 </span>
               </p>
@@ -195,7 +204,16 @@ export function ProjectsRow({
             >
               {needsRebalance
                 ? `${t("projects.monthClose.deficit", { amount: plannedParts.full })}`
-                : `${t("home.savings.savedThisMonth")}: ${totalParts.full} · ${t("projects.monthClose.projectAssigned")}: ${plannedParts.full} · ${t("projects.monthClose.allocatable")}: ${availableParts.full}`}
+                : (
+                    <>
+                      {t("home.savings.savedThisMonth")}:{" "}
+                      <span style={{ color: SAVINGS_VALUE_COLOR }}>{totalParts.full}</span> ·{" "}
+                      {t("projects.monthClose.projectAssigned")}:{" "}
+                      <span style={{ color: SAVINGS_VALUE_COLOR }}>{plannedParts.full}</span> ·{" "}
+                      {t("projects.monthClose.allocatable")}:{" "}
+                      <span style={{ color: SAVINGS_VALUE_COLOR }}>{availableParts.full}</span>
+                    </>
+                  )}
             </p>
           </>
         ) : (
@@ -209,7 +227,10 @@ export function ProjectsRow({
                     size={72}
                   />
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-2">
-                    <span className="font-balance text-center text-[11px] leading-[1.05] text-[var(--account-text-primary)]">
+                    <span
+                      className="font-balance text-center text-[11px] leading-[1.05]"
+                      style={{ color: SAVINGS_VALUE_COLOR }}
+                    >
                       {totalParts.full}
                     </span>
                   </div>

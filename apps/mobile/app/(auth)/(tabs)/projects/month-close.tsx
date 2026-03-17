@@ -18,6 +18,7 @@ import {
   formatMonthLabel,
   getProjectMonthlyFundingTargetMinor,
   parseMoneyToMinor,
+  semanticColorTokens,
   themeTokens,
   toMonthKey,
   type MonthClose,
@@ -36,6 +37,7 @@ import { Input } from "../../../../src/components/Input";
 
 const tokens = themeTokens.light;
 const MONTH_KEY_PATTERN = /^\d{4}-\d{2}$/;
+const SAVINGS_VALUE_COLOR = semanticColorTokens.savings.primary;
 
 type AccountRow = {
   id: string;
@@ -100,6 +102,7 @@ export default function ProjectsMonthCloseScreen() {
   const { tokens: userTokens, primaryActionColor } = useUserTheme();
   const insets = useSafeAreaInsets();
   const localeCode: "es" | "en" = locale === "en" ? "en" : "es";
+  const ownFundsLabel = t(dictionary, "home.savings.hucha");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -325,14 +328,16 @@ export default function ProjectsMonthCloseScreen() {
       return {
         id: allocation.id,
         label: reserve
-          ? `${reserve.emoji || "🐷"} ${reserve.name}`
+          ? `${reserve.emoji || "🐷"} ${
+              reserve.kind === "hucha" ? ownFundsLabel : reserve.name
+            }`
           : localeCode === "en"
             ? "Reserve"
             : "Reserva",
         amountMinor: toMinor(allocation.amount_base_minor),
       };
     });
-  }, [localeCode, monthCloseAllocations, projects, reserveContainers]);
+  }, [localeCode, monthCloseAllocations, ownFundsLabel, projects, reserveContainers]);
 
   const persistPlans = async () => {
     if (!selectedAccountId) return;
@@ -557,7 +562,7 @@ export default function ProjectsMonthCloseScreen() {
               <Text style={[styles.summaryLabel, { color: userTokens.textSecondary }]}>
                 {locale === "en" ? "Generated" : "Generado"}
               </Text>
-              <Text style={[styles.summaryValue, { color: userTokens.textPrimary }]}>
+              <Text style={[styles.summaryValue, { color: SAVINGS_VALUE_COLOR }]}>
                 {formatMoneyWithSymbol(actualSavedMinor, baseCurrency, currencySymbol)}
               </Text>
             </Card>
@@ -565,13 +570,13 @@ export default function ProjectsMonthCloseScreen() {
               <Text style={[styles.summaryLabel, { color: userTokens.textSecondary }]}>
                 {locale === "en" ? "Planned" : "Planificado"}
               </Text>
-              <Text style={[styles.summaryValue, { color: userTokens.textPrimary }]}>
+              <Text style={[styles.summaryValue, { color: SAVINGS_VALUE_COLOR }]}>
                 {formatMoneyWithSymbol(parsedPlans.totalMinor, baseCurrency, currencySymbol)}
               </Text>
             </Card>
             <Card style={styles.summaryCard}>
               <Text style={[styles.summaryLabel, { color: userTokens.textSecondary }]}>
-                {locale === "en" ? "To piggy bank" : "A la hucha"}
+                {locale === "en" ? "To Own Funds" : "A Fondos Propios"}
               </Text>
               <Text style={[styles.summaryValue, { color: userTokens.textPrimary }]}>
                 {formatMoneyWithSymbol(projectedReserveMinor, baseCurrency, currencySymbol)}
@@ -601,8 +606,8 @@ export default function ProjectsMonthCloseScreen() {
               </Text>
               <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
                 {locale === "en"
-                  ? "Closing the month will not allocate funds to projects or to the piggy bank."
-                  : "Al cerrar el mes no se asignará financiación ni a proyectos ni a la hucha."}
+                  ? "Closing the month will not allocate funds to projects or to Own Funds."
+                  : "Al cerrar el mes no se asignará financiación ni a proyectos ni a Fondos Propios."}
               </Text>
             </Card>
           ) : null}
@@ -615,8 +620,8 @@ export default function ProjectsMonthCloseScreen() {
             {projects.length === 0 ? (
               <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
                 {locale === "en"
-                  ? "There are no active financial projects. Any positive remainder will go to the piggy bank."
-                  : "No hay proyectos financieros activos. El sobrante positivo irá a la hucha."}
+                  ? "There are no active financial projects. Any positive remainder will go to Own Funds."
+                  : "No hay proyectos financieros activos. El sobrante positivo irá a Fondos Propios."}
               </Text>
             ) : (
               <View style={styles.projectList}>
@@ -670,8 +675,8 @@ export default function ProjectsMonthCloseScreen() {
           <Card>
             <Text style={[styles.subtitle, { color: userTokens.textSecondary }]}>
               {locale === "en"
-                ? `Any unassigned amount will go to ${huchaReserve?.name ?? "the piggy bank"}.`
-                : `Lo no asignado irá a ${huchaReserve?.name ?? "la hucha"}.`}
+                ? `Any unassigned amount will go to ${ownFundsLabel}.`
+                : `Lo no asignado irá a ${ownFundsLabel}.`}
             </Text>
             {message ? <Text style={styles.successText}>{message}</Text> : null}
           </Card>

@@ -722,7 +722,7 @@ export default function SavingsDetailScreen() {
                 <View style={styles.pipeHintItem}>
                   <View style={[styles.pipeHintDot, { backgroundColor: "#72C4E6" }]} />
                   <Text style={styles.pipeHintText}>
-                    {locale === "en" ? "piggy bank reserve" : "reserva hucha"}
+                    {locale === "en" ? "Own Funds reserve" : "reserva de Fondos Propios"}
                   </Text>
                 </View>
               </View>
@@ -879,7 +879,7 @@ export default function SavingsDetailScreen() {
                   </View>
                 )}
                 <Text style={[styles.huchaOverviewLabel, { color: userTokens.textSecondary }]}>
-                  Hucha
+                  {t(dictionary, "home.savings.hucha")}
                 </Text>
                 <Text style={[styles.huchaOverviewSubLabel, { color: userTokens.textSecondary }]}>
                   {locale === "en" ? "month remainder" : "remanente del mes"}
@@ -1090,7 +1090,9 @@ export default function SavingsDetailScreen() {
                               { color: userTokens.textSecondary },
                             ]}
                           >
-                            {locale === "en" ? "Projected to piggy bank" : "Previsto para la hucha"}:{" "}
+                            {locale === "en"
+                              ? "Projected to Own Funds"
+                              : "Previsto para Fondos Propios"}:{" "}
                             {formatMoneyWithSymbol(monthlyHuchaMinor, baseCurrency, currencySymbol)}
                           </Text>
                         </View>
@@ -1177,7 +1179,7 @@ const styles = StyleSheet.create({
     lineHeight: 44,
     letterSpacing: -2.4,
     fontFamily: "DMSans",
-    color: "#5D6575",
+    color: SAVINGS_VALUE_COLOR,
   },
   heroLabel: {
     marginTop: 10,

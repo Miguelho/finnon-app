@@ -47,6 +47,9 @@ export const themeTokens = {
         secondary: "#E8EEFF",
         disabled: "#C7D2FE",
       },
+      savings: {
+        primary: "#5B8DFF",
+      },
       state: {
         positive: "#22A06B",
         negative: "#DE350B",
@@ -106,6 +109,9 @@ export const themeTokens = {
         secondary: "#2A2D34",
         disabled: "#3A3D44",
       },
+      savings: {
+        primary: "#5B8DFF",
+      },
       state: {
         positive: "#22A06B",
         negative: "#DE350B",
@@ -121,7 +127,7 @@ export const themeTokens = {
 
 export const semanticColorTokens = {
   savings: {
-    primary: "#5B8DFF",
+    primary: themeTokens.light.colors.savings.primary,
   },
 } as const;
 

@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
+import { withAlpha } from "@poleursus/shared";
 import Svg, { Circle } from "react-native-svg";
+import { useUserTheme } from "../../contexts/UserThemeContext";
 import { clampProgress } from "./homeResponsive";
 
 type ProjectRingProps = {
@@ -17,6 +19,7 @@ export function ProjectRing({
   strokeWidth,
   emoji,
 }: ProjectRingProps) {
+  const { tokens: userTokens } = useUserTheme();
   const normalized = clampProgress(progress);
   const size = radius * 2 + strokeWidth * 2;
   const center = size / 2;
@@ -31,7 +34,7 @@ export function ProjectRing({
           cy={center}
           r={radius}
           fill="none"
-          stroke="rgba(255,255,255,0.07)"
+          stroke={withAlpha(userTokens.textPrimary, 0.08)}
           strokeWidth={strokeWidth}
         />
         <Circle

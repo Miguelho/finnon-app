@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { withAlpha } from "@poleursus/shared";
 import { useUserTheme } from "../../contexts/UserThemeContext";
+import { useCopy, t } from "../../lib/i18n";
 import { ProjectRing } from "./ProjectRing";
-import { ACTION_BLUE, MobileHomeProjectPreview, formatEta } from "./homeResponsive";
+import { MobileHomeProjectPreview, formatEta } from "./homeResponsive";
 
 type ProjectsGridProps = {
   projects: MobileHomeProjectPreview[];
@@ -15,14 +15,21 @@ export function ProjectsGrid({
   onViewAll,
   onProjectPress,
 }: ProjectsGridProps) {
-  const { tokens: userTokens } = useUserTheme();
+  const { tokens: userTokens, primaryActionColor } = useUserTheme();
+  const { dictionary, locale } = useCopy();
+  const etaLabel = (value: string | Date | null) =>
+    formatEta(value, locale, t(dictionary, "home.noDateLabel"));
 
   return (
     <View style={styles.section}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: userTokens.textTertiary }]}>PROYECTOS</Text>
+        <Text style={[styles.title, { color: userTokens.textTertiary }]}>
+          {t(dictionary, "navigation.projects")}
+        </Text>
         <Pressable onPress={onViewAll}>
-          <Text style={styles.link}>Ver todos →</Text>
+          <Text style={[styles.link, { color: primaryActionColor }]}>
+            {t(dictionary, "home.viewAllCta")} →
+          </Text>
         </Pressable>
       </View>
 
@@ -35,7 +42,7 @@ export function ProjectsGrid({
               styles.card,
               {
                 backgroundColor: userTokens.surface,
-                borderColor: withAlpha(userTokens.textPrimary, 0.08),
+                borderColor: userTokens.border,
                 opacity: pressed ? 0.92 : 1,
               },
             ]}
@@ -53,7 +60,10 @@ export function ProjectsGrid({
               {project.name}
             </Text>
             <Text style={[styles.eta, { color: userTokens.textSecondary }]} numberOfLines={2}>
-              Llegas en <Text style={styles.etaHighlight}>{formatEta(project.estimatedCompletion)}</Text>
+              {t(dictionary, "home.projectEtaPrefix")}{" "}
+              <Text style={[styles.etaHighlight, { color: primaryActionColor }]}>
+                {etaLabel(project.estimatedCompletion)}
+              </Text>
             </Text>
           </Pressable>
         ))}
@@ -81,7 +91,6 @@ const styles = StyleSheet.create({
   },
   link: {
     fontSize: 12,
-    color: ACTION_BLUE,
     fontFamily: "DMSans-Medium",
   },
   grid: {
@@ -116,7 +125,6 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans",
   },
   etaHighlight: {
-    color: ACTION_BLUE,
     fontFamily: "DMSans-Medium",
   },
 });

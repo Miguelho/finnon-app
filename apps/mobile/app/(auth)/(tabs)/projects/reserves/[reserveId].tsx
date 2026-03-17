@@ -14,19 +14,23 @@ import Svg, {
   Circle,
   ClipPath,
   Defs,
+  G,
+  Line,
   LinearGradient,
+  Path,
   Rect,
   Stop,
 } from "react-native-svg";
 import {
+  addMonths,
   CURRENCIES,
-  computeSavingsMonthView,
   formatMoneyWithSymbol,
   formatMonthLabel,
   getMonthRangeFromKey,
   getReserveContainerBalanceMinor,
   getReserveContainerStats,
   getReserveTransferDirection,
+  semanticColorTokens,
   themeTokens,
   toMonthKey,
   withAlpha,
@@ -45,12 +49,20 @@ import { Card } from "../../../../../src/components/Card";
 
 const tokens = themeTokens.light;
 const AnimatedSvgRect = Animated.createAnimatedComponent(Rect);
-const HUCHA_ACCENT = "#4ECDC4";
+const HUCHA_ACCENT = semanticColorTokens.savings.primary;
+const HUCHA_GRADIENT_TOP = "#8EB2FFCC";
+const HUCHA_GRADIENT_BOTTOM = `${HUCHA_ACCENT}EE`;
+const HUCHA_STROKE = "rgba(91,141,255,0.35)";
 const HERO_SIZE = 160;
 const HERO_CX = HERO_SIZE / 2;
 const HERO_CY = HERO_SIZE / 2;
 const HERO_RADIUS = HERO_SIZE * 0.41;
 const HERO_TRACK_WIDTH = HERO_SIZE * 0.068;
+const HISTORY_CHART_WIDTH = 320;
+const HISTORY_CHART_HEIGHT = 132;
+const HISTORY_CHART_PADDING_X = 18;
+const HISTORY_CHART_PADDING_TOP = 14;
+const HISTORY_CHART_PADDING_BOTTOM = 18;
 
 type AccountRow = {
   id: string;
@@ -78,6 +90,18 @@ const toMinor = (value: bigint | number | string | null | undefined): bigint => 
   } catch {
     return 0n;
   }
+};
+
+const toMonthPeriodKey = (value: string | Date | null | undefined): string | null => {
+  if (!value) return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return toMonthKey(value);
+  }
+  if (/^\d{4}-\d{2}/.test(value)) return value.slice(0, 7);
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return toMonthKey(parsed);
 };
 
 const getHistoryRowRadius = (index: number, total: number) => {
@@ -110,11 +134,76 @@ const getHistoryRowRadius = (index: number, total: number) => {
   };
 };
 
+const buildSavingsHistoryChart = (
+  points: Array<{
+    period: string;
+    amountMinor: bigint;
+    label: string;
+    isCurrent: boolean;
+  }>
+) => {
+  const minMinor = points.reduce(
+    (current, point) => (point.amountMinor < current ? point.amountMinor : current),
+    0n
+  );
+  const maxMinor = points.reduce(
+    (current, point) => (point.amountMinor > current ? point.amountMinor : current),
+    0n
+  );
+  const chartBottom = HISTORY_CHART_HEIGHT - HISTORY_CHART_PADDING_BOTTOM;
+  const chartInnerWidth = HISTORY_CHART_WIDTH - HISTORY_CHART_PADDING_X * 2;
+  const chartInnerHeight = chartBottom - HISTORY_CHART_PADDING_TOP;
+  const divisor = maxMinor === minMinor ? 1 : Number(maxMinor - minMinor);
+
+  const chartPoints = points.map((point, index) => {
+    const x =
+      points.length <= 1
+        ? HISTORY_CHART_WIDTH / 2
+        : HISTORY_CHART_PADDING_X + (index / (points.length - 1)) * chartInnerWidth;
+    const y =
+      maxMinor === minMinor
+        ? chartBottom
+        : HISTORY_CHART_PADDING_TOP +
+          chartInnerHeight -
+          (Number(point.amountMinor - minMinor) / divisor) * chartInnerHeight;
+
+    return {
+      ...point,
+      x,
+      y,
+    };
+  });
+
+  const linePath = chartPoints
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+    .join(" ");
+  const firstPoint = chartPoints[0] ?? null;
+  const lastPoint = chartPoints[chartPoints.length - 1] ?? null;
+  const areaPath =
+    firstPoint && lastPoint
+      ? `${linePath} L ${lastPoint.x} ${chartBottom} L ${firstPoint.x} ${chartBottom} Z`
+      : "";
+  const zeroY =
+    maxMinor === minMinor
+      ? chartBottom
+      : HISTORY_CHART_PADDING_TOP +
+        chartInnerHeight -
+        (Number(0n - minMinor) / divisor) * chartInnerHeight;
+
+  return {
+    points: chartPoints,
+    linePath,
+    areaPath,
+    zeroY,
+    currentPoint: chartPoints.find((point) => point.isCurrent) ?? null,
+  };
+};
+
 export default function ReserveDetailScreen() {
   const { reserveId } = useLocalSearchParams<{ reserveId: string }>();
   const { user, selectedAccountId } = useAuth();
   const { dictionary, locale } = useCopy();
-  const { tokens: userTokens, primaryActionColor, resolvedMode } = useUserTheme();
+  const { tokens: userTokens, resolvedMode } = useUserTheme();
   const insets = useSafeAreaInsets();
   const localeCode: "es" | "en" = locale === "en" ? "en" : "es";
 
@@ -129,7 +218,7 @@ export default function ReserveDetailScreen() {
   const [monthCloses, setMonthCloses] = useState<MonthClose[]>([]);
   const [monthCloseAllocations, setMonthCloseAllocations] = useState<MonthCloseAllocation[]>([]);
   const [reserveTransfers, setReserveTransfers] = useState<ReserveTransfer[]>([]);
-  const [currentMonthTransactions, setCurrentMonthTransactions] = useState<TransactionRow[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<TransactionRow[]>([]);
   const fillProgress = useRef(new Animated.Value(0)).current;
   const currentMonthKey = useMemo(() => toMonthKey(new Date()), []);
   const previousMonthKey = useMemo(() => {
@@ -148,6 +237,8 @@ export default function ReserveDetailScreen() {
     setError(null);
 
     try {
+      const historyStartMonthKey = addMonths(currentMonthKey, -3);
+      const historyStartRange = getMonthRangeFromKey(historyStartMonthKey);
       const currentMonthRange = getMonthRangeFromKey(currentMonthKey);
       const accountResult = await supabase
         .from("accounts")
@@ -205,7 +296,7 @@ export default function ReserveDetailScreen() {
           .from("transactions")
           .select("id, type, amount_minor, amount_base_minor, date")
           .eq("account_id", selectedAccountId)
-          .gte("date", currentMonthRange.start)
+          .gte("date", historyStartRange.start)
           .lte("date", currentMonthRange.end)
           .order("date", { ascending: true }),
       ]);
@@ -226,7 +317,7 @@ export default function ReserveDetailScreen() {
       setMonthCloses((monthClosesResult.data ?? []) as MonthClose[]);
       setMonthCloseAllocations((monthCloseAllocationsResult.data ?? []) as MonthCloseAllocation[]);
       setReserveTransfers((reserveTransfersResult.data ?? []) as ReserveTransfer[]);
-      setCurrentMonthTransactions((transactionsResult.data ?? []) as TransactionRow[]);
+      setRecentTransactions((transactionsResult.data ?? []) as TransactionRow[]);
       setMessage(null);
     } catch (loadError) {
       console.error("[ReserveDetail][mobile] load error", loadError);
@@ -267,27 +358,43 @@ export default function ReserveDetailScreen() {
     [monthCloseAllocations, monthClosesById, reserveContainer?.id, reserveTransfers]
   );
 
-  const currentMonthSavingsMinor = useMemo(
-    () =>
-      computeSavingsMonthView({
-        period: currentMonthKey,
-        transactions: currentMonthTransactions,
-      }).generatedSavedMinor,
-    [currentMonthKey, currentMonthTransactions]
-  );
-
   const savingsHistory = useMemo(() => {
     const monthFormatter = new Intl.DateTimeFormat(localeCode === "en" ? "en-US" : "es-ES", {
       month: "short",
     });
     const byPeriod = new Map<string, bigint>();
 
-    monthCloses.forEach((monthClose) => {
-      byPeriod.set(String(monthClose.period).slice(0, 7), toMinor(monthClose.actual_saved_base_minor));
+    const historyPoints = Array.from({ length: 4 }, (_, index) => {
+      const date = new Date(`${currentMonthKey}-01T00:00:00`);
+      date.setMonth(date.getMonth() + index - 3);
+      const period = toMonthKey(date);
+      byPeriod.set(period, 0n);
+      return {
+        period,
+        label: monthFormatter.format(date).replace(".", "").slice(0, 3),
+        isCurrent: period === currentMonthKey,
+      };
     });
-    byPeriod.set(currentMonthKey, currentMonthSavingsMinor);
 
-    const values = Array.from(byPeriod.values());
+    recentTransactions.forEach((transaction) => {
+      const period = toMonthPeriodKey(transaction.date);
+      if (!period || !byPeriod.has(period)) return;
+      const amountMinor = toMinor(transaction.amount_base_minor ?? transaction.amount_minor);
+      byPeriod.set(
+        period,
+        (byPeriod.get(period) ?? 0n) + (transaction.type === "income" ? amountMinor : -amountMinor)
+      );
+    });
+
+    const points = historyPoints.map(({ period, label, isCurrent }) => {
+      return {
+        period,
+        amountMinor: byPeriod.get(period) ?? 0n,
+        label,
+        isCurrent,
+      };
+    });
+    const values = points.map((point) => point.amountMinor);
     const averageMinor =
       values.length > 0
         ? values.reduce((total, amountMinor) => total + amountMinor, 0n) / BigInt(values.length)
@@ -296,27 +403,20 @@ export default function ReserveDetailScreen() {
       (current, amountMinor) => (amountMinor > current ? amountMinor : current),
       0n
     );
-
-    const bars = Array.from({ length: 4 }, (_, index) => {
-      const date = new Date(`${currentMonthKey}-01T00:00:00`);
-      date.setMonth(date.getMonth() + index - 3);
-      const period = toMonthKey(date);
-      return {
-        period,
-        amountMinor: byPeriod.get(period) ?? 0n,
-        label: monthFormatter.format(date).replace(".", "").slice(0, 3),
-        isCurrent: period === currentMonthKey,
-      };
-    });
+    const chart = buildSavingsHistoryChart(points);
 
     return {
-      currentMinor: currentMonthSavingsMinor,
+      currentMinor: byPeriod.get(currentMonthKey) ?? 0n,
       previousMinor: byPeriod.get(previousMonthKey) ?? 0n,
       averageMinor,
       maxMinor,
-      bars,
+      points: chart.points,
+      linePath: chart.linePath,
+      areaPath: chart.areaPath,
+      zeroY: chart.zeroY,
+      currentPoint: chart.currentPoint,
     };
-  }, [currentMonthKey, currentMonthSavingsMinor, localeCode, monthCloses, previousMonthKey]);
+  }, [currentMonthKey, localeCode, previousMonthKey, recentTransactions]);
 
   const activityRows = useMemo(() => {
     if (!reserveContainer) return [];
@@ -425,7 +525,7 @@ export default function ReserveDetailScreen() {
     : null;
   const trackColor =
     resolvedMode === "dark" ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)";
-  const historyAccent = primaryActionColor;
+  const historyAccent = HUCHA_ACCENT;
   const historyDanger = userTokens.dangerText;
   const historyCardBorder = withAlpha(historyAccent, resolvedMode === "dark" ? 0.34 : 0.2);
   const historyCardBackground = withAlpha(
@@ -438,13 +538,17 @@ export default function ReserveDetailScreen() {
   const historyTileBorder = withAlpha(userTokens.border, resolvedMode === "dark" ? 0.92 : 0.82);
   const historyChartBackground = withAlpha(userTokens.surface, resolvedMode === "dark" ? 0.56 : 0.7);
   const historyBaseline = withAlpha(userTokens.border, resolvedMode === "dark" ? 0.94 : 0.88);
+  const historyMarkerGlow = withAlpha(historyAccent, resolvedMode === "dark" ? 0.28 : 0.18);
+  const historyAreaFill = withAlpha(historyAccent, resolvedMode === "dark" ? 0.22 : 0.18);
+  const historyLineStroke = withAlpha(historyAccent, resolvedMode === "dark" ? 0.96 : 0.88);
+  const historyAreaGradientId = `reserve-history-area-${String(reserveId ?? "default")}`;
 
   if (loading) {
     return (
       <>
         <Stack.Screen options={{ title: t(dictionary, "home.savings.hucha") }} />
         <View style={[styles.loading, { backgroundColor: userTokens.background }]}>
-          <ActivityIndicator size="large" color={primaryActionColor} />
+          <ActivityIndicator size="large" color={HUCHA_ACCENT} />
         </View>
       </>
     );
@@ -488,8 +592,8 @@ export default function ReserveDetailScreen() {
               <Svg width={HERO_SIZE} height={HERO_SIZE} style={StyleSheet.absoluteFillObject}>
                 <Defs>
                   <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor="#4ECDC4CC" />
-                    <Stop offset="1" stopColor="#26A69AEE" />
+                    <Stop offset="0" stopColor={HUCHA_GRADIENT_TOP} />
+                    <Stop offset="1" stopColor={HUCHA_GRADIENT_BOTTOM} />
                   </LinearGradient>
                   <ClipPath id={clipPathId}>
                     <Circle cx={HERO_CX} cy={HERO_CY} r={HERO_RADIUS - 1} />
@@ -516,7 +620,7 @@ export default function ReserveDetailScreen() {
                   cx={HERO_CX}
                   cy={HERO_CY}
                   r={HERO_RADIUS}
-                  stroke="rgba(78,205,196,0.35)"
+                  stroke={HUCHA_STROKE}
                   strokeWidth={1.8}
                   fill="none"
                 />
@@ -526,7 +630,7 @@ export default function ReserveDetailScreen() {
                 <Text
                   numberOfLines={1}
                   adjustsFontSizeToFit
-                  style={[styles.heroAmount, { color: "#FFFFFF" }]}
+                  style={[styles.heroAmount, { color: userTokens.textPrimary }]}
                 >
                   {formatMoneyWithSymbol(reserveBalanceMinor, baseCurrency, currencySymbol)}
                 </Text>
@@ -716,80 +820,108 @@ export default function ReserveDetailScreen() {
                 },
               ]}
             >
-              <View style={[styles.savingsHistoryBaseline, { backgroundColor: historyBaseline }]} />
-              <View style={styles.savingsHistoryBarsRow}>
-                {savingsHistory.bars.map((bar) => {
-                  const height =
-                    savingsHistory.maxMinor > 0n && bar.amountMinor > 0n
-                      ? Math.max(16, (Number(bar.amountMinor) / Number(savingsHistory.maxMinor)) * 108)
-                      : 16;
-                  const barColor =
-                    bar.amountMinor < 0n
-                      ? historyDanger
-                      : bar.isCurrent
-                        ? historyAccent
-                        : withAlpha(historyAccent, resolvedMode === "dark" ? 0.52 : 0.38);
+              {savingsHistory.currentPoint ? (
+                <View
+                  style={[
+                    styles.savingsHistoryBubble,
+                    styles.savingsHistoryCurrentBadge,
+                    {
+                      left: `${(savingsHistory.currentPoint.x / HISTORY_CHART_WIDTH) * 100}%`,
+                      top: `${(savingsHistory.currentPoint.y / HISTORY_CHART_HEIGHT) * 100}%`,
+                      backgroundColor: withAlpha(
+                        userTokens.surface,
+                        resolvedMode === "dark" ? 0.88 : 0.92
+                      ),
+                      borderColor: historyTileBorder,
+                    },
+                  ]}
+                  pointerEvents="none"
+                >
+                  <Text
+                    style={[
+                      styles.savingsHistoryBubbleText,
+                      { color: userTokens.textSecondary },
+                    ]}
+                  >
+                    {formatMoneyWithSymbol(
+                      savingsHistory.currentPoint.amountMinor,
+                      baseCurrency,
+                      currencySymbol
+                    )}
+                  </Text>
+                </View>
+              ) : null}
 
+              <Svg
+                width="100%"
+                height={150}
+                viewBox={`0 0 ${HISTORY_CHART_WIDTH} ${HISTORY_CHART_HEIGHT}`}
+                preserveAspectRatio="none"
+              >
+                <Defs>
+                  <LinearGradient id={historyAreaGradientId} x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0" stopColor={historyAreaFill} />
+                    <Stop offset="1" stopColor={withAlpha(historyAccent, 0)} />
+                  </LinearGradient>
+                </Defs>
+
+                <Line
+                  x1={HISTORY_CHART_PADDING_X}
+                  y1={savingsHistory.zeroY}
+                  x2={HISTORY_CHART_WIDTH - HISTORY_CHART_PADDING_X}
+                  y2={savingsHistory.zeroY}
+                  stroke={historyBaseline}
+                  strokeDasharray="5 5"
+                />
+
+                {savingsHistory.areaPath ? (
+                  <Path d={savingsHistory.areaPath} fill={`url(#${historyAreaGradientId})`} />
+                ) : null}
+
+                {savingsHistory.linePath ? (
+                  <Path
+                    d={savingsHistory.linePath}
+                    fill="none"
+                    stroke={historyLineStroke}
+                    strokeWidth={3.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ) : null}
+
+                {savingsHistory.points.map((point) => {
+                  const pointColor = point.amountMinor < 0n ? historyDanger : historyAccent;
                   return (
-                    <View key={bar.period} style={styles.savingsHistoryBarItem}>
-                      <View style={styles.savingsHistoryBubbleSlot}>
-                        {bar.isCurrent ? (
-                          <View
-                            style={[
-                              styles.savingsHistoryBubble,
-                              {
-                                backgroundColor: withAlpha(
-                                  userTokens.surface,
-                                  resolvedMode === "dark" ? 0.88 : 0.92
-                                ),
-                                borderColor: historyTileBorder,
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.savingsHistoryBubbleText,
-                                { color: userTokens.textSecondary },
-                              ]}
-                            >
-                              {formatMoneyWithSymbol(bar.amountMinor, baseCurrency, currencySymbol)}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-                      <View style={styles.savingsHistoryBarTrack}>
-                        <View
-                          style={[
-                            styles.savingsHistoryBar,
-                            {
-                              height,
-                              backgroundColor: barColor,
-                              shadowColor: withAlpha(
-                                bar.isCurrent ? historyAccent : userTokens.textPrimary,
-                                resolvedMode === "dark" ? 0.26 : 0.16
-                              ),
-                              opacity: bar.amountMinor === 0n ? 0.55 : 1,
-                            },
-                          ]}
-                        />
-                        {bar.isCurrent ? (
-                          <View
-                            style={[
-                              styles.savingsHistoryBarMarker,
-                              {
-                                backgroundColor: historyAccent,
-                                borderWidth: 0,
-                              },
-                            ]}
-                          />
-                        ) : null}
-                      </View>
-                      <Text style={[styles.savingsHistoryBarLabel, { color: userTokens.textSecondary }]}>
-                        {bar.label}
-                      </Text>
-                    </View>
+                    <G key={point.period}>
+                      {point.isCurrent ? (
+                        <Circle cx={point.x} cy={point.y} r={10} fill={historyMarkerGlow} />
+                      ) : null}
+                      <Circle
+                        cx={point.x}
+                        cy={point.y}
+                        r={point.isCurrent ? 5.5 : 4}
+                        fill={pointColor}
+                        stroke={withAlpha(userTokens.surface, resolvedMode === "dark" ? 0.92 : 0.98)}
+                        strokeWidth={point.isCurrent ? 2.5 : 2}
+                      />
+                    </G>
                   );
                 })}
+              </Svg>
+
+              <View style={styles.savingsHistoryLabelsRow}>
+                {savingsHistory.points.map((point) => (
+                  <View key={point.period} style={styles.savingsHistoryLabelItem}>
+                    <Text
+                      style={[
+                        styles.savingsHistoryBarLabel,
+                        { color: point.isCurrent ? userTokens.textPrimary : userTokens.textSecondary },
+                      ]}
+                    >
+                      {point.label}
+                    </Text>
+                  </View>
+                ))}
               </View>
             </View>
           </View>
@@ -1007,36 +1139,25 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     paddingHorizontal: 10,
     paddingTop: 12,
-    paddingBottom: 10,
+    paddingBottom: 12,
     backgroundColor: "rgba(255,255,255,0.7)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.88)",
     position: "relative",
   },
-  savingsHistoryBaseline: {
+  savingsHistoryCurrentBadge: {
     position: "absolute",
-    left: 10,
-    right: 10,
-    bottom: 30,
-    height: 1,
-    backgroundColor: "#D7E3FF",
+    zIndex: 2,
+    transform: [{ translateX: -36 }, { translateY: -34 }],
   },
-  savingsHistoryBarsRow: {
+  savingsHistoryLabelsRow: {
     flexDirection: "row",
-    alignItems: "flex-end",
     gap: 6,
-    height: 170,
+    marginTop: 8,
   },
-  savingsHistoryBarItem: {
+  savingsHistoryLabelItem: {
     flex: 1,
     alignItems: "center",
-    justifyContent: "flex-end",
-  },
-  savingsHistoryBubbleSlot: {
-    height: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 6,
   },
   savingsHistoryBubble: {
     borderRadius: 999,
@@ -1051,36 +1172,7 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans-Medium",
     color: "#475569",
   },
-  savingsHistoryBarTrack: {
-    width: "100%",
-    maxWidth: 30,
-    height: 116,
-    justifyContent: "flex-end",
-    alignItems: "center",
-  },
-  savingsHistoryBar: {
-    width: "100%",
-    borderTopLeftRadius: 14,
-    borderTopRightRadius: 14,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-    overflow: "hidden",
-    shadowColor: "#5B8DFF",
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 2,
-  },
-  savingsHistoryBarMarker: {
-    position: "absolute",
-    bottom: -5,
-    width: 12,
-    height: 12,
-    borderRadius: 999,
-    backgroundColor: "#5B8DFF",
-  },
   savingsHistoryBarLabel: {
-    marginTop: 10,
     fontSize: 10,
     fontFamily: "DMSans-Bold",
     textTransform: "uppercase",

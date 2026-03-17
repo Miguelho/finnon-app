@@ -10,6 +10,7 @@ import {
   formatMonthLabel,
   getProjectMonthlyFundingTargetMinor,
   parseMoneyToMinor,
+  semanticColorTokens,
   toMonthKey,
   type MonthClose,
   type MonthCloseAllocation,
@@ -77,6 +78,7 @@ const toMinor = (value: bigint | number | string | null | undefined): bigint => 
 };
 
 const sanitizeNumericInput = (value: string) => value.replace(/[^0-9.,]/g, "");
+const SAVINGS_VALUE_COLOR = semanticColorTokens.savings.primary;
 
 const formatClosedAt = (value: string | null, locale: "es" | "en") => {
   if (!value) return null;
@@ -107,6 +109,7 @@ export function MonthCloseClient({
   const supabase = useMemo(() => createClient(), []);
   const { emitMutation } = useWebDataCache();
   const latestVisibleMonthKey = toMonthKey(new Date());
+  const ownFundsLabel = locale === "en" ? "Own Funds" : "Fondos Propios";
   const canEdit = role !== "viewer";
   const isClosed = monthState?.is_closed ?? Boolean(monthClose?.id);
   const isClosableMonth = monthKey <= latestVisibleMonthKey;
@@ -197,14 +200,16 @@ export function MonthCloseClient({
       return {
         id: allocation.id,
         label: reserve
-          ? `${reserve.emoji || "\u{1F437}"} ${reserve.name}`
+          ? `${reserve.emoji || "\u{1F437}"} ${
+              reserve.kind === "hucha" ? ownFundsLabel : reserve.name
+            }`
           : locale === "en"
             ? "Reserve"
             : "Reserva",
         amountMinor: toMinor(allocation.amount_base_minor),
       };
     });
-  }, [locale, monthCloseAllocations, projects, reserveContainers]);
+  }, [locale, monthCloseAllocations, ownFundsLabel, projects, reserveContainers]);
 
   const closedAtLabel = formatClosedAt(
     monthState?.closed_at ??
@@ -411,7 +416,7 @@ export function MonthCloseClient({
             <p className="text-sm text-muted-foreground">
               {locale === "en" ? "Generated savings" : "Ahorro generado"}
             </p>
-            <p className="text-xl font-semibold">
+            <p className="text-xl font-semibold" style={{ color: SAVINGS_VALUE_COLOR }}>
               {formatMoneyWithSymbol(actualSavedMinor, baseCurrency, currencySymbol)}
             </p>
           </div>
@@ -419,13 +424,13 @@ export function MonthCloseClient({
             <p className="text-sm text-muted-foreground">
               {locale === "en" ? "Planned to projects" : "Planificado a proyectos"}
             </p>
-            <p className="text-xl font-semibold">
+            <p className="text-xl font-semibold" style={{ color: SAVINGS_VALUE_COLOR }}>
               {formatMoneyWithSymbol(parsedPlans.totalMinor, baseCurrency, currencySymbol)}
             </p>
           </div>
           <div className="rounded-lg border p-3">
             <p className="text-sm text-muted-foreground">
-              {locale === "en" ? "Will go to piggy bank" : "Irá a la hucha"}
+              {locale === "en" ? "Will go to Own Funds" : "Irá a Fondos Propios"}
             </p>
             <p className="text-xl font-semibold">
               {formatMoneyWithSymbol(projectedReserveMinor, baseCurrency, currencySymbol)}
@@ -457,8 +462,8 @@ export function MonthCloseClient({
             </p>
             <p>
               {locale === "en"
-                ? "Closing the month will not allocate funds to projects or to the piggy bank."
-                : "Al cerrar el mes no se asignará financiación ni a proyectos ni a la hucha."}
+                ? "Closing the month will not allocate funds to projects or to Own Funds."
+                : "Al cerrar el mes no se asignará financiación ni a proyectos ni a Fondos Propios."}
             </p>
           </CardContent>
         </Card>
@@ -469,8 +474,8 @@ export function MonthCloseClient({
           <CardContent className="space-y-2 p-6 text-sm text-muted-foreground">
             <p>
               {locale === "en"
-                ? "There are no active financial projects. You can still close the month and send any positive remainder to the piggy bank."
-                : "No hay proyectos financieros activos. Aun así puedes cerrar el mes y mandar el sobrante positivo a la hucha."}
+                ? "There are no active financial projects. You can still close the month and send any positive remainder to Own Funds."
+                : "No hay proyectos financieros activos. Aun así puedes cerrar el mes y mandar el sobrante positivo a Fondos Propios."}
             </p>
           </CardContent>
         </Card>
@@ -526,8 +531,8 @@ export function MonthCloseClient({
         <CardContent className="space-y-2 p-4 text-sm">
           <p className="text-muted-foreground">
             {locale === "en"
-              ? `Any unassigned amount will go to ${huchaReserve?.name ?? "the piggy bank"}.`
-              : `Lo no asignado irá a ${huchaReserve?.name ?? "la hucha"}.`}
+              ? `Any unassigned amount will go to ${ownFundsLabel}.`
+              : `Lo no asignado irá a ${ownFundsLabel}.`}
           </p>
           {errorMessage ? <p className="text-destructive">{errorMessage}</p> : null}
           {successMessage ? <p className="text-emerald-600">{successMessage}</p> : null}

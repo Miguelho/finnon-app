@@ -1,18 +1,16 @@
-import { semanticColorTokens, type HomeProjectPreview } from "@poleursus/shared";
+import {
+  movementsTokens,
+  semanticColorTokens,
+  type HomeProjectPreview,
+} from "@poleursus/shared";
 
 export const SAVINGS_VALUE_BLUE = semanticColorTokens.savings.primary;
-export const ACTION_BLUE = SAVINGS_VALUE_BLUE;
-export const INCOME_GREEN = "#4ade80";
-export const EXPENSE_RED = "#f87171";
+export const INCOME_GREEN = movementsTokens.colors.incomeGreen;
+export const EXPENSE_RED = movementsTokens.colors.expenseRed;
 
 const euroFormatter = new Intl.NumberFormat("es-ES", {
   style: "currency",
   currency: "EUR",
-});
-
-const etaFormatter = new Intl.DateTimeFormat("es-ES", {
-  month: "long",
-  year: "numeric",
 });
 
 export type MobileHomeProjectPreview = HomeProjectPreview;
@@ -23,11 +21,21 @@ export const formatMinorCurrency = (value: bigint | number | string | null | und
   return euroFormatter.format(Number.isFinite(numeric) ? numeric / 100 : 0);
 };
 
-export const formatEta = (value: Date | string | null) => {
-  if (!value) return "Sin fecha";
+const resolveIntlLocale = (locale: string) =>
+  locale.toLowerCase().startsWith("en") ? "en-US" : "es-ES";
+
+export const formatEta = (
+  value: Date | string | null,
+  locale: string = "es",
+  fallbackLabel: string = ""
+) => {
+  if (!value) return fallbackLabel;
   const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "Sin fecha";
-  return etaFormatter.format(date);
+  if (Number.isNaN(date.getTime())) return fallbackLabel;
+  return new Intl.DateTimeFormat(resolveIntlLocale(locale), {
+    month: "long",
+    year: "numeric",
+  }).format(date);
 };
 
 export const clampProgress = (value: number) => {

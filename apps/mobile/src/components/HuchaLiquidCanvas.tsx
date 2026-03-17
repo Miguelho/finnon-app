@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Animated, Easing, StyleSheet, View, type ViewStyle } from "react-native";
+import { semanticColorTokens } from "@poleursus/shared";
 import Svg, {
   Circle,
   ClipPath,
@@ -17,6 +18,8 @@ type HuchaLiquidCanvasProps = {
 };
 
 const AnimatedSvgRect = Animated.createAnimatedComponent(Rect);
+const SAVINGS_CIRCLE_COLOR = semanticColorTokens.savings.primary;
+const SAVINGS_CIRCLE_GRADIENT_TOP = "#8EB2FF";
 
 const clampRatio = (value: number) => {
   if (!Number.isFinite(value) || value <= 0) return 0;
@@ -74,8 +77,8 @@ export function HuchaLiquidCanvas({
       <Svg width={size} height={size}>
         <Defs>
           <LinearGradient id={`${clipId}-gradient`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#4ECDC4" stopOpacity="0.8" />
-            <Stop offset="1" stopColor="#26A69A" stopOpacity="0.93" />
+            <Stop offset="0" stopColor={SAVINGS_CIRCLE_GRADIENT_TOP} stopOpacity="0.8" />
+            <Stop offset="1" stopColor={SAVINGS_CIRCLE_COLOR} stopOpacity="0.93" />
           </LinearGradient>
           <ClipPath id={clipId}>
             <Circle cx={cx} cy={cy} r={circleRadius - 1} />
@@ -105,7 +108,7 @@ export function HuchaLiquidCanvas({
           cy={cy}
           r={circleRadius}
           fill="none"
-          stroke="rgba(78,205,196,0.35)"
+          stroke="rgba(91,141,255,0.35)"
           strokeWidth={1.8}
         />
       </Svg>

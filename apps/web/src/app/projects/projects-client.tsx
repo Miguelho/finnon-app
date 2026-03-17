@@ -348,23 +348,23 @@ export function ProjectsClient({
   // TODO: i18n for redesigned transfer-card copy.
   const transferCopy = useMemo(
     () => ({
-      addHint: locale === "en" ? "Available in Hucha" : "Disponible en hucha",
+      addHint: locale === "en" ? "Available in Own Funds" : "Disponible en Fondos Propios",
       retHint:
         locale === "en"
-          ? "Available to return"
-          : "Disponible para devolver a hucha",
+          ? "Available to return to Own Funds"
+          : "Disponible para devolver a Fondos Propios",
       selectDirection:
         locale === "en"
           ? "Choose a direction to move money."
           : "Elige una direccion para mover dinero.",
       addError:
         locale === "en"
-          ? "Couldn't move money from Hucha."
-          : "No se pudo mover dinero desde la hucha.",
+          ? "Couldn't move money from Own Funds."
+          : "No se pudo mover dinero desde Fondos Propios.",
       retError:
         locale === "en"
-          ? "Couldn't return money to Hucha."
-          : "No se pudo devolver dinero a la hucha.",
+          ? "Couldn't return money to Own Funds."
+          : "No se pudo devolver dinero a Fondos Propios.",
       maxError:
         locale === "en"
           ? "Amount exceeds what is available."
@@ -647,8 +647,7 @@ export function ProjectsClient({
               />
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-3">
                 <span
-                  className="text-center text-[14px] font-bold leading-none"
-                  style={{ color: "#fff" }}
+                  className="text-center text-[14px] font-bold leading-none text-foreground"
                 >
                   {formatMoneyWithSymbol(previewHuchaMinor, baseCurrency, currencySymbol)}
                 </span>
@@ -771,7 +770,11 @@ export function ProjectsClient({
                           event.stopPropagation();
                           handleToggleMode("ret");
                         }}
-                        aria-label={locale === "en" ? "Return to Hucha" : "Devolver a hucha"}
+                        aria-label={
+                          locale === "en"
+                            ? "Return to Own Funds"
+                            : "Devolver a Fondos Propios"
+                        }
                       >
                         ↑
                       </button>
@@ -807,7 +810,11 @@ export function ProjectsClient({
                           event.stopPropagation();
                           handleToggleMode("add");
                         }}
-                        aria-label={locale === "en" ? "Add from Hucha" : "Anadir desde hucha"}
+                        aria-label={
+                          locale === "en"
+                            ? "Add from Own Funds"
+                            : "Añadir desde Fondos Propios"
+                        }
                       >
                         ↓
                       </button>

@@ -653,8 +653,8 @@ export default function ProjectDetailScreen() {
               <View style={styles.breakdownRow}>
                 <Text style={[styles.metaText, { color: userTokens.textSecondary }]}>
                   {localeCode === "en"
-                    ? "From piggy bank transfers"
-                    : "Desde transferencias de hucha"}
+                    ? "From Own Funds transfers"
+                    : "Desde transferencias de Fondos Propios"}
                 </Text>
                 <Text style={[styles.breakdownValue, { color: userTokens.textPrimary }]}>
                   {formatMoneyWithSymbol(

@@ -215,6 +215,7 @@ export function SavingsClient({
   const supabase = useMemo(() => createClient(), []);
   const { emitMutation } = useWebDataCache();
   const t = useTranslations();
+  const ownFundsLabel = t("home.savings.hucha");
   const currentMonthKey = useMemo(() => toMonthKey(new Date()), []);
   const previousMonthKey = useMemo(() => {
     const date = new Date(`${currentMonthKey}-01T00:00:00`);
@@ -646,7 +647,10 @@ export function SavingsClient({
                 size={98}
               />
             </div>
-            <h1 className="mt-3 text-center text-[40px] font-light tracking-[-0.04em] text-foreground/80">
+            <h1
+              className="mt-3 text-center text-[40px] font-light tracking-[-0.04em]"
+              style={{ color: SAVINGS_VALUE_COLOR }}
+            >
               {formatMoneyWithSymbol(savingsView.generatedSavedMinor, baseCurrency, currencySymbol)}
             </h1>
             <p className="mt-2 text-center text-[13px] text-muted-foreground">
@@ -665,7 +669,7 @@ export function SavingsClient({
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-[#72C4E6]" />
-                  {locale === "en" ? "piggy bank reserve" : "reserva hucha"}
+                  {locale === "en" ? "Own Funds reserve" : "reserva de Fondos Propios"}
                 </span>
               </div>
             </div>
@@ -783,7 +787,7 @@ export function SavingsClient({
                       </span>
                     </p>
                     <p className="text-muted-foreground">
-                      {locale === "en" ? "Projected to piggy bank" : "Previsto para la hucha"}:{" "}
+                      {locale === "en" ? "Projected to Own Funds" : "Previsto para Fondos Propios"}:{" "}
                       <span className="font-semibold text-foreground">
                         {formatMoneyWithSymbol(monthlyHuchaMinor, baseCurrency, currencySymbol)}
                       </span>
@@ -867,7 +871,9 @@ export function SavingsClient({
                   href={`/reserves/${huchaReserve.id}`}
                   className="relative block transition-transform hover:scale-[1.02]"
                   style={{ width: 72, height: 72 }}
-                  aria-label={locale === "en" ? "Open piggy bank reserve" : "Abrir hucha"}
+                  aria-label={
+                    locale === "en" ? "Open Own Funds reserve" : "Abrir Fondos Propios"
+                  }
                 >
                   <HuchaLiquidCanvas
                     valueMinor={monthlyHuchaMinor}
@@ -880,8 +886,7 @@ export function SavingsClient({
                   />
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                     <span
-                      className="text-[12px] font-bold leading-none tabular-nums"
-                      style={{ color: "#fff" }}
+                      className="text-[12px] font-bold leading-none tabular-nums text-foreground"
                     >
                       {formatMoneyWithSymbol(monthlyHuchaMinor, baseCurrency, currencySymbol)}
                     </span>
@@ -900,8 +905,7 @@ export function SavingsClient({
                   />
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                     <span
-                      className="text-[12px] font-bold leading-none tabular-nums"
-                      style={{ color: "#fff" }}
+                      className="text-[12px] font-bold leading-none tabular-nums text-foreground"
                     >
                       {formatMoneyWithSymbol(monthlyHuchaMinor, baseCurrency, currencySymbol)}
                     </span>
@@ -909,7 +913,7 @@ export function SavingsClient({
                 </div>
               )}
               <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                Hucha
+                {ownFundsLabel}
               </p>
               <p className="mt-1 text-center text-[12px] text-muted-foreground">
                 {locale === "en" ? "month remainder" : "remanente del mes"}

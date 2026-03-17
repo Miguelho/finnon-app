@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
+  addMonths,
   CURRENCIES,
   getMonthRangeFromKey,
   toMonthKey,
@@ -58,6 +59,8 @@ export default async function ReserveDetailPage({
     CURRENCIES.find((currency) => currency.code === activeAccount.base_currency)?.symbol ??
     activeAccount.base_currency;
   const currentMonthKey = toMonthKey(new Date());
+  const historyStartMonthKey = addMonths(currentMonthKey, -3);
+  const historyStartRange = getMonthRangeFromKey(historyStartMonthKey);
   const currentMonthRange = getMonthRangeFromKey(currentMonthKey);
 
   const [
@@ -99,7 +102,7 @@ export default async function ReserveDetailPage({
       .from("transactions")
       .select("id, type, amount_minor, amount_base_minor, date")
       .eq("account_id", activeAccount.id)
-      .gte("date", currentMonthRange.start)
+      .gte("date", historyStartRange.start)
       .lte("date", currentMonthRange.end)
       .order("date", { ascending: true }),
   ]);
@@ -132,7 +135,7 @@ export default async function ReserveDetailPage({
           (monthCloseAllocationsResult.data ?? []) as MonthCloseAllocation[]
         }
         reserveTransfers={(reserveTransfersResult.data ?? []) as ReserveTransfer[]}
-        currentMonthTransactions={
+        recentTransactions={
           (transactionsResult.data ?? []) as Array<{
             id: string;
             type: "income" | "expense";

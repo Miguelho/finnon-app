@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { semanticColorTokens } from "@poleursus/shared";
 import { StyleSheet, View, type ViewStyle } from "react-native";
 import Svg, { ClipPath, Defs, Ellipse, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 
@@ -8,6 +9,12 @@ type SavingsBucketHeroProps = {
   size?: number;
   style?: ViewStyle;
 };
+
+const SAVINGS_BUCKET_COLOR = semanticColorTokens.savings.primary;
+const SAVINGS_BUCKET_FILL_TOP = "#A9C4FF";
+const SAVINGS_BUCKET_SURFACE = "#BBD0FF";
+const SAVINGS_BUCKET_SURFACE_INNER = "#D7E4FF";
+const SAVINGS_BUCKET_WAVE = "#9FBEFF";
 
 export function SavingsBucketHero({
   valueMinor,
@@ -26,20 +33,20 @@ export function SavingsBucketHero({
       <Svg width={size} height={size} viewBox="0 0 92 92">
         <Defs>
           <LinearGradient id={`${clipId}-fill`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#84F2EA" stopOpacity="0.95" />
-            <Stop offset="100%" stopColor="#31BDB3" stopOpacity="0.95" />
+            <Stop offset="0%" stopColor={SAVINGS_BUCKET_FILL_TOP} stopOpacity="0.95" />
+            <Stop offset="100%" stopColor={SAVINGS_BUCKET_COLOR} stopOpacity="0.95" />
           </LinearGradient>
           <LinearGradient id={`${clipId}-glass`} x1="0" y1="0" x2="1" y2="1">
             <Stop offset="0%" stopColor="rgba(255,255,255,0.9)" />
-            <Stop offset="100%" stopColor="rgba(120,214,223,0.32)" />
+            <Stop offset="100%" stopColor="rgba(91,141,255,0.32)" />
           </LinearGradient>
           <ClipPath id={`${clipId}-bucket`}>
             <Path d="M24 22 L68 22 L61 74 Q60 78 56 78 L36 78 Q32 78 31 74 Z" />
           </ClipPath>
         </Defs>
 
-        <Ellipse cx="46" cy="24" rx="23" ry="7.5" fill="#9CF1EB" opacity="0.32" />
-        <Ellipse cx="46" cy="24" rx="20" ry="5.5" fill="#B5F7F2" opacity="0.72" />
+        <Ellipse cx="46" cy="24" rx="23" ry="7.5" fill={SAVINGS_BUCKET_SURFACE} opacity="0.32" />
+        <Ellipse cx="46" cy="24" rx="20" ry="5.5" fill={SAVINGS_BUCKET_SURFACE_INNER} opacity="0.72" />
 
         <Rect
           x="22"
@@ -54,7 +61,7 @@ export function SavingsBucketHero({
           cy={fillY}
           rx="19"
           ry="5"
-          fill="#8EF1E7"
+          fill={SAVINGS_BUCKET_WAVE}
           opacity="0.88"
           clipPath={`url(#${clipId}-bucket)`}
         />
@@ -62,7 +69,7 @@ export function SavingsBucketHero({
         <Path
           d="M24 22 L68 22 L61 74 Q60 78 56 78 L36 78 Q32 78 31 74 Z"
           fill={`url(#${clipId}-glass)`}
-          stroke="rgba(59,194,187,0.7)"
+          stroke="rgba(91,141,255,0.7)"
           strokeWidth="1.4"
         />
         <Ellipse
@@ -71,7 +78,7 @@ export function SavingsBucketHero({
           rx="23"
           ry="7.5"
           fill="none"
-          stroke="rgba(83,210,202,0.85)"
+          stroke="rgba(126,168,255,0.85)"
           strokeWidth="1.4"
         />
         <Path

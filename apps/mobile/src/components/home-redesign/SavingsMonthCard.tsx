@@ -1,7 +1,12 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { ChevronRight } from "lucide-react-native";
-import { HUCHA_PROJECT_COLOR, PROJECT_PALETTE, withAlpha } from "@poleursus/shared";
+import {
+  HUCHA_PROJECT_COLOR,
+  PROJECT_PALETTE,
+  semanticColorTokens,
+  withAlpha,
+} from "@poleursus/shared";
 import { useUserTheme } from "../../contexts/UserThemeContext";
 import { useCopy, t } from "../../lib/i18n";
 import { formatCurrencyParts, toMinor } from "./utils";
@@ -28,6 +33,8 @@ type ProjectsRowProps = {
   onPress: () => void;
   locale?: "es" | "en";
 };
+
+const SAVINGS_VALUE_COLOR = semanticColorTokens.savings.primary;
 
 const clampProgress = (value: number) => {
   if (!Number.isFinite(value) || value <= 0) return 0;
@@ -115,14 +122,13 @@ export function ProjectsRow({
   currentMonth,
   currencySymbol,
   onPress,
-  locale = "es",
 }: ProjectsRowProps) {
   const { tokens: userTokens, resolvedMode } = useUserTheme();
   const { dictionary } = useCopy();
   const isHero = projects.length === 1;
   const visibleProjects = projects.slice(0, 3);
   const multiProjectRingSize = visibleProjects.length <= 2 ? 40 : 34;
-  const savingsTitle = locale === "en" ? "Savings" : "Ahorro";
+  const savingsTitle = t(dictionary, "home.summarySavingsShort");
   const savingsVisualMaxMinor = totalSavingsMinor > 0n ? totalSavingsMinor : 1n;
   const ringTrack =
     resolvedMode === "dark" ? "rgba(255,255,255,0.06)" : withAlpha(userTokens.textPrimary, 0.1);
@@ -192,7 +198,7 @@ export function ProjectsRow({
               </Text>
               <Text style={[styles.huchaText, { color: userTokens.textSecondary }]}>
                 {t(dictionary, "home.savings.summary.totalLabel")}{" "}
-                <Text style={[styles.huchaAmount, { color: userTokens.textPrimary }]}>{totalParts.full}</Text>
+                <Text style={[styles.huchaAmount, { color: SAVINGS_VALUE_COLOR }]}>{totalParts.full}</Text>
               </Text>
             </View>
             <Text
@@ -203,7 +209,16 @@ export function ProjectsRow({
             >
               {needsRebalance
                 ? `${t(dictionary, "projects.monthClose.deficit", { amount: plannedParts.full })}`
-                : `${t(dictionary, "home.savings.savedThisMonth")}: ${totalParts.full} · ${t(dictionary, "projects.monthClose.projectAssigned")}: ${plannedParts.full} · ${t(dictionary, "projects.monthClose.allocatable")}: ${availableParts.full}`}
+                : (
+                    <>
+                      {t(dictionary, "home.savings.savedThisMonth")}:{" "}
+                      <Text style={{ color: SAVINGS_VALUE_COLOR }}>{totalParts.full}</Text> ·{" "}
+                      {t(dictionary, "projects.monthClose.projectAssigned")}:{" "}
+                      <Text style={{ color: SAVINGS_VALUE_COLOR }}>{plannedParts.full}</Text> ·{" "}
+                      {t(dictionary, "projects.monthClose.allocatable")}:{" "}
+                      <Text style={{ color: SAVINGS_VALUE_COLOR }}>{availableParts.full}</Text>
+                    </>
+                  )}
             </Text>
           </>
         ) : (
@@ -218,7 +233,7 @@ export function ProjectsRow({
                   />
                   <View style={styles.compactSavingsAmount} pointerEvents="none">
                     <Text
-                      style={[styles.compactSavingsAmountText, { color: userTokens.textPrimary }]}
+                      style={[styles.compactSavingsAmountText, { color: SAVINGS_VALUE_COLOR }]}
                       numberOfLines={2}
                     >
                       {totalParts.full}

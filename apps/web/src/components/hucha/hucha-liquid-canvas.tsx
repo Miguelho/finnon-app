@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { semanticColorTokens } from "@poleursus/shared";
 import { cn } from "@/lib/utils";
 
 type HuchaLiquidCanvasProps = {
@@ -9,6 +10,12 @@ type HuchaLiquidCanvasProps = {
   size?: number;
   className?: string;
 };
+
+const SAVINGS_CIRCLE_COLOR = semanticColorTokens.savings.primary;
+const SAVINGS_CIRCLE_GRADIENT_TOP = "#8EB2FFCC";
+const SAVINGS_CIRCLE_GRADIENT_BOTTOM = `${SAVINGS_CIRCLE_COLOR}EE`;
+const SAVINGS_CIRCLE_WAVE = "rgba(91,141,255,0.5)";
+const SAVINGS_CIRCLE_STROKE = "rgba(91,141,255,0.35)";
 
 const clampRatio = (value: number) => {
   if (!Number.isFinite(value) || value <= 0) return 0;
@@ -79,8 +86,8 @@ export function HuchaLiquidCanvas({
         cy + radius - clampRatio(levelCurrentRef.current) * radius * 2;
 
       const gradient = context.createLinearGradient(0, cy - radius, 0, cy + radius);
-      gradient.addColorStop(0, "#4ECDC4CC");
-      gradient.addColorStop(1, "#26A69AEE");
+      gradient.addColorStop(0, SAVINGS_CIRCLE_GRADIENT_TOP);
+      gradient.addColorStop(1, SAVINGS_CIRCLE_GRADIENT_BOTTOM);
       context.fillStyle = gradient;
       context.fillRect(cx - radius, fillTop, radius * 2, cy + radius - fillTop);
 
@@ -97,7 +104,7 @@ export function HuchaLiquidCanvas({
             context.lineTo(x, y);
           }
         }
-        context.strokeStyle = "rgba(78,205,196,0.5)";
+        context.strokeStyle = SAVINGS_CIRCLE_WAVE;
         context.lineWidth = 1.8;
         context.stroke();
       }
@@ -106,7 +113,7 @@ export function HuchaLiquidCanvas({
 
       context.beginPath();
       context.arc(cx, cy, radius, 0, Math.PI * 2);
-      context.strokeStyle = "rgba(78,205,196,0.35)";
+      context.strokeStyle = SAVINGS_CIRCLE_STROKE;
       context.lineWidth = 1.8;
       context.stroke();
 

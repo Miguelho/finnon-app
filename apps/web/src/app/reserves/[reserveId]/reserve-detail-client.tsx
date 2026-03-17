@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
-  computeSavingsMonthView,
   formatMoneyWithSymbol,
   formatMonthLabel,
   getReserveContainerBalanceMinor,
   getReserveContainerStats,
   getReserveTransferDirection,
+  semanticColorTokens,
   toMonthKey,
   withAlpha,
   type MonthClose,
@@ -32,7 +32,7 @@ type ReserveDetailClientProps = {
   monthCloses: MonthClose[];
   monthCloseAllocations: MonthCloseAllocation[];
   reserveTransfers: ReserveTransfer[];
-  currentMonthTransactions: TransactionRow[];
+  recentTransactions: TransactionRow[];
 };
 
 type TransactionRow = {
@@ -46,7 +46,16 @@ type TransactionRow = {
 const HERO_SIZE = 160;
 const HERO_RADIUS = HERO_SIZE * 0.41;
 const HERO_TRACK_WIDTH = HERO_SIZE * 0.068;
-const HUCHA_ACCENT = "#4ECDC4";
+const HUCHA_ACCENT = semanticColorTokens.savings.primary;
+const HUCHA_GRADIENT_TOP = "#8EB2FFCC";
+const HUCHA_GRADIENT_BOTTOM = `${HUCHA_ACCENT}EE`;
+const HUCHA_WAVE = "rgba(91,141,255,0.5)";
+const HUCHA_STROKE = "rgba(91,141,255,0.35)";
+const HISTORY_CHART_WIDTH = 320;
+const HISTORY_CHART_HEIGHT = 132;
+const HISTORY_CHART_PADDING_X = 18;
+const HISTORY_CHART_PADDING_TOP = 14;
+const HISTORY_CHART_PADDING_BOTTOM = 18;
 
 const toMinor = (value: bigint | number | string | null | undefined): bigint => {
   if (value === null || value === undefined) return 0n;
@@ -62,6 +71,85 @@ const toMinor = (value: bigint | number | string | null | undefined): bigint => 
   }
 };
 
+const toMonthPeriodKey = (value: string | Date | null | undefined): string | null => {
+  if (!value) return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return toMonthKey(value);
+  }
+  if (/^\d{4}-\d{2}/.test(value)) return value.slice(0, 7);
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return toMonthKey(parsed);
+};
+
+const buildSavingsHistoryChart = (
+  points: Array<{
+    period: string;
+    amountMinor: bigint;
+    label: string;
+    isCurrent: boolean;
+  }>
+) => {
+  const minMinor = points.reduce(
+    (current, point) => (point.amountMinor < current ? point.amountMinor : current),
+    0n
+  );
+  const maxMinor = points.reduce(
+    (current, point) => (point.amountMinor > current ? point.amountMinor : current),
+    0n
+  );
+  const chartBottom = HISTORY_CHART_HEIGHT - HISTORY_CHART_PADDING_BOTTOM;
+  const chartInnerWidth = HISTORY_CHART_WIDTH - HISTORY_CHART_PADDING_X * 2;
+  const chartInnerHeight = chartBottom - HISTORY_CHART_PADDING_TOP;
+  const divisor = maxMinor === minMinor ? 1 : Number(maxMinor - minMinor);
+
+  const chartPoints = points.map((point, index) => {
+    const x =
+      points.length <= 1
+        ? HISTORY_CHART_WIDTH / 2
+        : HISTORY_CHART_PADDING_X + (index / (points.length - 1)) * chartInnerWidth;
+    const y =
+      maxMinor === minMinor
+        ? chartBottom
+        : HISTORY_CHART_PADDING_TOP +
+          chartInnerHeight -
+          (Number(point.amountMinor - minMinor) / divisor) * chartInnerHeight;
+
+    return {
+      ...point,
+      x,
+      y,
+      xPercent: (x / HISTORY_CHART_WIDTH) * 100,
+      yPercent: (y / HISTORY_CHART_HEIGHT) * 100,
+    };
+  });
+
+  const linePath = chartPoints
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+    .join(" ");
+  const firstPoint = chartPoints[0] ?? null;
+  const lastPoint = chartPoints[chartPoints.length - 1] ?? null;
+  const areaPath =
+    firstPoint && lastPoint
+      ? `${linePath} L ${lastPoint.x} ${chartBottom} L ${firstPoint.x} ${chartBottom} Z`
+      : "";
+  const zeroY =
+    maxMinor === minMinor
+      ? chartBottom
+      : HISTORY_CHART_PADDING_TOP +
+        chartInnerHeight -
+        (Number(0n - minMinor) / divisor) * chartInnerHeight;
+
+  return {
+    points: chartPoints,
+    linePath,
+    areaPath,
+    zeroY,
+    currentPoint: chartPoints.find((point) => point.isCurrent) ?? null,
+  };
+};
+
 export function ReserveDetailClient({
   locale,
   baseCurrency,
@@ -71,9 +159,10 @@ export function ReserveDetailClient({
   monthCloses,
   monthCloseAllocations,
   reserveTransfers,
-  currentMonthTransactions,
+  recentTransactions,
 }: ReserveDetailClientProps) {
-  const { resolvedMode, tokens, primaryActionColor } = useWebUserTheme();
+  const { resolvedMode, tokens } = useWebUserTheme();
+  const historyAreaGradientId = useId();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [errorMessage] = useState<string | null>(null);
   const [successMessage] = useState<string | null>(null);
@@ -113,27 +202,44 @@ export function ReserveDetailClient({
     return toMonthKey(date);
   }, [currentMonthKey]);
 
-  const currentMonthSavingsMinor = useMemo(
-    () =>
-      computeSavingsMonthView({
-        period: currentMonthKey,
-        transactions: currentMonthTransactions,
-      }).generatedSavedMinor,
-    [currentMonthKey, currentMonthTransactions]
-  );
-
   const savingsHistory = useMemo(() => {
     const monthFormatter = new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-ES", {
       month: "short",
     });
     const byPeriod = new Map<string, bigint>();
 
-    monthCloses.forEach((monthClose) => {
-      byPeriod.set(String(monthClose.period).slice(0, 7), toMinor(monthClose.actual_saved_base_minor));
+    const historyPoints = Array.from({ length: 4 }, (_, index) => {
+      const date = new Date(`${currentMonthKey}-01T00:00:00`);
+      date.setMonth(date.getMonth() + index - 3);
+      const period = toMonthKey(date);
+      byPeriod.set(period, 0n);
+      return {
+        period,
+        label: monthFormatter.format(date).replace(".", "").slice(0, 3),
+        isCurrent: period === currentMonthKey,
+      };
     });
-    byPeriod.set(currentMonthKey, currentMonthSavingsMinor);
 
-    const values = Array.from(byPeriod.values());
+    recentTransactions.forEach((transaction) => {
+      const period = toMonthPeriodKey(transaction.date);
+      if (!period || !byPeriod.has(period)) return;
+      const amountMinor = toMinor(transaction.amount_base_minor ?? transaction.amount_minor);
+      byPeriod.set(
+        period,
+        (byPeriod.get(period) ?? 0n) + (transaction.type === "income" ? amountMinor : -amountMinor)
+      );
+    });
+
+    const points = historyPoints.map(({ period, label, isCurrent }) => {
+      const amountMinor = byPeriod.get(period) ?? 0n;
+      return {
+        period,
+        amountMinor,
+        label,
+        isCurrent: period === currentMonthKey,
+      };
+    });
+    const values = points.map((point) => point.amountMinor);
     const averageMinor =
       values.length > 0
         ? values.reduce((total, amountMinor) => total + amountMinor, 0n) / BigInt(values.length)
@@ -142,28 +248,20 @@ export function ReserveDetailClient({
       (current, amountMinor) => (amountMinor > current ? amountMinor : current),
       0n
     );
-
-    const bars = Array.from({ length: 4 }, (_, index) => {
-      const date = new Date(`${currentMonthKey}-01T00:00:00`);
-      date.setMonth(date.getMonth() + index - 3);
-      const period = toMonthKey(date);
-      const amountMinor = byPeriod.get(period) ?? 0n;
-      return {
-        period,
-        amountMinor,
-        label: monthFormatter.format(date).replace(".", "").slice(0, 3),
-        isCurrent: period === currentMonthKey,
-      };
-    });
+    const chart = buildSavingsHistoryChart(points);
 
     return {
-      currentMinor: currentMonthSavingsMinor,
+      currentMinor: byPeriod.get(currentMonthKey) ?? 0n,
       previousMinor: byPeriod.get(previousMonthKey) ?? 0n,
       averageMinor,
       maxMinor,
-      bars,
+      points: chart.points,
+      linePath: chart.linePath,
+      areaPath: chart.areaPath,
+      zeroY: chart.zeroY,
+      currentPoint: chart.currentPoint,
     };
-  }, [currentMonthKey, currentMonthSavingsMinor, locale, monthCloses, previousMonthKey]);
+  }, [currentMonthKey, locale, previousMonthKey, recentTransactions]);
 
   const activityRows = useMemo(() => {
     const projectById = new Map(projects.map((project) => [project.id, project]));
@@ -274,8 +372,8 @@ export function ReserveDetailClient({
 
       const fillTop = cy + HERO_RADIUS - levelCurrent * HERO_RADIUS * 2;
       const gradient = context.createLinearGradient(cx, cy - HERO_RADIUS, cx, cy + HERO_RADIUS);
-      gradient.addColorStop(0, "#4ECDC4CC");
-      gradient.addColorStop(1, "#26A69AEE");
+      gradient.addColorStop(0, HUCHA_GRADIENT_TOP);
+      gradient.addColorStop(1, HUCHA_GRADIENT_BOTTOM);
       context.fillStyle = gradient;
       context.fillRect(
         cx - HERO_RADIUS,
@@ -293,7 +391,7 @@ export function ReserveDetailClient({
           if (index === 0) context.moveTo(x, y);
           else context.lineTo(x, y);
         }
-        context.strokeStyle = "rgba(78,205,196,0.5)";
+        context.strokeStyle = HUCHA_WAVE;
         context.lineWidth = 1.8;
         context.stroke();
       }
@@ -302,7 +400,7 @@ export function ReserveDetailClient({
 
       context.beginPath();
       context.arc(cx, cy, HERO_RADIUS, 0, Math.PI * 2);
-      context.strokeStyle = "rgba(78,205,196,0.35)";
+      context.strokeStyle = HUCHA_STROKE;
       context.lineWidth = 1.8;
       context.stroke();
     };
@@ -325,7 +423,7 @@ export function ReserveDetailClient({
   const bestMonthLabel = reserveStats.bestMonth
     ? formatMonthLabel(reserveStats.bestMonth.period, locale)
     : null;
-  const historyAccent = primaryActionColor;
+  const historyAccent = HUCHA_ACCENT;
   const historyDanger = tokens.dangerText;
   const historyCardBorder = withAlpha(historyAccent, resolvedMode === "dark" ? 0.34 : 0.2);
   const historyCardShadow = withAlpha(historyAccent, resolvedMode === "dark" ? 0.2 : 0.14);
@@ -339,6 +437,8 @@ export function ReserveDetailClient({
   const historyChartBackground = withAlpha(tokens.surface, resolvedMode === "dark" ? 0.5 : 0.68);
   const historyBaseline = withAlpha(tokens.border, resolvedMode === "dark" ? 0.95 : 0.9);
   const historyMarkerGlow = withAlpha(historyAccent, resolvedMode === "dark" ? 0.28 : 0.18);
+  const historyAreaFill = withAlpha(historyAccent, resolvedMode === "dark" ? 0.22 : 0.18);
+  const historyLineStroke = withAlpha(historyAccent, resolvedMode === "dark" ? 0.96 : 0.88);
 
   return (
     <PageContainer className="space-y-6">
@@ -354,7 +454,7 @@ export function ReserveDetailClient({
 
       <div className="space-y-6" aria-busy={isSubmitting}>
         {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
-        {successMessage ? <p className="text-sm text-[#4ECDC4]">{successMessage}</p> : null}
+        {successMessage ? <p className="text-sm" style={{ color: HUCHA_ACCENT }}>{successMessage}</p> : null}
 
         <div className="mx-auto w-full max-w-md">
           <div className="flex flex-col items-center gap-3 py-4 text-center">
@@ -372,8 +472,7 @@ export function ReserveDetailClient({
               />
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-6">
                 <span
-                  className="max-w-[120px] text-center text-2xl font-bold tracking-[-0.8px] tabular-nums"
-                  style={{ color: "#fff" }}
+                  className="max-w-[120px] text-center text-2xl font-bold tracking-[-0.8px] tabular-nums text-foreground"
                 >
                   {formatMoneyWithSymbol(reserveBalanceMinor, baseCurrency, currencySymbol)}
                 </span>
@@ -383,7 +482,7 @@ export function ReserveDetailClient({
               {locale === "en" ? "Accumulated" : "Acumulado"}
             </span>
             <h1 className="text-2xl font-bold tracking-tight">
-              {locale === "en" ? "Hucha" : "Hucha"}
+              {locale === "en" ? "Own Funds" : "Fondos Propios"}
             </h1>
             <p className="text-sm text-muted-foreground">
               {locale === "en"
@@ -537,73 +636,118 @@ export function ReserveDetailClient({
                   boxShadow: `inset 0 1px 0 ${withAlpha(tokens.surface, resolvedMode === "dark" ? 0.38 : 0.6)}`,
                 }}
               >
-                <div className="flex h-[170px] items-end gap-2">
-                  {savingsHistory.bars.map((bar) => {
-                    const height =
-                      savingsHistory.maxMinor > 0n && bar.amountMinor > 0n
-                        ? Math.max(16, (Number(bar.amountMinor) / Number(savingsHistory.maxMinor)) * 108)
-                        : 16;
-                    const barTone =
-                      bar.amountMinor < 0n
-                        ? `linear-gradient(180deg, ${withAlpha(historyDanger, 0.72)} 0%, ${historyDanger} 100%)`
-                        : bar.isCurrent
-                          ? `linear-gradient(180deg, ${withAlpha(historyAccent, 0.68)} 0%, ${historyAccent} 55%, ${withAlpha(historyAccent, 0.96)} 100%)`
-                          : `linear-gradient(180deg, ${withAlpha(historyAccent, resolvedMode === "dark" ? 0.26 : 0.18)} 0%, ${withAlpha(historyAccent, resolvedMode === "dark" ? 0.62 : 0.42)} 100%)`;
+                <div className="relative">
+                  {savingsHistory.currentPoint ? (
+                    <div
+                      className="pointer-events-none absolute z-10 rounded-full border px-2 py-1 text-[10px] font-medium"
+                      style={{
+                        left: `${savingsHistory.currentPoint.xPercent}%`,
+                        top: `calc(${savingsHistory.currentPoint.yPercent}% - 8px)`,
+                        transform: "translate(-50%, -100%)",
+                        borderColor: historyTileBorder,
+                        backgroundColor: withAlpha(tokens.surface, resolvedMode === "dark" ? 0.88 : 0.92),
+                        color: tokens.textSecondary,
+                        boxShadow: `0 8px 18px ${withAlpha(historyAccent, resolvedMode === "dark" ? 0.22 : 0.14)}`,
+                      }}
+                    >
+                      {formatMoneyWithSymbol(
+                        savingsHistory.currentPoint.amountMinor,
+                        baseCurrency,
+                        currencySymbol
+                      )}
+                    </div>
+                  ) : null}
 
-                    return (
-                      <div key={bar.period} className="flex flex-1 flex-col items-center justify-end">
-                        <div className="mb-2 h-6 text-center">
-                          {bar.isCurrent ? (
-                            <span
-                              className="inline-flex rounded-full border px-2 py-1 text-[10px] font-medium"
-                              style={{
-                                borderColor: historyTileBorder,
-                                backgroundColor: withAlpha(tokens.surface, resolvedMode === "dark" ? 0.88 : 0.92),
-                                color: tokens.textSecondary,
-                                boxShadow: `0 8px 18px ${withAlpha(historyAccent, resolvedMode === "dark" ? 0.22 : 0.14)}`,
-                              }}
-                            >
-                              {formatMoneyWithSymbol(bar.amountMinor, baseCurrency, currencySymbol)}
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="relative flex h-[116px] w-full items-end justify-center">
-                          <div
-                            className="absolute inset-x-0 bottom-0 h-px"
-                            style={{ backgroundColor: historyBaseline }}
-                          />
-                          <div
-                            className="relative w-full max-w-[30px] overflow-hidden rounded-t-[14px] rounded-b-[8px] border"
-                            style={{
-                              height,
-                              background: barTone,
-                              borderColor: withAlpha(tokens.surface, resolvedMode === "dark" ? 0.4 : 0.7),
-                              opacity: bar.amountMinor === 0n ? 0.55 : 1,
-                              boxShadow: `0 14px 28px ${withAlpha(
-                                bar.isCurrent ? historyAccent : tokens.textPrimary,
-                                resolvedMode === "dark" ? 0.2 : 0.14
-                              )}`,
-                            }}
-                          />
-                          {bar.isCurrent ? (
+                  <svg
+                    viewBox={`0 0 ${HISTORY_CHART_WIDTH} ${HISTORY_CHART_HEIGHT}`}
+                    className="h-[150px] w-full overflow-visible"
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                  >
+                    <defs>
+                      <linearGradient id={historyAreaGradientId} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={historyAreaFill} />
+                        <stop offset="100%" stopColor={withAlpha(historyAccent, 0)} />
+                      </linearGradient>
+                    </defs>
+
+                    <line
+                      x1={HISTORY_CHART_PADDING_X}
+                      y1={savingsHistory.zeroY}
+                      x2={HISTORY_CHART_WIDTH - HISTORY_CHART_PADDING_X}
+                      y2={savingsHistory.zeroY}
+                      stroke={historyBaseline}
+                      strokeDasharray="5 5"
+                    />
+
+                    {savingsHistory.areaPath ? (
+                      <path d={savingsHistory.areaPath} fill={`url(#${historyAreaGradientId})`} />
+                    ) : null}
+
+                    {savingsHistory.linePath ? (
+                      <path
+                        d={savingsHistory.linePath}
+                        fill="none"
+                        stroke={historyLineStroke}
+                        strokeWidth="3.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    ) : null}
+                  </svg>
+
+                  <div className="pointer-events-none absolute inset-0">
+                    {savingsHistory.points.map((point) => {
+                      const pointColor = point.amountMinor < 0n ? historyDanger : historyAccent;
+                      return (
+                        <div
+                          key={point.period}
+                          className="absolute"
+                          style={{
+                            left: `${point.xPercent}%`,
+                            top: `${point.yPercent}%`,
+                            transform: "translate(-50%, -50%)",
+                          }}
+                        >
+                          {point.isCurrent ? (
                             <div
-                              className="absolute bottom-[-4px] h-2.5 w-2.5 rounded-full"
+                              className="absolute left-1/2 top-1/2 rounded-full"
                               style={{
-                                backgroundColor: historyAccent,
-                                boxShadow: `0 0 0 6px ${historyMarkerGlow}`,
+                                width: 22,
+                                height: 22,
+                                transform: "translate(-50%, -50%)",
+                                backgroundColor: historyMarkerGlow,
                               }}
                             />
                           ) : null}
+                          <div
+                            className="relative rounded-full border"
+                            style={{
+                              width: point.isCurrent ? 12 : 9,
+                              height: point.isCurrent ? 12 : 9,
+                              backgroundColor: pointColor,
+                              borderColor: withAlpha(tokens.surface, resolvedMode === "dark" ? 0.92 : 0.98),
+                              borderWidth: point.isCurrent ? 3 : 2,
+                              boxShadow: `0 0 0 1px ${withAlpha(pointColor, 0.12)}`,
+                            }}
+                          />
                         </div>
-                        <p
-                          className="mt-3 text-center text-[10px] font-medium uppercase tracking-[0.08em]"
-                          style={{ color: tokens.textSecondary }}
-                        >
-                          {bar.label}
-                        </p>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-4 gap-2">
+                  {savingsHistory.points.map((point) => (
+                    <div key={point.period} className="text-center">
+                      <p
+                        className="text-[10px] font-medium uppercase tracking-[0.08em]"
+                        style={{ color: point.isCurrent ? tokens.textPrimary : tokens.textSecondary }}
+                      >
+                        {point.label}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

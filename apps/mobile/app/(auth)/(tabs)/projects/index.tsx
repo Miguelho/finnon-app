@@ -600,23 +600,23 @@ export default function ProjectsScreen() {
   // TODO: i18n for redesigned transfer-card copy.
   const transferCopy = useMemo(
     () => ({
-      addHint: localeCode === "en" ? "Available in Hucha" : "Disponible en hucha",
+      addHint: localeCode === "en" ? "Available in Own Funds" : "Disponible en Fondos Propios",
       retHint:
         localeCode === "en"
-          ? "Available to return"
-          : "Disponible para devolver a hucha",
+          ? "Available to return to Own Funds"
+          : "Disponible para devolver a Fondos Propios",
       selectDirection:
         localeCode === "en"
           ? "Choose a direction to move money."
           : "Elige una direccion para mover dinero.",
       addError:
         localeCode === "en"
-          ? "Couldn't move money from Hucha."
-          : "No se pudo mover dinero desde la hucha.",
+          ? "Couldn't move money from Own Funds."
+          : "No se pudo mover dinero desde Fondos Propios.",
       retError:
         localeCode === "en"
-          ? "Couldn't return money to Hucha."
-          : "No se pudo devolver dinero a la hucha.",
+          ? "Couldn't return money to Own Funds."
+          : "No se pudo devolver dinero a Fondos Propios.",
     }),
     [localeCode]
   );
@@ -1245,7 +1245,10 @@ export default function ProjectsScreen() {
                       size={88}
                     />
                     <View style={styles.huchaCircleInner} pointerEvents="none">
-                      <Text numberOfLines={1} style={styles.huchaCircleAmount}>
+                      <Text
+                        numberOfLines={1}
+                        style={[styles.huchaCircleAmount, { color: userTokens.textPrimary }]}
+                      >
                         {formatMoneyWithSymbol(
                           previewHuchaMinor,
                           baseCurrency,
@@ -1537,7 +1540,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 15,
     fontFamily: "DMSans-Bold",
-    color: "#FFFFFF",
     textAlign: "center",
   },
   huchaCircleLabel: {

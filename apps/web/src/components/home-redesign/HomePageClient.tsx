@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   buildCalendarDayData,
   getMonthCalendarDisplayDays,
@@ -12,6 +13,7 @@ import {
 } from "@poleursus/shared";
 import { PageContainer } from "@/components/layout/page-container";
 import { AddActionTrigger } from "@/components/navigation/add-action-trigger";
+import { useWebUserTheme } from "@/components/theme/web-user-theme-provider";
 import { createClient } from "@/lib/supabase/client";
 import { Calendar } from "./Calendar";
 import { formatCurrencyParts, formatFullDate, toDateKey, toMinor } from "./utils";
@@ -91,8 +93,6 @@ type HomeMovementGroup = {
   items: HomeMovement[];
 };
 
-const SAVINGS_VALUE_COLOR = semanticColorTokens.savings.primary;
-
 const plusDays = (date: Date, days: number) => {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
@@ -106,46 +106,30 @@ const toSignedMinor = (amountMinor: bigint, type: "income" | "expense") => {
   return type === "income" ? absoluteAmount : -absoluteAmount;
 };
 
-const WEEKDAY_LABELS = {
-  es: ["L", "M", "X", "J", "V", "S", "D"],
-  en: ["M", "T", "W", "T", "F", "S", "S"],
+const resolveIntlLocale = (locale: "es" | "en") => (locale === "en" ? "en-US" : "es-ES");
+
+const buildWeekdayLabels = (locale: "es" | "en") => {
+  const formatter = new Intl.DateTimeFormat(resolveIntlLocale(locale), {
+    weekday: "narrow",
+    timeZone: "UTC",
+  });
+  const monday = new Date(Date.UTC(2024, 0, 1));
+  return Array.from({ length: 7 }, (_, index) =>
+    formatter.format(new Date(monday.getTime() + index * 24 * 60 * 60 * 1000)).replace(/\.$/, "")
+  );
 };
 
-const MONTHS_SHORT = {
-  es: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
-  en: ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"],
+const buildMonthLabels = (locale: "es" | "en", month: "short" | "long") => {
+  const formatter = new Intl.DateTimeFormat(resolveIntlLocale(locale), {
+    month,
+    timeZone: "UTC",
+  });
+  return Array.from({ length: 12 }, (_, index) =>
+    formatter.format(new Date(Date.UTC(2024, index, 1))).replace(/\.$/, "")
+  );
 };
 
-const MONTHS_LONG = {
-  es: [
-    "enero",
-    "febrero",
-    "marzo",
-    "abril",
-    "mayo",
-    "junio",
-    "julio",
-    "agosto",
-    "septiembre",
-    "octubre",
-    "noviembre",
-    "diciembre",
-  ],
-  en: [
-    "january",
-    "february",
-    "march",
-    "april",
-    "may",
-    "june",
-    "july",
-    "august",
-    "september",
-    "october",
-    "november",
-    "december",
-  ],
-};
+const SAVINGS_VALUE_COLOR = semanticColorTokens.savings.primary;
 
 const TRANSACTIONS_SELECT_WITH_CATEGORY_COLOR =
   "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, project_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id, color)";
@@ -163,22 +147,20 @@ const euroFormatter = new Intl.NumberFormat("es-ES", {
   currency: "EUR",
 });
 
-const etaFormatter = new Intl.DateTimeFormat("es-ES", {
-  month: "long",
-  year: "numeric",
-});
-
 const formatMinorCurrency = (value: string | number | bigint | null | undefined) => {
   if (value === null || value === undefined) return euroFormatter.format(0);
   const amount = typeof value === "bigint" ? Number(value) : Number(value);
   return euroFormatter.format(Number.isFinite(amount) ? amount / 100 : 0);
 };
 
-const formatEta = (value: string | null) => {
-  if (!value) return "Sin fecha";
+const formatEta = (value: string | null, locale: "es" | "en", fallbackLabel: string) => {
+  if (!value) return fallbackLabel;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Sin fecha";
-  return etaFormatter.format(date);
+  if (Number.isNaN(date.getTime())) return fallbackLabel;
+  return new Intl.DateTimeFormat(resolveIntlLocale(locale), {
+    month: "long",
+    year: "numeric",
+  }).format(date);
 };
 
 const clampProgress = (value: number) => {
@@ -200,6 +182,7 @@ function ProjectRing({
   strokeWidth: number;
   emoji: string;
 }) {
+  const { tokens } = useWebUserTheme();
   const normalized = clampProgress(progress);
   const size = radius * 2 + strokeWidth * 2;
   const center = size / 2;
@@ -214,7 +197,7 @@ function ProjectRing({
           cy={center}
           r={radius}
           fill="none"
-          stroke="rgba(255,255,255,0.07)"
+          stroke={withAlpha(tokens.textPrimary, 0.08)}
           strokeWidth={strokeWidth}
         />
         <circle
@@ -251,16 +234,14 @@ function StatCard({
   onClick?: () => void;
 }) {
   const accentClass =
-    accent === "highlight"
-      ? ""
-      : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)]";
-  const valueClass = accent === "highlight" ? "" : "text-white";
+    accent === "highlight" ? "" : "border-border bg-card";
+  const valueClass = accent === "highlight" ? "" : "text-[var(--account-text-primary)]";
   const sublabelClass =
     accent === "income"
-      ? "text-[#4ade80]"
+      ? "text-[var(--account-income)]"
       : accent === "expense"
-        ? "text-[#f87171]"
-        : "text-[rgba(255,255,255,0.32)]";
+        ? "text-[var(--account-expense)]"
+        : "text-[var(--account-text-tertiary)]";
 
   const content = (
     <div
@@ -268,13 +249,13 @@ function StatCard({
       style={
         accent === "highlight"
           ? {
-              borderColor: withAlpha(SAVINGS_VALUE_COLOR, 0.2),
-              backgroundColor: withAlpha(SAVINGS_VALUE_COLOR, 0.06),
+              borderColor: withAlpha(SAVINGS_VALUE_COLOR, 0.22),
+              backgroundColor: withAlpha(SAVINGS_VALUE_COLOR, 0.08),
             }
           : undefined
       }
     >
-      <p className="text-[11px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
+      <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
         {label}
       </p>
       <p
@@ -304,11 +285,13 @@ export function HomePageClient({
   summary,
 }: HomePageClientProps) {
   const router = useRouter();
+  const t = useTranslations();
+  const { primaryActionColor } = useWebUserTheme();
   const supabase = useMemo(() => createClient(), []);
   const locale = account.locale;
-  const weekdayLabels = WEEKDAY_LABELS[locale];
-  const monthsShort = MONTHS_SHORT[locale];
-  const monthsLong = MONTHS_LONG[locale];
+  const weekdayLabels = useMemo(() => buildWeekdayLabels(locale), [locale]);
+  const monthsShort = useMemo(() => buildMonthLabels(locale, "short"), [locale]);
+  const monthsLong = useMemo(() => buildMonthLabels(locale, "long"), [locale]);
   const today = useMemo(() => new Date(), []);
   const [transactions, setTransactions] = useState<TransactionRow[]>(monthlyTransactions);
   const [futureTransactions, setFutureTransactions] = useState<TransactionRow[]>(upcomingTransactions);
@@ -449,13 +432,13 @@ export function HomePageClient({
           amount_minor: obligation.amount_minor,
           amount_base_minor: obligation.amount_base_minor,
           category_id: "obligation",
-          category_name: locale === "en" ? "Scheduled" : "Programado",
-          category_color: "#CB6E55",
+          category_name: t("home.programmedBadge"),
+          category_color: "var(--account-expense)",
         })),
     ];
 
     return buildCalendarDayData(entries);
-  }, [allTransactions, calendarObligations, locale]);
+  }, [allTransactions, calendarObligations, t]);
 
   const monthDays = useMemo(() => {
     return getMonthCalendarDisplayDays(
@@ -488,16 +471,16 @@ export function HomePageClient({
   }, [monthReference, monthsLong]);
 
   const selectedDayMovementGroups = useMemo<HomeMovementGroup[]>(() => {
-    const dayTx = allTransactions
+    const dayTx: HomeMovement[] = allTransactions
       .filter((tx) => toDateKey(tx.date) === selectedDayKey)
       .map((tx) => ({
         id: tx.id,
-        name: tx.merchant?.trim() || tx.category?.name || (locale === "en" ? "Movement" : "Movimiento"),
+        name: tx.merchant?.trim() || tx.category?.name || t("home.movementFallback"),
         type: tx.type,
         amountMinor: absMinor(toMinor(tx.amount_base_minor ?? tx.amount_minor)),
       }));
 
-    const dayObligations = calendarObligations
+    const dayObligations: HomeMovement[] = calendarObligations
       .filter((obligation) => obligation.status !== "paid")
       .filter((obligation) => toDateKey(obligation.due_date as string) === selectedDayKey)
       .map((obligation) => ({
@@ -513,10 +496,10 @@ export function HomePageClient({
     [...dayTx, ...dayObligations].forEach((movement) => {
       const groupKey = movement.isProgrammed ? "obligation" : movement.type;
       const groupName = movement.isProgrammed
-        ? (locale === "en" ? "Scheduled" : "Programado")
+        ? t("home.programmedBadge")
         : movement.type === "income"
-          ? (locale === "en" ? "Income" : "Ingresos")
-          : (locale === "en" ? "Expenses" : "Gastos");
+          ? t("common.incomeLabel")
+          : t("common.expenseLabel");
       const existing = grouped.get(groupKey);
       if (!existing) {
         grouped.set(groupKey, {
@@ -533,7 +516,7 @@ export function HomePageClient({
     });
 
     return Array.from(grouped.values());
-  }, [allTransactions, calendarObligations, locale, selectedDayKey]);
+  }, [allTransactions, calendarObligations, selectedDayKey, t]);
 
   const selectedDayLabel = useMemo(
     () => formatFullDate(selectedDayKey, locale),
@@ -556,17 +539,17 @@ export function HomePageClient({
             onClick={() => router.push("/savings")}
             className="w-full text-left transition-opacity hover:opacity-95"
           >
-            <div className="rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] p-4">
+            <div className="rounded-[18px] border border-border bg-card p-4">
               <div className="grid grid-cols-[1fr_auto] gap-4">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
-                    ESTE MES
+                  <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
+                    {t("home.thisMonthLabel")}
                   </p>
-                  <p className="mt-1 text-[11px] text-[rgba(255,255,255,0.35)]">{summary.currentMonth}</p>
+                  <p className="mt-1 text-[11px] text-[var(--account-text-secondary)]">{summary.currentMonth}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[11px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
-                    AHORRO
+                  <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
+                    {t("home.summarySavingsShort")}
                   </p>
                   <p
                     className="mt-1 text-[30px] font-semibold leading-none tracking-[-0.05em] tabular-nums"
@@ -577,26 +560,26 @@ export function HomePageClient({
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-[12px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]">
+              <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-[12px] border border-border bg-[var(--account-surface-alt)]">
                 <div className="px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
-                    INGRESOS
+                  <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
+                    {t("common.incomeLabel")}
                   </p>
-                  <p className="mt-1 text-[13px] font-semibold text-[#4ade80] tabular-nums">
+                  <p className="mt-1 text-[13px] font-semibold text-[var(--account-income)] tabular-nums">
                     ↑ {monthlyIncomeLabel}
                   </p>
                 </div>
-                <div className="border-x border-[rgba(255,255,255,0.08)] px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
-                    GASTOS
+                <div className="border-x border-border px-3 py-2.5">
+                  <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
+                    {t("common.expenseLabel")}
                   </p>
-                  <p className="mt-1 text-[13px] font-semibold text-[#f87171] tabular-nums">
+                  <p className="mt-1 text-[13px] font-semibold text-[var(--account-expense)] tabular-nums">
                     ↓ {monthlyExpensesLabel}
                   </p>
                 </div>
                 <div className="px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
-                    QUEDA
+                  <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
+                    {t("home.summaryAvailableShort")}
                   </p>
                   <p
                     className="mt-1 text-[13px] font-semibold tabular-nums"
@@ -611,31 +594,45 @@ export function HomePageClient({
         </div>
 
         <div className="hidden grid-cols-4 gap-3 md:grid">
-          <StatCard label="BALANCE" value={balanceLabel} sublabel="Patrimonio total" />
           <StatCard
-            label={`AHORRO · ${currentMonthShort}`}
+            label={t("home.summaryBalanceShort")}
+            value={balanceLabel}
+            sublabel={t("home.summaryBalanceDescription")}
+          />
+          <StatCard
+            label={`${t("home.summarySavingsShort")} · ${currentMonthShort}`}
             value={monthlySavingsLabel}
-            sublabel={`De ${monthlyIncomeLabel} ingresados`}
+            sublabel={t("home.summarySavingsDescription", { amount: monthlyIncomeLabel })}
             accent="highlight"
             onClick={() => router.push("/savings")}
           />
-          <StatCard label="INGRESOS" value={monthlyIncomeLabel} sublabel="↑ Este mes" accent="income" />
-          <StatCard label="GASTOS" value={monthlyExpensesLabel} sublabel="↓ Este mes" accent="expense" />
+          <StatCard
+            label={t("common.incomeLabel")}
+            value={monthlyIncomeLabel}
+            sublabel={t("home.summaryIncomeDescription")}
+            accent="income"
+          />
+          <StatCard
+            label={t("common.expenseLabel")}
+            value={monthlyExpensesLabel}
+            sublabel={t("home.summaryExpenseDescription")}
+            accent="expense"
+          />
         </div>
 
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.55fr)]">
           <div>
             <div className="md:hidden">
               <div className="mb-2 flex items-center justify-between gap-3">
-                <p className="text-[12px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.4)]">
-                  PROYECTOS
+                <p className="text-[12px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
+                  {t("navigation.projects")}
                 </p>
                 <button
                   type="button"
                   onClick={() => router.push("/projects")}
-                  className="text-[12px] text-[#5B8DFF]"
+                  className="text-[12px] text-[var(--account-accent)]"
                 >
-                  Ver todos →
+                  {t("home.viewAllCta")} →
                 </button>
               </div>
               <div className="grid grid-cols-3 gap-2">
@@ -644,7 +641,7 @@ export function HomePageClient({
                     key={project.id}
                     type="button"
                     onClick={() => router.push(`/projects/${project.id}`)}
-                    className="rounded-[16px] border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.04)] px-2 py-3 text-center"
+                    className="rounded-[16px] border border-border bg-card px-2 py-3 text-center"
                   >
                     <div className="flex justify-center">
                       <ProjectRing
@@ -655,28 +652,31 @@ export function HomePageClient({
                         emoji={project.emoji}
                       />
                     </div>
-                    <p className="mx-auto mt-2 line-clamp-2 min-h-[28px] text-[11px] font-medium text-[rgba(255,255,255,0.82)]">
+                    <p className="mx-auto mt-2 line-clamp-2 min-h-[28px] text-[11px] font-medium text-[var(--account-text-primary)]">
                       {project.name}
                     </p>
-                    <p className="mt-1 text-[10px] leading-[1.3] text-[rgba(255,255,255,0.35)]">
-                      Llegas en <span className="font-medium text-[#5B8DFF]">{formatEta(project.estimatedCompletion)}</span>
+                    <p className="mt-1 text-[10px] leading-[1.3] text-[var(--account-text-secondary)]">
+                      {t("home.projectEtaPrefix")}{" "}
+                      <span className="font-medium text-[var(--account-accent)]">
+                        {formatEta(project.estimatedCompletion, locale, t("home.noDateLabel"))}
+                      </span>
                     </p>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="hidden rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-5 md:block">
+            <div className="hidden rounded-[18px] border border-border bg-card p-5 md:block">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[12px] uppercase tracking-[0.08em] text-[rgba(255,255,255,0.35)]">
-                  PROYECTOS
+                <p className="text-[12px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
+                  {t("navigation.projects")}
                 </p>
                 <button
                   type="button"
                   onClick={() => router.push("/projects")}
-                  className="text-[12px] text-[#5B8DFF]"
+                  className="text-[12px] text-[var(--account-accent)]"
                 >
-                  Ver todos →
+                  {t("home.viewAllCta")} →
                 </button>
               </div>
 
@@ -686,7 +686,7 @@ export function HomePageClient({
                     key={project.id}
                     type="button"
                     onClick={() => router.push(`/projects/${project.id}`)}
-                    className="flex w-full items-center gap-3 rounded-[12px] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.04)] px-[14px] py-3 text-left"
+                    className="flex w-full items-center gap-3 rounded-[12px] border border-border bg-[var(--account-surface-alt)] px-[14px] py-3 text-left"
                   >
                     <ProjectRing
                       progress={project.progressRatio}
@@ -696,14 +696,16 @@ export function HomePageClient({
                       emoji={project.emoji}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium text-[rgba(255,255,255,0.86)]">
+                      <p className="truncate text-[13px] font-medium text-[var(--account-text-primary)]">
                         {project.name}
                       </p>
-                      <p className="mt-1 text-[11px] text-[rgba(255,255,255,0.35)]">
-                        Llegas en {formatEta(project.estimatedCompletion)}
+                      <p className="mt-1 text-[11px] text-[var(--account-text-secondary)]">
+                        {t("home.projectEta", {
+                          eta: formatEta(project.estimatedCompletion, locale, t("home.noDateLabel")),
+                        })}
                       </p>
                     </div>
-                    <p className="text-[20px] font-semibold text-[rgba(255,255,255,0.28)] tabular-nums">
+                    <p className="text-[20px] font-semibold text-[var(--account-text-tertiary)] tabular-nums">
                       {Math.round(clampProgress(project.progressRatio) * 100)}%
                     </p>
                   </button>
@@ -726,21 +728,21 @@ export function HomePageClient({
               currencySymbol={account.currencySymbol}
             />
 
-            <div className="mt-4 rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-4">
+            <div className="mt-4 rounded-[18px] border border-border bg-card p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[13px] font-semibold text-[rgba(255,255,255,0.88)]">
-                    {locale === "en" ? "Day detail" : "Detalle del día"}
+                  <p className="text-[13px] font-semibold text-[var(--account-text-primary)]">
+                    {t("home.dayDetailTitle")}
                   </p>
-                  <p className="mt-1 text-[11px] text-[rgba(255,255,255,0.38)]">
+                  <p className="mt-1 text-[11px] text-[var(--account-text-secondary)]">
                     {selectedDayLabel}
                   </p>
                 </div>
               </div>
 
               {selectedDayMovementGroups.length === 0 ? (
-                <p className="mt-3 text-[12px] text-[rgba(255,255,255,0.34)]">
-                  {locale === "en" ? "No movements for this day." : "No hay movimientos para este día."}
+                <p className="mt-3 text-[12px] text-[var(--account-text-tertiary)]">
+                  {t("home.dayDetailEmpty")}
                 </p>
               ) : (
                 <div className="mt-3 space-y-3">
@@ -752,16 +754,20 @@ export function HomePageClient({
                     return (
                       <div
                         key={group.id}
-                        className="rounded-[12px] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] px-3 py-3"
+                        className="rounded-[12px] border border-border bg-[var(--account-surface-alt)] px-3 py-3"
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <p className="text-[12px] font-medium text-[rgba(255,255,255,0.82)]">
+                          <p className="text-[12px] font-medium text-[var(--account-text-primary)]">
                             {group.name}
                           </p>
                           <p
                             className="text-[12px] font-semibold tabular-nums"
                             style={{
-                              color: isGroupIncome ? "#4ade80" : isGroupExpense ? "#f87171" : "rgba(255,255,255,0.56)",
+                              color: isGroupIncome
+                                ? "var(--account-income)"
+                                : isGroupExpense
+                                  ? "var(--account-expense)"
+                                  : "var(--account-text-secondary)",
                             }}
                           >
                             {isGroupIncome ? "+" : isGroupExpense ? "−" : ""}
@@ -774,12 +780,17 @@ export function HomePageClient({
                             const parts = formatCurrencyParts(movement.amountMinor, account.currencySymbol, locale);
                             return (
                               <div key={movement.id} className="flex items-center justify-between gap-3">
-                                <p className="min-w-0 flex-1 truncate text-[12px] text-[rgba(255,255,255,0.68)]">
+                                <p className="min-w-0 flex-1 truncate text-[12px] text-[var(--account-text-secondary)]">
                                   {movement.name}
                                 </p>
                                 <p
                                   className="text-[11px] font-medium tabular-nums"
-                                  style={{ color: movement.type === "income" ? "#4ade80" : "#f87171" }}
+                                  style={{
+                                    color:
+                                      movement.type === "income"
+                                        ? "var(--account-income)"
+                                        : "var(--account-expense)",
+                                  }}
                                 >
                                   {movement.type === "income" ? "+" : "−"}
                                   {parts.full}

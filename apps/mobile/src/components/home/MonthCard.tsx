@@ -1,11 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { withAlpha } from "@poleursus/shared";
 import { useUserTheme } from "../../contexts/UserThemeContext";
 import {
   EXPENSE_RED,
   INCOME_GREEN,
-  SAVINGS_VALUE_BLUE,
   formatMinorCurrency,
+  SAVINGS_VALUE_BLUE,
 } from "./homeResponsive";
 
 type MonthCardProps = {
@@ -34,7 +33,7 @@ export function MonthCard({
           styles.card,
           {
             backgroundColor: userTokens.surface,
-            borderColor: withAlpha(userTokens.textPrimary, 0.12),
+            borderColor: userTokens.border,
           },
         ]}
       >
@@ -56,7 +55,7 @@ export function MonthCard({
             styles.pillsRow,
             {
               backgroundColor: userTokens.surfaceAlt,
-              borderColor: withAlpha(userTokens.textPrimary, 0.08),
+              borderColor: userTokens.border,
             },
           ]}
         >
@@ -66,14 +65,14 @@ export function MonthCard({
               ↑ {formatMinorCurrency(incomeMinor)}
             </Text>
           </View>
-          <View style={[styles.divider, { backgroundColor: withAlpha(userTokens.textPrimary, 0.08) }]} />
+          <View style={[styles.divider, { backgroundColor: userTokens.border }]} />
           <View style={styles.pill}>
             <Text style={[styles.pillLabel, { color: userTokens.textTertiary }]}>GASTOS</Text>
             <Text style={[styles.pillValue, styles.tabular, { color: EXPENSE_RED }]}>
               ↓ {formatMinorCurrency(expenseMinor)}
             </Text>
           </View>
-          <View style={[styles.divider, { backgroundColor: withAlpha(userTokens.textPrimary, 0.08) }]} />
+          <View style={[styles.divider, { backgroundColor: userTokens.border }]} />
           <View style={styles.pill}>
             <Text style={[styles.pillLabel, { color: userTokens.textTertiary }]}>QUEDA</Text>
             <Text style={[styles.pillValue, styles.tabular, { color: SAVINGS_VALUE_BLUE }]}>
