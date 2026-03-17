@@ -53,6 +53,18 @@ export default async function RecurrentesPage() {
     .eq("account_id", activeAccount.id)
     .order("merchant", { ascending: true });
 
+  const recurringIds = (recurringItems ?? []).map((item) => item.id);
+
+  const { data: recurringTransactions } =
+    recurringIds.length > 0
+      ? await supabase
+          .from("transactions")
+          .select("id, recurring_item_id, recurring_occurrence_date, amount_minor, date")
+          .eq("account_id", activeAccount.id)
+          .in("recurring_item_id", recurringIds)
+          .order("recurring_occurrence_date", { ascending: false })
+      : { data: [] };
+
   // Fetch categories for edit form
   const { data: categories } = await supabase
     .from("categories")
@@ -64,9 +76,9 @@ export default async function RecurrentesPage() {
     <div className="min-h-screen bg-background">
       <TopNav />
       <RecurrentesClient
-        accountId={activeAccount.id}
         baseCurrency={activeAccount.base_currency}
         initialRecurringItems={recurringItems || []}
+        recurringTransactions={recurringTransactions || []}
         categories={categories || []}
         canEdit={canEdit}
       />

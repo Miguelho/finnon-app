@@ -1,30 +1,47 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations, useLocale } from "next-intl";
-import { MoreHorizontal, Pause, Play, Square } from "lucide-react";
+import { useTranslations } from "next-intl";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Minus,
+  MoreHorizontal,
+  Pause,
+  Play,
+  Square,
+} from "lucide-react";
 import {
   CURRENCIES,
   formatMinorToMoney,
   type RecurringItem,
   type CategoryIconKey,
-  getNextOccurrence,
 } from "@poleursus/shared";
 import { CategoryIcon } from "@/components/category-icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 type Category = {
-  id: string;
-  name: string;
-  icon_id: string;
-  type: "income" | "expense";
+  id?: string | null;
+  name?: string | null;
+  icon_id?: string | null;
+  type?: "income" | "expense";
+};
+
+type StatusBadge = {
+  label: string;
+  tone: "positive" | "neutral" | "muted";
+};
+
+type TrendBadge = {
+  label: string;
+  tone: "positive" | "negative" | "neutral";
 };
 
 type RecurringTileProps = {
@@ -32,48 +49,54 @@ type RecurringTileProps = {
     category?: Category | null;
   };
   density?: "comfortable" | "compact";
+  detailLabel?: string | null;
+  statusBadge?: StatusBadge | null;
+  trend?: TrendBadge | null;
+  categoryColor?: string | null;
+  showLeadingAccent?: boolean;
   onPress?: (id: string) => void;
   onEdit?: (id: string) => void;
   onPause?: (id: string, isPaused: boolean) => void;
   onEnd?: (id: string) => void;
 };
 
-const recurringTileColors = {
-  tileHover: "hsl(var(--accent))",
-  badgeBg: "hsl(var(--secondary))",
-  textPrimary: "hsl(var(--foreground))",
-  textSecondary: "hsl(var(--muted-foreground))",
-  textMuted: "hsl(var(--muted-foreground))",
-  positive: "hsl(var(--state-positive))",
-  negative: "hsl(var(--state-negative))",
-  destructive: "hsl(var(--destructive))",
-};
-
 const densityStyles = {
   comfortable: {
-    container: "px-4 py-3.5",
-    gap: "gap-3",
-    badgeSize: 36,
-    badgeRadius: 12,
+    container: "px-5 py-4",
+    gap: "gap-3.5",
+    badgeSize: 42,
+    badgeRadius: 14,
     iconSize: 18,
   },
   compact: {
-    container: "px-4 py-2.5",
-    gap: "gap-2.5",
-    badgeSize: 32,
-    badgeRadius: 10,
+    container: "px-4 py-3",
+    gap: "gap-3",
+    badgeSize: 36,
+    badgeRadius: 12,
     iconSize: 16,
   },
 };
 
-const formatNextDate = (dateISO: string, locale: string) => {
-  const date = new Date(dateISO);
-  return date.toLocaleDateString(locale, { day: "numeric", month: "short" });
+const statusToneClasses: Record<StatusBadge["tone"], string> = {
+  positive: "bg-[hsl(var(--state-positive)/0.12)] text-[hsl(var(--state-positive))]",
+  neutral: "bg-[hsl(var(--foreground)/0.08)] text-foreground/75",
+  muted: "bg-muted text-muted-foreground",
+};
+
+const trendToneClasses: Record<TrendBadge["tone"], string> = {
+  positive: "text-[hsl(var(--state-positive))]",
+  negative: "text-[hsl(var(--state-negative))]",
+  neutral: "text-muted-foreground",
 };
 
 export function RecurringTile({
   recurringItem,
   density = "comfortable",
+  detailLabel,
+  statusBadge,
+  trend,
+  categoryColor,
+  showLeadingAccent = false,
   onPress,
   onEdit,
   onPause,
@@ -81,7 +104,6 @@ export function RecurringTile({
 }: RecurringTileProps) {
   const tCommon = useTranslations("common");
   const t = useTranslations("recurrentes");
-  const locale = useLocale();
   const styles = densityStyles[density];
   const hasActions = Boolean(onEdit || onPause || onEnd);
 
@@ -97,12 +119,11 @@ export function RecurringTile({
   const amountValue = formatMinorToMoney(amountMinor, recurringItem.currency);
   const amountColor =
     recurringItem.type === "income"
-      ? recurringTileColors.positive
-      : recurringTileColors.negative;
+      ? "hsl(var(--state-positive))"
+      : "hsl(var(--state-negative))";
 
   const displayName = recurringItem.merchant || t("namePlaceholder");
 
-  // Build frequency label
   const frequencyLabel =
     recurringItem.frequency === "weekly"
       ? t("frequencyWeekly")
@@ -110,24 +131,8 @@ export function RecurringTile({
         ? t("frequencyMonthly")
         : t("frequencyYearly");
 
-  // Get next occurrence
-  const today = new Date().toISOString().slice(0, 10);
-  const nextOccurrence = getNextOccurrence(recurringItem, today);
-  const nextOccurrenceLabel = nextOccurrence
-    ? t("nextOccurrence", { date: formatNextDate(nextOccurrence, locale) })
-    : null;
-
-  // Build meta line
-  const metaParts: string[] = [frequencyLabel];
-  if (nextOccurrenceLabel && !recurringItem.is_paused) {
-    metaParts.push(nextOccurrenceLabel);
-  }
-  if (recurringItem.is_paused) {
-    metaParts.push(t("paused"));
-  }
-  if (recurringItem.category?.name) {
-    metaParts.push(recurringItem.category.name);
-  }
+  const metaParts = [frequencyLabel];
+  if (detailLabel) metaParts.push(detailLabel);
 
   const handlePress = () => onPress?.(recurringItem.id);
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -141,83 +146,108 @@ export function RecurringTile({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-4",
+        "relative flex items-center gap-4",
         styles.container,
         onPress &&
-          "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-[var(--tile-hover)] active:bg-[var(--tile-pressed)]",
-        recurringItem.is_paused && "opacity-60"
+          "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-muted/40 active:bg-muted/50",
+        recurringItem.is_paused && "opacity-65"
       )}
-      style={
-        onPress
-          ? ({
-              "--tile-hover": recurringTileColors.tileHover,
-              "--tile-pressed": recurringTileColors.tileHover,
-            } as React.CSSProperties)
-          : undefined
-      }
       role={onPress ? "button" : undefined}
       tabIndex={onPress ? 0 : undefined}
       onClick={onPress ? handlePress : undefined}
       onKeyDown={handleKeyDown}
     >
-      <div className={cn("flex items-start min-w-0 flex-1", styles.gap)}>
+      {showLeadingAccent && recurringItem.type === "expense" ? (
+        <div className="absolute inset-y-3 left-0 w-[3px] rounded-r-full bg-[hsl(var(--state-positive))]" />
+      ) : null}
+
+      <div className={cn("flex min-w-0 flex-1 items-start", styles.gap)}>
         <div
-          className="flex items-center justify-center shrink-0"
+          className="flex shrink-0 items-center justify-center border border-border/60 bg-[var(--account-surface-alt)]"
           style={{
             width: styles.badgeSize,
             height: styles.badgeSize,
             borderRadius: styles.badgeRadius,
-            backgroundColor: recurringTileColors.badgeBg,
           }}
         >
           <CategoryIcon
             iconKey={recurringItem.category?.icon_id as CategoryIconKey}
             size={styles.iconSize}
             tone="muted"
-            accessibilityLabel={recurringItem.category?.name}
+            accessibilityLabel={recurringItem.category?.name ?? undefined}
           />
         </div>
 
         <div className="min-w-0 flex-1">
-          <div
-            className="text-base font-semibold truncate"
-            style={{ color: recurringTileColors.textPrimary }}
-          >
-            {displayName}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="truncate text-[15px] font-semibold text-foreground">
+              {displayName}
+            </span>
+            {statusBadge ? (
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
+                  statusToneClasses[statusBadge.tone]
+                )}
+              >
+                {statusBadge.label}
+              </span>
+            ) : null}
           </div>
-          <div
-            className="text-sm truncate"
-            style={{ color: recurringTileColors.textSecondary }}
-          >
-            {metaParts.join(" · ")}
+
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground">
+            {metaParts.length > 0 ? <span>{metaParts.join(" · ")}</span> : null}
+            {recurringItem.category?.name ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ backgroundColor: categoryColor ?? "hsl(var(--muted-foreground))" }}
+                />
+                <span>{recurringItem.category.name}</span>
+              </span>
+            ) : null}
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col items-end gap-2 shrink-0">
-        <div className="flex items-baseline gap-1">
-          <span
-            className="text-sm font-medium"
-            style={{ color: recurringTileColors.textMuted }}
-          >
-            {recurringItem.type === "expense" ? "-" : ""}
-            {currencySymbol}
-          </span>
-          <span
-            className="text-base font-semibold"
-            style={{ color: amountColor }}
-          >
-            {amountValue}
-          </span>
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-baseline gap-1">
+            <span className="text-sm font-medium text-muted-foreground">
+              {recurringItem.type === "expense" ? "-" : ""}
+              {currencySymbol}
+            </span>
+            <span className="text-[15px] font-semibold tabular-nums" style={{ color: amountColor }}>
+              {amountValue}
+            </span>
+          </div>
+
+          {trend ? (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 text-[11px] font-medium",
+                trendToneClasses[trend.tone]
+              )}
+            >
+              {trend.tone === "positive" ? (
+                <ArrowDownRight className="h-3.5 w-3.5" />
+              ) : trend.tone === "negative" ? (
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              ) : (
+                <Minus className="h-3.5 w-3.5" />
+              )}
+              {trend.label}
+            </span>
+          ) : null}
         </div>
 
-        {hasActions && (
+        {hasActions ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
                 aria-label={tCommon("moreActions")}
-                className="flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-muted-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 onClick={(event) => event.stopPropagation()}
                 onKeyDown={(event) => event.stopPropagation()}
               >
@@ -228,7 +258,7 @@ export function RecurringTile({
               align="end"
               onClick={(event) => event.stopPropagation()}
             >
-              {onEdit && (
+              {onEdit ? (
                 <DropdownMenuItem
                   onSelect={(event) => {
                     event.stopPropagation();
@@ -237,8 +267,8 @@ export function RecurringTile({
                 >
                   {tCommon("edit")}
                 </DropdownMenuItem>
-              )}
-              {onPause && (
+              ) : null}
+              {onPause ? (
                 <DropdownMenuItem
                   onSelect={(event) => {
                     event.stopPropagation();
@@ -257,8 +287,8 @@ export function RecurringTile({
                     </>
                   )}
                 </DropdownMenuItem>
-              )}
-              {onEnd && (
+              ) : null}
+              {onEnd ? (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -266,16 +296,16 @@ export function RecurringTile({
                       event.stopPropagation();
                       onEnd(recurringItem.id);
                     }}
-                    style={{ color: recurringTileColors.destructive }}
+                    className="text-[hsl(var(--state-negative))]"
                   >
                     <Square className="mr-2 h-4 w-4" />
                     {t("end")}
                   </DropdownMenuItem>
                 </>
-              )}
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
-        )}
+        ) : null}
       </div>
     </div>
   );

@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finnon — Recurrentes v2</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-primary: #1C1E21;
+    --bg-secondary: #25282C;
+    --bg-card: #2A2D31;
+    --bg-elevated: #32363B;
+    --text-primary: #F0F0F0;
+    --text-secondary: #9AA0A6;
+    --text-tertiary: #6B7280;
+    --accent-blue: #5B8DFF;
+    --accent-indigo: #C7D2FE;
+    --expense-red: #E85D5D;
+    --income-green: #4ADE80;
+    --trend-up: #E85D5D;
+    --trend-down: #4ADE80;
+    --cat-hogar: #5B8DFF;
+    --cat-salud: #A78BFA;
+    --cat-suministros: #F59E0B;
+    --cat-transporte: #6EE7B7;
+    --cat-suscripciones: #F472B6;
+    --border-subtle: rgba(255,255,255,0.06);
+    --border-medium: rgba(255,255,255,0.1);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ── Top bar ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-primary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .topbar-logo {
+    width: 28px; height: 28px; background: var(--accent-blue);
+    border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: white;
+  }
+  .topbar-brand { font-weight: 600; font-size: 16px; }
+  .topbar-nav { display: flex; gap: 24px; }
+  .topbar-nav a {
+    color: var(--text-secondary); text-decoration: none; font-size: 14px;
+    font-weight: 400; transition: color 0.2s;
+  }
+  .topbar-nav a:hover, .topbar-nav a.active { color: var(--text-primary); }
+
+  /* ── Page layout ── */
+  .page { max-width: 800px; margin: 0 auto; padding: 32px 24px 80px; }
+
+  /* ── Page header ── */
+  .page-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 28px;
+  }
+  .back-btn {
+    width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border-medium);
+    background: transparent; color: var(--text-secondary); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .back-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
+  .page-title { font-size: 24px; font-weight: 600; }
+  .page-subtitle { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
+
+  /* ── Summary cards ── */
+  .summary-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    margin-bottom: 24px;
+  }
+  .summary-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .summary-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  }
+  .summary-card.expense::before { background: var(--expense-red); }
+  .summary-card.income::before { background: var(--income-green); }
+  .summary-label {
+    font-size: 12px; color: var(--text-tertiary); font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+  }
+  .summary-amount {
+    font-size: 26px; font-weight: 700; letter-spacing: -0.5px;
+  }
+  .summary-amount.expense-color { color: var(--expense-red); }
+  .summary-amount.income-color { color: var(--income-green); }
+  .summary-detail {
+    font-size: 12px; color: var(--text-tertiary); margin-top: 6px;
+    display: flex; align-items: center; gap: 4px;
+  }
+
+  /* ── Benchmark bar ── */
+  .benchmark-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .benchmark-header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 14px;
+  }
+  .benchmark-title { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+  .benchmark-pct { font-size: 22px; font-weight: 700; color: var(--accent-blue); }
+  .benchmark-bar-track {
+    width: 100%; height: 8px; background: var(--bg-elevated);
+    border-radius: 4px; overflow: hidden; position: relative;
+  }
+  .benchmark-bar-fill {
+    height: 100%; border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent-blue), #818CF8);
+    transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+  }
+  .benchmark-labels {
+    display: flex; justify-content: space-between; margin-top: 8px;
+    font-size: 11px; color: var(--text-tertiary);
+  }
+  .benchmark-note {
+    font-size: 12px; color: var(--text-tertiary); margin-top: 12px;
+    line-height: 1.5;
+  }
+  .benchmark-note strong { color: var(--text-secondary); font-weight: 500; }
+
+  /* ── Donut chart section ── */
+  .chart-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .chart-section-title {
+    font-size: 13px; color: var(--text-secondary); font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 20px;
+  }
+  .chart-container {
+    display: flex; align-items: center; gap: 32px;
+  }
+  .donut-wrap {
+    position: relative; width: 180px; height: 180px; flex-shrink: 0;
+  }
+  .donut-center {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .donut-center-amount { font-size: 20px; font-weight: 700; }
+  .donut-center-label { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+  .chart-legend { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+  .legend-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; border-radius: var(--radius-sm);
+    transition: background 0.15s; cursor: default;
+  }
+  .legend-item:hover { background: var(--bg-elevated); }
+  .legend-left { display: flex; align-items: center; gap: 10px; }
+  .legend-dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  }
+  .legend-name { font-size: 13px; font-weight: 500; }
+  .legend-right { display: flex; align-items: center; gap: 8px; }
+  .legend-amount { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .legend-pct { font-size: 11px; color: var(--text-tertiary); }
+
+  /* ── Recurring list ── */
+  .list-section { margin-top: 0; }
+  .list-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .list-title {
+    font-size: 13px; color: var(--text-secondary); font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .list-count {
+    font-size: 12px; color: var(--text-tertiary);
+    background: var(--bg-elevated); padding: 3px 10px;
+    border-radius: 12px;
+  }
+
+  .recurring-list {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .recurring-item {
+    display: flex; align-items: center; padding: 16px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    transition: background 0.15s; cursor: default;
+    position: relative;
+  }
+  .recurring-item:last-child { border-bottom: none; }
+  .recurring-item:hover { background: rgba(255,255,255,0.02); }
+
+  .recurring-item.is-pending { opacity: 0.55; }
+  .recurring-item.is-paid::after {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: var(--income-green); border-radius: 0 2px 2px 0;
+  }
+
+  .item-icon {
+    width: 40px; height: 40px; border-radius: var(--radius-sm);
+    background: var(--bg-elevated); display: flex; align-items: center;
+    justify-content: center; font-size: 18px; flex-shrink: 0; margin-right: 14px;
+  }
+  .item-info { flex: 1; min-width: 0; }
+  .item-name { font-size: 14px; font-weight: 500; }
+  .item-meta {
+    font-size: 12px; color: var(--text-tertiary); margin-top: 2px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .item-meta .dot { width: 3px; height: 3px; background: var(--text-tertiary); border-radius: 50%; }
+  .item-status {
+    font-size: 10px; padding: 2px 7px; border-radius: 10px;
+    font-weight: 500; margin-left: 8px;
+  }
+  .status-paid { background: rgba(74, 222, 128, 0.12); color: var(--income-green); }
+  .status-pending { background: rgba(154, 160, 166, 0.12); color: var(--text-tertiary); }
+
+  .item-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-left: 16px; }
+  .item-amount { font-size: 15px; font-weight: 600; color: var(--expense-red); }
+  .item-trend {
+    font-size: 11px; display: flex; align-items: center; gap: 3px;
+  }
+  .trend-up { color: var(--trend-up); }
+  .trend-down { color: var(--trend-down); }
+  .trend-flat { color: var(--text-tertiary); }
+
+  .item-menu {
+    margin-left: 10px; width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-tertiary); cursor: pointer; border-radius: 50%;
+    transition: all 0.15s; font-size: 16px; flex-shrink: 0;
+  }
+  .item-menu:hover { background: var(--bg-elevated); color: var(--text-secondary); }
+
+  /* ── Category dot on item ── */
+  .cat-indicator {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  /* ── Add button ── */
+  .add-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 14px;
+    background: transparent; border: 1px dashed var(--border-medium);
+    border-radius: var(--radius-lg); color: var(--text-tertiary);
+    font-size: 14px; font-family: inherit; cursor: pointer;
+    transition: all 0.2s; margin-top: 12px;
+  }
+  .add-btn:hover {
+    border-color: var(--accent-blue); color: var(--accent-blue);
+    background: rgba(91, 141, 255, 0.04);
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-in {
+    animation: fadeInUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .delay-1 { animation-delay: 0.05s; }
+  .delay-2 { animation-delay: 0.1s; }
+  .delay-3 { animation-delay: 0.18s; }
+  .delay-4 { animation-delay: 0.25s; }
+
+  /* ── SVG donut animation ── */
+  .donut-segment {
+    transition: opacity 0.2s;
+  }
+  .donut-segment:hover {
+    opacity: 0.8;
+    filter: brightness(1.15);
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .page { padding: 20px 16px 80px; }
+    .summary-row { grid-template-columns: 1fr; }
+    .chart-container { flex-direction: column; align-items: center; }
+    .donut-wrap { width: 160px; height: 160px; }
+    .topbar-nav { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-logo">F</div>
+    <span class="topbar-brand">Finnon</span>
+  </div>
+  <nav class="topbar-nav">
+    <a href="#">Inicio</a>
+    <a href="#">Tu Cuenta</a>
+    <a href="#">Proyectos</a>
+    <a href="#" class="active">Movimientos</a>
+  </nav>
+</div>
+
+<div class="page">
+
+  <!-- Page header -->
+  <div class="page-header animate-in">
+    <button class="back-btn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div>
+      <div class="page-title">Recurrentes</div>
+      <div class="page-subtitle">Proyección mensual · Marzo 2026</div>
+    </div>
+  </div>
+
+  <!-- Summary cards -->
+  <div class="summary-row animate-in delay-1">
+    <div class="summary-card expense">
+      <div class="summary-label">Gastos fijos proyectados</div>
+      <div class="summary-amount expense-color">-€ 1.063,97</div>
+      <div class="summary-detail">
+        <span>7 recurrentes</span>
+        <span class="dot" style="width:3px;height:3px;background:var(--text-tertiary);border-radius:50%;display:inline-block;"></span>
+        <span>3 cobrados</span>
+      </div>
+    </div>
+    <div class="summary-card income">
+      <div class="summary-label">Ingresos recurrentes</div>
+      <div class="summary-amount income-color">€ 3.200,00</div>
+      <div class="summary-detail">
+        <span>1 recurrente</span>
+        <span class="dot" style="width:3px;height:3px;background:var(--text-tertiary);border-radius:50%;display:inline-block;"></span>
+        <span>Nómina · Día 28</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Benchmark -->
+  <div class="benchmark-section animate-in delay-2">
+    <div class="benchmark-header">
+      <span class="benchmark-title">Gastos fijos sobre ingresos recurrentes</span>
+      <span class="benchmark-pct">33,2%</span>
+    </div>
+    <div class="benchmark-bar-track">
+      <div class="benchmark-bar-fill" style="width: 0%;" id="benchmarkBar"></div>
+    </div>
+    <div class="benchmark-labels">
+      <span>0%</span>
+      <span style="color: var(--income-green);">50% recomendado</span>
+      <span>100%</span>
+    </div>
+    <div class="benchmark-note">
+      Tus gastos fijos suponen un <strong>33,2%</strong> de tus ingresos recurrentes.
+      Esto te deja <strong>€ 2.136,03</strong> para gastos variables, proyectos y ahorro.
+    </div>
+  </div>
+
+  <!-- Donut chart -->
+  <div class="chart-section animate-in delay-3">
+    <div class="chart-section-title">Distribución por categoría</div>
+    <div class="chart-container">
+      <div class="donut-wrap">
+        <svg viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg">
+          <!-- Donut segments: Hogar 79.9%, Suministros 9.4%, Transporte 4.2%, Suscripciones 2.7%, Salud 3.8% -->
+          <!-- Total: 1063.97 -->
+          <!-- Hogar: 850 = 79.89% -->
+          <!-- Suministros: 100 = 9.40% (65+35) -->
+          <!-- Transporte: 45 = 4.23% -->
+          <!-- Suscripciones: 28.98 = 2.72% (17.99+10.99) -->
+          <!-- Salud: 39.99 = 3.76% -->
+          <circle cx="90" cy="90" r="70" fill="none" stroke="var(--bg-elevated)" stroke-width="22"/>
+          <!-- Hogar -->
+          <circle class="donut-segment" cx="90" cy="90" r="70" fill="none"
+            stroke="var(--cat-hogar)" stroke-width="22"
+            stroke-dasharray="351.3 88.7"
+            stroke-dashoffset="110"
+            stroke-linecap="butt"
+            style="transition: stroke-dasharray 1s cubic-bezier(0.22,1,0.36,1) 0.3s;"/>
+          <!-- Suministros -->
+          <circle class="donut-segment" cx="90" cy="90" r="70" fill="none"
+            stroke="var(--cat-suministros)" stroke-width="22"
+            stroke-dasharray="41.3 398.7"
+            stroke-dashoffset="-241.3"
+            stroke-linecap="butt"
+            style="transition: stroke-dasharray 1s cubic-bezier(0.22,1,0.36,1) 0.45s;"/>
+          <!-- Transporte -->
+          <circle class="donut-segment" cx="90" cy="90" r="70" fill="none"
+            stroke="var(--cat-transporte)" stroke-width="22"
+            stroke-dasharray="18.6 421.4"
+            stroke-dashoffset="-282.6"
+            stroke-linecap="butt"
+            style="transition: stroke-dasharray 1s cubic-bezier(0.22,1,0.36,1) 0.55s;"/>
+          <!-- Salud -->
+          <circle class="donut-segment" cx="90" cy="90" r="70" fill="none"
+            stroke="var(--cat-salud)" stroke-width="22"
+            stroke-dasharray="16.5 423.5"
+            stroke-dashoffset="-301.2"
+            stroke-linecap="butt"
+            style="transition: stroke-dasharray 1s cubic-bezier(0.22,1,0.36,1) 0.65s;"/>
+          <!-- Suscripciones -->
+          <circle class="donut-segment" cx="90" cy="90" r="70" fill="none"
+            stroke="var(--cat-suscripciones)" stroke-width="22"
+            stroke-dasharray="12.0 428.0"
+            stroke-dashoffset="-317.7"
+            stroke-linecap="butt"
+            style="transition: stroke-dasharray 1s cubic-bezier(0.22,1,0.36,1) 0.75s;"/>
+        </svg>
+        <div class="donut-center">
+          <div class="donut-center-amount">€ 1.064</div>
+          <div class="donut-center-label">proyectado</div>
+        </div>
+      </div>
+      <div class="chart-legend">
+        <div class="legend-item">
+          <div class="legend-left">
+            <div class="legend-dot" style="background: var(--cat-hogar);"></div>
+            <span class="legend-name">Hogar</span>
+          </div>
+          <div class="legend-right">
+            <span class="legend-amount">€ 850,00</span>
+            <span class="legend-pct">79,9%</span>
+          </div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-left">
+            <div class="legend-dot" style="background: var(--cat-suministros);"></div>
+            <span class="legend-name">Suministros</span>
+          </div>
+          <div class="legend-right">
+            <span class="legend-amount">€ 100,00</span>
+            <span class="legend-pct">9,4%</span>
+          </div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-left">
+            <div class="legend-dot" style="background: var(--cat-transporte);"></div>
+            <span class="legend-name">Transporte</span>
+          </div>
+          <div class="legend-right">
+            <span class="legend-amount">€ 45,00</span>
+            <span class="legend-pct">4,2%</span>
+          </div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-left">
+            <div class="legend-dot" style="background: var(--cat-salud);"></div>
+            <span class="legend-name">Salud</span>
+          </div>
+          <div class="legend-right">
+            <span class="legend-amount">€ 39,99</span>
+            <span class="legend-pct">3,8%</span>
+          </div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-left">
+            <div class="legend-dot" style="background: var(--cat-suscripciones);"></div>
+            <span class="legend-name">Suscripciones</span>
+          </div>
+          <div class="legend-right">
+            <span class="legend-amount">€ 28,98</span>
+            <span class="legend-pct">2,7%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recurring list -->
+  <div class="list-section animate-in delay-4">
+    <div class="list-header">
+      <span class="list-title">Detalle de gastos recurrentes</span>
+      <span class="list-count">7 recurrentes</span>
+    </div>
+    <div class="recurring-list">
+
+      <!-- Alquiler — paid -->
+      <div class="recurring-item is-paid">
+        <div class="item-icon">🏠</div>
+        <div class="item-info">
+          <div class="item-name">
+            Alquiler
+            <span class="item-status status-paid">Cobrado</span>
+          </div>
+          <div class="item-meta">
+            <span>Mensual</span>
+            <span class="dot"></span>
+            <span>2 Mar</span>
+            <span class="dot"></span>
+            <div class="cat-indicator" style="background: var(--cat-hogar);"></div>
+            <span>Hogar</span>
+          </div>
+        </div>
+        <div class="item-right">
+          <div class="item-amount">-€ 850,00</div>
+          <div class="item-trend trend-flat">= sin cambios</div>
+        </div>
+        <div class="item-menu">⋯</div>
+      </div>
+
+      <!-- Mapfre seguro — paid -->
+      <div class="recurring-item is-paid">
+        <div class="item-icon">🚗</div>
+        <div class="item-info">
+          <div class="item-name">
+            Mapfre seguro
+            <span class="item-status status-paid">Cobrado</span>
+          </div>
+          <div class="item-meta">
+            <span>Mensual</span>
+            <span class="dot"></span>
+            <span>25 Mar</span>
+            <span class="dot"></span>
+            <div class="cat-indicator" style="background: var(--cat-transporte);"></div>
+            <span>Transporte</span>
+          </div>
+        </div>
+        <div class="item-right">
+          <div class="item-amount">-€ 45,00</div>
+          <div class="item-trend trend-flat">= sin cambios</div>
+        </div>
+        <div class="item-menu">⋯</div>
+      </div>
+
+      <!-- Spotify — paid -->
+      <div class="recurring-item is-paid">
+        <div class="item-icon">🎵</div>
+        <div class="item-info">
+          <div class="item-name">
+            Spotify
+            <span class="item-status status-paid">Cobrado</span>
+          </div>
+          <div class="item-meta">
+            <span>Mensual</span>
+            <span class="dot"></span>
+            <span>6 Mar</span>
+            <span class="dot"></span>
+            <div class="cat-indicator" style="background: var(--cat-suscripciones);"></div>
+            <span>Suscripciones</span>
+          </div>
+        </div>
+        <div class="item-right">
+          <div class="item-amount">-€ 10,99</div>
+          <div class="item-trend trend-up">↑ +€ 1,00</div>
+        </div>
+        <div class="item-menu">⋯</div>
+      </div>
+
+      <!-- Netflix — pending -->
+      <div class="recurring-item is-pending">
+        <div class="item-icon">📺</div>
+        <div class="item-info">
+          <div class="item-name">
+            Netflix
+            <span class="item-status status-pending">6 Abr</span>
+          </div>
+          <div class="item-meta">
+            <span>Mensual</span>
+            <span class="dot"></span>
+            <div class="cat-indicator" style="background: var(--cat-suscripciones);"></div>
+            <span>Suscripciones</span>
+          </div>
+        </div>
+        <div class="item-right">
+          <div class="item-amount">-€ 17,99</div>
+          <div class="item-trend trend-flat">= sin cambios</div>
+        </div>
+        <div class="item-menu">⋯</div>
+      </div>
+
+      <!-- Basic-Fit — pending -->
+      <div class="recurring-item is-pending">
+        <div class="item-icon">💪</div>
+        <div class="item-info">
+          <div class="item-name">
+            Basic-Fit
+            <span class="item-status status-pending">10 Abr</span>
+          </div>
+          <div class="item-meta">
+            <span>Mensual</span>
+            <span class="dot"></span>
+            <div class="cat-indicator" style="background: var(--cat-salud);"></div>
+            <span>Salud</span>
+          </div>
+        </div>
+        <div class="item-right">
+          <div class="item-amount">-€ 39,99</div>
+          <div class="item-trend trend-down">↓ -€ 5,00</div>
+        </div>
+        <div class="item-menu">⋯</div>
+      </div>
+
+      <!-- Iberdrola — pending -->
+      <div class="recurring-item is-pending">
+        <div class="item-icon">⚡</div>
+        <div class="item-info">
+          <div class="item-name">
+            Iberdrola
+            <span class="item-status status-pending">14 Abr</span>
+          </div>
+          <div class="item-meta">
+            <span>Mensual</span>
+            <span class="dot"></span>
+            <div class="cat-indicator" style="background: var(--cat-suministros);"></div>
+            <span>Suministros</span>
+          </div>
+        </div>
+        <div class="item-right">
+          <div class="item-amount">-€ 65,00</div>
+          <div class="item-trend trend-up">↑ +€ 8,00</div>
+        </div>
+        <div class="item-menu">⋯</div>
+      </div>
+
+      <!-- Movistar — pending -->
+      <div class="recurring-item is-pending">
+        <div class="item-icon">📡</div>
+        <div class="item-info">
+          <div class="item-name">
+            Movistar
+            <span class="item-status status-pending">15 Abr</span>
+          </div>
+          <div class="item-meta">
+            <span>Mensual</span>
+            <span class="dot"></span>
+            <div class="cat-indicator" style="background: var(--cat-suministros);"></div>
+            <span>Suministros</span>
+          </div>
+        </div>
+        <div class="item-right">
+          <div class="item-amount">-€ 35,00</div>
+          <div class="item-trend trend-flat">= sin cambios</div>
+        </div>
+        <div class="item-menu">⋯</div>
+      </div>
+
+    </div>
+
+    <button class="add-btn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Añadir recurrente
+    </button>
+  </div>
+
+</div>
+
+<script>
+  // Animate benchmark bar on load
+  setTimeout(() => {
+    document.getElementById('benchmarkBar').style.width = '33.2%';
+  }, 400);
+</script>
+
+</body>
+</html>

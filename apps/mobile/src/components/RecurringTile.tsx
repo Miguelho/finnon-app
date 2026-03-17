@@ -1,5 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { MoreHorizontal } from "lucide-react-native";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Minus,
+  MoreHorizontal,
+} from "lucide-react-native";
 import { useActionSheet } from "@expo/react-native-action-sheet";
 import {
   CURRENCIES,
@@ -7,17 +12,26 @@ import {
   themeTokens,
   type RecurringItem,
   type CategoryIconKey,
-  getNextOccurrence,
 } from "@poleursus/shared";
 import { useCopy, t } from "../lib/i18n";
 import { CategoryIcon } from "./CategoryIcon";
 import { useUserTheme } from "../contexts/UserThemeContext";
 
 type Category = {
-  id: string;
-  name: string;
-  icon_id: string;
-  type: "income" | "expense";
+  id?: string | null;
+  name?: string | null;
+  icon_id?: string | null;
+  type?: "income" | "expense";
+};
+
+type StatusBadge = {
+  label: string;
+  tone: "positive" | "neutral" | "muted";
+};
+
+type TrendBadge = {
+  label: string;
+  tone: "positive" | "negative" | "neutral";
 };
 
 type RecurringTileProps = {
@@ -25,6 +39,11 @@ type RecurringTileProps = {
     category?: Category | null;
   };
   density?: "comfortable" | "compact";
+  detailLabel?: string | null;
+  statusBadge?: StatusBadge | null;
+  trend?: TrendBadge | null;
+  categoryColor?: string | null;
+  showLeadingAccent?: boolean;
   onPress?: (id: string) => void;
   onEdit?: (id: string) => void;
   onPause?: (id: string, isPaused: boolean) => void;
@@ -38,33 +57,33 @@ const typography = tokens.typography;
 
 const densityStyles = {
   comfortable: {
-    container: { paddingVertical: 12, paddingHorizontal: 16, gap: 12 },
-    badgeSize: 36,
-    badgeRadius: 12,
+    container: { paddingVertical: 14, paddingHorizontal: 16, gap: 12 },
+    badgeSize: 40,
+    badgeRadius: 14,
     iconSize: 18,
   },
   compact: {
-    container: { paddingVertical: 10, paddingHorizontal: 14, gap: 10 },
-    badgeSize: 32,
-    badgeRadius: 10,
+    container: { paddingVertical: 12, paddingHorizontal: 14, gap: 10 },
+    badgeSize: 36,
+    badgeRadius: 12,
     iconSize: 16,
   },
-};
-
-const formatNextDate = (dateISO: string, locale: string) => {
-  const date = new Date(dateISO);
-  return date.toLocaleDateString(locale, { day: "numeric", month: "short" });
 };
 
 export function RecurringTile({
   recurringItem,
   density = "comfortable",
+  detailLabel,
+  statusBadge,
+  trend,
+  categoryColor,
+  showLeadingAccent = false,
   onPress,
   onEdit,
   onPause,
   onEnd,
 }: RecurringTileProps) {
-  const { dictionary, locale } = useCopy();
+  const { dictionary } = useCopy();
   const { tokens: userTokens, resolvedMode } = useUserTheme();
   const modeColors = themeTokens[resolvedMode].colors;
   const { showActionSheetWithOptions } = useActionSheet();
@@ -85,11 +104,11 @@ export function RecurringTile({
     recurringItem.type === "income"
       ? modeColors.state.positive
       : modeColors.state.negative;
+  const categoryName = recurringItem.category?.name || undefined;
 
   const displayName =
     recurringItem.merchant || t(dictionary, "recurrentes.namePlaceholder");
 
-  // Build frequency label
   const frequencyLabel =
     recurringItem.frequency === "weekly"
       ? t(dictionary, "recurrentes.frequencyWeekly")
@@ -97,26 +116,8 @@ export function RecurringTile({
         ? t(dictionary, "recurrentes.frequencyMonthly")
         : t(dictionary, "recurrentes.frequencyYearly");
 
-  // Get next occurrence
-  const today = new Date().toISOString().slice(0, 10);
-  const nextOccurrence = getNextOccurrence(recurringItem, today);
-  const nextOccurrenceLabel = nextOccurrence
-    ? t(dictionary, "recurrentes.nextOccurrence", {
-        date: formatNextDate(nextOccurrence, locale),
-      })
-    : null;
-
-  // Build meta line
-  const metaParts: string[] = [frequencyLabel];
-  if (nextOccurrenceLabel && !recurringItem.is_paused) {
-    metaParts.push(nextOccurrenceLabel);
-  }
-  if (recurringItem.is_paused) {
-    metaParts.push(t(dictionary, "recurrentes.paused"));
-  }
-  if (recurringItem.category?.name) {
-    metaParts.push(recurringItem.category.name);
-  }
+  const metaParts = [frequencyLabel];
+  if (detailLabel) metaParts.push(detailLabel);
 
   const handleOpenActions = () => {
     if (!hasActions) return;
@@ -156,8 +157,7 @@ export function RecurringTile({
         destructiveButtonIndex,
       },
       (buttonIndex) => {
-        if (buttonIndex === undefined || buttonIndex === cancelButtonIndex)
-          return;
+        if (buttonIndex === undefined || buttonIndex === cancelButtonIndex) return;
         const action = actionMap[buttonIndex];
         if (action) action();
       }
@@ -172,6 +172,8 @@ export function RecurringTile({
         styles.container,
         {
           backgroundColor: userTokens.surface,
+          borderLeftWidth: showLeadingAccent ? 3 : 0,
+          borderLeftColor: modeColors.state.positive,
         },
         pressed && onPress ? { backgroundColor: userTokens.surfaceAlt } : null,
         recurringItem.is_paused && stylesText.paused,
@@ -188,6 +190,8 @@ export function RecurringTile({
               height: styles.badgeSize,
               borderRadius: styles.badgeRadius,
               backgroundColor: userTokens.surfaceAlt,
+              borderWidth: 1,
+              borderColor: userTokens.border,
             },
           ]}
         >
@@ -195,25 +199,71 @@ export function RecurringTile({
             iconKey={recurringItem.category?.icon_id as CategoryIconKey}
             size={styles.iconSize}
             tone="muted"
-            accessibilityLabel={recurringItem.category?.name}
+            accessibilityLabel={categoryName}
           />
         </View>
 
         <View style={stylesText.content}>
-          <Text
-            style={[stylesText.merchant, { color: userTokens.textPrimary }]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {displayName}
-          </Text>
-          <Text
-            style={[stylesText.meta, { color: userTokens.textSecondary }]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {metaParts.join(" · ")}
-          </Text>
+          <View style={stylesText.titleRow}>
+            <Text
+              style={[stylesText.merchant, { color: userTokens.textPrimary }]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {displayName}
+            </Text>
+            {statusBadge ? (
+              <View
+                style={[
+                  stylesText.statusBadge,
+                  statusBadge.tone === "positive"
+                    ? { backgroundColor: `${modeColors.state.positive}1F` }
+                    : statusBadge.tone === "neutral"
+                      ? { backgroundColor: userTokens.surfaceAlt }
+                      : { backgroundColor: `${userTokens.textSecondary}1A` },
+                ]}
+              >
+                <Text
+                  style={[
+                    stylesText.statusBadgeText,
+                    {
+                      color:
+                        statusBadge.tone === "positive"
+                          ? modeColors.state.positive
+                          : statusBadge.tone === "neutral"
+                            ? userTokens.textPrimary
+                            : userTokens.textSecondary,
+                    },
+                  ]}
+                >
+                  {statusBadge.label}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          <View style={stylesText.metaRow}>
+            <Text
+              style={[stylesText.meta, { color: userTokens.textSecondary }]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {metaParts.join(" · ")}
+            </Text>
+            {recurringItem.category?.name ? (
+              <View style={stylesText.categoryRow}>
+                <View
+                  style={[
+                    stylesText.categoryDot,
+                    { backgroundColor: categoryColor ?? userTokens.textSecondary },
+                  ]}
+                />
+                <Text style={[stylesText.meta, { color: userTokens.textSecondary }]}>
+                  {recurringItem.category.name}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </View>
       </View>
 
@@ -228,20 +278,55 @@ export function RecurringTile({
           </Text>
         </View>
 
-        {hasActions && (
-          <Pressable
-            onPress={(event) => {
-              event.stopPropagation();
-              handleOpenActions();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={t(dictionary, "common.moreActions")}
-            style={stylesText.actionsButton}
-          >
-            <MoreHorizontal size={18} color={userTokens.textSecondary} />
-          </Pressable>
-        )}
+        {trend ? (
+          <View style={stylesText.trendRow}>
+            {trend.tone === "positive" ? (
+              <ArrowDownRight
+                size={14}
+                color={modeColors.state.positive}
+                strokeWidth={2}
+              />
+            ) : trend.tone === "negative" ? (
+              <ArrowUpRight
+                size={14}
+                color={modeColors.state.negative}
+                strokeWidth={2}
+              />
+            ) : (
+              <Minus size={14} color={userTokens.textSecondary} strokeWidth={2} />
+            )}
+            <Text
+              style={[
+                stylesText.trendText,
+                {
+                  color:
+                    trend.tone === "positive"
+                      ? modeColors.state.positive
+                      : trend.tone === "negative"
+                        ? modeColors.state.negative
+                        : userTokens.textSecondary,
+                },
+              ]}
+            >
+              {trend.label}
+            </Text>
+          </View>
+        ) : null}
       </View>
+
+      {hasActions ? (
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation();
+            handleOpenActions();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={t(dictionary, "common.moreActions")}
+          style={stylesText.actionsButton}
+        >
+          <MoreHorizontal size={18} color={userTokens.textSecondary} />
+        </Pressable>
+      ) : null}
     </Pressable>
   );
 }
@@ -250,7 +335,6 @@ const stylesText = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
   paused: {
     opacity: 0.6,
@@ -269,18 +353,52 @@ const stylesText = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
   merchant: {
+    flexShrink: 1,
     fontSize: typography.size.md,
     fontWeight: typography.weight.semibold,
   },
-  meta: {
+  statusBadge: {
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: typography.weight.semibold,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  metaRow: {
     marginTop: spacing.xs,
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  meta: {
     fontSize: typography.size.sm,
+  },
+  categoryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  categoryDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
   },
   trailing: {
     alignItems: "flex-end",
-    gap: spacing.sm,
     marginLeft: spacing.sm,
+    gap: 4,
   },
   amountRow: {
     flexDirection: "row",
@@ -295,10 +413,20 @@ const stylesText = StyleSheet.create({
     fontSize: typography.size.md,
     fontWeight: typography.weight.semibold,
   },
+  trendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  trendText: {
+    fontSize: 11,
+    fontWeight: typography.weight.medium,
+  },
   actionsButton: {
     width: 28,
     height: 28,
-    borderRadius: radii.sm,
+    marginLeft: spacing.sm,
+    borderRadius: radii.pill,
     alignItems: "center",
     justifyContent: "center",
   },
