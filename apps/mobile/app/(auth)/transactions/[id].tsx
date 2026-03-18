@@ -447,44 +447,46 @@ export default function EditTransactionScreen(): React.JSX.Element {
           </Text>
         </View>
       ) : null}
-      <View
-        style={[
-          styles.splitSummaryCard,
-          {
-            borderColor: userTokens.border,
-            backgroundColor: userTokens.surfaceAlt,
-          },
-        ]}
-      >
-        <Text style={[styles.splitSummaryLabel, { color: userTokens.textSecondary }]}>
-          {t(dictionary, "transactions.paidByLabel")}
-        </Text>
-        <Text style={[styles.splitSummaryValue, { color: userTokens.textPrimary }]}>
-          {participantNameById.get(transaction.paid_by) ?? transaction.paid_by.slice(0, 6)}
-        </Text>
-        {splitRows.length > 0 ? (
-          <>
-            <Text style={[styles.splitSummaryLabel, { color: userTokens.textSecondary }]}>
-              {t(dictionary, "transactions.splitLabel")}
-            </Text>
-            {splitRows.map((split) => (
-              <View key={split.userId} style={styles.splitSummaryRow}>
-                <Text style={[styles.splitMemberName, { color: userTokens.textSecondary }]}>
-                  {participantNameById.get(split.userId) ?? split.userId.slice(0, 6)}
-                </Text>
-                <Text style={[styles.splitMemberAmount, { color: userTokens.textPrimary }]}>
-                  {formatMinorToMoney(
-                    BigInt(Math.max(0, split.shareMinor)),
-                    transaction.currency,
-                    CURRENCY_MINOR_UNITS
-                  )}{" "}
-                  {transaction.currency}
-                </Text>
-              </View>
-            ))}
-          </>
-        ) : null}
-      </View>
+      {transaction.type === "expense" ? (
+        <View
+          style={[
+            styles.splitSummaryCard,
+            {
+              borderColor: userTokens.border,
+              backgroundColor: userTokens.surfaceAlt,
+            },
+          ]}
+        >
+          <Text style={[styles.splitSummaryLabel, { color: userTokens.textSecondary }]}>
+            {t(dictionary, "transactions.paidByLabel")}
+          </Text>
+          <Text style={[styles.splitSummaryValue, { color: userTokens.textPrimary }]}>
+            {participantNameById.get(transaction.paid_by) ?? transaction.paid_by.slice(0, 6)}
+          </Text>
+          {splitRows.length > 0 ? (
+            <>
+              <Text style={[styles.splitSummaryLabel, { color: userTokens.textSecondary }]}>
+                {t(dictionary, "transactions.splitLabel")}
+              </Text>
+              {splitRows.map((split) => (
+                <View key={split.userId} style={styles.splitSummaryRow}>
+                  <Text style={[styles.splitMemberName, { color: userTokens.textSecondary }]}>
+                    {participantNameById.get(split.userId) ?? split.userId.slice(0, 6)}
+                  </Text>
+                  <Text style={[styles.splitMemberAmount, { color: userTokens.textPrimary }]}>
+                    {formatMinorToMoney(
+                      BigInt(Math.max(0, split.shareMinor)),
+                      transaction.currency,
+                      CURRENCY_MINOR_UNITS
+                    )}{" "}
+                    {transaction.currency}
+                  </Text>
+                </View>
+              ))}
+            </>
+          ) : null}
+        </View>
+      ) : null}
       <AddTransactionForm
         key={transactionId}
         mode="edit"

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type TouchEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { Loader2 } from "lucide-react";
 import {
   buildCalendarDayData,
   getMonthCalendarDisplayDays,
@@ -15,6 +16,7 @@ import { PageContainer } from "@/components/layout/page-container";
 import { AddActionTrigger } from "@/components/navigation/add-action-trigger";
 import { useWebUserTheme } from "@/components/theme/web-user-theme-provider";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { Calendar } from "./Calendar";
 import { formatCurrencyParts, formatFullDate, toDateKey, toMinor } from "./utils";
 
@@ -130,6 +132,9 @@ const buildMonthLabels = (locale: "es" | "en", month: "short" | "long") => {
 };
 
 const SAVINGS_VALUE_COLOR = semanticColorTokens.savings.primary;
+const PULL_REFRESH_THRESHOLD = 72;
+const PULL_REFRESH_MAX_DISTANCE = 96;
+const PULL_REFRESH_ACTIVE_OFFSET = 52;
 
 const TRANSACTIONS_SELECT_WITH_CATEGORY_COLOR =
   "id, account_id, type, amount_minor, amount_base_minor, currency, category_id, project_id, date, merchant, notes, created_by, created_at, category:categories(id, name, icon_id, color)";
@@ -288,6 +293,7 @@ export function HomePageClient({
   const t = useTranslations();
   const { primaryActionColor } = useWebUserTheme();
   const supabase = useMemo(() => createClient(), []);
+  const [isRefreshPending, startRefreshTransition] = useTransition();
   const locale = account.locale;
   const weekdayLabels = useMemo(() => buildWeekdayLabels(locale), [locale]);
   const monthsShort = useMemo(() => buildMonthLabels(locale, "short"), [locale]);
@@ -300,6 +306,12 @@ export function HomePageClient({
   const [weekReference, setWeekReference] = useState<Date>(today);
   const [monthReference, setMonthReference] = useState<Date>(today);
   const [selectedDayKey, setSelectedDayKey] = useState<string>(toDateKey(today));
+  const [reloadKey, setReloadKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isReloadingCalendar, setIsReloadingCalendar] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const pullStartYRef = useRef<number | null>(null);
+  const pullEnabledRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -312,6 +324,7 @@ export function HomePageClient({
     });
 
     const loadCalendarData = async () => {
+      setIsReloadingCalendar(true);
       const monthStart = new Date(monthReference.getFullYear(), monthReference.getMonth(), 1);
       const monthEnd = new Date(monthReference.getFullYear(), monthReference.getMonth() + 1, 0);
       const monthGridStart = getWeekStartMonday(monthStart);
@@ -395,6 +408,10 @@ export function HomePageClient({
         setCalendarObligations((obligationsData.data ?? []) as ObligationRow[]);
       } catch (error) {
         console.error("[HomePageClient][web] load calendar error:", error);
+      } finally {
+        if (!cancelled) {
+          setIsReloadingCalendar(false);
+        }
       }
     };
 
@@ -403,7 +420,15 @@ export function HomePageClient({
     return () => {
       cancelled = true;
     };
-  }, [account.id, monthReference, weekReference, supabase, today]);
+  }, [account.id, monthReference, reloadKey, supabase, today, weekReference]);
+
+  useEffect(() => {
+    if (!isRefreshing) return;
+    if (!isRefreshPending && !isReloadingCalendar) {
+      setIsRefreshing(false);
+      setPullDistance(0);
+    }
+  }, [isRefreshing, isRefreshPending, isReloadingCalendar]);
 
   const allTransactions = useMemo(() => {
     const map = new Map<string, TransactionRow>();
@@ -529,281 +554,320 @@ export function HomePageClient({
   const balanceLabel = formatMinorCurrency(summary.balanceMinor);
   const availableLabel = formatMinorCurrency(summary.availableMinor);
   const currentMonthShort = summary.currentMonth.split(" ")[0]?.toUpperCase() ?? "";
+  const contentOffset = isRefreshing
+    ? PULL_REFRESH_ACTIVE_OFFSET
+    : Math.min(pullDistance, PULL_REFRESH_ACTIVE_OFFSET);
+  const showPullIndicator = isRefreshing || pullDistance > 6;
+  const pullIndicatorReady = pullDistance >= PULL_REFRESH_THRESHOLD;
 
   return (
     <PageContainer className="pb-20 pt-7">
-      <div className="space-y-4">
-        <div className="md:hidden">
-          <button
-            type="button"
-            onClick={() => router.push("/savings")}
-            className="w-full text-left transition-opacity hover:opacity-95"
+      <div
+        className="relative"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={resetPullGesture}
+      >
+        <div className="pointer-events-none sticky top-2 z-20 -mb-10 flex justify-center md:hidden">
+          <div
+            className={cn(
+              "flex items-center gap-2 rounded-full border border-border bg-card/95 px-3 py-2 shadow-sm backdrop-blur transition-all duration-200",
+              showPullIndicator ? "opacity-100" : "opacity-0"
+            )}
+            style={{
+              transform: `translateY(${contentOffset}px) scale(${showPullIndicator ? 1 : 0.96})`,
+            }}
           >
-            <div className="rounded-[18px] border border-border bg-card p-4">
-              <div className="grid grid-cols-[1fr_auto] gap-4">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
-                    {t("home.thisMonthLabel")}
-                  </p>
-                  <p className="mt-1 text-[11px] text-[var(--account-text-secondary)]">{summary.currentMonth}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
-                    {t("home.summarySavingsShort")}
-                  </p>
-                  <p
-                    className="mt-1 text-[30px] font-semibold leading-none tracking-[-0.05em] tabular-nums"
-                    style={{ color: SAVINGS_VALUE_COLOR }}
-                  >
-                    {monthlySavingsLabel}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-[12px] border border-border bg-[var(--account-surface-alt)]">
-                <div className="px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
-                    {t("common.incomeLabel")}
-                  </p>
-                  <p className="mt-1 text-[13px] font-semibold text-[var(--account-income)] tabular-nums">
-                    ↑ {monthlyIncomeLabel}
-                  </p>
-                </div>
-                <div className="border-x border-border px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
-                    {t("common.expenseLabel")}
-                  </p>
-                  <p className="mt-1 text-[13px] font-semibold text-[var(--account-expense)] tabular-nums">
-                    ↓ {monthlyExpensesLabel}
-                  </p>
-                </div>
-                <div className="px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
-                    {t("home.summaryAvailableShort")}
-                  </p>
-                  <p
-                    className="mt-1 text-[13px] font-semibold tabular-nums"
-                    style={{ color: SAVINGS_VALUE_COLOR }}
-                  >
-                    {availableLabel}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </button>
+            <Loader2
+              className={cn(
+                "h-3.5 w-3.5",
+                (isRefreshing || isRefreshPending || pullIndicatorReady) && "animate-spin"
+              )}
+              style={{ color: primaryActionColor }}
+            />
+            <span className="text-[11px] text-[var(--account-text-secondary)]">
+              {isRefreshing || isRefreshPending ? t("common.loading") : `${Math.round(Math.min((pullDistance / PULL_REFRESH_THRESHOLD) * 100, 100))}%`}
+            </span>
+          </div>
         </div>
 
-        <div className="hidden grid-cols-4 gap-3 md:grid">
-          <StatCard
-            label={t("home.summaryBalanceShort")}
-            value={balanceLabel}
-            sublabel={t("home.summaryBalanceDescription")}
-          />
-          <StatCard
-            label={`${t("home.summarySavingsShort")} · ${currentMonthShort}`}
-            value={monthlySavingsLabel}
-            sublabel={t("home.summarySavingsDescription", { amount: monthlyIncomeLabel })}
-            accent="highlight"
-            onClick={() => router.push("/savings")}
-          />
-          <StatCard
-            label={t("common.incomeLabel")}
-            value={monthlyIncomeLabel}
-            sublabel={t("home.summaryIncomeDescription")}
-            accent="income"
-          />
-          <StatCard
-            label={t("common.expenseLabel")}
-            value={monthlyExpensesLabel}
-            sublabel={t("home.summaryExpenseDescription")}
-            accent="expense"
-          />
-        </div>
+        <div
+          className="space-y-4 transition-transform duration-200 ease-out"
+          style={{ transform: `translateY(${contentOffset}px)` }}
+        >
+          <div className="md:hidden">
+            <button
+              type="button"
+              onClick={() => router.push("/savings")}
+              className="w-full text-left transition-opacity hover:opacity-95"
+            >
+              <div className="rounded-[18px] border border-border bg-card p-4">
+                <div className="grid grid-cols-[1fr_auto] gap-4">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
+                      {t("home.thisMonthLabel")}
+                    </p>
+                    <p className="mt-1 text-[11px] text-[var(--account-text-secondary)]">{summary.currentMonth}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
+                      {t("home.summarySavingsShort")}
+                    </p>
+                    <p
+                      className="mt-1 text-[30px] font-semibold leading-none tracking-[-0.05em] tabular-nums"
+                      style={{ color: SAVINGS_VALUE_COLOR }}
+                    >
+                      {monthlySavingsLabel}
+                    </p>
+                  </div>
+                </div>
 
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.55fr)]">
-          <div>
-            <div className="md:hidden">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <p className="text-[12px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
-                  {t("navigation.projects")}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => router.push("/projects")}
-                  className="text-[12px] text-[var(--account-accent)]"
-                >
-                  {t("home.viewAllCta")} →
-                </button>
+                <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-[12px] border border-border bg-[var(--account-surface-alt)]">
+                  <div className="px-3 py-2.5">
+                    <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
+                      {t("common.incomeLabel")}
+                    </p>
+                    <p className="mt-1 text-[13px] font-semibold text-[var(--account-income)] tabular-nums">
+                      ↑ {monthlyIncomeLabel}
+                    </p>
+                  </div>
+                  <div className="border-x border-border px-3 py-2.5">
+                    <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
+                      {t("common.expenseLabel")}
+                    </p>
+                    <p className="mt-1 text-[13px] font-semibold text-[var(--account-expense)] tabular-nums">
+                      ↓ {monthlyExpensesLabel}
+                    </p>
+                  </div>
+                  <div className="px-3 py-2.5">
+                    <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
+                      {t("home.summaryAvailableShort")}
+                    </p>
+                    <p
+                      className="mt-1 text-[13px] font-semibold tabular-nums"
+                      style={{ color: SAVINGS_VALUE_COLOR }}
+                    >
+                      {availableLabel}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {summary.topProjects.map((project) => (
+            </button>
+          </div>
+
+          <div className="hidden grid-cols-4 gap-3 md:grid">
+            <StatCard
+              label={t("home.summaryBalanceShort")}
+              value={balanceLabel}
+              sublabel={t("home.summaryBalanceDescription")}
+            />
+            <StatCard
+              label={`${t("home.summarySavingsShort")} · ${currentMonthShort}`}
+              value={monthlySavingsLabel}
+              sublabel={t("home.summarySavingsDescription", { amount: monthlyIncomeLabel })}
+              accent="highlight"
+              onClick={() => router.push("/savings")}
+            />
+            <StatCard
+              label={t("common.incomeLabel")}
+              value={monthlyIncomeLabel}
+              sublabel={t("home.summaryIncomeDescription")}
+              accent="income"
+            />
+            <StatCard
+              label={t("common.expenseLabel")}
+              value={monthlyExpensesLabel}
+              sublabel={t("home.summaryExpenseDescription")}
+              accent="expense"
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.55fr)]">
+            <div>
+              <div className="md:hidden">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="text-[12px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
+                    {t("navigation.projects")}
+                  </p>
                   <button
-                    key={project.id}
                     type="button"
-                    onClick={() => router.push(`/projects/${project.id}`)}
-                    className="rounded-[16px] border border-border bg-card px-2 py-3 text-center"
+                    onClick={() => router.push("/projects")}
+                    className="text-[12px] text-[var(--account-accent)]"
                   >
-                    <div className="flex justify-center">
+                    {t("home.viewAllCta")} →
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {summary.topProjects.map((project) => (
+                    <button
+                      key={project.id}
+                      type="button"
+                      onClick={() => router.push(`/projects/${project.id}`)}
+                      className="rounded-[16px] border border-border bg-card px-2 py-3 text-center"
+                    >
+                      <div className="flex justify-center">
+                        <ProjectRing
+                          progress={project.progressRatio}
+                          color={project.color}
+                          radius={22}
+                          strokeWidth={4}
+                          emoji={project.emoji}
+                        />
+                      </div>
+                      <p className="mx-auto mt-2 line-clamp-2 min-h-[28px] text-[11px] font-medium text-[var(--account-text-primary)]">
+                        {project.name}
+                      </p>
+                      <p className="mt-1 text-[10px] leading-[1.3] text-[var(--account-text-secondary)]">
+                        {t("home.projectEtaPrefix")}{" "}
+                        <span className="font-medium text-[var(--account-accent)]">
+                          {formatEta(project.estimatedCompletion, locale, t("home.noDateLabel"))}
+                        </span>
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="hidden rounded-[18px] border border-border bg-card p-5 md:block">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[12px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
+                    {t("navigation.projects")}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => router.push("/projects")}
+                    className="text-[12px] text-[var(--account-accent)]"
+                  >
+                    {t("home.viewAllCta")} →
+                  </button>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {summary.topProjects.map((project) => (
+                    <button
+                      key={project.id}
+                      type="button"
+                      onClick={() => router.push(`/projects/${project.id}`)}
+                      className="flex w-full items-center gap-3 rounded-[12px] border border-border bg-[var(--account-surface-alt)] px-[14px] py-3 text-left"
+                    >
                       <ProjectRing
                         progress={project.progressRatio}
                         color={project.color}
-                        radius={22}
-                        strokeWidth={4}
+                        radius={18}
+                        strokeWidth={3.5}
                         emoji={project.emoji}
                       />
-                    </div>
-                    <p className="mx-auto mt-2 line-clamp-2 min-h-[28px] text-[11px] font-medium text-[var(--account-text-primary)]">
-                      {project.name}
-                    </p>
-                    <p className="mt-1 text-[10px] leading-[1.3] text-[var(--account-text-secondary)]">
-                      {t("home.projectEtaPrefix")}{" "}
-                      <span className="font-medium text-[var(--account-accent)]">
-                        {formatEta(project.estimatedCompletion, locale, t("home.noDateLabel"))}
-                      </span>
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="hidden rounded-[18px] border border-border bg-card p-5 md:block">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[12px] uppercase tracking-[0.08em] text-[var(--account-text-tertiary)]">
-                  {t("navigation.projects")}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => router.push("/projects")}
-                  className="text-[12px] text-[var(--account-accent)]"
-                >
-                  {t("home.viewAllCta")} →
-                </button>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                {summary.topProjects.map((project) => (
-                  <button
-                    key={project.id}
-                    type="button"
-                    onClick={() => router.push(`/projects/${project.id}`)}
-                    className="flex w-full items-center gap-3 rounded-[12px] border border-border bg-[var(--account-surface-alt)] px-[14px] py-3 text-left"
-                  >
-                    <ProjectRing
-                      progress={project.progressRatio}
-                      color={project.color}
-                      radius={18}
-                      strokeWidth={3.5}
-                      emoji={project.emoji}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium text-[var(--account-text-primary)]">
-                        {project.name}
-                      </p>
-                      <p className="mt-1 text-[11px] text-[var(--account-text-secondary)]">
-                        {t("home.projectEta", {
-                          eta: formatEta(project.estimatedCompletion, locale, t("home.noDateLabel")),
-                        })}
-                      </p>
-                    </div>
-                    <p className="text-[20px] font-semibold text-[var(--account-text-tertiary)] tabular-nums">
-                      {Math.round(clampProgress(project.progressRatio) * 100)}%
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <Calendar
-              view={calendarView}
-              onViewChange={setCalendarView}
-              periodLabel={calendarView === "week" ? weekPeriodLabel : monthPeriodLabel}
-              monthDays={monthDays}
-              weekDays={weekDays}
-              selectedDayKey={selectedDayKey}
-              onSelectDay={setSelectedDayKey}
-              onPrevPeriod={handlePrevPeriod}
-              onNextPeriod={handleNextPeriod}
-              currencySymbol={account.currencySymbol}
-            />
-
-            <div className="mt-4 rounded-[18px] border border-border bg-card p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[13px] font-semibold text-[var(--account-text-primary)]">
-                    {t("home.dayDetailTitle")}
-                  </p>
-                  <p className="mt-1 text-[11px] text-[var(--account-text-secondary)]">
-                    {selectedDayLabel}
-                  </p>
-                </div>
-              </div>
-
-              {selectedDayMovementGroups.length === 0 ? (
-                <p className="mt-3 text-[12px] text-[var(--account-text-tertiary)]">
-                  {t("home.dayDetailEmpty")}
-                </p>
-              ) : (
-                <div className="mt-3 space-y-3">
-                  {selectedDayMovementGroups.map((group) => {
-                    const isGroupIncome = group.totalMinor > 0n;
-                    const isGroupExpense = group.totalMinor < 0n;
-                    const groupParts = formatCurrencyParts(absMinor(group.totalMinor), account.currencySymbol, locale);
-
-                    return (
-                      <div
-                        key={group.id}
-                        className="rounded-[12px] border border-border bg-[var(--account-surface-alt)] px-3 py-3"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-[12px] font-medium text-[var(--account-text-primary)]">
-                            {group.name}
-                          </p>
-                          <p
-                            className="text-[12px] font-semibold tabular-nums"
-                            style={{
-                              color: isGroupIncome
-                                ? "var(--account-income)"
-                                : isGroupExpense
-                                  ? "var(--account-expense)"
-                                  : "var(--account-text-secondary)",
-                            }}
-                          >
-                            {isGroupIncome ? "+" : isGroupExpense ? "−" : ""}
-                            {groupParts.full}
-                          </p>
-                        </div>
-
-                        <div className="mt-2 space-y-2">
-                          {group.items.map((movement) => {
-                            const parts = formatCurrencyParts(movement.amountMinor, account.currencySymbol, locale);
-                            return (
-                              <div key={movement.id} className="flex items-center justify-between gap-3">
-                                <p className="min-w-0 flex-1 truncate text-[12px] text-[var(--account-text-secondary)]">
-                                  {movement.name}
-                                </p>
-                                <p
-                                  className="text-[11px] font-medium tabular-nums"
-                                  style={{
-                                    color:
-                                      movement.type === "income"
-                                        ? "var(--account-income)"
-                                        : "var(--account-expense)",
-                                  }}
-                                >
-                                  {movement.type === "income" ? "+" : "−"}
-                                  {parts.full}
-                                </p>
-                              </div>
-                            );
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-medium text-[var(--account-text-primary)]">
+                          {project.name}
+                        </p>
+                        <p className="mt-1 text-[11px] text-[var(--account-text-secondary)]">
+                          {t("home.projectEta", {
+                            eta: formatEta(project.estimatedCompletion, locale, t("home.noDateLabel")),
                           })}
-                        </div>
+                        </p>
                       </div>
-                    );
-                  })}
+                      <p className="text-[20px] font-semibold text-[var(--account-text-tertiary)] tabular-nums">
+                        {Math.round(clampProgress(project.progressRatio) * 100)}%
+                      </p>
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
+            </div>
+
+            <div>
+              <Calendar
+                view={calendarView}
+                onViewChange={setCalendarView}
+                periodLabel={calendarView === "week" ? weekPeriodLabel : monthPeriodLabel}
+                monthDays={monthDays}
+                weekDays={weekDays}
+                selectedDayKey={selectedDayKey}
+                onSelectDay={setSelectedDayKey}
+                onPrevPeriod={handlePrevPeriod}
+                onNextPeriod={handleNextPeriod}
+                currencySymbol={account.currencySymbol}
+              />
+
+              <div className="mt-4 rounded-[18px] border border-border bg-card p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[13px] font-semibold text-[var(--account-text-primary)]">
+                      {t("home.dayDetailTitle")}
+                    </p>
+                    <p className="mt-1 text-[11px] text-[var(--account-text-secondary)]">
+                      {selectedDayLabel}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedDayMovementGroups.length === 0 ? (
+                  <p className="mt-3 text-[12px] text-[var(--account-text-tertiary)]">
+                    {t("home.dayDetailEmpty")}
+                  </p>
+                ) : (
+                  <div className="mt-3 space-y-3">
+                    {selectedDayMovementGroups.map((group) => {
+                      const isGroupIncome = group.totalMinor > 0n;
+                      const isGroupExpense = group.totalMinor < 0n;
+                      const groupParts = formatCurrencyParts(absMinor(group.totalMinor), account.currencySymbol, locale);
+
+                      return (
+                        <div
+                          key={group.id}
+                          className="rounded-[12px] border border-border bg-[var(--account-surface-alt)] px-3 py-3"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-[12px] font-medium text-[var(--account-text-primary)]">
+                              {group.name}
+                            </p>
+                            <p
+                              className="text-[12px] font-semibold tabular-nums"
+                              style={{
+                                color: isGroupIncome
+                                  ? "var(--account-income)"
+                                  : isGroupExpense
+                                    ? "var(--account-expense)"
+                                    : "var(--account-text-secondary)",
+                              }}
+                            >
+                              {isGroupIncome ? "+" : isGroupExpense ? "−" : ""}
+                              {groupParts.full}
+                            </p>
+                          </div>
+
+                          <div className="mt-2 space-y-2">
+                            {group.items.map((movement) => {
+                              const parts = formatCurrencyParts(movement.amountMinor, account.currencySymbol, locale);
+                              return (
+                                <div key={movement.id} className="flex items-center justify-between gap-3">
+                                  <p className="min-w-0 flex-1 truncate text-[12px] text-[var(--account-text-secondary)]">
+                                    {movement.name}
+                                  </p>
+                                  <p
+                                    className="text-[11px] font-medium tabular-nums"
+                                    style={{
+                                      color:
+                                        movement.type === "income"
+                                          ? "var(--account-income)"
+                                          : "var(--account-expense)",
+                                    }}
+                                  >
+                                    {movement.type === "income" ? "+" : "−"}
+                                    {parts.full}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -849,5 +913,74 @@ export function HomePageClient({
     const next = new Date(monthReference);
     next.setMonth(next.getMonth() + 1);
     setMonthReference(next);
+  }
+
+  function handleTouchStart(event: TouchEvent<HTMLDivElement>) {
+    if (!canUsePullToRefresh()) {
+      resetPullGesture();
+      return;
+    }
+
+    const touch = event.touches[0];
+    if (!touch) return;
+
+    pullEnabledRef.current = true;
+    pullStartYRef.current = touch.clientY;
+  }
+
+  function handleTouchMove(event: TouchEvent<HTMLDivElement>) {
+    if (!pullEnabledRef.current || pullStartYRef.current === null || isRefreshing || isRefreshPending) {
+      return;
+    }
+    if (window.scrollY > 0) {
+      resetPullGesture();
+      return;
+    }
+
+    const touch = event.touches[0];
+    if (!touch) return;
+
+    const deltaY = touch.clientY - pullStartYRef.current;
+    if (deltaY <= 0) {
+      if (pullDistance !== 0) {
+        setPullDistance(0);
+      }
+      return;
+    }
+
+    setPullDistance(Math.min(PULL_REFRESH_MAX_DISTANCE, deltaY * 0.45));
+  }
+
+  function handleTouchEnd() {
+    if (!pullEnabledRef.current) return;
+
+    if (pullDistance >= PULL_REFRESH_THRESHOLD) {
+      setIsRefreshing(true);
+      setPullDistance(PULL_REFRESH_ACTIVE_OFFSET);
+      setReloadKey((value) => value + 1);
+      startRefreshTransition(() => {
+        router.refresh();
+      });
+      resetPullGestureRefs();
+      return;
+    }
+
+    resetPullGesture();
+  }
+
+  function resetPullGesture() {
+    resetPullGestureRefs();
+    setPullDistance(0);
+  }
+
+  function resetPullGestureRefs() {
+    pullEnabledRef.current = false;
+    pullStartYRef.current = null;
+  }
+
+  function canUsePullToRefresh() {
+    if (typeof window === "undefined") return false;
+    if (isRefreshing || isRefreshPending) return false;
+    return window.matchMedia("(max-width: 767px)").matches && window.scrollY <= 0;
   }
 }

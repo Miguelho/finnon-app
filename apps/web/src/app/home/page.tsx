@@ -279,6 +279,8 @@ export default async function DashboardPage() {
     fundingPlans: fundingPlans ?? [],
     monthClose: currentMonthClose,
   });
+  const homeMonthlySavingsMinor =
+    savingsState.generatedSavedMinor > 0n ? savingsState.generatedSavedMinor : 0n;
   const monthLabel = formatMonthLabel(currentPeriodStart.slice(0, 7), locale === "en" ? "en-US" : "es-ES");
   const currentMonth = monthLabel ? `${monthLabel.charAt(0).toUpperCase()}${monthLabel.slice(1)}` : "";
 
@@ -298,7 +300,7 @@ export default async function DashboardPage() {
         obligations={obligations ?? []}
         summary={{
           balanceMinor: balanceMinor.toString(),
-          monthlySavingsMinor: savingsState.generatedSavedMinor.toString(),
+          monthlySavingsMinor: homeMonthlySavingsMinor.toString(),
           monthlyIncomeMinor: monthTotals.incomeMinor.toString(),
           monthlyExpensesMinor: monthTotals.expenseMinor.toString(),
           availableMinor: savingsState.availableToPlanMinor.toString(),

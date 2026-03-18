@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -159,6 +160,7 @@ export default function HomeScreen() {
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [loadingCalendar, setLoadingCalendar] = useState(false);
   const [loadingSummary, setLoadingSummary] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [calendarView, setCalendarView] = useState<"week" | "month">("month");
   const [weekReference, setWeekReference] = useState<Date>(new Date());
@@ -391,7 +393,15 @@ export default function HomeScreen() {
     };
   }, [currentMonthStart, mainAccount?.id, reloadSeed]);
 
-  const showLoading = !session || !user || loadingAccounts || loadingCalendar || loadingSummary;
+  useEffect(() => {
+    if (!refreshing) return;
+    if (!loadingAccounts && !loadingCalendar && !loadingSummary) {
+      setRefreshing(false);
+    }
+  }, [refreshing, loadingAccounts, loadingCalendar, loadingSummary]);
+
+  const showLoading =
+    !session || !user || (!refreshing && (loadingAccounts || loadingCalendar || loadingSummary));
   const showError = Boolean(error);
   const showAccountMissing = !accounts || accounts.length === 0 || !mainAccount;
 
@@ -413,6 +423,8 @@ export default function HomeScreen() {
       }),
     [currentMonthClose, currentMonthKey, currentMonthTransactions, fundingPlans]
   );
+  const homeMonthlySavingsMinor =
+    savingsState.generatedSavedMinor > 0n ? savingsState.generatedSavedMinor : 0n;
   const currentMonthLabel = useMemo(() => {
     const label = formatMonthLabel(currentMonthKey, localeKey === "en" ? "en-US" : "es-ES");
     return label ? `${label.charAt(0).toUpperCase()}${label.slice(1)}` : "";
@@ -577,10 +589,19 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: userTokens.background }]}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={primaryActionColor}
+          />
+        }
+      >
         <MonthCard
           currentMonth={currentMonthLabel}
-          savingsMinor={savingsState.generatedSavedMinor}
+          savingsMinor={homeMonthlySavingsMinor}
           incomeMinor={monthTotals.incomeMinor}
           expenseMinor={monthTotals.expenseMinor}
           availableMinor={savingsState.availableToPlanMinor}
@@ -738,6 +759,15 @@ export default function HomeScreen() {
     const next = new Date(monthReference);
     next.setMonth(next.getMonth() + 1);
     setMonthReference(next);
+  }
+
+  function handleRefresh() {
+    setError(null);
+    setRefreshing(true);
+    setLoadingAccounts(true);
+    setLoadingCalendar(Boolean(mainAccount));
+    setLoadingSummary(Boolean(mainAccount));
+    setReloadSeed((seed) => seed + 1);
   }
 }
 

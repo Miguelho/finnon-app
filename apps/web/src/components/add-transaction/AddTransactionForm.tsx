@@ -15,7 +15,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TransactionStepperBreadcrumb } from "./TransactionStepperBreadcrumb";
-import { TransactionStepCarousel } from "./TransactionStepCarousel";
 import { FormModeToggle } from "./FormModeToggle";
 import { Step1Details } from "./steps/Step1Details";
 import { Step2Category } from "./steps/Step2Category";
@@ -284,8 +283,19 @@ export function AddTransactionForm({
     React.useState<RecurringFrequency>("monthly");
   const [recurringInterval, setRecurringInterval] = React.useState("1");
   const [recurringEndDate, setRecurringEndDate] = React.useState("");
+  const [formMode, setFormModeState] = React.useState<FormMode>("panels");
+  const currentStepKey = stepOrder[currentStep - 1] ?? "details";
+  const isDetailsStepVisible = formMode === "list" || currentStepKey === "details";
+  const isCategoryStepVisible =
+    formMode === "list" || currentStepKey === "category";
 
   React.useEffect(() => {
+    if (!accountId) {
+      setCategoryMerchantsByType(EMPTY_CATEGORY_MERCHANTS);
+      return;
+    }
+    if (!isCategoryStepVisible) return;
+
     let cancelled = false;
     setCategoryMerchantsByType(EMPTY_CATEGORY_MERCHANTS);
 
@@ -317,13 +327,14 @@ export function AddTransactionForm({
     return () => {
       cancelled = true;
     };
-  }, [accountId]);
+  }, [accountId, isCategoryStepVisible]);
 
   React.useEffect(() => {
     if (!accountId) {
       setCategoryOccurrencesByType(EMPTY_CATEGORY_OCCURRENCES_BY_TYPE);
       return;
     }
+    if (!isCategoryStepVisible) return;
 
     let cancelled = false;
 
@@ -370,7 +381,7 @@ export function AddTransactionForm({
     return () => {
       cancelled = true;
     };
-  }, [accountId, loadCachedTransactionsRange]);
+  }, [accountId, isCategoryStepVisible, loadCachedTransactionsRange]);
 
   React.useEffect(() => {
     if (initialDraft) {
@@ -383,7 +394,7 @@ export function AddTransactionForm({
   }, [currency, defaultDate, initialDraft, type]);
 
   React.useEffect(() => {
-    if (draft.type !== "expense" || draft.projectId === null) return;
+    if (draft.type === "expense" || draft.projectId === null) return;
     setDraft((prev) => ({ ...prev, projectId: null }));
   }, [draft.projectId, draft.type]);
 
@@ -395,6 +406,12 @@ export function AddTransactionForm({
   }, [isRecurringMode, accountId]);
 
   React.useEffect(() => {
+    if (!accountId) {
+      setProjectOptions([]);
+      return;
+    }
+    if (!isCategoryStepVisible) return;
+
     let cancelled = false;
 
     const loadProjects = async () => {
@@ -457,7 +474,7 @@ export function AddTransactionForm({
     return () => {
       cancelled = true;
     };
-  }, [accountId, draft.projectId]);
+  }, [accountId, draft.projectId, isCategoryStepVisible]);
 
   React.useEffect(() => {
     if (allowObligation) return;
@@ -500,8 +517,8 @@ export function AddTransactionForm({
           changed = true;
         }
       } else if (hasParticipantsContext && prev.type === "income") {
-        if (prev.splitType !== "equal") {
-          next.splitType = "equal";
+        if (prev.splitType !== "personal") {
+          next.splitType = "personal";
           changed = true;
         }
         if (prev.splitDetails !== null) {
@@ -532,9 +549,6 @@ export function AddTransactionForm({
     hasParticipantsContext,
     isSharedSplitAccount,
   ]);
-
-  // Form mode (panels vs list)
-  const [formMode, setFormModeState] = React.useState<FormMode>("panels");
 
   // Load form mode from localStorage on mount
   React.useEffect(() => {
@@ -665,7 +679,7 @@ export function AddTransactionForm({
       normalizedDraft.splitType = "personal";
       normalizedDraft.splitDetails = null;
     } else if (hasParticipantsContext && normalizedDraft.type === "income") {
-      normalizedDraft.splitType = "equal";
+      normalizedDraft.splitType = "personal";
       normalizedDraft.splitDetails = null;
     } else if (normalizedDraft.splitType === "custom") {
       const amountMinorResult = parseMoneyToMinor(
@@ -926,7 +940,7 @@ export function AddTransactionForm({
           locale={locale}
           accountId={accountId}
           categories={categories}
-          showQuickAdd={useQuickAddStep}
+          showQuickAdd={useQuickAddStep && isDetailsStepVisible}
           onFieldChange={handleFieldChange}
           allowObligation={allowObligation}
           splitParticipants={activeSplitParticipants}
@@ -977,11 +991,8 @@ export function AddTransactionForm({
         </div>
 
         {/* Step content */}
-        <div className="flex-1 overflow-hidden py-6">
-          <TransactionStepCarousel
-            currentStep={currentStep}
-            steps={stepOrder.map((_, index) => renderStepContent(index + 1))}
-          />
+        <div key={currentStep} className="flex-1 overflow-y-auto py-6">
+          {renderStepContent(currentStep)}
         </div>
 
         {/* Footer with navigation buttons */}

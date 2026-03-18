@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { FinnonMark } from "@/components/brand/finnon-mark";
 import { Button } from "@/components/ui/button";
 import {
   SlidePanel,
@@ -28,6 +29,7 @@ export function AddAction({
   const router = useRouter();
   const t = useTranslations();
   const [isOpen, setIsOpen] = useState(false);
+  const [isNavigatingToMovement, setIsNavigatingToMovement] = useState(false);
 
   const handleAction = (key: AddActionKey) => {
     if (!canEdit) return;
@@ -35,6 +37,7 @@ export function AddAction({
 
     switch (key) {
       case "movement":
+        setIsNavigatingToMovement(true);
         router.push("/transactions/create");
         return;
       case "recurring":
@@ -52,6 +55,21 @@ export function AddAction({
 
   return (
     <>
+      {isNavigatingToMovement ? (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-background/88 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-background px-8 py-7 shadow-xl">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-muted/40">
+              <span className="inline-flex animate-spin">
+                <FinnonMark size="lg" mode="iconOnly" />
+              </span>
+            </div>
+            <p className="text-sm font-medium text-muted-foreground">
+              {t("common.loading")}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       {renderTrigger ? (
         renderTrigger(openMenu)
       ) : (

@@ -80,9 +80,7 @@ export default async function CreateTransactionPage({
     memberUserIds.length > 0
       ? await supabase
           .from("profiles")
-          .select(
-            "user_id, email, display_name, avatar_path, avatar_fallback_text, avatar_fallback_bg_token, avatar_color"
-          )
+          .select("user_id, email, display_name")
           .in("user_id", memberUserIds)
       : { data: [] };
 
@@ -108,7 +106,7 @@ export default async function CreateTransactionPage({
   // Fetch categories for the active account
   const { data: categories } = await supabase
     .from("categories")
-    .select("*")
+    .select("id, name, icon_id, type")
     .eq("account_id", activeAccount.id)
     .order("name", { ascending: true });
 

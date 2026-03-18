@@ -391,7 +391,7 @@ export function AddTransactionForm({
   }, [currency, defaultDate, initialDraft, type]);
 
   useEffect(() => {
-    if (draft.type !== "expense" || draft.projectId === null) return;
+    if (draft.type === "expense" || draft.projectId === null) return;
     setDraft((prev) => ({ ...prev, projectId: null }));
   }, [draft.projectId, draft.type]);
 
@@ -507,8 +507,8 @@ export function AddTransactionForm({
           changed = true;
         }
       } else if (prev.type === "income") {
-        if (prev.splitType !== "equal") {
-          next.splitType = "equal";
+        if (prev.splitType !== "personal") {
+          next.splitType = "personal";
           changed = true;
         }
         if (prev.splitDetails !== null) {
@@ -715,7 +715,7 @@ export function AddTransactionForm({
       normalizedDraft.splitType = "personal";
       normalizedDraft.splitDetails = null;
     } else if (normalizedDraft.type === "income") {
-      normalizedDraft.splitType = "equal";
+      normalizedDraft.splitType = "personal";
       normalizedDraft.splitDetails = null;
     } else if (normalizedDraft.splitType === "custom") {
       const amountMinorResult = parseMoneyToMinor(
