@@ -46,6 +46,7 @@ import {
   type TopCategory,
 } from "@poleursus/shared";
 import {
+  deleteRecurringItem,
   endRecurringItem,
   pauseRecurringItem,
   updateRecurringItem,
@@ -155,6 +156,7 @@ export function RecurrentesClient({
   const [recurringItems, setRecurringItems] = useState(initialRecurringItems);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isEndConfirmOpen, setIsEndConfirmOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [selectedItem, setSelectedItem] =
     useState<RecurringItemWithCategory | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -344,6 +346,37 @@ export function RecurrentesClient({
   const confirmEnd = (item: RecurringItemWithCategory) => {
     setSelectedItem(item);
     setIsEndConfirmOpen(true);
+  };
+
+  const confirmDelete = (item: RecurringItemWithCategory) => {
+    setSelectedItem(item);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedItem) return;
+
+    setIsSubmitting(true);
+    try {
+      const result = await deleteRecurringItem({ id: selectedItem.id });
+
+      if (result.success) {
+        setRecurringItems((prev) =>
+          prev.filter((item) => item.id !== selectedItem.id)
+        );
+        setIsDeleteConfirmOpen(false);
+        setSelectedItem(null);
+        await emitMutation("recurring_items", "delete");
+        router.refresh();
+      } else {
+        alert(t("deleteError"));
+      }
+    } catch (error) {
+      console.error("Error deleting recurring item:", error);
+      alert(t("deleteError"));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleEnd = async () => {
@@ -594,6 +627,7 @@ export function RecurrentesClient({
                         : undefined
                     }
                     onEnd={canEdit ? () => confirmEnd(item.recurringItem) : undefined}
+                    onDelete={canEdit ? () => confirmDelete(item.recurringItem) : undefined}
                   />
                 ))}
               </CardContent>
@@ -636,6 +670,7 @@ export function RecurrentesClient({
                         : undefined
                     }
                     onEnd={canEdit ? () => confirmEnd(item.recurringItem) : undefined}
+                    onDelete={canEdit ? () => confirmDelete(item.recurringItem) : undefined}
                   />
                 ))}
               </CardContent>
@@ -815,6 +850,29 @@ export function RecurrentesClient({
               style={{ backgroundColor: colors.state.negative }}
             >
               {isSubmitting ? tCommon("saving") : t("end")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("deleteConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("deleteConfirmDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>
+              {tCommon("cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isSubmitting}
+              style={{ backgroundColor: colors.state.negative }}
+            >
+              {isSubmitting ? tCommon("saving") : t("delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

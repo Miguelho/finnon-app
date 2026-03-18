@@ -1531,6 +1531,11 @@ export const es = {
     endError: "No se pudo finalizar el recurrente",
     endConfirmTitle: "¿Finalizar recurrente?",
     endConfirmDescription: "Ya no se generarán nuevas ocurrencias. Las transacciones ya registradas no se verán afectadas.",
+    delete: "Eliminar",
+    deleteConfirmTitle: "¿Eliminar recurrente?",
+    deleteConfirmDescription: "Se eliminará el recurrente permanentemente junto con todas sus transacciones vinculadas. Esta acción no se puede deshacer.",
+    deleteError: "No se pudo eliminar el recurrente",
+    deleteSuccess: "Recurrente eliminado",
     loadError: "No se pudieron cargar los recurrentes",
   },
   mobile: {

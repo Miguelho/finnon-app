@@ -1530,6 +1530,11 @@ export const en = {
     endError: "Failed to end recurring item",
     endConfirmTitle: "End recurring item?",
     endConfirmDescription: "No new occurrences will be generated. Already recorded transactions will not be affected.",
+    delete: "Delete",
+    deleteConfirmTitle: "Delete recurring item?",
+    deleteConfirmDescription: "This will permanently delete the recurring item and all its linked transactions. This action cannot be undone.",
+    deleteError: "Failed to delete recurring item",
+    deleteSuccess: "Recurring item deleted",
     loadError: "Failed to load recurring items",
   },
   mobile: {

@@ -63,21 +63,41 @@ const HEAT_COLORS = {
 } as const;
 
 const HEAT_NUMBER_COLORS = {
-  grafito: {
-    0: "var(--account-text-secondary)",
-    1: "var(--account-text-primary)",
-    2: "var(--account-text-primary)",
-    3: "#F5E6D8",
-    4: "#FFF4EA",
-    5: "#FFFFFF",
+  light: {
+    grafito: {
+      0: "var(--account-text-secondary)",
+      1: "var(--account-expense)",
+      2: "var(--account-expense)",
+      3: "#8E3114",
+      4: "#652113",
+      5: "#FFFFFF",
+    },
+    oceano: {
+      0: "var(--account-text-secondary)",
+      1: "var(--account-expense)",
+      2: "var(--account-expense)",
+      3: "#924122",
+      4: "#6F2A16",
+      5: "#FFFFFF",
+    },
   },
-  oceano: {
-    0: "var(--account-text-secondary)",
-    1: "var(--account-text-primary)",
-    2: "var(--account-text-primary)",
-    3: "#F0DDD0",
-    4: "#FFF0E6",
-    5: "#FFFFFF",
+  dark: {
+    grafito: {
+      0: "var(--account-text-secondary)",
+      1: "var(--account-text-primary)",
+      2: "var(--account-text-primary)",
+      3: "#F5E6D8",
+      4: "#FFF4EA",
+      5: "#FFFFFF",
+    },
+    oceano: {
+      0: "var(--account-text-secondary)",
+      1: "var(--account-text-primary)",
+      2: "var(--account-text-primary)",
+      3: "#F0DDD0",
+      4: "#FFF0E6",
+      5: "#FFFFFF",
+    },
   },
 } as const;
 
@@ -188,7 +208,7 @@ export function Calendar({
   currencySymbol,
 }: CalendarProps) {
   const t = useTranslations();
-  const { theme } = useWebUserTheme();
+  const { theme, resolvedMode } = useWebUserTheme();
   const [hoveredMonthDay, setHoveredMonthDay] = useState<CalendarDay | null>(null);
   const [hoveredWeekDay, setHoveredWeekDay] = useState<CalendarDay | null>(null);
   const [isTabletViewport, setIsTabletViewport] = useState(false);
@@ -468,11 +488,12 @@ export function Calendar({
                 const heatLevel = getHeatLevel(day.totalExpense, monthHeatReference);
                 const isSelected = day.date === selectedDayKey;
                 const hasIncome = day.totalIncome > 0 || day.net > 0;
+                const baseColor = HEAT_NUMBER_COLORS[resolvedMode][activeTheme][heatLevel];
                 const numberColor = hasIncome
                   ? heatLevel >= 4
                     ? INCOME_BRIGHT
                     : INCOME
-                  : HEAT_NUMBER_COLORS[activeTheme][heatLevel];
+                  : baseColor;
                 const numberWeight = hasIncome || day.isToday ? 500 : 300;
 
                 return (

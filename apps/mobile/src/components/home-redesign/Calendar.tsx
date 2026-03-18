@@ -17,7 +17,6 @@ import { useCopy, t } from "../../lib/i18n";
 import { useUserTheme } from "../../contexts/UserThemeContext";
 import { formatCurrencyParts } from "./utils";
 
-const tokens = themeTokens.light;
 const WEEK_BAR_LAYOUT = {
   phone: {
     stackMaxHeight: 44,
@@ -75,21 +74,41 @@ const HEAT_COLORS = {
 } as const;
 
 const HEAT_NUMBER_COLORS = {
-  grafito: {
-    0: "#908D88",
-    1: "#EDEBE8",
-    2: "#EDEBE8",
-    3: "#F5E6D8",
-    4: "#FFF4EA",
-    5: "#FFFFFF",
+  light: {
+    grafito: {
+      0: "#908D88",
+      1: themeTokens.light.colors.state.negative,
+      2: themeTokens.light.colors.state.negative,
+      3: "#8E3114",
+      4: "#652113",
+      5: "#FFFFFF",
+    },
+    oceano: {
+      0: "#7A90A8",
+      1: themeTokens.light.colors.state.negative,
+      2: themeTokens.light.colors.state.negative,
+      3: "#924122",
+      4: "#6F2A16",
+      5: "#FFFFFF",
+    },
   },
-  oceano: {
-    0: "#7A90A8",
-    1: "#E2EAF2",
-    2: "#E2EAF2",
-    3: "#F0DDD0",
-    4: "#FFF0E6",
-    5: "#FFFFFF",
+  dark: {
+    grafito: {
+      0: "#908D88",
+      1: "#EDEBE8",
+      2: "#EDEBE8",
+      3: "#F5E6D8",
+      4: "#FFF4EA",
+      5: "#FFFFFF",
+    },
+    oceano: {
+      0: "#7A90A8",
+      1: "#E2EAF2",
+      2: "#E2EAF2",
+      3: "#F0DDD0",
+      4: "#FFF0E6",
+      5: "#FFFFFF",
+    },
   },
 } as const;
 
@@ -228,7 +247,7 @@ export function Calendar({
   const isWeek = view === "week";
   const { width, height } = useWindowDimensions();
   const { locale, dictionary } = useCopy();
-  const { tokens: userTokens, theme } = useUserTheme();
+  const { tokens: userTokens, theme, resolvedMode } = useUserTheme();
   const [tooltipDay, setTooltipDay] = useState<CalendarDay | null>(null);
   const activeTheme = theme === "oceano" ? "oceano" : "grafito";
   const visibleDays = isWeek ? weekDays : monthDays;
@@ -511,7 +530,7 @@ export function Calendar({
                   const heatLevel = getHeatLevel(day.totalExpense, monthHeatReference);
                   const isSelected = day.date === selectedDayKey;
                   const hasIncome = day.totalIncome > 0 || day.net > 0;
-                  const baseColor = HEAT_NUMBER_COLORS[activeTheme][heatLevel];
+                  const baseColor = HEAT_NUMBER_COLORS[resolvedMode][activeTheme][heatLevel];
                   const numberColor = hasIncome
                     ? heatLevel >= 4
                       ? INCOME_BRIGHT

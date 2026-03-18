@@ -1092,3 +1092,59 @@ export async function endRecurringItem(input: {
     return { success: false, error: { key: "errors.internalServer" } };
   }
 }
+
+export async function deleteRecurringItem(input: {
+  id: string;
+}): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: { key: "errors.unauthorized" } };
+    }
+
+    // Get the recurring item
+    const { data: recurringItem } = await supabase
+      .from("recurring_items")
+      .select("id, account_id")
+      .eq("id", input.id)
+      .single();
+
+    if (!recurringItem) {
+      return { success: false, error: { key: "errors.invalidRequest" } };
+    }
+
+    // Verify user has contributor+ role
+    const { data: membership } = await supabase
+      .from("account_members")
+      .select("role")
+      .eq("account_id", recurringItem.account_id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!membership || membership.role === "viewer") {
+      return { success: false, error: { key: "errors.accessDenied" } };
+    }
+
+    const { error } = await supabase
+      .from("recurring_items")
+      .delete()
+      .eq("id", input.id);
+
+    if (error) {
+      console.error("Error deleting recurring item:", error);
+      return { success: false, error: { key: "errors.internalServer" } };
+    }
+
+    revalidatePath("/transactions");
+    revalidatePath("/transaction/recurrent");
+    return { success: true, data: { id: input.id } };
+  } catch (error: any) {
+    console.error("Error in deleteRecurringItem:", error);
+    return { success: false, error: { key: "errors.internalServer" } };
+  }
+}

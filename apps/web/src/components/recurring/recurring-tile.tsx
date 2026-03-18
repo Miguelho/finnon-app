@@ -10,6 +10,7 @@ import {
   Pause,
   Play,
   Square,
+  Trash2,
 } from "lucide-react";
 import {
   CURRENCIES,
@@ -58,6 +59,7 @@ type RecurringTileProps = {
   onEdit?: (id: string) => void;
   onPause?: (id: string, isPaused: boolean) => void;
   onEnd?: (id: string) => void;
+  onDelete?: (id: string) => void;
 };
 
 const densityStyles = {
@@ -101,11 +103,12 @@ export function RecurringTile({
   onEdit,
   onPause,
   onEnd,
+  onDelete,
 }: RecurringTileProps) {
   const tCommon = useTranslations("common");
   const t = useTranslations("recurrentes");
   const styles = densityStyles[density];
-  const hasActions = Boolean(onEdit || onPause || onEnd);
+  const hasActions = Boolean(onEdit || onPause || onEnd || onDelete);
 
   const amountMinor =
     typeof recurringItem.amount_minor === "bigint"
@@ -288,19 +291,33 @@ export function RecurringTile({
                   )}
                 </DropdownMenuItem>
               ) : null}
-              {onEnd ? (
+              {onEnd || onDelete ? (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.stopPropagation();
-                      onEnd(recurringItem.id);
-                    }}
-                    className="text-[hsl(var(--state-negative))]"
-                  >
-                    <Square className="mr-2 h-4 w-4" />
-                    {t("end")}
-                  </DropdownMenuItem>
+                  {onEnd ? (
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.stopPropagation();
+                        onEnd(recurringItem.id);
+                      }}
+                      className="text-[hsl(var(--state-negative))]"
+                    >
+                      <Square className="mr-2 h-4 w-4" />
+                      {t("end")}
+                    </DropdownMenuItem>
+                  ) : null}
+                  {onDelete ? (
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.stopPropagation();
+                        onDelete(recurringItem.id);
+                      }}
+                      className="text-[hsl(var(--state-negative))]"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      {t("delete")}
+                    </DropdownMenuItem>
+                  ) : null}
                 </>
               ) : null}
             </DropdownMenuContent>

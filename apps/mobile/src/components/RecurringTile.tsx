@@ -48,6 +48,7 @@ type RecurringTileProps = {
   onEdit?: (id: string) => void;
   onPause?: (id: string, isPaused: boolean) => void;
   onEnd?: (id: string) => void;
+  onDelete?: (id: string) => void;
 };
 
 const tokens = themeTokens.light;
@@ -82,13 +83,14 @@ export function RecurringTile({
   onEdit,
   onPause,
   onEnd,
+  onDelete,
 }: RecurringTileProps) {
   const { dictionary } = useCopy();
   const { tokens: userTokens, resolvedMode } = useUserTheme();
   const modeColors = themeTokens[resolvedMode].colors;
   const { showActionSheetWithOptions } = useActionSheet();
   const styles = densityStyles[density];
-  const hasActions = Boolean(onEdit || onPause || onEnd);
+  const hasActions = Boolean(onEdit || onPause || onEnd || onDelete);
 
   const amountMinor =
     typeof recurringItem.amount_minor === "bigint"
@@ -127,6 +129,7 @@ export function RecurringTile({
       ? t(dictionary, "recurrentes.resume")
       : t(dictionary, "recurrentes.pause");
     const endLabel = t(dictionary, "recurrentes.end");
+    const deleteLabel = t(dictionary, "recurrentes.delete");
     const cancelLabel = t(dictionary, "common.cancel");
 
     const options: string[] = [];
@@ -145,10 +148,17 @@ export function RecurringTile({
       actionMap[options.length] = () => onEnd(recurringItem.id);
       options.push(endLabel);
     }
+    if (onDelete) {
+      actionMap[options.length] = () => onDelete(recurringItem.id);
+      options.push(deleteLabel);
+    }
     options.push(cancelLabel);
 
     const cancelButtonIndex = options.length - 1;
-    const destructiveButtonIndex = onEnd ? options.indexOf(endLabel) : undefined;
+    const destructiveIndices: number[] = [];
+    if (onEnd) destructiveIndices.push(options.indexOf(endLabel));
+    if (onDelete) destructiveIndices.push(options.indexOf(deleteLabel));
+    const destructiveButtonIndex = destructiveIndices.length > 0 ? destructiveIndices : undefined;
 
     showActionSheetWithOptions(
       {

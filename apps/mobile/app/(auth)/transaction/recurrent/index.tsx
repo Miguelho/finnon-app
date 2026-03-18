@@ -152,6 +152,42 @@ export default function RecurrentesScreen(): React.JSX.Element {
     }
   };
 
+  const handleDelete = (id: string) => {
+    Alert.alert(
+      t(dictionary, "recurrentes.deleteConfirmTitle"),
+      t(dictionary, "recurrentes.deleteConfirmDescription"),
+      [
+        { text: t(dictionary, "common.cancel"), style: "cancel" },
+        {
+          text: t(dictionary, "recurrentes.delete"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { error: deleteError } = await supabase
+                .from("recurring_items")
+                .delete()
+                .eq("id", id);
+
+              if (deleteError) throw deleteError;
+
+              setRecurringItems((prev) => prev.filter((item) => item.id !== id));
+
+              Alert.alert(
+                t(dictionary, "common.successTitle"),
+                t(dictionary, "recurrentes.deleteSuccess")
+              );
+            } catch (e: any) {
+              Alert.alert(
+                t(dictionary, "common.errorTitle"),
+                t(dictionary, "recurrentes.deleteError")
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleEnd = (id: string) => {
     Alert.alert(
       t(dictionary, "recurrentes.endConfirmTitle"),
@@ -665,6 +701,7 @@ export default function RecurrentesScreen(): React.JSX.Element {
                         onEdit={handleEdit}
                         onPause={handlePause}
                         onEnd={handleEnd}
+                        onDelete={handleDelete}
                       />
                     </View>
                   );
@@ -731,6 +768,7 @@ export default function RecurrentesScreen(): React.JSX.Element {
                         onEdit={handleEdit}
                         onPause={handlePause}
                         onEnd={handleEnd}
+                        onDelete={handleDelete}
                       />
                     </View>
                   );
